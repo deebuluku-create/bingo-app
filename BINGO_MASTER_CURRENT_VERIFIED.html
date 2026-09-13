@@ -6095,23 +6095,27 @@ async function aaUploadVehicleVideo(file,userId,listingId){
   if(!listingId)throw new Error("A listing ID is required before the video can be stored.");
   const ext=String(file.name||"").split(".").pop().replace(/[^a-zA-Z0-9]/g,"").toLowerCase() || (String(file.type||"").includes("webm")?"webm":"mp4");
   const path=`${userId}/${listingId}/vehicle-video-${Date.now()}.${ext}`;
-  const up=await sb.storage.from("vehicles").upload(path,file,{
+  const up=await sb.storage.from("posts").upload(path,file,{
    upsert:false,
    contentType:file.type||"video/mp4",
    cacheControl:"31536000"
   });
   if(up.error)throw new Error("Vehicle Storage upload failed: "+String(up.error.message||up.error));
-  const pub=sb.storage.from("vehicles").getPublicUrl(path);
+  const pub=sb.storage.from("posts").getPublicUrl(path);
   const url=pub?.data?.publicUrl||"";
   if(!url)throw new Error("Vehicle video uploaded but no permanent public URL was returned.");
-  return {url,error:null,path,bucket:"vehicles",size:Number(file.size||0),contentType:file.type||"video/mp4"};
+  return {url,error:null,path,bucket:"posts",size:Number(file.size||0),contentType:file.type||"video/mp4"};
  }catch(error){
   return {url:"",error:new Error(String(error?.message||error))};
  }
 }
-async function aaDeleteUploadedVehicleVideo(path,bucket="vehicles"){
+async function aaDeleteUploadedVehicleVideo(path,bucket="posts"){
  if(!sb||!path)return;
- try{await sb.storage.from(bucket||"vehicles").remove([path])}catch(e){console.warn("Could not clean up failed vehicle upload",e)}
+ try{await sb.storage.from(bucket||"posts").remove([path])}catch(e){console.warn("Could not clean up failed vehicle upload",e)}
+}
+async function aaDeleteUploadedPostMedia(paths,bucket="posts"){
+ if(!sb||!Array.isArray(paths)||!paths.length)return;
+ try{await sb.storage.from(bucket||"posts").remove(paths)}catch(e){console.warn("Could not clean up failed vehicle photo upload",e)}
 }
 function aaNewVehicleListingId(){
  try{if(window.crypto&&typeof window.crypto.randomUUID==="function")return window.crypto.randomUUID()}catch(e){}
@@ -6879,7 +6883,7 @@ function aaMapVehicle(row){
  const own=!!ownerId&&ownerId===String(state.user?.id||"");
  const videoUrl=String(row.video_url||row.videoUrl||"");
  const videoPath=String(row.video_path||row.videoPath||"");
- const videoBucket=String(row.video_bucket||row.videoBucket||"vehicles");
+ const videoBucket=String(row.video_bucket||row.videoBucket||"posts");
  const videoMimeType=String(row.video_mime_type||row.videoMimeType||"");
  const videoSizeBytes=Number(row.video_size_bytes||row.videoSizeBytes||0);
  const mediaType=String(row.media_type||row.mediaType||(videoUrl?"video":"photo")).toLowerCase()==="video"?"video":"photo";
@@ -6944,26 +6948,59 @@ const {data,error}=await sb.from("vehicle_listings").select("*").eq("status","pu
  }
  state.dbLoading=false;render();
 }
-async function aaUploadVehicleImages(files,userId){
- if(!sb||!files.length)return {urls:[],error:new Error("No images selected")};
- const urls=[];
- try{
-  if(!userId)throw new Error("You must be logged in before uploading photos.");
-  for(let i=0;i<files.length;i++){
-   const file=files[i];
-   const safe=(file.name||`vehicle-${i}.jpg`).replace(/[^a-zA-Z0-9._-]/g,"-");
-   const path=`${userId}/${Date.now()}-${i}-${safe}`;
-   const up=await sb.storage.from("vehicles").upload(path,file,{upsert:false,contentType:file.type||"image/jpeg",cacheControl:"3600"});
-   if(up.error)throw new Error("Vehicle Storage upload failed: "+String(up.error.message||up.error));
-   const pub=sb.storage.from("vehicles").getPublicUrl(path);
-   const url=pub?.data?.publicUrl||"";
-   if(!url)throw new Error("Vehicle photo uploaded but no public URL was returned.");
-   urls.push(url);
+async function aaUploadVehicleImages(files,userId,listingId){
+  if(!sb||!files.length){
+    return {urls:[],paths:[],error:new Error("No images selected")};
   }
-  return {urls,error:null};
- }catch(error){
-  return {urls:[],error:new Error(String(error?.message||error))};
- }
+
+  const urls=[];
+  const paths=[];
+
+  try{
+    if(!userId)throw new Error("You must be logged in before uploading photos.");
+    if(!listingId)throw new Error("A listing ID is required before photos can be stored.");
+
+    for(let i=0;i<files.length;i++){
+      const file=files[i];
+      const safe=(file.name||`vehicle-${i}.jpg`)
+        .replace(/[^a-zA-Z0-9._-]/g,"-");
+
+      const path=
+        `${userId}/${listingId}/photo-${i+1}-${Date.now()}-${safe}`;
+
+      const up=await sb.storage
+        .from("posts")
+        .upload(path,file,{
+          upsert:false,
+          contentType:file.type||"image/jpeg",
+          cacheControl:"3600"
+        });
+
+      if(up.error)throw new Error(
+        "Vehicle Storage upload failed: "+
+        String(up.error.message||up.error)
+      );
+
+      paths.push(path);
+
+      const pub=sb.storage.from("posts").getPublicUrl(path);
+      const url=pub?.data?.publicUrl||"";
+
+      if(!url)throw new Error(
+        "Vehicle photo uploaded but no public URL was returned."
+      );
+
+      urls.push(url);
+    }
+
+    return {urls,paths,error:null};
+  }catch(error){
+    return {
+      urls,
+      paths,
+      error:new Error(String(error?.message||error))
+    };
+  }
 }
 
 function aaVehicleDraftFiles(){
@@ -7022,7 +7059,7 @@ let payload={
   media_type:c.mediaType||"photo",
   video_url:c.videoUrl||"",
   video_path:videoMeta.path||c.videoPath||"",
-  video_bucket:videoMeta.bucket||c.videoBucket||"vehicles",
+  video_bucket:videoMeta.bucket||c.videoBucket||"posts",
   video_mime_type:videoMeta.contentType||c.videoMimeType||"",
   video_size_bytes:Number(videoMeta.size||c.videoSizeBytes||0),
   upload_status:"published",
@@ -7074,7 +7111,7 @@ async function aaUpdateVehicle(c,urls,videoMeta={}){
   title:c.title,description:c.description||"",year:Number(c.year)||null,price:Number(c.price)||0,
   listing_type:c.listingType||"sale",hire_price:Number(c.hireRate||0),hire_period:c.hirePeriod||"day",
   county:c.location||"",town:c.town||c.location||"",area:c.area||"",media_type:c.mediaType||"photo",
-  video_url:c.videoUrl||"",video_path:videoMeta.path||c.videoPath||"",video_bucket:videoMeta.bucket||c.videoBucket||"vehicles",video_mime_type:videoMeta.contentType||c.videoMimeType||"",video_size_bytes:Number(videoMeta.size||c.videoSizeBytes||0),upload_status:"published",mileage:Number(c.mileage||0),transmission:c.transmission||"Automatic",
+  video_url:c.videoUrl||"",video_path:videoMeta.path||c.videoPath||"",video_bucket:videoMeta.bucket||c.videoBucket||"posts",video_mime_type:videoMeta.contentType||c.videoMimeType||"",video_size_bytes:Number(videoMeta.size||c.videoSizeBytes||0),upload_status:"published",mileage:Number(c.mileage||0),transmission:c.transmission||"Automatic",
   fuel_type:c.fuel||"Petrol",body_type:c.category||"Vehicle",condition:c.condition||"Locally Used",
   image_url:(urls&&urls[0])||c.image||"",image_urls:urls||[],status:"published",updated_at:new Date().toISOString()
  };
@@ -7146,10 +7183,11 @@ async function publish(e){
  }
  const btn=document.querySelector('#auto-arcade-widget button[onclick*="publish()"]');
  try{
-  if(btn)btn.disabled=true; toast("Publishing vehicle..."); let urls=localImages; let uploadedVideoMeta={};
+  if(btn)btn.disabled=true; toast("Publishing vehicle..."); let urls=localImages; let uploadedVideoMeta={}; let uploadedImagePaths=[];
   try{
    if(mediaType==="video"&&videoFile){aaVehicleUploadProgress(true,12,"Uploading video…","Saving the permanent video file to Bingo Storage. Keep this screen open.");const up=await aaUploadVehicleVideo(videoFile,state.user.id,listingId);if(up.error)throw up.error;uploadedVideoMeta=up;videoUrl=up.url;aaVehicleUploadProgress(true,78,"Video stored online","Saving the permanent video URL and listing details.");c.videoUrl=videoUrl;c.videoPath=up.path;c.videoBucket=up.bucket;c.videoMimeType=up.contentType;c.videoSizeBytes=up.size;c.image="https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=900&q=80";}else if(mediaType==="video"){c.videoUrl=videoUrl;c.image=state.vehicleDraft?.existingImage||"https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=900&q=80";}
-   else{aaVehicleUploadProgress(true,18,"Uploading photos…","Uploading your vehicle photos.");const upload=await aaUploadVehicleImages(files,state.user.id);if(upload.error)throw upload.error;if(upload.urls?.length){urls=upload.urls;c.image=urls[0];c.images=urls}aaVehicleUploadProgress(true,78,"Photos stored online","Saving your vehicle listing.");}
+   else if(files.length){aaVehicleUploadProgress(true,18,"Uploading photos…","Uploading your vehicle photos.");const upload=await aaUploadVehicleImages(files,state.user.id,listingId);uploadedImagePaths=upload.paths||[];if(upload.error)throw upload.error;if(upload.urls?.length){urls=upload.urls;c.image=urls[0];c.images=urls}aaVehicleUploadProgress(true,78,"Photos stored online","Saving your vehicle listing.");}
+   else{aaVehicleUploadProgress(true,78,"Using existing photos","No replacement photos selected — keeping the existing vehicle photos.");}
    const result=state.editingVehicleId?await aaUpdateVehicle(c,urls,uploadedVideoMeta):await aaInsertVehicle(c,urls,uploadedVideoMeta); if(result.error)throw result.error; if(!result.data)throw new Error("Vehicle record was not returned by the database.");
    aaVehicleUploadProgress(true,90,"Verifying publication…","Reloading the saved record from Supabase before showing it on Home.");
    const verified=await aaVerifyPublishedVehicle(result.data.id||listingId,mediaType==="video");if(verified.error)throw verified.error;
@@ -7160,7 +7198,8 @@ async function publish(e){
   render();window.scrollTo(0,0);
   aaVehicleUploadProgress(true,100,"Upload complete","Publish → Upload → Save → Reload → Play completed successfully.");toast(wasEditing?"Listing updated successfully.":(mediaType==="video"?"Video saved permanently and verified. Opening Home.":"Photo listing published to Photos."));setTimeout(()=>aaVehicleUploadProgress(false),900);setTimeout(()=>aaLoadVehicles(),150);
   }catch(innerError){
-   if(uploadedVideoMeta?.path&&!wasEditing)await aaDeleteUploadedVehicleVideo(uploadedVideoMeta.path,uploadedVideoMeta.bucket);
+   if(uploadedVideoMeta?.path)await aaDeleteUploadedVehicleVideo(uploadedVideoMeta.path,uploadedVideoMeta.bucket);
+   if(uploadedImagePaths.length)await aaDeleteUploadedPostMedia(uploadedImagePaths,"posts");
    throw innerError;
   }
  }catch(error){
