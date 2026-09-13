@@ -923,7 +923,7 @@ Production mother file does not force production.
 .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.field{width:100%;background:#0d1728;border:1px solid #263650;color:#fff;border-radius:9px;padding:10px;font-size:12px;outline:none}.field:focus{border-color:var(--red)}.full{grid-column:1/-1}.form-label{display:block;color:#aeb9cb;font-size:10px;font-weight:800;margin:0 0 5px}
 .tabs{display:flex;gap:5px;margin:10px 0}.tabs button{flex:1}.hidden{display:none!important}
 .detail-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}.detail-img{width:100%;height:420px;object-fit:cover;border-radius:12px}.specs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:12px 0}.spec{background:#111b30;border:1px solid var(--line);border-radius:9px;padding:9px;font-size:11px}.spec span{display:block;color:#7f8ba0;font-size:9px;margin-bottom:3px}.desc{font-size:12px;line-height:1.7;color:#bdc7d6}
-.profile-head{display:flex;gap:14px;align-items:center}.profile-photo{width:82px;height:82px;border-radius:50%;object-fit:cover;border:2px solid var(--red)}.seller-listings{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:15px}.mini{background:#fff;color:#111;border-radius:9px;overflow:hidden}.mini img{width:100%;height:105px;object-fit:cover}.mini div{padding:7px;font-size:10px;font-weight:900}
+.profile-head{display:flex;gap:14px;align-items:center}.profile-photo{width:82px;height:82px;border-radius:50%;object-fit:cover;border:2px solid var(--red)}.seller-listings{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:15px}.mini{background:#fff;color:#111;border-radius:9px;overflow:hidden}.mini img{width:100%;height:105px;object-fit:cover}.mini div{padding:7px;font-size:10px;font-weight:900}.aa-mini-delete-x{width:22px!important;height:22px!important;min-width:22px!important;font-size:13px!important;top:5px!important;right:5px!important}
 .boost-summary{background:#111b30;border:1px solid #34435e;border-radius:12px;padding:12px;margin-top:12px}.boost-price{font-size:23px;font-weight:950;color:var(--gold)}
 .success{border-color:rgba(229,35,41,.8);text-align:center}.success .check{font-size:36px;margin-bottom:6px}.success h2{font-size:25px}.success strong{color:var(--gold)}
 .notice{font-size:10px;color:#9aa7bc;line-height:1.5;margin-top:9px}
@@ -8701,6 +8701,39 @@ function aaStaySaveStep8(){
 function aaStayPhoneValid(p){
  return /^(?:\+254|0)7\d{8}$/.test(String(p||"").replace(/\s+/g,""));
 }
+/* Derives each Stay hub step's completion state from the current
+   state.stayDraft data — never from a manual "visited" flag — so a step
+   loses its ✓ the moment its required data is removed. Mirrors the
+   fields each step's own form actually collects; does not require
+   anything the existing steps themselves treat as optional. */
+function aaStaySectionComplete(stepId){
+ const d=aaStayDraft();
+ if(stepId==="step1"){
+  return !!(String(d.title||"").trim()&&d.type&&aaStayPhoneValid(d.contactPhone));
+ }
+ if(stepId==="step2"){
+  return Array.isArray(d.rooms)&&d.rooms.length>0;
+ }
+ if(stepId==="step3"){
+  return Array.isArray(d.amenities)&&d.amenities.length>0;
+ }
+ if(stepId==="step4"){
+  return Array.isArray(d.media)&&d.media.length>0;
+ }
+ if(stepId==="step5"){
+  return (Array.isArray(d.rules)&&d.rules.length>0)||!!String(d.customRules||"").trim();
+ }
+ if(stepId==="step6"){
+  return Number(d.nightlyRate)>0;
+ }
+ if(stepId==="step7"){
+  return !!(d.county&&String(d.town||"").trim());
+ }
+ if(stepId==="step8"){
+  return !!(d.checkIn&&d.checkOut&&d.keyMethod);
+ }
+ return false;
+}
 function aaPublishFurnishedStay(){
  if(!state.isLoggedIn&&!state.testMode){openAuth("login");return}
  const d=aaStayDraft();
@@ -8730,14 +8763,14 @@ function aaStayHubHTML(){
  return `<div class="aa-v69-card">
   <h3 style="margin:0 0 4px">List Your Bingo Stay</h3>
   <p class="notice" style="margin-top:0">Add your furnished home, apartment, villa, guest house or holiday home. Complete the property details, upload clear photos/videos, choose whether the stay is short-term or long-term, enter the price and location, and provide your contact information before publishing.</p>
-  ${AA_STAY_STEPS.map((s,i)=>`<div class="boost-summary" style="margin-bottom:9px;display:flex;align-items:center;gap:12px;cursor:pointer" onclick="aaStayGo('${s.id}')"><div style="width:26px;height:26px;border-radius:50%;background:var(--gold);color:#111;font-weight:900;display:flex;align-items:center;justify-content:center;font-size:12px;flex:0 0 auto">${i+1}</div><div style="flex:1"><b style="font-size:13px">${esc(s.title)}</b><div class="meta">${esc(s.desc)}</div></div><span>›</span></div>`).join("")}
+  ${AA_STAY_STEPS.map((s,i)=>{const done=aaStaySectionComplete(s.id);return `<div class="boost-summary" style="margin-bottom:9px;display:flex;align-items:center;gap:12px;cursor:pointer" onclick="aaStayGo('${s.id}')"><div style="width:26px;height:26px;border-radius:50%;background:${done?"var(--green)":"var(--gold)"};color:${done?"#fff":"#111"};font-weight:900;display:flex;align-items:center;justify-content:center;font-size:12px;flex:0 0 auto">${done?"✓":i+1}</div><div style="flex:1"><b style="font-size:13px">${esc(s.title)}</b><div class="meta">${esc(s.desc)}</div></div><span>›</span></div>`;}).join("")}
   <button class="btn btn-gold" style="width:100%;margin-top:6px" onclick="aaStayGo('preview')">Preview & Publish</button>
   ${!d.title?'<div class="notice">Tip: start with Property Details, then Pricing — those two are required to publish.</div>':''}
  </div>`;
 }
 function aaStayStepHTML(view){
  const d=aaStayDraft();
- if(view==="step1")return `<div class="aa-v69-card"><h3 style="margin:0 0 12px">1. Property Details</h3><div class="form-grid">
+ if(view==="step1")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">1. Property Details</h3><div class="form-grid">
   <label class="full">Property Name<input class="field" id="stayTitle" value="${esc(d.title||"")}" placeholder="e.g. Ocean View Furnished Apartment"></label>
   <label>Property Type<select class="field" id="stayType">${AA_STAY_TYPES.map(t=>`<option ${d.type===t?"selected":""}>${esc(t)}</option>`).join("")}</select></label>
   <label>Stay Duration<select class="field" id="stayDuration"><option ${(!d.duration||d.duration==="Short-term")?"selected":""}>Short-term</option><option ${d.duration==="Long-term"?"selected":""}>Long-term</option><option ${d.duration==="Both"?"selected":""}>Both</option></select></label>
@@ -8748,18 +8781,18 @@ function aaStayStepHTML(view){
   <label class="full">Contact Phone Number <span style="color:var(--gold)">(required — guests use this to reach you)</span><input class="field" id="stayContactPhone" value="${esc(d.contactPhone||state.user?.phone||"")}" placeholder="07XXXXXXXX or +2547XXXXXXXX"></label>
   </div><button class="btn btn-red" style="width:100%;margin-top:12px" onclick="aaStaySaveStep1()">Save & Continue</button></div>`;
 
- if(view==="step2")return `<div class="aa-v69-card"><h3 style="margin:0 0 12px">2. Rooms & Spaces</h3><p class="notice" style="margin-top:0">Tick every room or space this stay includes.</p>${aaStayChecklistHTML("rooms",AA_STAY_ROOMS,d.rooms)}<button class="btn btn-red" style="width:100%;margin-top:8px" onclick="aaStaySaveList('rooms',AA_STAY_ROOMS)">Save & Continue</button></div>`;
+ if(view==="step2")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">2. Rooms & Spaces</h3><p class="notice" style="margin-top:0">Tick every room or space this stay includes.</p>${aaStayChecklistHTML("rooms",AA_STAY_ROOMS,d.rooms)}<button class="btn btn-red" style="width:100%;margin-top:8px" onclick="aaStaySaveList('rooms',AA_STAY_ROOMS)">Save & Continue</button></div>`;
 
- if(view==="step3")return `<div class="aa-v69-card"><h3 style="margin:0 0 12px">3. Amenities</h3><p class="notice" style="margin-top:0">Tick everything guests can use during their stay.</p>${aaStayChecklistHTML("amenities",AA_STAY_AMENITIES,d.amenities)}<button class="btn btn-red" style="width:100%;margin-top:8px" onclick="aaStaySaveList('amenities',AA_STAY_AMENITIES)">Save & Continue</button></div>`;
+ if(view==="step3")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">3. Amenities</h3><p class="notice" style="margin-top:0">Tick everything guests can use during their stay.</p>${aaStayChecklistHTML("amenities",AA_STAY_AMENITIES,d.amenities)}<button class="btn btn-red" style="width:100%;margin-top:8px" onclick="aaStaySaveList('amenities',AA_STAY_AMENITIES)">Save & Continue</button></div>`;
 
- if(view==="step4")return `<div class="aa-v69-card"><h3 style="margin:0 0 12px">4. Photos & Videos</h3><p class="notice" style="margin-top:0">Upload photos and up to 2 videos, or record one directly.</p><div class="form-grid">
+ if(view==="step4")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">4. Photos & Videos</h3><p class="notice" style="margin-top:0">Upload photos and up to 2 videos, or record one directly.</p><div class="form-grid">
   <label class="full">Photos<input class="field" id="stayPhotos" type="file" accept="image/*" multiple></label>
   <label class="full">Videos (max 2)<input class="field" id="stayVideos" type="file" accept="video/*" multiple></label>
   </div><div class="details-actions" style="margin-top:8px"><button class="btn" type="button" onclick="aaOpenDualCamera('property')">Record Video</button><button class="btn btn-red" onclick="aaStaySaveMedia()">Save & Continue</button></div>${d.media?.length?`<div class="notice">${d.media.length} file(s) saved to this draft.</div>`:""}</div>`;
 
- if(view==="step5")return `<div class="aa-v69-card"><h3 style="margin:0 0 12px">5. House Rules</h3>${aaStayChecklistHTML("rules",AA_STAY_RULES,d.rules)}<label class="form-label" style="margin-top:6px">Custom rules (optional)</label><textarea class="field" id="stayCustomRules" rows="3" placeholder="Any other house rules guests should know">${esc(d.customRules||"")}</textarea><button class="btn btn-red" style="width:100%;margin-top:10px" onclick="aaStaySaveRules()">Save & Continue</button></div>`;
+ if(view==="step5")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">5. House Rules</h3>${aaStayChecklistHTML("rules",AA_STAY_RULES,d.rules)}<label class="form-label" style="margin-top:6px">Custom rules (optional)</label><textarea class="field" id="stayCustomRules" rows="3" placeholder="Any other house rules guests should know">${esc(d.customRules||"")}</textarea><button class="btn btn-red" style="width:100%;margin-top:10px" onclick="aaStaySaveRules()">Save & Continue</button></div>`;
 
- if(view==="step6")return `<div class="aa-v69-card"><h3 style="margin:0 0 12px">6. Pricing</h3><div class="form-grid">
+ if(view==="step6")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">6. Pricing</h3><div class="form-grid">
   <label>Nightly Rate (KES)<input class="field" id="stayNightly" type="number" min="0" value="${esc(d.nightlyRate||"")}" oninput="calculateStayTotal()"></label>
   <label>Cleaning Fee (KES)<input class="field" id="stayCleaning" type="number" min="0" value="${esc(d.cleaningFee||"0")}" oninput="calculateStayTotal()"></label>
   </div>
@@ -8771,14 +8804,14 @@ function aaStayStepHTML(view){
   </div>
   <button class="btn btn-red" style="width:100%;margin-top:12px" onclick="aaStaySaveStep6()">Save & Continue</button></div>`;
 
- if(view==="step7")return `<div class="aa-v69-card"><h3 style="margin:0 0 12px">7. Location</h3><div class="form-grid">
+ if(view==="step7")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">7. Location</h3><div class="form-grid">
   <select class="field" id="stayCounty">${kenyaCounties.map(c=>`<option ${d.county===c?"selected":""}>${esc(c)}</option>`).join("")}</select>
   <input class="field" id="stayTown" placeholder="Town / Area, e.g. Nyali" value="${esc(d.town||"")}">
   <input class="field full" id="stayMapsLink" placeholder="Google Maps link (optional)" value="${esc(d.mapsLink||"")}">
   <textarea class="field full" id="stayDirections" rows="3" placeholder="Directions notes for guests (optional)">${esc(d.directions||"")}</textarea>
   </div><button class="btn btn-red" style="width:100%;margin-top:12px" onclick="aaStaySaveStep7()">Save & Continue</button></div>`;
 
- if(view==="step8")return `<div class="aa-v69-card"><h3 style="margin:0 0 12px">8. Check-in Details</h3><div class="form-grid">
+ if(view==="step8")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">8. Check-in Details</h3><div class="form-grid">
   <label>Check-in Time<input class="field" id="stayCheckIn" value="${esc(d.checkIn||"2:00 PM")}"></label>
   <label>Check-out Time<input class="field" id="stayCheckOut" value="${esc(d.checkOut||"10:00 AM")}"></label>
   <select class="field full" id="stayKeyMethod"><option ${d.keyMethod==="Lockbox"?"selected":""}>Lockbox</option><option ${d.keyMethod==="Meet the host"?"selected":""}>Meet the host</option><option ${d.keyMethod==="Smart lock code"?"selected":""}>Smart lock code</option><option ${d.keyMethod==="Front desk"?"selected":""}>Front desk</option></select>
@@ -9281,6 +9314,26 @@ function aaOwnerProfilePostCardHTML(c){
   </article>`;
 }
 
+/* Shared compact post card for profiles — used for BOTH the owner's
+   "My Posts" grid and an outsider's "More posts by this seller" grid,
+   so the two views look and feel consistent. isOwner adds the
+   owner-only delete-X and Boost controls; outsiders never see them. */
+function aaProfileMiniCardHTML(c,isOwner){
+ const id=JSON.stringify(String(c.id));
+ const img=(Array.isArray(c.images)&&c.images[0])||c.image||"https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900&q=85";
+ const price=listingType(c)==="hire"?hirePrice(c):`KES ${money(c.price)}`;
+ const body=`<img src="${bingoSafeMediaAttr(img)}" alt="${esc(c.title)}" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900&q=85'"><div>${esc(c.title)}<br><span style="color:#a46b00">${price}</span></div>`;
+ if(!isOwner){
+  return `<button type="button" class="mini" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'>${body}</button>`;
+ }
+ return `<div class="mini aa-mini-owner" style="position:relative">
+   <button type="button" class="aa-owner-delete-x aa-mini-delete-x" aria-label="Delete ${esc(c.title)}" title="Delete post" onclick='event.stopPropagation();aaSoftDeleteListing(${id})'>×</button>
+   <div role="button" tabindex="0" style="cursor:pointer" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();openDetails(state.listings.find(x=>String(x.id)===${id}))}'>
+    ${body}
+    <button type="button" class="btn btn-gold" style="width:100%;margin-top:5px;font-size:9px;padding:6px" onclick='event.stopPropagation();openContentBoost(state.listings.find(x=>String(x.id)===${id}),"vehicle")'>Boost</button>
+   </div>
+  </div>`;
+}
 
 
 const AA_FOLLOW_KEY="autoArcadeFollowedSellers";
@@ -9452,7 +9505,7 @@ function sellerHTML(s,cars){
  return `<section style="padding:20px 0 100px"><button class="btn" onclick="goHome()">Back</button><div class="modal ${s.gold?"aa-gold-qualified":""}" style="max-height:none;margin-top:12px"><div class="profile-head"><div style="position:relative"><img class="profile-photo" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)"><div style="position:absolute;right:0;bottom:4px;background:#071020;border-radius:99px;padding:3px 5px">${aaPresenceBadge(s)}</div></div><div>${aaFollowTopControlHTML(s)}<h2>${esc(s.name)}</h2>${aaFollowStatsHTML(sellerKey,true)}${s.location?`<p>${esc(s.location)}</p>`:""}<p>${esc(s.bio)}</p><small style="color:#f5b91e;font-weight:900">${s.gold?"Gold Member":"Bingo Member"}</small></div></div><div class="boost-summary" style="margin-top:12px"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div><div class="notice">${rs.count} review${rs.count===1?"":"s"}</div></div><div class="details-actions" style="margin-top:14px"><button class="btn" type="button" data-aa-call="seller">Call</button><button class="btn btn-green" onclick="contact('whatsapp',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}'})">WhatsApp</button><button class="btn btn-red" onclick="contact('chat',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}',sellerGold:${s.gold?"true":"false"},title:'Profile conversation'})">Bingo Chat</button></div>${own?`${aaPostTodayHTML()}${aaMyTopicsHTML()}${aaAgentProfilePanelHTML()}<div class="aa-room-reward"><b>${gold()?"★ GOLD MEMBER":"Community Gold Progress"}</b><br>Accepted Solution Room answers: ${aaAcceptedSolutionsFor(state.user?.id)}/${aaGoldAcceptedTarget()}. Outstanding Gold Members may qualify for annual Bingo recognition and rewards.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
 <button class="btn btn-gold" style="width:100%" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">Edit My Profile</button>
 <button class="btn" style="width:100%" onclick="openInbox()">✉ Messages${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button>
-</div><div class="aa-owner-posts-panel"><div class="aa-owner-posts-head"><h3>My Vehicle Posts</h3><span class="aa-owner-posts-count">${aaOwnActiveListings().length}/15 Active</span></div><div class="aa-owner-posts-note">Your published videos and photos are arranged below. Tap a post to open it, or use × to delete it.</div>${cars.length?`<div class="aa-owner-posts-grid">${cars.map(c=>aaOwnerProfilePostCardHTML(c)).join("")}</div>`:`<div class="notice">No active vehicle posts.</div>`}</div><div class="boost-summary"><b>Deleted Items · 30-day recovery</b>${aaTrashHTML()}</div>`:""}<div class="boost-summary"><b>Reviews</b>${reviewList}${state.isLoggedIn?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><label class="form-label">Your rating (optional)</label><select id="profileRating" class="field"><option value="0">No star rating</option><option value="5">★★★★★ 5</option><option value="4">★★★★☆ 4</option><option value="3">★★★☆☆ 3</option><option value="2">★★☆☆☆ 2</option><option value="1">★☆☆☆☆ 1</option></select><label class="form-label" style="margin-top:8px">Your review (optional)</label><textarea id="profileReview" class="field" rows="3" placeholder="${own?"Owner comments are allowed but do not count toward your profile rating.":"Write a review about this profile..."}"></textarea><button class="btn btn-red" style="width:100%;margin-top:8px" onclick='submitProfileReview(${JSON.stringify(sellerKey)})'>Submit Review</button></div>`:`<div class="notice">Sign up / log in to submit a rating or review.</div>`}</div>${own?"":`<div class="section-title" style="margin-top:18px"><h2>More vehicles by ${esc(s.name)}</h2></div><div class="seller-listings">${cars.map(c=>`<button class="mini" onclick='openDetails(state.listings.find(x=>String(x.id)===${JSON.stringify(String(c.id))}))'><img src="${(Array.isArray(c.images)&&c.images[0])||c.image||""}" alt="" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900&q=85'"><div>${esc(c.title)}<br><span style="color:#a46b00">${listingType(c)==="hire"?hirePrice(c):`KES ${money(c.price)}`}</span></div></button>`).join("")||"<p>No other listings yet.</p>"}</div>`}</div></section>`
+</div><div class="aa-owner-posts-panel"><div class="aa-owner-posts-head"><h3>My Vehicle Posts</h3><span class="aa-owner-posts-count">${aaOwnActiveListings().length}/15 Active</span></div><div class="aa-owner-posts-note">Your published videos and photos are arranged below. Tap a post to open it, or use × to delete it.</div>${cars.length?`<div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,true)).join("")}</div>`:`<div class="notice">No active vehicle posts.</div>`}</div><div class="boost-summary"><b>Deleted Items · 30-day recovery</b>${aaTrashHTML()}</div>`:""}<div class="boost-summary"><b>Reviews</b>${reviewList}${state.isLoggedIn?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><label class="form-label">Your rating (optional)</label><select id="profileRating" class="field"><option value="0">No star rating</option><option value="5">★★★★★ 5</option><option value="4">★★★★☆ 4</option><option value="3">★★★☆☆ 3</option><option value="2">★★☆☆☆ 2</option><option value="1">★☆☆☆☆ 1</option></select><label class="form-label" style="margin-top:8px">Your review (optional)</label><textarea id="profileReview" class="field" rows="3" placeholder="${own?"Owner comments are allowed but do not count toward your profile rating.":"Write a review about this profile..."}"></textarea><button class="btn btn-red" style="width:100%;margin-top:8px" onclick='submitProfileReview(${JSON.stringify(sellerKey)})'>Submit Review</button></div>`:`<div class="notice">Sign up / log in to submit a rating or review.</div>`}</div>${own?"":`<div class="section-title" style="margin-top:18px"><h2>More vehicles by ${esc(s.name)}</h2></div><div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,false)).join("")||"<p>No other listings yet.</p>"}</div>`}</div></section>`
 }
 function myBoostListHTML(mine){return mine.length?`<div class="seller-listings" style="margin-top:10px">${mine.map(c=>`<div class="mini"><img src="${(Array.isArray(c.images)&&c.images[0])||c.image||""}" alt="" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900&q=85'"><div>${esc(c.title)}<br><span style="color:#a46b00">${listingType(c)==="hire"?hirePrice(c):`KES ${money(c.price)}`}</span><button class="btn btn-gold" style="width:100%;margin-top:7px;font-size:10px;padding:7px"onclick="openBoost(state.listings.find(x=>x.id===${c.id}))">Boost</button></div></div>`).join("")}</div>`:`<div class="notice">You have no vehicle listings yet. Post a vehicle first.</div>`}
 /* Legacy dashboard retained for existing functions; Account/Profile routes to sellerHTML(). */
