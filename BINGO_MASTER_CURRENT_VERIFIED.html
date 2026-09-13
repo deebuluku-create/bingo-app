@@ -8594,7 +8594,7 @@ function aaRemainingDays(exp){if(!exp)return 0;return Math.max(0,Math.ceil((new 
 function aaFoodActive(f){return aaRemainingDays(f?.subscription_expires_at)>0&&String(f?.status||'').toLowerCase()!=='suspended'}
 function aaOpenProperties(tab='browse'){state.propertyTab=tab;state.view='properties';if(tab==='stays'&&!state.stayView)state.stayView='landing';render();window.scrollTo(0,0)}
 function aaOpenFood(tab='browse'){state.foodTab=tab;state.view='food';render();window.scrollTo(0,0)}
-function aaMediaPreviewHTML(media){return (media||[]).map((m,i)=>m.type==='video'?`<video src="${esc(m.url)}" controls playsinline></video>`:`<img src="${esc(m.url)}" alt="Media ${i+1}">`).join('')}
+function aaMediaPreviewHTML(media){return (media||[]).map((m,i)=>m.type==='video'?`<video src="${bingoSafeMediaAttr(m.url)}" controls playsinline></video>`:`<img src="${bingoSafeMediaAttr(m.url)}" alt="Media ${i+1}">`).join('')}
 function aaFileToLocalMedia(files,maxVideos=3){return Promise.all(Array.from(files||[]).slice(0,8).map(f=>new Promise(res=>{if(f.type.startsWith('video/')&&maxVideos<=0)return res(null);const r=new FileReader();r.onload=()=>res({type:f.type.startsWith('video/')?'video':'image',url:r.result,name:f.name});r.onerror=()=>res(null);r.readAsDataURL(f)}))).then(a=>{let vc=0;return a.filter(x=>x&&(x.type!=='video'||++vc<=maxVideos))})}
 function aaPropertyHTML(){const tab=state.propertyTab||'browse', all=aaProperties();return `<section style="padding:18px 0 105px"><h2>Properties</h2><p class="notice">Buy, rent or lease property across Kenya. Property videos can also appear in the Bingo Home discovery feed.</p><div class="aa-v69-tabs"><button class="btn ${tab==='browse'?'btn-red':''}" onclick="aaOpenProperties('browse')">Browse Properties</button><button class="btn ${tab==='post'?'btn-red':''}" onclick="aaOpenProperties('post')">Post Property</button><button class="btn ${tab==='stays'?'btn-red':''}" onclick="aaOpenProperties('stays')">Bingo Stays</button><button class="btn ${tab==='mine'?'btn-red':''}" onclick="aaOpenProperties('mine')">My Properties</button></div>${tab==='post'?aaPropertyPostHTML():tab==='stays'?aaFurnishedStaysHTML():tab==='mine'?aaPropertyListHTML(all.filter(x=>String(x.user_id||'')===String(state.user?.id||'')||x.local_owner),true):aaPropertyListHTML(all,false)}</section>`}
 function aaPropertyPostHTML(){return `<div class="aa-v69-card"><h3>Post a Property</h3><form onsubmit="aaSubmitProperty(event)"><div class="form-grid"><label>Title<input required name="title" placeholder="e.g. 3 bedroom apartment in Nyali"></label><label>Property Type<select name="type">${AA_PROPERTY_TYPES.map(x=>`<option>${esc(x)}</option>`).join('')}</select></label><label>Purpose<select name="purpose"><option>For Sale</option><option>For Rent</option><option>For Lease</option></select></label><label>Price (KES)<input required name="price" type="number" min="0"></label><label>County<input required name="county" placeholder="Mombasa"></label><label>Town / Area<input required name="town" placeholder="Nyali"></label><label>Bedrooms<input name="bedrooms" type="number" min="0"></label><label>Bathrooms<input name="bathrooms" type="number" min="0"></label><label class="full">Description<textarea required name="description" rows="4"></textarea></label><label class="full">Photos / Videos (max 3 videos)<input id="aaPropMedia" type="file" accept="image/*,video/*" multiple></label></div><div class="details-actions" style="margin-top:10px"><button class="btn" type="button" onclick="aaOpenDualCamera('property')">Record Video</button><button class="btn btn-red" type="submit">Publish Property</button></div><div id="aaPropertyRecorded" class="aa-v69-media-grid"></div></form></div>`}
@@ -8835,8 +8835,8 @@ function aaStayPreviewHTML(){
  const ownerName=state.isLoggedIn?aaOwnProfileName():"Bingo Member";
  const dref={...d,hostName:ownerName};
  return `<div class="aa-v69-card" style="padding:0;overflow:hidden">
-  <img src="${esc(cover)}" style="width:100%;height:200px;object-fit:cover" alt="">
-  ${thumbs.length?`<div style="display:flex;gap:4px;padding:4px;background:#050a14">${thumbs.map(t=>`<img src="${esc(t.url)}" style="flex:1;height:50px;object-fit:cover;border-radius:4px">`).join("")}</div>`:""}
+  <img src="${bingoSafeMediaAttr(cover)}" style="width:100%;height:200px;object-fit:cover" alt="">
+  ${thumbs.length?`<div style="display:flex;gap:4px;padding:4px;background:#050a14">${thumbs.map(t=>`<img src="${bingoSafeMediaAttr(t.url)}" style="flex:1;height:50px;object-fit:cover;border-radius:4px">`).join("")}</div>`:""}
   <div style="padding:14px">
    <div style="font-size:13px;font-weight:900">${esc(ownerName)}</div>
    <div class="meta">Host</div>
@@ -8880,7 +8880,7 @@ function aaPropertyListHTML(a,mine){if(!a.length)return `<div class="aa-v69-card
  const actions=isStay
   ?`<div class="details-actions"><button class="btn" onclick='aaStayCall(${JSON.stringify(p.contactPhone||"")})'>Call</button><button class="btn" onclick='aaStayInbox(${JSON.stringify({id:p.id,title:p.title,contactPhone:p.contactPhone,nightlyRate:p.price,hostName:p.sellerName||"Host"})})'>Inbox</button><button class="btn" onclick='aaStayRequestViewing(${JSON.stringify({id:p.id,title:p.title,contactPhone:p.contactPhone,nightlyRate:p.price,hostName:p.sellerName||"Host"})})'>Request Viewing</button><button class="btn btn-gold" onclick='aaStayNegotiate(${JSON.stringify({id:p.id,title:p.title,nightlyRate:p.price})})'>Negotiate</button></div>`
   :`<div class="details-actions"><button class="btn" onclick="toast('Viewing request messaging will use the connected backend.')">Request Viewing</button><button class="btn btn-red" onclick="toast('Price negotiation will open Bingo Chat once the property backend is connected.')">Negotiate Price</button></div>`;
- return `<article class="aa-v69-card"><div style="position:relative">${p.media?.[0]?.type==='video'?`<video src="${esc(p.media[0].url)}" controls playsinline style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#000"></video>`:`<img src="${esc(p.media?.[0]?.url||'')}" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#111" alt="">`}<span class="badge badge-red" style="position:absolute;top:8px;left:8px">${esc(isStay?(p.duration||'Short-term'):(p.purpose||'PROPERTY'))}</span></div><h3>${esc(p.title)}</h3><div class="price">${priceLine}</div><div class="meta">${esc(p.type||'Property')} · ${esc(p.town||'')}, ${esc(p.county||'')}</div><p>${esc(p.description||'')}</p>${actions}${mine?`<button class="btn" style="margin-top:8px" onclick="aaDeleteProperty('${esc(p.id)}')">Delete</button>`:''}</article>`;
+ return `<article class="aa-v69-card"><div style="position:relative">${p.media?.[0]?.type==='video'?`<video src="${bingoSafeMediaAttr(p.media[0].url)}" controls playsinline style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#000"></video>`:`<img src="${bingoSafeMediaAttr(p.media?.[0]?.url||'')}" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#111" alt="">`}<span class="badge badge-red" style="position:absolute;top:8px;left:8px">${esc(isStay?(p.duration||'Short-term'):(p.purpose||'PROPERTY'))}</span></div><h3>${esc(p.title)}</h3><div class="price">${priceLine}</div><div class="meta">${esc(p.type||'Property')} · ${esc(p.town||'')}, ${esc(p.county||'')}</div><p>${esc(p.description||'')}</p>${actions}${mine?`<button class="btn" style="margin-top:8px" onclick="aaDeleteProperty('${esc(p.id)}')">Delete</button>`:''}</article>`;
 }).join('')}</div>`}
 function aaDeleteProperty(id){aaV69Write('aa_v69_properties',aaProperties().filter(x=>String(x.id)!==String(id)));aaOpenProperties('mine')}
 function aaFoodHTML(){const tab=state.foodTab||'browse', all=aaFoods(), visible=all.filter(aaFoodActive);return `<section style="padding:18px 0 105px"><h2>Food & Home Delivery</h2><p class="notice">Restaurants and food businesses use a paid monthly advertising subscription. KES 1,000 per 30 days via M-Pesa. The counter runs from 30 days down to 0.</p><div class="aa-v69-tabs"><button class="btn ${tab==='browse'?'btn-red':''}" onclick="aaOpenFood('browse')">Browse Food</button><button class="btn ${tab==='post'?'btn-red':''}" onclick="aaOpenFood('post')">Post Food Business</button><button class="btn ${tab==='mine'?'btn-red':''}" onclick="aaOpenFood('mine')">My Food Business</button></div>${tab==='post'?aaFoodPostHTML():tab==='mine'?aaFoodMineHTML(all.filter(x=>String(x.user_id||'')===String(state.user?.id||'')||x.local_owner)):aaFoodListHTML(visible)}</section>`}
@@ -9134,11 +9134,11 @@ function hirePrice(c){const p=String(c?.hirePeriod||"day").toLowerCase();const u
 function cardHTML(c){
  const id=JSON.stringify(String(c.id));
  return `<article class="card">
- <button style="border:0;padding:0;background:none;width:100%;position:relative" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'><img class="card-img" src="${c.image}" alt="${esc(c.title)}">${c.isBoosted?`<span class="badge badge-gold" style="position:absolute;top:8px;left:8px">★ BOOSTED</span>`:""}</button>
+ <button style="border:0;padding:0;background:none;width:100%;position:relative" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'><img class="card-img" src="${bingoSafeMediaAttr(c.image)}" alt="${esc(c.title)}">${c.isBoosted?`<span class="badge badge-gold" style="position:absolute;top:8px;left:8px">★ BOOSTED</span>`:""}</button>
  <div class="card-body"><div style="margin-bottom:5px">${listingBadge(c)}</div><div class="card-title">${esc(c.title)}</div>
  <div class="meta">${c.year} · ${money(c.mileage)} km · ${esc(c.location)}</div><div class="price">${listingType(c)==="hire"?hirePrice(c):`KES ${money(c.price)}`}</div>
  <div class="expiry">${listingExpiry(c)}</div>
- <button class="seller" style="width:100%;text-align:left" onclick='openSeller(${JSON.stringify(String(c.sellerId||c.userId||""))})'><img src="${c.sellerPhoto}" alt="" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&q=80'"><span class="seller-name">${aaFollowTopControlHTML({id:c.sellerId||c.userId,name:c.sellerName})}${esc(c.sellerName)}${aaFollowStatsHTML(c.sellerId||c.userId)}<br>${aaPresenceBadge({id:c.sellerId,sellerId:c.sellerId,phone:c.sellerPhone})}</span></button>
+ <button class="seller" style="width:100%;text-align:left" onclick='openSeller(${JSON.stringify(String(c.sellerId||c.userId||""))})'><img src="${bingoSafeMediaAttr(c.sellerPhoto)}" alt="" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&q=80'"><span class="seller-name">${aaFollowTopControlHTML({id:c.sellerId||c.userId,name:c.sellerName})}${esc(c.sellerName)}${aaFollowStatsHTML(c.sellerId||c.userId)}<br>${aaPresenceBadge({id:c.sellerId,sellerId:c.sellerId,phone:c.sellerPhone})}</span></button>
  <div class="card-actions"><button class="small-btn ${isFav(c.id)?'fav-on':''}" onclick='toggleFav(${id})'>${isFav(c.id)?'♥ Saved':'♡ Save'}</button><button class="small-btn share-count" onclick='state.shareTarget=state.listings.find(x=>String(x.id)===${id});render()'>Share</button><button class="small-btn" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'>Details</button></div>
  <div class="details-actions"><button class="small-btn" onclick='callSeller(state.listings.find(x=>String(x.id)===${id}))'>Call</button>${state.isLoggedIn&&aaListingOwnerId(c)===String(state.user?.id||"")?`<button class="small-btn" onclick='openBoost(state.listings.find(x=>String(x.id)===${id}))'>Boost</button>`:""}</div>
  </div></article>`;
@@ -9154,7 +9154,7 @@ function aaListingImages(c){
 function aaOpenPhotoLightbox(src,title){
  const old=document.getElementById("aaPhotoLightbox");if(old)old.remove();
  const box=document.createElement("div");box.id="aaPhotoLightbox";box.className="aa-lightbox";
- box.innerHTML=`<div class="aa-lightbox-inner"><button class="aa-lightbox-close" onclick="document.getElementById('aaPhotoLightbox')?.remove()">×</button><button class="btn aa-lightbox-download" onclick='aaDownloadMedia(${JSON.stringify(src)},${JSON.stringify((title||"auto-arcade")+"-photo")})'>⬇ Download</button><img src="${src}" alt="${esc(title||'Vehicle photo')}"></div>`;
+ box.innerHTML=`<div class="aa-lightbox-inner"><button class="aa-lightbox-close" onclick="document.getElementById('aaPhotoLightbox')?.remove()">×</button><button class="btn aa-lightbox-download" onclick='aaDownloadMedia(${JSON.stringify(bingoSafeMediaUrl(src))},${JSON.stringify((title||"auto-arcade")+"-photo")})'>⬇ Download</button><img src="${bingoSafeMediaAttr(src)}" alt="${esc(title||'Vehicle photo')}"></div>`;
  box.addEventListener("click",e=>{if(e.target===box)box.remove()});document.body.appendChild(box);
 }
 
@@ -9171,9 +9171,9 @@ function aaOpenListingGallery(c,startIndex){
     <button class="aa-lightbox-close" style="position:static;flex:0 0 auto" onclick="document.getElementById('aaPhotoLightbox')?.remove()">×</button>
    </div>
    <div class="aa-gallery-biggrid">${imgs.map((src,i)=>`<div class="aa-gallery-bigitem" id="aaBigPhoto_${i}">
-     <img src="${src}" alt="${esc(title)} ${i+1}">
-     
-     <button class="btn aa-gallery-grid-download" onclick='aaDownloadMedia(${JSON.stringify(src)},${JSON.stringify(title+"-"+(i+1))})'>⬇ Photo ${i+1}</button>
+     <img src="${bingoSafeMediaAttr(src)}" alt="${esc(title)} ${i+1}">
+
+     <button class="btn aa-gallery-grid-download" onclick='aaDownloadMedia(${JSON.stringify(bingoSafeMediaUrl(src))},${JSON.stringify(title+"-"+(i+1))})'>⬇ Photo ${i+1}</button>
     </div>`).join("")}</div>
   </div>`;
  box.addEventListener("click",e=>{if(e.target===box)box.remove()});
@@ -10991,6 +10991,63 @@ function aaCloseTopOverlay(){
 })();
 </script>
 
+<script id="bingo-safe-media-url-v1">
+/*
+  BINGO STAGE 2 — SAFE MEDIA URL HELPER
+
+  Purpose:
+  - Prevent unsafe HTML/media URL injection
+  - Allow normal HTTPS/HTTP images
+  - Allow app-created blob URLs
+  - Allow image data URLs only
+  - Reject javascript:, HTML data URLs, malformed protocols, etc.
+
+  Do not change layout, styling, listing behavior or navigation.
+*/
+
+function bingoSafeMediaUrl(value){
+  const raw=String(value??"").trim();
+
+  if(!raw)return "";
+
+  /* App/browser generated previews */
+  if(/^blob:/i.test(raw)){
+    return raw;
+  }
+
+  /*
+    Only actual image data URLs are allowed.
+    Do not permit data:text/html or arbitrary data payloads.
+  */
+  if(/^data:image\/(?:png|jpe?g|webp|gif|avif);base64,[a-z0-9+/=\s]+$/i.test(raw)){
+    return raw;
+  }
+
+  /*
+    Web-hosted media.
+  */
+  try{
+    const u=new URL(raw,window.location.href);
+
+    if(u.protocol==="https:" || u.protocol==="http:"){
+      return u.href;
+    }
+  }catch(e){}
+
+  return "";
+}
+
+
+/*
+  For safe insertion into HTML attributes.
+
+  esc() already exists in Bingo and performs HTML escaping.
+*/
+function bingoSafeMediaAttr(value){
+  const safe=bingoSafeMediaUrl(value);
+  return safe?esc(safe):"";
+}
+</script>
 
 <style id="aa-v83-home-cartoon-drawer">
 /* V83 — HOME NAVIGATION ONLY.
