@@ -8667,6 +8667,7 @@ function aaMissingPropertyColumn(error){
  if(m)return m[1];
  return '';
 }
+const AA_PROPERTY_CORE_FIELDS=['id','user_id','listing_kind','title','price','media','status','county','town'];
 async function aaInsertPropertyListing(payload){
  if(!sb||!state.user?.id)return {data:null,error:new Error('No database session')};
  let body={...payload};
@@ -8676,6 +8677,9 @@ async function aaInsertPropertyListing(payload){
   if(!result.error)return result;
   lastError=result.error;
   const missing=aaMissingPropertyColumn(result.error);
+  if(missing&&AA_PROPERTY_CORE_FIELDS.includes(missing)){
+   return {data:null,error:new Error(`Required listing field "${missing}" was rejected by the database (${String(result.error?.message||result.error)}). This field cannot be dropped, so the listing was not saved.`)};
+  }
   if(missing&&Object.prototype.hasOwnProperty.call(body,missing)){delete body[missing];continue}
   break;
  }
