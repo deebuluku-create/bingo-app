@@ -15227,7 +15227,7 @@ Only requested areas changed:
     if(!requireMembership())return;
     if(!c)return;
     if(!(await directContactReady(c))){aaRequestNumberShare(c);return;}
-    const p=String(c?.sellerPhone||c?.phone||'').replace(/\s/g,'');
+    const p=normalizeKenyanPhone(c?.sellerPhone||c?.phone||"");
     if(!p){toast('Seller phone number is not available.');return;}
     state.callTarget={...c,sellerPhone:p};render();
   };
