@@ -8716,19 +8716,19 @@ function aaStableStringify(v){
  return JSON.stringify(v===undefined?null:v);
 }
 async function aaVerifyPropertyUpdate(id,expected){
- if(!sb||!id)return {data:null,error:new Error('Cannot verify saved changes without database connection.')};
+ if(!sb||!id)return {data:null,error:new Error('Cannot verify saved changes without database connection.'),reason:'select-failed'};
  const result=await sb.from('property_listings').select('*').eq('id',id).eq('user_id',state.user.id).single();
- if(result.error)return result;
- if(!result.data)return {data:null,error:new Error('The listing was not found after saving changes.')};
+ if(result.error)return {data:null,error:result.error,reason:'select-failed'};
+ if(!result.data)return {data:null,error:new Error('The listing was not found after saving changes.'),reason:'mismatch'};
  for(const key of Object.keys(expected||{})){
   const want=expected[key];
   const got=result.data[key];
   const norm=Array.isArray(want)?(got||[]):got;
   if(aaStableStringify(want)!==aaStableStringify(norm)){
-   return {data:null,error:new Error(`The listing was saved but field "${key}" did not match after verification.`)};
+   return {data:result.data,error:new Error(`The listing was saved but field "${key}" did not match after verification.`),reason:'mismatch'};
   }
  }
- return result;
+ return {data:result.data,error:null,reason:'ok'};
 }
 async function aaUploadPropertyMedia(files,userId,listingId){
  if(!sb||!files.length)return {media:[],paths:[],error:new Error('No media selected')};
@@ -8775,12 +8775,13 @@ function aaEditProperty(id){
  if(item._localOnly){toast("This listing is stored locally only and can't be edited online yet. Delete and re-post it to make changes.");return}
  if(!state.user?.id||String(item.user_id||'')!==String(state.user.id)){toast('You can only edit your own listing.');return}
  state.propertyEditId=id;
+ state.propertyEditBlockedId=null;
  state.propertyTab='post';
  state.view='properties';
  render();
  window.scrollTo(0,0);
 }
-function aaCancelPropertyEdit(){state.propertyEditId=null;aaOpenProperties('mine')}
+function aaCancelPropertyEdit(){state.propertyEditId=null;state.propertyEditBlockedId=null;aaOpenProperties('mine')}
 function aaPropertyPostHTML(){
  const editItem=state.propertyEditId?aaProperties().find(x=>String(x.id)===String(state.propertyEditId)):null;
  const d=editItem||{};
@@ -8794,6 +8795,7 @@ async function aaSubmitProperty(e){
  const fd=new FormData(form);
  const editId=state.propertyEditId;
  if(editId){
+  if(state.propertyEditBlockedId===editId){toast('Your last save for this listing could not be confirmed. Please Cancel and reopen Edit before trying again.');return}
   if(!sb||!state.user?.id){toast('You must be logged in to save changes.');return}
   const original=aaProperties().find(x=>String(x.id)===String(editId));
   if(!original){toast('This listing could not be found.');state.propertyEditId=null;return}
@@ -8827,7 +8829,15 @@ async function aaSubmitProperty(e){
   }
   const verify=await aaVerifyPropertyUpdate(editId,{title:payload.title,price:payload.price,county:payload.county,town:payload.town,media:finalMedia});
   if(verify.error){
-   toast('Changes were sent but could not be verified: '+String(verify.error.message||verify.error)+' Your previous listing data has been kept.');
+   if(verify.reason==='select-failed'){
+    state.propertyEditBlockedId=editId;
+    toast('Your save status could not be confirmed. Please reload the listing before trying again.');
+    return;
+   }
+   const fetchedPaths=new Set((Array.isArray(verify.data?.media)?verify.data.media:[]).map(m=>m.path).filter(Boolean));
+   const safeToDelete=upload.paths.filter(p=>!fetchedPaths.has(p));
+   if(safeToDelete.length)await aaDeleteUploadedPropertyMedia(safeToDelete);
+   toast('Could not confirm your changes saved correctly: '+String(verify.error.message||verify.error)+' Please review the listing before trying again.');
    return;
   }
   const mapped=aaMapPropertyRow(verify.data);
@@ -8916,6 +8926,7 @@ function aaEditStay(id){
  if(item._localOnly){toast("This Bingo Stay is stored locally only and can't be edited online yet. Delete and re-post it to make changes.");return}
  if(!state.user?.id||String(item.user_id||'')!==String(state.user.id)){toast('You can only edit your own Bingo Stay.');return}
  state.stayEditId=id;
+ state.stayEditBlockedId=null;
  state.stayDraft={
   rooms:Array.isArray(item.rooms)?[...item.rooms]:[],
   amenities:Array.isArray(item.amenities)?[...item.amenities]:[],
@@ -8933,7 +8944,7 @@ function aaEditStay(id){
  state.view='properties';state.propertyTab='stays';state.stayView='hub';
  render();window.scrollTo(0,0);
 }
-function aaCancelStayEdit(){state.stayEditId=null;state.stayDraft={rooms:[],amenities:[],rules:[]};state.propertyTab='stays';state.stayView='landing';render();window.scrollTo(0,0)}
+function aaCancelStayEdit(){state.stayEditId=null;state.stayEditBlockedId=null;state.stayDraft={rooms:[],amenities:[],rules:[]};state.propertyTab='stays';state.stayView='landing';render();window.scrollTo(0,0)}
 function aaStayChecklistHTML(field,items,selected){
  return items.map(x=>`<label style="display:flex;gap:8px;align-items:center;justify-content:space-between;background:var(--panel2);border:1px solid var(--line);padding:10px 14px;border-radius:10px;margin-bottom:8px;font-size:12px"><span>${esc(x)}</span><input type="checkbox" id="stay_${field}_${aaStaySlug(x)}" ${selected?.includes(x)?"checked":""}></label>`).join("");
 }
@@ -9058,6 +9069,7 @@ async function aaPublishFurnishedStay(){
  const description=`${d.bedrooms||"?"} bed · ${d.bathrooms||"?"} bath · sleeps ${d.maxGuests||"?"}. ${(d.amenities||[]).join(", ")}`;
  const editId=state.stayEditId;
  if(editId){
+  if(state.stayEditBlockedId===editId){toast("Your last save for this Bingo Stay could not be confirmed. Please Cancel Edit and reopen it before trying again.");return}
   if(!sb||!state.user?.id){toast("You must be logged in to save changes.");return}
   const original=aaProperties().find(x=>String(x.id)===String(editId));
   if(!original){toast("This listing could not be found.");state.stayEditId=null;return}
@@ -9098,7 +9110,15 @@ async function aaPublishFurnishedStay(){
   }
   const verify=await aaVerifyPropertyUpdate(editId,{title:payload.title,price:payload.price,county:payload.county,town:payload.town,media:finalMedia});
   if(verify.error){
-   toast("Changes were sent but could not be verified: "+String(verify.error.message||verify.error)+" Your previous listing data has been kept.");
+   if(verify.reason==="select-failed"){
+    state.stayEditBlockedId=editId;
+    toast("Your save status could not be confirmed. Please reload the listing before trying again.");
+    return;
+   }
+   const fetchedPaths=new Set((Array.isArray(verify.data?.media)?verify.data.media:[]).map(m=>m.path).filter(Boolean));
+   const safeToDelete=upload.paths.filter(p=>!fetchedPaths.has(p));
+   if(safeToDelete.length)await aaDeleteUploadedPropertyMedia(safeToDelete);
+   toast("Could not confirm your changes saved correctly: "+String(verify.error.message||verify.error)+" Please review the listing before trying again.");
    return;
   }
   const mapped=aaMapPropertyRow(verify.data);
