@@ -4851,12 +4851,36 @@ function money(n){return Number(n||0).toLocaleString("en-KE")}
 
 /* Core helpers restored from the older revision. */
 function normalizeKenyanPhone(value){
- const raw=String(value||"").replace(/[^0-9+]/g,"");
- if(/^\+2547\d{8}$/.test(raw)) return raw;
- if(/^2547\d{8}$/.test(raw)) return "+"+raw;
- if(/^07\d{8}$/.test(raw)) return "+254"+raw.slice(1);
- if(/^7\d{8}$/.test(raw)) return "+254"+raw;
- return "";
+  let raw=String(value??"").trim();
+  if(!raw)return "";
+
+  // Keep digits and one possible leading +
+  raw=raw.replace(/[^\d+]/g,"");
+  raw=raw.replace(/(?!^)\+/g,"");
+
+  // Support international 00 notation
+  if(raw.startsWith("00254")){
+    raw="+"+raw.slice(2);
+  }
+
+  // +2547XXXXXXXX or +2541XXXXXXXX
+  if(/^\+254[71]\d{8}$/.test(raw))return raw;
+
+  // 2547XXXXXXXX or 2541XXXXXXXX
+  if(/^254[71]\d{8}$/.test(raw))return "+"+raw;
+
+  // 07XXXXXXXX or 01XXXXXXXX
+  if(/^0[71]\d{8}$/.test(raw))return "+254"+raw.slice(1);
+
+  // 7XXXXXXXX or 1XXXXXXXX
+  if(/^[71]\d{8}$/.test(raw))return "+254"+raw;
+
+  return "";
+}
+
+function kenyanPhoneForWhatsApp(value){
+  const phone=normalizeKenyanPhone(value);
+  return phone?phone.replace(/\D/g,""):"";
 }
 function recordDailyVisit(){
  const today=new Date().toLocaleDateString("en-CA");
@@ -4927,7 +4951,7 @@ function callSeller(c){
   render();
   return;
  }
- const p=String(c?.sellerPhone||c?.phone||"").replace(/\s/g,"");
+ const p=normalizeKenyanPhone(c?.sellerPhone||c?.phone||"");
  if(!p){toast("Seller phone number is not available.");return}
  state.callTarget={...c,sellerPhone:p};
  render();
