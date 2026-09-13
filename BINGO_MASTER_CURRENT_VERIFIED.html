@@ -1008,55 +1008,18 @@ Production mother file does not force production.
 #auto-arcade-widget .aa-review:first-child{border-top:0}
 #auto-arcade-widget .aa-contact-note{font-size:9px;color:#7f8ba0;margin-top:5px}
 
-/* Bingo input contrast fix — scoped to this widget only */
-#auto-arcade-widget input[type="text"],
-#auto-arcade-widget input[type="email"],
-#auto-arcade-widget input[type="tel"]{
-  color:#0f172a !important;
-  background:#ffffff !important;
-  opacity:1 !important;
-  -webkit-text-fill-color:#0f172a !important;
-  caret-color:#0f172a !important;
-}
-#auto-arcade-widget input[type="text"]:-webkit-autofill,
-#auto-arcade-widget input[type="email"]:-webkit-autofill,
-#auto-arcade-widget input[type="tel"]:-webkit-autofill,
-#auto-arcade-widget input[type="text"]:-webkit-autofill:hover,
-#auto-arcade-widget input[type="email"]:-webkit-autofill:hover,
-#auto-arcade-widget input[type="tel"]:-webkit-autofill:hover,
-#auto-arcade-widget input[type="text"]:-webkit-autofill:focus,
-#auto-arcade-widget input[type="email"]:-webkit-autofill:focus,
-#auto-arcade-widget input[type="tel"]:-webkit-autofill:focus{
-  color:#0f172a !important;
-  -webkit-text-fill-color:#0f172a !important;
-  background:#ffffff !important;
-  opacity:1 !important;
-  -webkit-box-shadow:0 0 0 1000px #ffffff inset !important;
-  box-shadow:0 0 0 1000px #ffffff inset !important;
-}
-#auto-arcade-widget input[type="text"]::placeholder,
-#auto-arcade-widget input[type="email"]::placeholder,
-#auto-arcade-widget input[type="tel"]::placeholder{
-  color:#64748b !important;
-  opacity:1 !important;
-  -webkit-text-fill-color:#64748b !important;
-}
+/* Bingo input contrast fix — neutralized. This used to force a white
+   background/dark text on text/email/tel inputs (including on autofill),
+   which fought the later "v62 CONSISTENT TYPING SURFACES" dark-navy rule
+   below via higher CSS specificity and made autofilled fields flash white.
+   v62 is now the single source of truth for input colors/backgrounds/
+   autofill. Only the mobile font-size fix (prevents iOS auto-zoom on
+   focus) is kept here. */
 @media(max-width:767px){
   #auto-arcade-widget input[type="text"],
   #auto-arcade-widget input[type="email"],
   #auto-arcade-widget input[type="tel"]{
-    color:#0f172a !important;
-    background:#ffffff !important;
-    opacity:1 !important;
-    -webkit-text-fill-color:#0f172a !important;
     font-size:16px;
-  }
-  #auto-arcade-widget input[type="text"]::placeholder,
-  #auto-arcade-widget input[type="email"]::placeholder,
-  #auto-arcade-widget input[type="tel"]::placeholder{
-    color:#64748b !important;
-    opacity:1 !important;
-    -webkit-text-fill-color:#64748b !important;
   }
 }
 
@@ -3476,6 +3439,12 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .aa-v69-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 #auto-arcade-widget .aa-v69-media-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-top:10px}
 #auto-arcade-widget .aa-v69-media-grid img,#auto-arcade-widget .aa-v69-media-grid video{width:100%;aspect-ratio:1/1;object-fit:cover;border-radius:10px;background:#000}
+/* Single just-recorded video preview (property/food) shares .aa-v69-media-grid
+   but holds one item, not a thumbnail set — show its real proportions instead
+   of cropping it into the grid's 1:1 thumbnail treatment, and let it span the
+   full width instead of a single 1-of-3 grid column. */
+#auto-arcade-widget #aaPropertyRecorded,#auto-arcade-widget #aaFoodRecorded{grid-template-columns:1fr}
+#auto-arcade-widget #aaPropertyRecorded video,#auto-arcade-widget #aaFoodRecorded video{width:100%;aspect-ratio:auto;object-fit:contain;max-height:360px;border-radius:10px;background:#000}
 #auto-arcade-widget .aa-sub-pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 8px;font-size:9px;font-weight:900;background:#142139;border:1px solid #345071}
 #auto-arcade-widget .aa-sub-pill.active{color:#83f7b1;border-color:#2e9e65}.aa-sub-pill.expired{color:#ff9a9e;border-color:#8b3035}
 #auto-arcade-widget .aa-camera-overlay{position:fixed;inset:0;z-index:220;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:14px}
@@ -7568,9 +7537,9 @@ function aaVideoListings(){
   const promotedPhoto=c?.isBoosted&&aaMediaType(c)==="photo"&&!!aaMainPhoto(c);
   return hasVideo||promotedPhoto;
  });
- if(!base.length){
-  base=(state.listings||[]).slice(0,6).map((c,i)=>Object.assign({},c,{_aaPreviewVideo:true,mediaType:"video",videoUrl:AA_PREVIEW_VIDEOS[i%AA_PREVIEW_VIDEOS.length]}));
- }
+ /* No synthetic/fabricated videos: if there are no real videos or boosted
+    photos, the video feed legitimately stays empty rather than relabeling
+    ordinary photo listings as fake "video" posts. */
  if((state.feedFilter||"all")==="following"){
   base=base.filter(c=>aaListingFollowed(c));
  }
@@ -8428,8 +8397,11 @@ function aaRotateDynamicBottomAd(){
  aaRenderDynamicBottomAd();
 }
 function aaEnsureDynamicAdTimer(){
- if(aaDynamicAdTimer)return;
- aaDynamicAdTimer=setInterval(()=>aaRotateDynamicBottomAd(),AA_DYNAMIC_AD_ROTATION_MS);
+ /* Old Home advertising banner removed from rendering; the rotation
+    timer is disabled so it never starts (or keeps running) with no
+    banner left to update. */
+ if(aaDynamicAdTimer){clearInterval(aaDynamicAdTimer);aaDynamicAdTimer=null;}
+ return;
 }
 function aaDynamicAdAfterRender(){
  aaDynamicAdLastView=state.view;
@@ -9045,7 +9017,6 @@ function render(){
   ${state.view==="inbox"?inboxHTML():""}
   ${state.view==="chat"&&state.selected?chatHTML(state.selected):""}
  </main>
- ${aaBottomSponsoredHTML()}
  <button class="aa-refresh-fab" title="Refresh this page" aria-label="Refresh this page" onclick="aaRefreshCurrentView()">↻</button>
  <!-- Bottom tabs: Home, Search, Sell, Market, Rooms, Profile. Inbox is accessed from Profile/header. -->
 ${state.view==="home"?`<div class="aa-assistant-nav-wrap" id="aaAssistantNavWrap">
@@ -17078,7 +17049,7 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
     if(!el)return;
     if(!isHome()){
       el.classList.remove("bingo-logo-draggable");
-      el.style.left="";el.style.top="";el.style.transition="";
+      el.style.left="";el.style.top="";el.style.transform="";el.style.transition="";
       hideCloseBtn();
       return;
     }
@@ -17087,11 +17058,15 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
     var w=el.offsetWidth||120,h=el.offsetHeight||50;
     var x=clamp(pos.x,4,Math.max(4,innerWidth-w-4));
     var y=clamp(pos.y,4,Math.max(4,innerHeight-h-4));
+    /* Fixed anchor at the viewport origin; all actual movement happens
+       via GPU-friendly transform instead of left/top, so drag/settle
+       never triggers layout reflow. */
+    el.style.left="0px";el.style.top="0px";
     if(animate){
-      el.style.transition="left .45s cubic-bezier(.34,1.35,.4,1),top .45s cubic-bezier(.34,1.35,.4,1)";
+      el.style.transition="transform .45s cubic-bezier(.34,1.35,.4,1)";
       setTimeout(function(){el.style.transition="";},470);
     }
-    el.style.left=x+"px";el.style.top=y+"px";
+    el.style.transform="translate3d("+x+"px,"+y+"px,0)";
     /* Show the X both on the initial centered entrance (so it can be
        dismissed) and whenever the logo has been dragged away from
        its corner spot. */
@@ -17129,7 +17104,7 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
       var w=el.offsetWidth,h=el.offsetHeight;
       var nx=clamp(origX+dx,4,Math.max(4,innerWidth-w-4));
       var ny=clamp(origY+dy,4,Math.max(4,innerHeight-h-4));
-      el.style.left=nx+"px";el.style.top=ny+"px";
+      el.style.transform="translate3d("+nx+"px,"+ny+"px,0)";
       savedPos={x:nx,y:ny};
     });
 
