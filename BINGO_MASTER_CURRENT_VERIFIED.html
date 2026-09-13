@@ -8781,18 +8781,18 @@ function aaStayStepHTML(view){
   <label class="full">Contact Phone Number <span style="color:var(--gold)">(required — guests use this to reach you)</span><input class="field" id="stayContactPhone" value="${esc(d.contactPhone||state.user?.phone||"")}" placeholder="07XXXXXXXX or +2547XXXXXXXX"></label>
   </div><button class="btn btn-red" style="width:100%;margin-top:12px" onclick="aaStaySaveStep1()">Save & Continue</button></div>`;
 
- if(view==="step2")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">2. Rooms & Spaces</h3><p class="notice" style="margin-top:0">Tick every room or space this stay includes.</p>${aaStayChecklistHTML("rooms",AA_STAY_ROOMS,d.rooms)}<button class="btn btn-red" style="width:100%;margin-top:8px" onclick="aaStaySaveList('rooms',AA_STAY_ROOMS)">Save & Continue</button></div>`;
+ if(view==="step2")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('step1')">← Back</button><h3 style="margin:0 0 12px">2. Rooms & Spaces</h3><p class="notice" style="margin-top:0">Tick every room or space this stay includes.</p>${aaStayChecklistHTML("rooms",AA_STAY_ROOMS,d.rooms)}<button class="btn btn-red" style="width:100%;margin-top:8px" onclick="aaStaySaveList('rooms',AA_STAY_ROOMS)">Save & Continue</button></div>`;
 
- if(view==="step3")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">3. Amenities</h3><p class="notice" style="margin-top:0">Tick everything guests can use during their stay.</p>${aaStayChecklistHTML("amenities",AA_STAY_AMENITIES,d.amenities)}<button class="btn btn-red" style="width:100%;margin-top:8px" onclick="aaStaySaveList('amenities',AA_STAY_AMENITIES)">Save & Continue</button></div>`;
+ if(view==="step3")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('step2')">← Back</button><h3 style="margin:0 0 12px">3. Amenities</h3><p class="notice" style="margin-top:0">Tick everything guests can use during their stay.</p>${aaStayChecklistHTML("amenities",AA_STAY_AMENITIES,d.amenities)}<button class="btn btn-red" style="width:100%;margin-top:8px" onclick="aaStaySaveList('amenities',AA_STAY_AMENITIES)">Save & Continue</button></div>`;
 
- if(view==="step4")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">4. Photos & Videos</h3><p class="notice" style="margin-top:0">Upload photos and up to 2 videos, or record one directly.</p><div class="form-grid">
+ if(view==="step4")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('step3')">← Back</button><h3 style="margin:0 0 12px">4. Photos & Videos</h3><p class="notice" style="margin-top:0">Upload photos and up to 2 videos, or record one directly.</p><div class="form-grid">
   <label class="full">Photos<input class="field" id="stayPhotos" type="file" accept="image/*" multiple></label>
   <label class="full">Videos (max 2)<input class="field" id="stayVideos" type="file" accept="video/*" multiple></label>
   </div><div class="details-actions" style="margin-top:8px"><button class="btn" type="button" onclick="aaOpenDualCamera('property')">Record Video</button><button class="btn btn-red" onclick="aaStaySaveMedia()">Save & Continue</button></div>${d.media?.length?`<div class="notice">${d.media.length} file(s) saved to this draft.</div>`:""}</div>`;
 
- if(view==="step5")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">5. House Rules</h3>${aaStayChecklistHTML("rules",AA_STAY_RULES,d.rules)}<label class="form-label" style="margin-top:6px">Custom rules (optional)</label><textarea class="field" id="stayCustomRules" rows="3" placeholder="Any other house rules guests should know">${esc(d.customRules||"")}</textarea><button class="btn btn-red" style="width:100%;margin-top:10px" onclick="aaStaySaveRules()">Save & Continue</button></div>`;
+ if(view==="step5")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('step4')">← Back</button><h3 style="margin:0 0 12px">5. House Rules</h3>${aaStayChecklistHTML("rules",AA_STAY_RULES,d.rules)}<label class="form-label" style="margin-top:6px">Custom rules (optional)</label><textarea class="field" id="stayCustomRules" rows="3" placeholder="Any other house rules guests should know">${esc(d.customRules||"")}</textarea><button class="btn btn-red" style="width:100%;margin-top:10px" onclick="aaStaySaveRules()">Save & Continue</button></div>`;
 
- if(view==="step6")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">6. Pricing</h3><div class="form-grid">
+ if(view==="step6")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('step5')">← Back</button><h3 style="margin:0 0 12px">6. Pricing</h3><div class="form-grid">
   <label>Nightly Rate (KES)<input class="field" id="stayNightly" type="number" min="0" value="${esc(d.nightlyRate||"")}" oninput="calculateStayTotal()"></label>
   <label>Cleaning Fee (KES)<input class="field" id="stayCleaning" type="number" min="0" value="${esc(d.cleaningFee||"0")}" oninput="calculateStayTotal()"></label>
   </div>
@@ -8804,14 +8804,14 @@ function aaStayStepHTML(view){
   </div>
   <button class="btn btn-red" style="width:100%;margin-top:12px" onclick="aaStaySaveStep6()">Save & Continue</button></div>`;
 
- if(view==="step7")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">7. Location</h3><div class="form-grid">
+ if(view==="step7")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('step6')">← Back</button><h3 style="margin:0 0 12px">7. Location</h3><div class="form-grid">
   <select class="field" id="stayCounty">${kenyaCounties.map(c=>`<option ${d.county===c?"selected":""}>${esc(c)}</option>`).join("")}</select>
   <input class="field" id="stayTown" placeholder="Town / Area, e.g. Nyali" value="${esc(d.town||"")}">
   <input class="field full" id="stayMapsLink" placeholder="Google Maps link (optional)" value="${esc(d.mapsLink||"")}">
   <textarea class="field full" id="stayDirections" rows="3" placeholder="Directions notes for guests (optional)">${esc(d.directions||"")}</textarea>
   </div><button class="btn btn-red" style="width:100%;margin-top:12px" onclick="aaStaySaveStep7()">Save & Continue</button></div>`;
 
- if(view==="step8")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('hub')">← Back</button><h3 style="margin:0 0 12px">8. Check-in Details</h3><div class="form-grid">
+ if(view==="step8")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('step7')">← Back</button><h3 style="margin:0 0 12px">8. Check-in Details</h3><div class="form-grid">
   <label>Check-in Time<input class="field" id="stayCheckIn" value="${esc(d.checkIn||"2:00 PM")}"></label>
   <label>Check-out Time<input class="field" id="stayCheckOut" value="${esc(d.checkOut||"10:00 AM")}"></label>
   <select class="field full" id="stayKeyMethod"><option ${d.keyMethod==="Lockbox"?"selected":""}>Lockbox</option><option ${d.keyMethod==="Meet the host"?"selected":""}>Meet the host</option><option ${d.keyMethod==="Smart lock code"?"selected":""}>Smart lock code</option><option ${d.keyMethod==="Front desk"?"selected":""}>Front desk</option></select>
