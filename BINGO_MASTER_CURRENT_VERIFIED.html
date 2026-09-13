@@ -8597,19 +8597,192 @@ const AA_PROPERTY_TYPES=["Apartment","Bedsitter","Bungalow","Maisonette","Townho
 const AA_FOOD_TYPES=["Restaurant","Fast Food","Local Food","Catering","Bakery","Coffee","Seafood","Swahili Food","Delivery Kitchen","Other"];
 function aaV69Read(k,d=[]){try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d))}catch(e){return d}}
 function aaV69Write(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
-function aaProperties(){return aaV69Read('aa_v69_properties',[])}
+/* ===== STAGE 3 — property_listings Supabase persistence =====
+   aaProperties() is now a synchronous merge of:
+   - state.propertyListings: rows loaded from Supabase (source of truth
+     for anything published through the new Stage-3 flow), populated by
+     aaLoadProperties();
+   - any remaining legacy aa_v69_properties localStorage records that
+     were never migrated, tagged _localOnly so the UI can badge them.
+   Never auto-uploads legacy records; Supabase is source of truth going
+   forward for new publishes only. */
+function aaProperties(){
+ const cloud=Array.isArray(state.propertyListings)?state.propertyListings:[];
+ const seen=new Set(cloud.map(x=>String(x.id)));
+ const legacy=aaV69Read('aa_v69_properties',[]).filter(x=>!seen.has(String(x.id))).map(x=>({...x,_localOnly:true}));
+ return [...cloud,...legacy];
+}
+let aaPropertiesLoading=false;
+async function aaLoadProperties(){
+ if(state.testMode)return;
+ if(!sb||aaPropertiesLoading)return;
+ aaPropertiesLoading=true;
+ try{
+  const {data,error}=await sb.from('property_listings').select('*').eq('status','published').order('created_at',{ascending:false});
+  if(error)throw error;
+  state.propertyListings=(data||[]).map(aaMapPropertyRow);
+ }catch(e){
+  console.warn('Bingo: property/stay listings unavailable. Using local cache only.',String(e?.message||e));
+  if(!Array.isArray(state.propertyListings))state.propertyListings=[];
+ }
+ aaPropertiesLoading=false;
+ render();
+}
+function aaMapPropertyRow(row){
+ const ownerId=String(row.user_id||'');
+ const own=!!ownerId&&ownerId===String(state.user?.id||'');
+ return {
+  id:row.id,user_id:ownerId,userId:ownerId,sellerId:ownerId,
+  sellerName:own?aaOwnProfileName():'Bingo Member',
+  local_owner:false,_localOnly:false,
+  kind:'property',listingKind:row.listing_kind||'property',
+  title:row.title||'',type:row.type||'',purpose:row.purpose||'',duration:row.duration||'',
+  county:row.county||'',town:row.town||'',
+  price:Number(row.price||0),cleaningFee:Number(row.cleaning_fee||0),
+  bedrooms:row.bedrooms||'',bathrooms:row.bathrooms||'',beds:row.beds||'',maxGuests:row.max_guests||'',
+  contactPhone:row.contact_phone||'',description:row.description||'',
+  rooms:Array.isArray(row.rooms)?row.rooms:[],amenities:Array.isArray(row.amenities)?row.amenities:[],
+  rules:Array.isArray(row.house_rules)?row.house_rules:[],customRules:row.custom_rules||'',
+  mapsLink:row.maps_link||'',directions:row.directions||'',
+  checkIn:row.check_in||'',checkOut:row.check_out||'',keyMethod:row.key_method||'',
+  media:Array.isArray(row.media)?row.media:[],
+  isBoosted:!!row.is_boosted,boostRemaining:Number(row.boost_remaining||0),
+  createdByAgentId:row.created_by_agent_id||'',businessOwnerId:row.business_owner_id||'',
+  employeeCount:row.employee_count||0,businessClass:row.business_class||'',
+  created_at:row.created_at,createdAt:row.created_at,
+  status:row.status||'published',_fromDb:true
+ };
+}
+function aaNewPropertyListingId(){
+ try{if(window.crypto&&typeof window.crypto.randomUUID==='function')return window.crypto.randomUUID()}catch(e){}
+ return `aap-${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+}
+function aaMissingPropertyColumn(error){
+ const raw=[error?.message,error?.details,error?.hint,error?.code].filter(Boolean).join(' ');
+ let m=raw.match(/Could not find the ['"]([^'"]+)['"] column/i);
+ if(m)return m[1];
+ m=raw.match(/column ['"]?([a-zA-Z0-9_]+)['"]?.*does not exist/i);
+ if(m)return m[1];
+ m=raw.match(/['"]([a-zA-Z0-9_]+)['"].*schema cache/i);
+ if(m)return m[1];
+ return '';
+}
+async function aaInsertPropertyListing(payload){
+ if(!sb||!state.user?.id)return {data:null,error:new Error('No database session')};
+ let body={...payload};
+ let lastError=null;
+ for(let attempt=0;attempt<20;attempt++){
+  const result=await sb.from('property_listings').insert(body).select().single();
+  if(!result.error)return result;
+  lastError=result.error;
+  const missing=aaMissingPropertyColumn(result.error);
+  if(missing&&Object.prototype.hasOwnProperty.call(body,missing)){delete body[missing];continue}
+  break;
+ }
+ return {data:null,error:lastError};
+}
+async function aaVerifyPublishedProperty(id){
+ if(!sb||!id)return {data:null,error:new Error('Cannot verify saved listing without database connection.')};
+ const result=await sb.from('property_listings').select('*').eq('id',id).eq('user_id',state.user.id).single();
+ if(result.error)return result;
+ if(!result.data)return {data:null,error:new Error('The listing was not found after publishing.')};
+ if(String(result.data.status||'').toLowerCase()!=='published')return {data:null,error:new Error('The listing was saved but is not marked published.')};
+ return result;
+}
+async function aaUploadPropertyMedia(files,userId,listingId){
+ if(!sb||!files.length)return {media:[],paths:[],error:new Error('No media selected')};
+ const media=[];
+ const paths=[];
+ try{
+  if(!userId)throw new Error('You must be logged in before uploading media.');
+  if(!listingId)throw new Error('A listing ID is required before media can be stored.');
+  for(let i=0;i<files.length;i++){
+   const file=files[i];
+   const isVideo=String(file.type||'').startsWith('video/');
+   const safe=(file.name||`property-${i}`).replace(/[^a-zA-Z0-9._-]/g,'-');
+   const path=`${userId}/${listingId}/${i+1}-${Date.now()}-${safe}`;
+   const up=await sb.storage.from('property-media').upload(path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
+   if(up.error)throw new Error('Property Storage upload failed: '+String(up.error.message||up.error));
+   paths.push(path);
+   const pub=sb.storage.from('property-media').getPublicUrl(path);
+   const url=pub?.data?.publicUrl||'';
+   if(!url)throw new Error('Property media uploaded but no public URL was returned.');
+   media.push({type:isVideo?'video':'image',url,path,name:file.name||safe});
+  }
+  return {media,paths,error:null};
+ }catch(error){
+  return {media,paths,error:new Error(String(error?.message||error))};
+ }
+}
+async function aaDeleteUploadedPropertyMedia(paths,bucket='property-media'){
+ if(!sb||!Array.isArray(paths)||!paths.length)return;
+ try{await sb.storage.from(bucket||'property-media').remove(paths)}catch(e){console.warn('Could not clean up failed property media upload',e)}
+}
 function aaFoods(){return aaV69Read('aa_v69_foods',[])}
 function aaPropertyMedia(p){return Array.isArray(p?.media)?p.media:[]}
 function aaFoodMedia(p){return Array.isArray(p?.media)?p.media:[]}
 function aaRemainingDays(exp){if(!exp)return 0;return Math.max(0,Math.ceil((new Date(exp).getTime()-Date.now())/86400000))}
 function aaFoodActive(f){return aaRemainingDays(f?.subscription_expires_at)>0&&String(f?.status||'').toLowerCase()!=='suspended'}
-function aaOpenProperties(tab='browse'){state.propertyTab=tab;state.view='properties';if(tab==='stays'&&!state.stayView)state.stayView='landing';render();window.scrollTo(0,0)}
+function aaOpenProperties(tab='browse'){state.propertyTab=tab;state.view='properties';if(tab==='stays'&&!state.stayView)state.stayView='landing';aaLoadProperties();render();window.scrollTo(0,0)}
 function aaOpenFood(tab='browse'){state.foodTab=tab;state.view='food';render();window.scrollTo(0,0)}
 function aaMediaPreviewHTML(media){return (media||[]).map((m,i)=>m.type==='video'?`<video src="${bingoSafeMediaAttr(m.url)}" controls playsinline></video>`:`<img src="${bingoSafeMediaAttr(m.url)}" alt="Media ${i+1}">`).join('')}
 function aaFileToLocalMedia(files,maxVideos=3){return Promise.all(Array.from(files||[]).slice(0,8).map(f=>new Promise(res=>{if(f.type.startsWith('video/')&&maxVideos<=0)return res(null);const r=new FileReader();r.onload=()=>res({type:f.type.startsWith('video/')?'video':'image',url:r.result,name:f.name});r.onerror=()=>res(null);r.readAsDataURL(f)}))).then(a=>{let vc=0;return a.filter(x=>x&&(x.type!=='video'||++vc<=maxVideos))})}
-function aaPropertyHTML(){const tab=state.propertyTab||'browse', all=aaProperties();return `<section style="padding:18px 0 105px"><h2>Properties</h2><p class="notice">Buy, rent or lease property across Kenya. Property videos can also appear in the Bingo Home discovery feed.</p><div class="aa-v69-tabs"><button class="btn ${tab==='browse'?'btn-red':''}" onclick="aaOpenProperties('browse')">Browse Properties</button><button class="btn ${tab==='post'?'btn-red':''}" onclick="aaOpenProperties('post')">Post Property</button><button class="btn ${tab==='stays'?'btn-red':''}" onclick="aaOpenProperties('stays')">Bingo Stays</button><button class="btn ${tab==='mine'?'btn-red':''}" onclick="aaOpenProperties('mine')">My Properties</button></div>${tab==='post'?aaPropertyPostHTML():tab==='stays'?aaFurnishedStaysHTML():tab==='mine'?aaPropertyListHTML(all.filter(x=>String(x.user_id||'')===String(state.user?.id||'')||x.local_owner),true):aaPropertyListHTML(all,false)}</section>`}
+function aaPropertyHTML(){const tab=state.propertyTab||'browse', all=aaProperties();return `<section style="padding:18px 0 105px"><h2>Properties</h2><p class="notice">Buy, rent or lease property across Kenya. Property videos can also appear in the Bingo Home discovery feed.</p><div class="aa-v69-tabs"><button class="btn ${tab==='browse'?'btn-red':''}" onclick="aaOpenProperties('browse')">Browse Properties</button><button class="btn ${tab==='post'?'btn-red':''}" onclick="aaOpenProperties('post')">Post Property</button><button class="btn ${tab==='stays'?'btn-red':''}" onclick="aaOpenProperties('stays')">Bingo Stays</button><button class="btn ${tab==='mine'?'btn-red':''}" onclick="aaOpenProperties('mine')">My Properties</button></div>${tab==='post'?aaPropertyPostHTML():tab==='stays'?aaFurnishedStaysHTML():tab==='mine'?aaPropertyListHTML(all.filter(x=>String(x.user_id||x.userId||'')===String(state.user?.id||'')||(x._localOnly&&x.local_owner)),true):aaPropertyListHTML(all,false)}</section>`}
 function aaPropertyPostHTML(){return `<div class="aa-v69-card"><h3>Post a Property</h3><form onsubmit="aaSubmitProperty(event)"><div class="form-grid"><label>Title<input required name="title" placeholder="e.g. 3 bedroom apartment in Nyali"></label><label>Property Type<select name="type">${AA_PROPERTY_TYPES.map(x=>`<option>${esc(x)}</option>`).join('')}</select></label><label>Purpose<select name="purpose"><option>For Sale</option><option>For Rent</option><option>For Lease</option></select></label><label>Price (KES)<input required name="price" type="number" min="0"></label><label>County<input required name="county" placeholder="Mombasa"></label><label>Town / Area<input required name="town" placeholder="Nyali"></label><label>Bedrooms<input name="bedrooms" type="number" min="0"></label><label>Bathrooms<input name="bathrooms" type="number" min="0"></label><label class="full">Description<textarea required name="description" rows="4"></textarea></label><label class="full">Photos / Videos (max 3 videos)<input id="aaPropMedia" type="file" accept="image/*,video/*" multiple></label></div><div class="details-actions" style="margin-top:10px"><button class="btn" type="button" onclick="aaOpenDualCamera('property')">Record Video</button><button class="btn btn-red" type="submit">Publish Property</button></div><div id="aaPropertyRecorded" class="aa-v69-media-grid"></div></form></div>`}
-async function aaSubmitProperty(e){e.preventDefault();if(!state.isLoggedIn&&!state.testMode){openAuth('login');return}const fd=new FormData(e.target);const picked=await aaFileToLocalMedia(document.getElementById('aaPropMedia')?.files,3);const rec=state.v69Recorded?.property?[state.v69Recorded.property]:[];const p={id:'prop_'+Date.now(),user_id:state.user?.id||'',local_owner:true,kind:'property',title:fd.get('title'),type:fd.get('type'),purpose:fd.get('purpose'),price:Number(fd.get('price')||0),county:fd.get('county'),town:fd.get('town'),bedrooms:fd.get('bedrooms'),bathrooms:fd.get('bathrooms'),description:fd.get('description'),media:[...rec,...picked].slice(0,8),created_at:new Date().toISOString(),...aaConsumePendingAgentBusinessTag()};const a=aaProperties();a.unshift(p);aaV69Write('aa_v69_properties',a);if(state.v69Recorded)delete state.v69Recorded.property;toast('Property saved. Apply the v69 Supabase SQL to make property media persist across devices.');aaAnnounceAgentIntroEligibility(p);aaOpenProperties('mine')}
+async function aaSubmitProperty(e){
+ e.preventDefault();
+ if(!state.isLoggedIn&&!state.testMode){openAuth('login');return}
+ const form=e.target;
+ const fd=new FormData(form);
+ if(state.testMode){
+  const picked=await aaFileToLocalMedia(document.getElementById('aaPropMedia')?.files,3);
+  const rec=state.v69Recorded?.property?[state.v69Recorded.property]:[];
+  const p={id:'prop_'+Date.now(),user_id:state.user?.id||'',local_owner:true,kind:'property',title:fd.get('title'),type:fd.get('type'),purpose:fd.get('purpose'),price:Number(fd.get('price')||0),county:fd.get('county'),town:fd.get('town'),bedrooms:fd.get('bedrooms'),bathrooms:fd.get('bathrooms'),description:fd.get('description'),media:[...rec,...picked].slice(0,8),created_at:new Date().toISOString(),...aaConsumePendingAgentBusinessTag()};
+  const a=aaV69Read('aa_v69_properties',[]);a.unshift(p);aaV69Write('aa_v69_properties',a);
+  if(state.v69Recorded)delete state.v69Recorded.property;
+  toast('Property added in memory only (preview mode).');
+  aaAnnounceAgentIntroEligibility(p);
+  aaOpenProperties('mine');
+  return;
+ }
+ if(!sb||!state.user?.id){toast('You must be logged in to publish a property.');return}
+ const listingId=aaNewPropertyListingId();
+ const userId=state.user.id;
+ const rawFiles=Array.from(document.getElementById('aaPropMedia')?.files||[]);
+ const recordedVideo=state.v69Recorded?.property;
+ const files=[...rawFiles];
+ if(recordedVideo?.blob)files.unshift(new File([recordedVideo.blob],recordedVideo.name||`recorded-${Date.now()}.webm`,{type:recordedVideo.blob.type||'video/webm'}));
+ let videoCount=0;
+ const capped=files.filter(f=>{if(String(f.type||'').startsWith('video/')){videoCount++;return videoCount<=3}return true}).slice(0,8);
+ const upload=await aaUploadPropertyMedia(capped,userId,listingId);
+ if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error));return}
+ const payload={
+  id:listingId,user_id:userId,listing_kind:'property',
+  title:fd.get('title')||'',type:fd.get('type')||'',purpose:fd.get('purpose')||'',
+  price:Number(fd.get('price')||0),county:fd.get('county')||'',town:fd.get('town')||'',
+  bedrooms:fd.get('bedrooms')||'',bathrooms:fd.get('bathrooms')||'',
+  description:fd.get('description')||'',media:upload.media,status:'published'
+ };
+ const ins=await aaInsertPropertyListing(payload);
+ if(ins.error){
+  await aaDeleteUploadedPropertyMedia(upload.paths);
+  toast('Could not save property: '+String(ins.error.message||ins.error));
+  return;
+ }
+ const verify=await aaVerifyPublishedProperty(listingId);
+ if(verify.error){
+  toast('Property could not be verified after saving: '+String(verify.error.message||verify.error));
+  return;
+ }
+ const mapped=aaMapPropertyRow(verify.data);
+ if(!Array.isArray(state.propertyListings))state.propertyListings=[];
+ state.propertyListings.unshift(mapped);
+ if(state.v69Recorded)delete state.v69Recorded.property;
+ form.reset();
+ toast('Property published.');
+ aaAnnounceAgentIntroEligibility(mapped);
+ aaOpenProperties('mine');
+}
 
 /* ===== FURNISHED STAYS (under Properties) ===== */
 const AA_STAY_TYPES=["Furnished Apartment","Villa","Guest House","Holiday Home"];
@@ -8734,28 +8907,77 @@ function aaStaySectionComplete(stepId){
  }
  return false;
 }
-function aaPublishFurnishedStay(){
+async function aaPublishFurnishedStay(){
  if(!state.isLoggedIn&&!state.testMode){openAuth("login");return}
  const d=aaStayDraft();
  if(!d.title||!d.nightlyRate){toast("Add at least a property name and nightly rate before publishing.");aaStayGo("step1");return}
  if(!aaStayPhoneValid(d.contactPhone)){toast("Add a valid contact phone number (e.g. 07XXXXXXXX) before publishing — guests use this to reach you.");aaStayGo("step1");return}
- const p={id:"stay_"+Date.now(),user_id:state.user?.id||"",local_owner:true,kind:"property",
+ const description=`${d.bedrooms||"?"} bed · ${d.bathrooms||"?"} bath · sleeps ${d.maxGuests||"?"}. ${(d.amenities||[]).join(", ")}`;
+ if(state.testMode){
+  const p={id:"stay_"+Date.now(),user_id:state.user?.id||"",local_owner:true,kind:"property",
+   title:d.title,type:d.type||AA_STAY_TYPES[0],purpose:"Short Stay",
+   sellerName:aaOwnProfileName(),
+   duration:d.duration||"Short-term",
+   price:Number(d.nightlyRate||0),cleaningFee:Number(d.cleaningFee||0),
+   contactPhone:String(d.contactPhone||"").replace(/\s+/g,""),
+   county:d.county||"",town:d.town||"",bedrooms:d.bedrooms||"",bathrooms:d.bathrooms||"",
+   beds:d.beds||"",maxGuests:d.maxGuests||"",rooms:d.rooms||[],amenities:d.amenities||[],
+   rules:d.rules||[],customRules:d.customRules||"",mapsLink:d.mapsLink||"",directions:d.directions||"",
+   checkIn:d.checkIn||"",checkOut:d.checkOut||"",keyMethod:d.keyMethod||"",
+   description,media:d.media||[],created_at:new Date().toISOString(),
+   ...aaConsumePendingAgentBusinessTag()};
+  const a=aaV69Read("aa_v69_properties",[]);a.unshift(p);aaV69Write("aa_v69_properties",a);
+  state.stayDraft={rooms:[],amenities:[],rules:[]};
+  toast("Bingo Stay added in memory only (preview mode).");
+  aaAnnounceAgentIntroEligibility(p);
+  state.propertyTab="stays";state.stayView="landing";render();window.scrollTo(0,0);
+  return;
+ }
+ if(!sb||!state.user?.id){toast("You must be logged in to publish a Bingo Stay.");return}
+ const listingId=aaNewPropertyListingId();
+ const userId=state.user.id;
+ const files=(d.media||[]).map((m,i)=>{
+  try{
+   if(m.blob)return new File([m.blob],m.name||`stay-${i}.webm`,{type:m.blob.type||"video/webm"});
+   if(String(m.url||"").startsWith("data:")){
+    const blob=aaDataUrlToBlob(m.url);
+    if(!blob)return null;
+    return new File([blob],m.name||`stay-${i}`,{type:blob.type||(m.type==="video"?"video/webm":"image/jpeg")});
+   }
+  }catch(e){}
+  return null;
+ }).filter(Boolean);
+ const upload=await aaUploadPropertyMedia(files,userId,listingId);
+ if(upload.error){toast("Media upload failed: "+String(upload.error.message||upload.error));return}
+ const payload={
+  id:listingId,user_id:userId,listing_kind:"stay",
   title:d.title,type:d.type||AA_STAY_TYPES[0],purpose:"Short Stay",
-  sellerName:aaOwnProfileName(),
   duration:d.duration||"Short-term",
-  price:Number(d.nightlyRate||0),cleaningFee:Number(d.cleaningFee||0),
-  contactPhone:String(d.contactPhone||"").replace(/\s+/g,""),
+  price:Number(d.nightlyRate||0),cleaning_fee:Number(d.cleaningFee||0),
+  contact_phone:String(d.contactPhone||"").replace(/\s+/g,""),
   county:d.county||"",town:d.town||"",bedrooms:d.bedrooms||"",bathrooms:d.bathrooms||"",
-  beds:d.beds||"",maxGuests:d.maxGuests||"",rooms:d.rooms||[],amenities:d.amenities||[],
-  rules:d.rules||[],customRules:d.customRules||"",mapsLink:d.mapsLink||"",directions:d.directions||"",
-  checkIn:d.checkIn||"",checkOut:d.checkOut||"",keyMethod:d.keyMethod||"",securityCode:d.securityCode||"",
-  description:`${d.bedrooms||"?"} bed · ${d.bathrooms||"?"} bath · sleeps ${d.maxGuests||"?"}. ${(d.amenities||[]).join(", ")}`,
-  media:d.media||[],created_at:new Date().toISOString(),
-  ...aaConsumePendingAgentBusinessTag()};
- const a=aaProperties();a.unshift(p);aaV69Write("aa_v69_properties",a);
+  beds:d.beds||"",max_guests:d.maxGuests||"",rooms:d.rooms||[],amenities:d.amenities||[],
+  house_rules:d.rules||[],custom_rules:d.customRules||"",maps_link:d.mapsLink||"",directions:d.directions||"",
+  check_in:d.checkIn||"",check_out:d.checkOut||"",key_method:d.keyMethod||"",
+  description,media:upload.media,status:"published"
+ };
+ const ins=await aaInsertPropertyListing(payload);
+ if(ins.error){
+  await aaDeleteUploadedPropertyMedia(upload.paths);
+  toast("Could not save Bingo Stay: "+String(ins.error.message||ins.error));
+  return;
+ }
+ const verify=await aaVerifyPublishedProperty(listingId);
+ if(verify.error){
+  toast("Bingo Stay could not be verified after saving: "+String(verify.error.message||verify.error));
+  return;
+ }
+ const mapped=aaMapPropertyRow(verify.data);
+ if(!Array.isArray(state.propertyListings))state.propertyListings=[];
+ state.propertyListings.unshift(mapped);
  state.stayDraft={rooms:[],amenities:[],rules:[]};
  toast("Bingo Stay published. Your private access code stays hidden from the public listing.");
- aaAnnounceAgentIntroEligibility(p);
+ aaAnnounceAgentIntroEligibility(mapped);
  state.propertyTab="stays";state.stayView="landing";render();window.scrollTo(0,0);
 }
 function aaStayHubHTML(){
@@ -8924,9 +9146,33 @@ function aaPropertyListHTML(a,mine){if(!a.length)return `<div class="aa-v69-card
  const actions=isStay
   ?`<div class="details-actions"><button class="btn" onclick='aaStayCall(${JSON.stringify(p.contactPhone||"")})'>Call</button><button class="btn" onclick='aaStayInbox(${JSON.stringify({id:p.id,title:p.title,contactPhone:p.contactPhone,nightlyRate:p.price,hostName:p.sellerName||"Host"})})'>Inbox</button><button class="btn" onclick='aaStayRequestViewing(${JSON.stringify({id:p.id,title:p.title,contactPhone:p.contactPhone,nightlyRate:p.price,hostName:p.sellerName||"Host"})})'>Request Viewing</button><button class="btn btn-gold" onclick='aaStayNegotiate(${JSON.stringify({id:p.id,title:p.title,nightlyRate:p.price})})'>Negotiate</button></div>`
   :`<div class="details-actions"><button class="btn" onclick="toast('Viewing request messaging will use the connected backend.')">Request Viewing</button><button class="btn btn-red" onclick="toast('Price negotiation will open Bingo Chat once the property backend is connected.')">Negotiate Price</button></div>`;
- return `<article class="aa-v69-card"><div style="position:relative">${p.media?.[0]?.type==='video'?`<video src="${bingoSafeMediaAttr(p.media[0].url)}" controls playsinline style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#000"></video>`:`<img src="${bingoSafeMediaAttr(p.media?.[0]?.url||'')}" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#111" alt="">`}<span class="badge badge-red" style="position:absolute;top:8px;left:8px">${esc(isStay?(p.duration||'Short-term'):(p.purpose||'PROPERTY'))}</span></div><h3>${esc(p.title)}</h3><div class="price">${priceLine}</div><div class="meta">${esc(p.type||'Property')} · ${esc(p.town||'')}, ${esc(p.county||'')}</div><p>${esc(p.description||'')}</p>${actions}${mine?`<button class="btn" style="margin-top:8px" onclick="aaDeleteProperty('${esc(p.id)}')">Delete</button>`:''}</article>`;
+ return `<article class="aa-v69-card"><div style="position:relative">${p.media?.[0]?.type==='video'?`<video src="${bingoSafeMediaAttr(p.media[0].url)}" controls playsinline style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#000"></video>`:`<img src="${bingoSafeMediaAttr(p.media?.[0]?.url||'')}" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#111" alt="">`}<span class="badge badge-red" style="position:absolute;top:8px;left:8px">${esc(isStay?(p.duration||'Short-term'):(p.purpose||'PROPERTY'))}</span></div><h3>${esc(p.title)}</h3>${p._localOnly?`<div class="notice" style="margin:2px 0">Local only — not visible on other devices</div>`:''}<div class="price">${priceLine}</div><div class="meta">${esc(p.type||'Property')} · ${esc(p.town||'')}, ${esc(p.county||'')}</div><p>${esc(p.description||'')}</p>${actions}${mine?`<button class="btn" style="margin-top:8px" onclick="aaDeleteProperty('${esc(p.id)}')">Delete</button>`:''}</article>`;
 }).join('')}</div>`}
-function aaDeleteProperty(id){aaV69Write('aa_v69_properties',aaProperties().filter(x=>String(x.id)!==String(id)));aaOpenProperties('mine')}
+async function aaDeleteProperty(id){
+ const item=aaProperties().find(x=>String(x.id)===String(id));
+ if(!item)return;
+ if(!confirm('Delete this listing? This cannot be undone.'))return;
+ if(item._localOnly){
+  aaV69Write('aa_v69_properties',aaV69Read('aa_v69_properties',[]).filter(x=>String(x.id)!==String(id)));
+  aaOpenProperties('mine');
+  return;
+ }
+ if(!sb||!state.user?.id||String(item.user_id||'')!==String(state.user.id)){toast('You can only delete your own listing.');return}
+ const del=await sb.from('property_listings').delete().eq('id',id).eq('user_id',state.user.id);
+ if(del.error){toast('Could not delete listing: '+String(del.error.message||del.error));return}
+ if(Array.isArray(state.propertyListings))state.propertyListings=state.propertyListings.filter(x=>String(x.id)!==String(id));
+ const paths=(Array.isArray(item.media)?item.media:[]).map(m=>m.path).filter(Boolean);
+ if(paths.length){
+  try{
+   const rm=await sb.storage.from('property-media').remove(paths);
+   if(rm.error)toast('Listing deleted. Some media files could not be removed from storage.');
+   else toast('Listing deleted.');
+  }catch(e){toast('Listing deleted. Some media files could not be removed from storage.')}
+ }else{
+  toast('Listing deleted.');
+ }
+ aaOpenProperties('mine');
+}
 function aaFoodHTML(){const tab=state.foodTab||'browse', all=aaFoods(), visible=all.filter(aaFoodActive);return `<section style="padding:18px 0 105px"><h2>Food & Home Delivery</h2><p class="notice">Restaurants and food businesses use a paid monthly advertising subscription. KES 1,000 per 30 days via M-Pesa. The counter runs from 30 days down to 0.</p><div class="aa-v69-tabs"><button class="btn ${tab==='browse'?'btn-red':''}" onclick="aaOpenFood('browse')">Browse Food</button><button class="btn ${tab==='post'?'btn-red':''}" onclick="aaOpenFood('post')">Post Food Business</button><button class="btn ${tab==='mine'?'btn-red':''}" onclick="aaOpenFood('mine')">My Food Business</button></div>${tab==='post'?aaFoodPostHTML():tab==='mine'?aaFoodMineHTML(all.filter(x=>String(x.user_id||'')===String(state.user?.id||'')||x.local_owner)):aaFoodListHTML(visible)}</section>`}
 function aaFoodPostHTML(){return `<div class="aa-v69-card"><h3>Create Food Business Listing</h3><form onsubmit="aaSubmitFood(event)"><div class="form-grid"><label>Business Name<input required name="business_name"></label><label>Category<select name="category">${AA_FOOD_TYPES.map(x=>`<option>${esc(x)}</option>`).join('')}</select></label><label>County<input required name="county"></label><label>Town / Area<input required name="town"></label><label>Delivery Area<input required name="delivery_area" placeholder="Nyali, Bamburi, Mombasa CBD"></label><label>Phone<input required name="phone" type="tel"></label><label>WhatsApp<input name="whatsapp" type="tel"></label><label>Opening Hours<input name="opening_hours" placeholder="8:00 AM - 11:00 PM"></label><label>Price Range<input name="price_range" placeholder="KES 300 - 2,500"></label><label>Home Delivery<select name="delivery_available"><option value="yes">Yes</option><option value="no">No</option></select></label><label class="full">Description<textarea required name="description" rows="4"></textarea></label><label class="full">Food Photos / Videos<input id="aaFoodMedia" type="file" accept="image/*,video/*" multiple></label></div><div class="details-actions" style="margin-top:10px"><button class="btn" type="button" onclick="aaOpenDualCamera('food')">Record Video</button><button class="btn btn-red" type="submit">Save Business</button></div><div id="aaFoodRecorded" class="aa-v69-media-grid"></div></form></div>`}
 async function aaSubmitFood(e){e.preventDefault();if(!state.isLoggedIn&&!state.testMode){openAuth('login');return}const fd=new FormData(e.target);const picked=await aaFileToLocalMedia(document.getElementById('aaFoodMedia')?.files,6);const rec=state.v69Recorded?.food?[state.v69Recorded.food]:[];const f={id:'food_'+Date.now(),user_id:state.user?.id||'',local_owner:true,kind:'food',business_name:fd.get('business_name'),title:fd.get('business_name'),category:fd.get('category'),county:fd.get('county'),town:fd.get('town'),delivery_area:fd.get('delivery_area'),phone:fd.get('phone'),whatsapp:fd.get('whatsapp'),opening_hours:fd.get('opening_hours'),price_range:fd.get('price_range'),delivery_available:fd.get('delivery_available')==='yes',description:fd.get('description'),media:[...rec,...picked].slice(0,10),status:'inactive',subscription_expires_at:null,created_at:new Date().toISOString()};const a=aaFoods();a.unshift(f);aaV69Write('aa_v69_foods',a);if(state.v69Recorded)delete state.v69Recorded.food;toast('Food business saved. Activate a subscription to appear publicly.');aaOpenFood('mine')}
