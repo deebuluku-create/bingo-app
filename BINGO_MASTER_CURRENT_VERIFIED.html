@@ -4823,7 +4823,7 @@ var state = {
  foodMediaViewer:null, foodBusinesses:[], foodEditId:null, foodPublishBusy:false, foodPublishProgress:"",
  foodMenuItemsByBusiness:{}, foodMenuBusinessId:"", foodItemEditId:null, foodItemPublishBusy:false, foodItemPublishProgress:"",
  foodItemPrepType:"ready_made", foodItemAvailable:true, foodItemPreviewOpen:false, foodItemDetailId:"", foodItemDraftFields:null,
- pendingMemberIntent:null,
+ pendingMemberIntent:null, memberEntranceOpen:false,
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
  successOpen:false, callTarget:null, isLoggedIn:false, authBusy:false, authError:"", lastOtpTouch:0, resendUntil:0, resendTimer:null, visits:Number(aaStorage.get("aa_visits")||0), shareCount:Number(aaStorage.get("aa_share_count")||0),
@@ -5554,6 +5554,56 @@ async function aaLoadAuthenticatedProfile(authUser){
  save();
 }
 
+function aaRouteAfterAuthenticatedEntry(){
+ if(aaIsSuperUser()){state.view="super-admin";render();return}
+ if(state.view==="member-central"||state.memberEntranceOpen)return;
+ state.memberEntranceOpen=true;render();
+ const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
+ setTimeout(()=>{state.memberEntranceOpen=false;state.view="member-central";render();window.scrollTo(0,0)},reduced?250:1100);
+}
+
+function aaMemberEntranceHTML(){
+ return `<div class="aa-member-entrance" role="status" aria-live="polite">
+  <div class="aa-member-entrance-inner">
+   <img src="${BINGO_LOGO_SRC}" alt="Bingo" class="aa-member-entrance-logo">
+   <div class="aa-member-entrance-text">Welcome to Bingo</div>
+  </div>
+ </div>`;
+}
+
+function aaOpenMemberCentral(){
+ if(!state.isLoggedIn){openAuth("login");return}
+ if(typeof aaRememberPage==="function")aaRememberPage();
+ state.view="member-central";render();window.scrollTo(0,0);
+}
+
+function aaMemberCentralHTML(){
+ const first=esc(state.user?.firstName||"there");
+ const tiles=[
+  {label:"Home",icon:"⌂",desc:"Video feed, following &amp; trending",action:"goHome()"},
+  {label:"Marketplace",icon:"▱",desc:"Vehicles, food, categories &amp; more",action:"aaOpenMarket()"},
+  {label:"Bingo Stays",icon:"▥",desc:"Find a stay, list a property",action:"aaOpenProperties('browse')"},
+  {label:"Jobs and CV",icon:"▣",desc:"Find jobs, post jobs &amp; CVs",action:"openJobs('jobs')"},
+  {label:"Community",icon:"◆",desc:"Solution rooms, live &amp; topics",action:"aaOpenSolutionRooms()"},
+  {label:"My Bingo",icon:"◉",desc:"Profile, inbox &amp; your posts",action:"goAccount()"}
+ ];
+ return `<section class="aa-member-central">
+  <div class="aa-member-central-head">
+   <button class="btn" onclick="goBack()">← Back</button>
+   <div class="aa-member-central-kicker">WELCOME BACK</div>
+   <h2>Hi ${first}, what would you like to do?</h2>
+  </div>
+  <button type="button" class="aa-member-central-topics" onclick="aaOpenBingoTopicsFeed()">
+   <span>💬</span>
+   <div><b>Bingo Topics</b><small>See what Kenyans are talking about right now</small></div>
+  </button>
+  <div class="aa-member-central-grid">
+   ${tiles.map(t=>`<button type="button" class="aa-member-central-tile" onclick="${t.action}"><span class="aa-member-central-ico">${t.icon}</span><b>${esc(t.label)}</b><small>${t.desc}</small></button>`).join("")}
+  </div>
+  <button type="button" class="aa-member-central-more" onclick="if(typeof aaAssistantOpenDrawer==='function')aaAssistantOpenDrawer()">More · Open full menu</button>
+ </section>`;
+}
+
 
 async function aaResendSignupConfirmation(){
  const email=String(state.authDraft?.email||state.user?.email||"").trim().toLowerCase();
@@ -5638,7 +5688,7 @@ async function fastAuthContinue(){
     return;
    }
    if(state.pendingMemberIntent){aaResumeMemberIntent();return}
-   goHome();
+   aaRouteAfterAuthenticatedEntry();
    return;
   }
   state.authBusy=false;
@@ -5662,7 +5712,7 @@ async function fastLoginContinue(){
  if(state.testMode){
   if(!email||!password){state.authError="Enter any test email and password to inspect the signed-in application.";render();return}
   aaTestLogin();state.authOpen=false;state.authError="";
-  if(state.pendingMemberIntent)aaResumeMemberIntent();else render();
+  if(state.pendingMemberIntent)aaResumeMemberIntent();else aaRouteAfterAuthenticatedEntry();
   toast("temporary signed-in preview. No real login occurred.");return;
  }
  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){state.authError="Please enter your email address.";render();return}
@@ -5688,7 +5738,7 @@ async function fastLoginContinue(){
    return;
   }
   if(state.pendingMemberIntent){aaResumeMemberIntent();return}
-  goHome();
+  aaRouteAfterAuthenticatedEntry();
  }catch(error){
   console.error("Bingo login error:",error);
   state.authBusy=false;
@@ -10498,6 +10548,7 @@ function render(){
   ${state.view==="inbox"?inboxHTML():""}
   ${state.view==="chat"&&state.selected?chatHTML(state.selected):""}
   ${state.view==="super-admin"?aaSuperUserDashboardHTML():""}
+  ${state.view==="member-central"?aaMemberCentralHTML():""}
   ${state.view==="food-menu"?aaFoodMenuHTML():""}
   ${state.view==="food-item-form"?aaFoodItemFormHTML():""}
   ${state.view==="food-item-detail"?aaFoodItemDetailHTML():""}
@@ -10588,18 +10639,29 @@ ${state.view==="home"?`<div class="aa-assistant-nav-wrap" id="aaAssistantNavWrap
       </section>
 
       <div class="aa-assistant-drawer-buttons aa-future-grid">
+        <div class="aa-drawer-group-label">Home</div>
         <button class="nav-btn ${state.view==="home"?"active":""}" onclick="aaAssistantNavigate(goHome)"><span class="aa-v83-nav-ico">⌂</span><b>Home</b></button>
         <button class="nav-btn ${state.view==="search"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenSearch('videos'))"><span class="aa-v83-nav-ico">⌕</span><b>Search</b></button>
+
+        <div class="aa-drawer-group-label">Marketplace</div>
         <button class="nav-btn aa-future-post ${state.view==="add"?"active":""}" onclick="aaAssistantNavigate(()=>{if(typeof aaDU1OpenCreate==='function')aaDU1OpenCreate();else openPostVehicle();})"><span class="aa-v83-nav-ico">＋</span><b>Post</b><small>Sell Anything</small></button>
         <button class="nav-btn ${state.view==="market"||state.view==="spare-add"||state.view==="spare-details"?"active":""}" onclick="aaAssistantNavigate(aaOpenMarket)"><span class="aa-v83-nav-ico">▱</span><b>Market</b></button>
-        <button class="nav-btn ${["solutions","solution-room","community-groups","community-group","community-group-create"].includes(state.view)?"active":""}" onclick="aaAssistantNavigate(aaOpenSolutionRooms)"><span class="aa-v83-nav-ico">◆</span><b>Rooms</b></button>
-        <button class="nav-btn ${(state.view==="profile"||state.view==="edit-profile"||(state.view==="seller"&&aaIsOwnSeller(state.seller)))?"active":""}" onclick="aaAssistantNavigate(goAccount)"><span class="aa-v83-nav-ico">◉</span><b>Profile</b></button>
-        <button class="nav-btn ${state.view==="properties"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenProperties('browse'))"><span class="aa-v83-nav-ico">▥</span><b>Properties</b></button>
         <button class="nav-btn ${state.view==="food"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenFood('browse'))"><span class="aa-v83-nav-ico">🍽</span><b>Food</b></button>
-        <button class="nav-btn ${state.view==="jobs"?"active":""}" onclick="aaAssistantNavigate(()=>openJobs('jobs'))"><span class="aa-v83-nav-ico">▣</span><b>Jobs/CVs</b></button>
         <button class="nav-btn" onclick="aaAssistantCloseDrawer();if(typeof window.bgcOpenGrid==='function')window.bgcOpenGrid();"><span class="aa-v83-nav-ico">▦</span><b>Categories</b><small>All 30</small></button>
+
+        <div class="aa-drawer-group-label">Bingo Stays</div>
+        <button class="nav-btn ${state.view==="properties"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenProperties('browse'))"><span class="aa-v83-nav-ico">▥</span><b>Properties</b></button>
+
+        <div class="aa-drawer-group-label">Jobs and CV</div>
+        <button class="nav-btn ${state.view==="jobs"?"active":""}" onclick="aaAssistantNavigate(()=>openJobs('jobs'))"><span class="aa-v83-nav-ico">▣</span><b>Jobs/CVs</b></button>
+
+        <div class="aa-drawer-group-label">Community</div>
+        <button class="nav-btn ${["solutions","solution-room","community-groups","community-group","community-group-create"].includes(state.view)?"active":""}" onclick="aaAssistantNavigate(aaOpenSolutionRooms)"><span class="aa-v83-nav-ico">◆</span><b>Rooms</b></button>
         <button class="nav-btn ${state.view==="wall"?"active":""}" onclick="aaAssistantNavigate(aaOpenBingoWall)"><span class="aa-v83-nav-ico">◫</span><b>Bingo Wall</b></button>
         <button class="nav-btn ${state.view==="topics"?"active":""}" onclick="aaAssistantNavigate(aaOpenBingoTopicsFeed)"><span class="aa-v83-nav-ico">💬</span><b>Bingo Topics</b></button>
+
+        <div class="aa-drawer-group-label">My Bingo</div>
+        <button class="nav-btn ${(state.view==="profile"||state.view==="edit-profile"||(state.view==="seller"&&aaIsOwnSeller(state.seller)))?"active":""}" onclick="aaAssistantNavigate(goAccount)"><span class="aa-v83-nav-ico">◉</span><b>Profile</b></button>
       </div>
 
       <div class="aa-future-utility-row">
@@ -10612,7 +10674,7 @@ ${state.view==="home"?`<div class="aa-assistant-nav-wrap" id="aaAssistantNavWrap
     </div>
   </nav>
  </div>`:""}
- ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.adOpen?aaAdHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.adOpen?aaAdHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   aaDynamicAdAfterRender();
@@ -12608,7 +12670,7 @@ function aaCloseTopOverlay(){
       if(event==="SIGNED_IN"&&session?.user&&!state.testMode){
        await aaLoadAuthenticatedProfile(session.user).catch(()=>{});
        aaStartPresence();
-       if(state.pendingMemberIntent&&!state.redirectAfterLogin){aaResumeMemberIntent();}else{render();}
+       if(state.pendingMemberIntent&&!state.redirectAfterLogin){aaResumeMemberIntent();}else if(!state.redirectAfterLogin){aaRouteAfterAuthenticatedEntry();}else{render();}
        aaSyncBoostNotifications().catch(()=>{});
        return;
       }
@@ -17628,6 +17690,19 @@ No other mother-snippet functions are changed.
 })();
 </script>
 
+<script id="bingo-change05-logo-routes-member-central">
+(function(){
+  var prevOpenBingoCockpit=window.openBingoCockpit;
+  window.openBingoCockpit=function(){
+    try{
+      if(window.state&&window.state.isLoggedIn){
+        if(typeof window.aaOpenMemberCentral==="function"){window.aaOpenMemberCentral();return}
+      }
+    }catch(e){}
+    if(typeof prevOpenBingoCockpit==="function")return prevOpenBingoCockpit();
+  };
+})();
+</script>
 
 
 <script id="bingo-fix03-chat-id-sync">
@@ -18223,6 +18298,38 @@ Preserve all existing onclick actions, routes, forms and button wording.
 }
 </style>
 
+
+<style id="bingo-change05-member-entrance-style">
+#auto-arcade-widget .aa-member-entrance{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 40%,rgba(243,190,43,.16),rgba(3,7,19,.94) 70%);animation:aaMemberEntranceFade .35s ease}
+#auto-arcade-widget .aa-member-entrance-inner{text-align:center}
+#auto-arcade-widget .aa-member-entrance-logo{width:96px;height:96px;object-fit:contain;animation:aaMemberEntrancePop .9s cubic-bezier(.34,1.56,.64,1)}
+#auto-arcade-widget .aa-member-entrance-text{margin-top:14px;color:#fff;font-weight:900;font-size:14px;letter-spacing:.02em;text-shadow:0 0 14px rgba(243,190,43,.5)}
+@keyframes aaMemberEntranceFade{from{opacity:0}to{opacity:1}}
+@keyframes aaMemberEntrancePop{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.08);opacity:1}100%{transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){
+  #auto-arcade-widget .aa-member-entrance{animation:none}
+  #auto-arcade-widget .aa-member-entrance-logo{animation:none}
+}
+
+#auto-arcade-widget .aa-member-central{max-width:640px;margin:0 auto;padding:18px 14px 90px}
+#auto-arcade-widget .aa-member-central-head{margin-bottom:14px}
+#auto-arcade-widget .aa-member-central-head .btn{margin-bottom:10px}
+#auto-arcade-widget .aa-member-central-kicker{font-size:10px;font-weight:900;letter-spacing:.14em;color:var(--bingo-gold,#f3be2b)}
+#auto-arcade-widget .aa-member-central-head h2{margin:4px 0 0;font-size:19px}
+#auto-arcade-widget .aa-member-central-topics{width:100%;display:flex;align-items:center;gap:10px;text-align:left;padding:14px;margin:14px 0}
+#auto-arcade-widget .aa-member-central-topics span{font-size:20px}
+#auto-arcade-widget .aa-member-central-topics small{display:block;font-weight:600;font-size:10.5px;margin-top:2px;opacity:.75}
+#auto-arcade-widget .aa-member-central-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media(min-width:520px){#auto-arcade-widget .aa-member-central-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+#auto-arcade-widget .aa-member-central-tile{padding:16px 10px;text-align:center}
+#auto-arcade-widget .aa-member-central-tile .aa-member-central-ico{display:block;font-size:22px;margin-bottom:6px}
+#auto-arcade-widget .aa-member-central-tile b{display:block;font-size:12.5px}
+#auto-arcade-widget .aa-member-central-tile small{display:block;font-size:9.5px;margin-top:3px;font-weight:600;opacity:.7}
+#auto-arcade-widget .aa-member-central-more{width:100%;margin-top:16px;padding:11px;font-weight:800;font-size:11.5px}
+
+#auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label{grid-column:1/-1;color:var(--aa-future-gold,#f3be2b);font-size:9.5px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin:8px 0 -2px;opacity:.85}
+#auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label:first-child{margin-top:0}
+</style>
 
 <style id="bgc-generic-categories-style">
 /* Reuses .du1-overlay / .du1-modal / .du1-head / .du1-close chrome already defined above. */
