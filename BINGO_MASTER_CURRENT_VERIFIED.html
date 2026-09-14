@@ -4827,7 +4827,7 @@ var state = {
  moderationCases:[], moderationPanelTarget:null,
  adCampaigns:[], adDraft:null, adDraftId:null, adQueue:[], adSlotState:{},
  boostPlacementId:"feed-priority", boostQuote:null, boostQuoteBusy:false, successMessage:"",
- agentSalarySummary:null, agentManagedBusinesses:[], agentInvitations:[], agentPermissionCache:{}, agentInviteTarget:null, agentSalaryDirectory:[],
+ agentSalarySummary:null, agentManagedBusinesses:[], agentInvitations:[], agentPermissionCache:{}, agentInviteTarget:null, agentSalaryDirectory:[], agentProgressBulletin:null, agentWithdrawalsBackend:[],
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
  successOpen:false, callTarget:null, isLoggedIn:false, authBusy:false, authError:"", lastOtpTouch:0, resendUntil:0, resendTimer:null, visits:Number(aaStorage.get("aa_visits")||0), shareCount:Number(aaStorage.get("aa_share_count")||0),
@@ -11543,6 +11543,7 @@ function aaOpenSuperUserDashboard(){
  aaLoadModerationCases();
  aaLoadAdCampaigns();
  aaLoadAgentSalaryDirectory();
+ aaLoadAgentWithdrawalsBackend();
  render();window.scrollTo(0,0);
 }
 function aaReturnToSuperUserDashboard(){aaOpenSuperUserDashboard()}
@@ -12044,14 +12045,29 @@ async function aaLoadAgentSalarySummary(){
  state.agentSalarySummary=result.data||null;
  return state.agentSalarySummary;
 }
+/* Agent target update: the authoritative monthly target is 1,000 unique
+   qualified clients (half salary unlocks at 500). The earlier two-client
+   rule is retired everywhere below — nothing here still compares against 2. */
+const AA_AGENT_MONTHLY_TARGET=1000;
+const AA_AGENT_HALF_TARGET=500;
+const AA_AGENT_FULL_SALARY=35000;
+const AA_AGENT_HALF_SALARY=17500;
+const AA_AGENT_WITHDRAWAL_MINIMUM=10000;
+function aaAgentSalaryTier(count){
+ const n=Math.max(0,Number(count||0));
+ if(n>=AA_AGENT_MONTHLY_TARGET)return {tier:"full",amount:AA_AGENT_FULL_SALARY,label:"FULL SALARY"};
+ if(n>=AA_AGENT_HALF_TARGET)return {tier:"half",amount:AA_AGENT_HALF_SALARY,label:"HALF SALARY"};
+ return {tier:"none",amount:0,label:"SALARY LOCKED"};
+}
 function aaAgentSalaryStatusHTML(summary){
  if(!summary)return `<section class="aa-v69-card aa-agent-salary-card"><p class="notice">Salary information is not available yet.</p></section>`;
  const qualifiedClients=Math.max(0,Number(summary.qualified_clients||0));
- const requiredClients=Number(summary.required_clients||2);
- const progress=Math.min(100,qualifiedClients/requiredClients*100);
+ const targetClients=Number(summary.target_clients||AA_AGENT_MONTHLY_TARGET);
+ const progress=Math.min(100,qualifiedClients/targetClients*100);
  const salaryStatus=String(summary.salary_status||"locked");
  const salaryUnlocked=["unlocked","approved","paid"].includes(salaryStatus);
- const statusLabel=salaryUnlocked?salaryStatus.toUpperCase():"SALARY LOCKED";
+ const tier=aaAgentSalaryTier(qualifiedClients);
+ const statusLabel=salaryStatus==="approved"?"APPROVED":salaryStatus==="paid"?"PAID":tier.label;
  const startLabel=summary.cycle_start?new Date(summary.cycle_start).toLocaleDateString("en-KE",{day:"numeric",month:"short",year:"numeric"}):"";
  const endLabel=summary.cycle_end?new Date(summary.cycle_end).toLocaleDateString("en-KE",{day:"numeric",month:"short",year:"numeric"}):"";
  return `<section class="aa-v69-card aa-agent-salary-card">
@@ -12059,12 +12075,49 @@ function aaAgentSalaryStatusHTML(summary){
    <div><h3>Monthly Agent Salary</h3><div class="meta">${esc(startLabel)} – ${esc(endLabel)}</div></div>
    <span class="aa-sub-pill ${salaryUnlocked?"active":"expired"}">${esc(statusLabel)}</span>
   </div>
-  <div class="aa-agent-salary-amount">KSh 35,000</div>
+  <div class="aa-agent-salary-amount">KSh ${money(Number(summary.eligible_salary??tier.amount))}</div>
   <div class="aa-agent-client-progress"><div class="aa-agent-client-progress-fill" style="width:${progress}%"></div></div>
-  <div class="aa-agent-client-count"><strong>${Math.min(qualifiedClients,requiredClients)} of ${requiredClients} qualified clients</strong></div>
-  ${salaryUnlocked?`<p>You have reached your client target for this salary cycle.</p>`:`<p>Obtain ${Math.max(0,requiredClients-qualifiedClients)} more qualified client${requiredClients-qualifiedClients===1?"":"s"} to unlock this month's salary.</p>`}
+  <div class="aa-agent-client-count"><strong>${qualifiedClients.toLocaleString()} of ${targetClients.toLocaleString()} qualified clients</strong></div>
+  ${tier.tier==="full"?`<p>Full salary target reached for this cycle.</p>`:tier.tier==="half"?`<p>Half salary unlocked. ${Math.max(0,targetClients-qualifiedClients).toLocaleString()} more clients unlock KSh ${money(AA_AGENT_FULL_SALARY)}.</p>`:`<p>${Math.max(0,AA_AGENT_HALF_TARGET-qualifiedClients).toLocaleString()} more clients unlock KSh ${money(AA_AGENT_HALF_SALARY)}.</p>`}
   ${summary.payment_reference?`<div class="notice">Payment reference: ${esc(summary.payment_reference)}</div>`:""}
  </section>`;
+}
+async function aaLoadAgentProgressBulletin(){
+ if(!aaCanUseAgentDashboard()||!sb){state.agentProgressBulletin=null;return null}
+ const {data,error}=await sb.rpc("bingo_agent_progress_bulletin");
+ if(error){console.error("Agent progress bulletin failed",error);state.agentProgressBulletin=null;return null}
+ state.agentProgressBulletin=data||null;
+ return state.agentProgressBulletin;
+}
+function aaAgentProgressBulletinHTML(s){
+ if(!s)return "";
+ const count=Math.max(0,Number(s.qualified_clients||0));
+ const pct=Math.min(100,Number(s.progress_percent||0));
+ const tier=aaAgentSalaryTier(count);
+ const toHalf=Math.max(0,AA_AGENT_HALF_TARGET-count),toFull=Math.max(0,AA_AGENT_MONTHLY_TARGET-count);
+ const commissionAvailable=Number(s.commission_available||0);
+ return `<section class="aa-agent-bulletin aa-v69-card" aria-live="polite">
+  <div class="aa-agent-bulletin-head"><h3>Your 30 Day Agent Target</h3>
+   <span class="aa-sub-pill ${tier.tier==="none"?"expired":"active"}">${esc(tier.label)}</span></div>
+  <div class="aa-agent-target-number"><b>${count.toLocaleString()}</b><span> / ${AA_AGENT_MONTHLY_TARGET.toLocaleString()} clients</span></div>
+  <div class="aa-agent-target-track"><span style="width:${pct}%"></span></div>
+  <p><b>${pct.toFixed(1)}%</b> complete. You are <b>${esc(String(s.pace_status||"calculating").replace("_"," "))}</b>.</p>
+  ${toHalf?`<p>${toHalf.toLocaleString()} more clients unlock KSh ${money(AA_AGENT_HALF_SALARY)}.</p>`:""}
+  ${toFull?`<p>${toFull.toLocaleString()} more clients unlock KSh ${money(AA_AGENT_FULL_SALARY)}.</p>`:`<p>Full salary target reached.</p>`}
+  <p>Commission available: <b>KSh ${commissionAvailable.toLocaleString()}</b>. Withdrawals open at KSh ${AA_AGENT_WITHDRAWAL_MINIMUM.toLocaleString()}.</p>
+  ${commissionAvailable>=AA_AGENT_WITHDRAWAL_MINIMUM?`<button type="button" class="btn btn-gold" style="width:100%" onclick="aaRequestCommissionWithdrawal()">Request Commission Withdrawal</button>`:""}
+  <small>Cycle: ${esc(s.cycle_start_label||"")} – ${esc(s.cycle_end_label||"")} · Next update ${esc(s.next_update_label||"")}</small>
+ </section>`;
+}
+async function aaRequestCommissionWithdrawal(){
+ if(!sb)return;
+ const available=Number(state.agentProgressBulletin?.commission_available||0);
+ if(available<AA_AGENT_WITHDRAWAL_MINIMUM){toast(`Commission withdrawals open at KSh ${AA_AGENT_WITHDRAWAL_MINIMUM.toLocaleString()}. Available: KSh ${available.toLocaleString()}.`);return}
+ const {error}=await sb.rpc("bingo_agent_request_commission_withdrawal",{p_amount:available});
+ if(error){toast("Withdrawal request failed: "+String(error.message||error));return}
+ toast("Commission withdrawal request submitted.");
+ await aaLoadAgentProgressBulletin();
+ render();
 }
 async function aaLoadAgentManagedBusinesses(){
  if(!aaCanUseAgentDashboard()||!sb){state.agentManagedBusinesses=[];return}
@@ -12084,7 +12137,7 @@ async function aaLoadAgentInvitations(){
 }
 async function aaLoadAgentDashboardExtras(){
  if(!aaCanUseAgentDashboard())return;
- await Promise.all([aaLoadAgentSalarySummary(),aaLoadAgentManagedBusinesses(),aaLoadAgentInvitations()]);
+ await Promise.all([aaLoadAgentSalarySummary(),aaLoadAgentManagedBusinesses(),aaLoadAgentInvitations(),aaLoadAgentProgressBulletin()]);
 }
 async function aaCanManageBusinessAsAgent(businessType,businessId,permission){
  if(!aaCanUseAgentDashboard()||!sb)return false;
@@ -12254,14 +12307,48 @@ async function aaAdminMarkAgentSalaryPaid(cycleId){
  await aaLoadAgentSalaryDirectory();
  render();
 }
+async function aaLoadAgentWithdrawalsBackend(){
+ if(!aaIsSuperUser()||!sb){state.agentWithdrawalsBackend=[];return}
+ try{
+  const {data,error}=await sb.from("bingo_agent_withdrawals").select("*").in("status",["pending","approved"]).order("requested_at",{ascending:false});
+  if(error)throw error;
+  state.agentWithdrawalsBackend=Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load Agent commission withdrawals.",String(e?.message||e));state.agentWithdrawalsBackend=[]}
+}
+async function aaReviewAgentWithdrawal(id,action){
+ if(!aaIsSuperUser()||!sb)return;
+ let reference=null;
+ if(action==="pay"){
+  reference=prompt("Enter the M-Pesa payment reference:");
+  if(!reference||!reference.trim()){toast("Enter the payment reference.");return}
+ }
+ if(action==="reject"&&!confirm("Reject this withdrawal request? The amount returns to the Agent's available commission."))return;
+ const {error}=await sb.rpc("bingo_admin_review_agent_withdrawal",{p_withdrawal_id:id,p_action:action,p_payment_reference:reference});
+ if(error){toast("Could not "+action+" this withdrawal: "+String(error.message||error));return}
+ toast("Withdrawal "+(action==="pay"?"marked paid":action+"d")+".");
+ await aaLoadAgentWithdrawalsBackend();
+ render();
+}
+function aaAgentWithdrawalsBackendHTML(){
+ const list=Array.isArray(state.agentWithdrawalsBackend)?state.agentWithdrawalsBackend:[];
+ if(!list.length)return `<p class="notice">No pending commission withdrawal requests.</p>`;
+ return list.map(w=>`<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
+  <b style="font-size:12px">KSh ${money(w.amount)}</b> <span class="meta">· requested ${new Date(w.requested_at).toLocaleString()}</span>
+  <span class="aa-sub-pill ${w.status==="approved"?"active":"expired"}" style="margin-left:6px">${esc(w.status.toUpperCase())}</span>
+  <div class="details-actions" style="margin-top:6px">
+   ${w.status==="pending"?`<button class="small-btn" onclick='aaReviewAgentWithdrawal(${JSON.stringify(w.id)},"approve")'>Approve</button><button class="small-btn" onclick='aaReviewAgentWithdrawal(${JSON.stringify(w.id)},"reject")'>Reject</button>`:""}
+   ${w.status==="approved"?`<button class="small-btn" onclick='aaReviewAgentWithdrawal(${JSON.stringify(w.id)},"pay")'>Mark Paid</button>`:""}
+  </div>
+ </div>`).join("");
+}
 function aaAgentSalaryDirectoryHTML(){
  const list=Array.isArray(state.agentSalaryDirectory)?state.agentSalaryDirectory:[];
  if(!list.length)return `<p class="notice">No approved Agents yet.</p>`;
  return list.map(a=>`<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
   <b style="font-size:12px">${esc(a.full_name||a.email)}</b> <span class="meta">· ${esc(a.territory||"No territory")}</span>
   <div class="meta">Appointed ${a.agent_since?new Date(a.agent_since).toLocaleString():"—"} · Status: ${esc(a.agent_status||"inactive")}</div>
-  ${a.cycle_id?`<div class="meta">Cycle ${a.cycle_number}: ${new Date(a.cycle_start).toLocaleDateString()} – ${new Date(a.cycle_end).toLocaleDateString()} · ${a.qualified_clients}/2 clients</div>
-   <span class="aa-sub-pill ${["unlocked","approved","paid"].includes(a.salary_status)?"active":"expired"}">${esc(String(a.salary_status||"locked").toUpperCase())}</span>
+  ${a.cycle_id?`<div class="meta">Cycle ${a.cycle_number}: ${new Date(a.cycle_start).toLocaleDateString()} – ${new Date(a.cycle_end).toLocaleDateString()} · ${Number(a.qualified_clients||0).toLocaleString()}/${Number(a.target_clients||AA_AGENT_MONTHLY_TARGET).toLocaleString()} clients</div>
+   <span class="aa-sub-pill ${["unlocked","approved","paid"].includes(a.salary_status)?"active":"expired"}">${esc(String(a.salary_status||"locked").toUpperCase())}${a.eligible_salary?` · KSh ${money(a.eligible_salary)}`:""}</span>
    ${a.payment_reference?`<div class="meta">Reference: ${esc(a.payment_reference)}</div>`:""}
    <div class="details-actions" style="margin-top:6px">
     ${a.salary_status==="unlocked"?`<button class="small-btn" onclick='aaAdminApproveAgentSalary(${JSON.stringify(a.cycle_id)})'>Approve Salary</button>`:""}
@@ -12330,6 +12417,7 @@ function aaAgentDashboardHTML(){
   <button class="btn" onclick="aaBackToMyProfile()">← Back to My Profile</button>
   <h2 style="margin-top:12px">Agent Dashboard</h2>
   <p class="notice" style="margin-top:0">Territory: <b style="color:var(--gold)">${esc(aaAgentTerritory()||"Not set")}</b> · This is the same Bingo account — switching modes never logs you out.</p>
+  ${aaAgentProgressBulletinHTML(state.agentProgressBulletin)}
   ${aaAgentSalaryStatusHTML(state.agentSalarySummary)}
   ${aaAgentPerformanceHTML()}
   <div class="dashboard-actions" style="margin-top:12px">
@@ -12512,6 +12600,11 @@ function aaSuperUserDashboardHTML(){
    <b>Agent Salaries</b>
    <p class="notice" style="margin-top:0">Each Agent's current monthly salary cycle. Approve only an unlocked cycle, then record payment with a reference.</p>
    ${aaAgentSalaryDirectoryHTML()}
+  </div>
+  <div class="boost-summary" style="margin-top:14px">
+   <b>Agent Commission Withdrawals</b>
+   <p class="notice" style="margin-top:0">Requests of KSh 10,000 or more against an Agent's server-verified commission balance.</p>
+   ${aaAgentWithdrawalsBackendHTML()}
   </div>
   <div class="boost-summary" style="margin-top:14px">
    <b>Audit Log</b>
@@ -19368,6 +19461,14 @@ Preserve all existing onclick actions, routes, forms and button wording.
 
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label{grid-column:1/-1;color:var(--aa-future-gold,#f3be2b);font-size:9.5px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin:8px 0 -2px;opacity:.85}
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label:first-child{margin-top:0}
+</style>
+
+<style id="bingo-agent-1000-target-style">
+#auto-arcade-widget .aa-agent-bulletin{display:grid;gap:10px;background:linear-gradient(145deg,#14253d,#0a1424);border:1px solid rgba(255,198,34,.58);box-shadow:0 12px 26px rgba(0,0,0,.24),0 0 20px rgba(255,193,7,.13)}
+#auto-arcade-widget .aa-agent-bulletin-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+#auto-arcade-widget .aa-agent-target-number b{font-size:clamp(25px,6vw,39px);color:#ffd343;text-shadow:0 0 15px rgba(255,205,55,.35)}
+#auto-arcade-widget .aa-agent-target-track{height:16px;overflow:hidden;border:1px solid rgba(255,201,47,.58);border-radius:999px;background:#050d19}
+#auto-arcade-widget .aa-agent-target-track span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#e9a400,#ffe56a);box-shadow:0 0 18px rgba(255,206,54,.55);transition:width .3s ease}
 </style>
 
 <style id="bingo-change09-boost-success-style">
