@@ -4823,6 +4823,7 @@ var state = {
  foodMediaViewer:null, foodBusinesses:[], foodEditId:null, foodPublishBusy:false, foodPublishProgress:"",
  foodMenuItemsByBusiness:{}, foodMenuBusinessId:"", foodItemEditId:null, foodItemPublishBusy:false, foodItemPublishProgress:"",
  foodItemPrepType:"ready_made", foodItemAvailable:true, foodItemPreviewOpen:false, foodItemDetailId:"", foodItemDraftFields:null,
+ pendingMemberIntent:null,
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
  successOpen:false, callTarget:null, isLoggedIn:false, authBusy:false, authError:"", lastOtpTouch:0, resendUntil:0, resendTimer:null, visits:Number(aaStorage.get("aa_visits")||0), shareCount:Number(aaStorage.get("aa_share_count")||0),
@@ -4938,7 +4939,7 @@ function filtered(){
  return a;
 }
 function isFav(id){return (state.favorites||[]).some(x=>String(x)===String(id))}
-function toggleFav(id){state.favorites=isFav(id)?state.favorites.filter(x=>String(x)!==String(id)):[...state.favorites,String(id)];save();render()}
+function toggleFav(id){if(!aaRequireMember({action:"save",targetId:id}))return;state.favorites=isFav(id)?state.favorites.filter(x=>String(x)!==String(id)):[...state.favorites,String(id)];save();render()}
 function reportListing(id){state.reportTarget=id;render()}
 function submitReport(){const c=state.listings.find(x=>x.id===state.reportTarget);const reason=document.getElementById("reportReason")?.value||"Other";if(!c)return;state.inbox.push({id:Date.now(),type:"report",candidateName:"Admin report",text:`Listing #${c.id} reported: ${reason}`,from:"System",archived:false,blocked:false,reported:true,createdAt:new Date().toISOString()});save();state.reportTarget=null;toast("Thank you. The listing has been flagged for review.")}
 
@@ -4980,7 +4981,7 @@ function aaCanCreateListing(){
  return aaOwnActiveListings().length<15;
 }
 function openPostVehicle(){
- if(!state.isLoggedIn){openAuth("register","/post-vehicle");return}
+ if(!aaRequireMember({action:"post",mode:"register",destination:"/post-vehicle"}))return;
  if(!aaCanCreateListing()){
   toast("You already have 15 active vehicle posts. Delete one or more listings before adding another.");
   goAccount();
@@ -5328,6 +5329,44 @@ function openAuth(mode="register",intent){
  state.authOpen=true;render();
 }
 function aaSetIntent(path){state.redirectAfterLogin=path||"";save()}
+/* ---- Common guest membership gate (Change 04) ----
+   Every member-only action (Like/Interested, Comment, Follow, Save,
+   Message, Post, Boost, account-attributed Share) funnels through
+   aaRequireMember/aaRunMemberAction instead of its own ad-hoc
+   isLoggedIn check, so a guest always lands on Sign Up/Log In with their
+   exact position remembered. Actions that must land on a specific new
+   page after signup (Post) still pass a destination, reusing the
+   existing openAuth(mode,destination)/redirectAfterLogin mechanism;
+   everything else resumes to the same view and scroll/feed position. */
+function aaRequireMember(intent){
+ if(state.isLoggedIn&&state.user?.id)return true;
+ intent=intent||{};
+ state.pendingMemberIntent={
+  action:intent.action||"",
+  targetId:intent.targetId!=null?String(intent.targetId):"",
+  view:state.view,
+  feedIndex:typeof aaFeedCurrentIndex==="function"?aaFeedCurrentIndex():0,
+  scrollY:window.scrollY
+ };
+ if(!intent.destination)state.redirectAfterLogin="";
+ openAuth(intent.mode||"login",intent.destination);
+ return false;
+}
+function aaRunMemberAction(intent,fn){
+ if(!aaRequireMember(intent))return;
+ fn();
+}
+function aaResumeMemberIntent(){
+ const p=state.pendingMemberIntent;
+ state.pendingMemberIntent=null;
+ if(!p)return;
+ state.view=p.view||"home";
+ render();
+ requestAnimationFrame(()=>{
+  if(state.view==="home"&&typeof aaFeedGoTo==="function")aaFeedGoTo(p.feedIndex||0,"auto");
+  else window.scrollTo(0,p.scrollY||0);
+ });
+}
 function aaClearAuthTimers(){if(state.resendTimer)clearInterval(state.resendTimer);state.resendTimer=null;state.resendUntil=0}
 
 function aaAuthValidation(){
@@ -5544,7 +5583,17 @@ async function fastAuthContinue(){
   state.user={...state.user,id:"aa_preview_member",firstName:data.first,lastName:data.last,accountType:data.accountType,companyName:data.companyName,username:data.username,phone:data.phone,showPhone:data.showPhone,email:data.email,location:data.location,bio:data.bio,photo_url:data.photo,isVerified:true};
   state.isLoggedIn=true;state.pendingProfilePhoto="";state.authDraft=null;state.authBusy=false;state.authOpen=false;
   try{localStorage.setItem("bingo_signup_at_"+String(state.user.id||"aa_preview_member"),String(Date.now()));}catch(e){}
-  aaSyncOwnProfileToListings();render();toast("account preview created in memory only. Nothing was published or saved.");return;
+  aaSyncOwnProfileToListings();
+  toast("account preview created in memory only. Nothing was published or saved.");
+  if(state.redirectAfterLogin){
+   state.pendingMemberIntent=null;
+   const destination=state.redirectAfterLogin;state.redirectAfterLogin="";
+   if(destination==="/post-vehicle"){state.view="add";render();window.scrollTo(0,0);return}
+   if(destination==="/account"){goAccount();return}
+   render();return;
+  }
+  if(state.pendingMemberIntent){aaResumeMemberIntent();return}
+  render();return;
  }
  if(!sb)aaInitSupabase();
  if(!sb){state.authError="Account service is not ready. Please refresh and try again.";render();return}
@@ -5578,9 +5627,18 @@ async function fastAuthContinue(){
    recordDailyVisit();
    await persistProfile();
    aaStartPresence();
-   state.authBusy=false;state.authOpen=false;state.redirectAfterLogin="";
-   goHome();
+   state.authBusy=false;state.authOpen=false;
    toast("Welcome to Bingo. Your account and profile are ready.");
+   if(state.redirectAfterLogin){
+    state.pendingMemberIntent=null;
+    const destination=state.redirectAfterLogin;state.redirectAfterLogin="";
+    if(destination==="/post-vehicle"){state.view="add";render();window.scrollTo(0,0);return}
+    if(destination==="/account"){goAccount();return}
+    goHome();
+    return;
+   }
+   if(state.pendingMemberIntent){aaResumeMemberIntent();return}
+   goHome();
    return;
   }
   state.authBusy=false;
@@ -5603,7 +5661,9 @@ async function fastLoginContinue(){
  const password=String(root?.querySelector("#aLoginPassword")?.value||"");
  if(state.testMode){
   if(!email||!password){state.authError="Enter any test email and password to inspect the signed-in application.";render();return}
-  aaTestLogin();state.authOpen=false;state.authError="";render();toast("temporary signed-in preview. No real login occurred.");return;
+  aaTestLogin();state.authOpen=false;state.authError="";
+  if(state.pendingMemberIntent)aaResumeMemberIntent();else render();
+  toast("temporary signed-in preview. No real login occurred.");return;
  }
  if(!email||!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){state.authError="Please enter your email address.";render();return}
  if(!password){state.authError="Please enter your password.";render();return}
@@ -5619,9 +5679,15 @@ async function fastLoginContinue(){
   recordDailyVisit();
   aaStartPresence();
   state.authBusy=false;state.authOpen=false;
-  const destination=state.redirectAfterLogin||"/";state.redirectAfterLogin="";
-  if(destination==="/post-vehicle"){state.view="add";render();window.scrollTo(0,0);return}
-  if(destination==="/account"){goAccount();return}
+  if(state.redirectAfterLogin){
+   state.pendingMemberIntent=null;
+   const destination=state.redirectAfterLogin;state.redirectAfterLogin="";
+   if(destination==="/post-vehicle"){state.view="add";render();window.scrollTo(0,0);return}
+   if(destination==="/account"){goAccount();return}
+   goHome();
+   return;
+  }
+  if(state.pendingMemberIntent){aaResumeMemberIntent();return}
   goHome();
  }catch(error){
   console.error("Bingo login error:",error);
@@ -5729,6 +5795,7 @@ function authHTML(){
 function successHTML(){return ""}
 function share(type,c){
  if(!c)return;
+ if(!aaRequireMember({action:"share",targetId:c.id}))return;
  const url=DOMAIN+"/#listing-"+c.id;
  const text=`Check out ${c.title} on Bingo. KES ${money(c.price)}. ${url}`;
  if(type==="whatsapp") window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");
@@ -5832,8 +5899,8 @@ async function aaCheckConnection(c){
  return false;
 }
 function contact(type,c){
- if(!state.isLoggedIn){openAuth("login");return}
  if(!c)return;
+ if(!aaRequireMember({action:"message",targetId:c.id||c.sellerId||""}))return;
 
  // In-app chat: open the modern Bingo V88 chat surface.
  if(type==="chat"){
@@ -5982,8 +6049,8 @@ function aaSetBoostTargeting(key,value){
  state.boostTargeting[key]=String(value||"all");
 }
 function openContentBoost(item,type){
- if(!state.isLoggedIn){openAuth("register");return}
  if(!item){toast("This post could not be found.");return}
+ if(!aaRequireMember({action:"boost",mode:"register",targetId:item.id})){return}
  type=String(type||"vehicle");
  if(!aaBoostOwnedByMe(item,type)){toast("Only the owner can boost this post.");return}
  state.boostTarget={...item,_boostType:type};
@@ -7592,11 +7659,11 @@ function aaVideoListings(){
 function aaPhotoListings(){return (state.listings||[]).filter(c=>aaMediaType(c)!="video")}
 function aaCompact(n){n=Number(n||0);if(n>=1000000)return (n/1000000).toFixed(n>=10000000?0:1).replace(".0","")+"M";if(n>=1000)return (n/1000).toFixed(n>=10000?0:1).replace(".0","")+"K";return String(n)}
 function aaInterested(c){return (state.interested||[]).some(id=>String(id)===String(c?.id))}
-function aaToggleInterested(id){state.interested=aaInterested({id})?state.interested.filter(x=>String(x)!==String(id)):[...(state.interested||[]),String(id)];save();render()}
+function aaToggleInterested(id){if(!aaRequireMember({action:"interested",targetId:id}))return;state.interested=aaInterested({id})?state.interested.filter(x=>String(x)!==String(id)):[...(state.interested||[]),String(id)];save();render()}
 function aaViewCount(c){return Number((state.viewCounts||{})[String(c?.id)]||c?.views||0)}
 function aaCommentCount(c){return ((state.feedComments||{})[String(c?.id)]||[]).length}
 function aaRecordFeedView(id){const key=String(id),seenKey="aa_seen_"+key;try{if(sessionStorage.getItem(seenKey))return;sessionStorage.setItem(seenKey,"1")}catch(e){}state.viewCounts=state.viewCounts||{};state.viewCounts[key]=Number(state.viewCounts[key]||0)+1;save()}
-function aaOpenComments(c){if(!c)return;if(!state.isLoggedIn){openAuth("login");return}state.commentTarget=c;render()}
+function aaOpenComments(c){if(!c)return;if(!aaRequireMember({action:"comment",targetId:c.id}))return;state.commentTarget=c;render()}
 function aaCloseComments(){state.commentTarget=null;render()}
 function aaSubmitComment(){
  if(!state.isLoggedIn){aaCloseComments();openAuth("login");return}
@@ -7753,6 +7820,12 @@ function aaStartAdTimer(){return}
 function aaStopAdTimer(){if(aaAdTimer){clearTimeout(aaAdTimer);aaAdTimer=null}}
 function aaCloseAd(){state.adOpen=false;render()}
 function aaAdHTML(){return ""}
+function aaPauseAllFeedVideos(){
+ document.querySelectorAll("#auto-arcade-widget .aa360-video").forEach(v=>{try{v.pause()}catch(e){}});
+}
+function aaHomeOverlayOpen(){
+ return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
+}
 function aaInit360Feed(){
  if(aaFeedObserver){try{aaFeedObserver.disconnect()}catch(e){}}
  const vids=[...document.querySelectorAll("#auto-arcade-widget .aa360-video")];if(!vids.length)return;
@@ -10541,7 +10614,7 @@ ${state.view==="home"?`<div class="aa-assistant-nav-wrap" id="aaAssistantNavWrap
  </div>`:""}
  ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.adOpen?aaAdHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
-  if(state.view==="home"){aaInit360Feed();aaStartAdTimer()}else{aaStopAdTimer()}
+  if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   aaDynamicAdAfterRender();
   if(state.view==="add")aaInstallVehicleUploadEnhancer();
   if(state.foodMediaViewer?.open)aaTryPlayFoodViewerVideo();
@@ -10817,7 +10890,7 @@ function aaEnsureFollowStats(id){
 }
 async function aaToggleFollowSeller(id,name){
  const key=String(id||"").trim();if(!key)return;
- if(!state.isLoggedIn){openAuth("login");return}
+ if(!aaRequireMember({action:"follow",targetId:key}))return;
  const mine=String(state.user?.id||"");
  if(key===mine){aaFollowToast("This is your own profile.");return}
 
@@ -12514,6 +12587,7 @@ function aaCloseTopOverlay(){
   if(e.target.classList?.contains("overlay"))aaCloseTopOverlay();
  });
  document.addEventListener("keydown",function(e){if(e.key==="Escape")aaCloseTopOverlay()});
+ document.addEventListener("visibilitychange",function(){if(document.hidden&&typeof aaPauseAllFeedVideos==="function")aaPauseAllFeedVideos()});
 })();
 (function autoArcadeBoot(){
  const boot=()=>{
@@ -12534,7 +12608,7 @@ function aaCloseTopOverlay(){
       if(event==="SIGNED_IN"&&session?.user&&!state.testMode){
        await aaLoadAuthenticatedProfile(session.user).catch(()=>{});
        aaStartPresence();
-       render();
+       if(state.pendingMemberIntent&&!state.redirectAfterLogin){aaResumeMemberIntent();}else{render();}
        aaSyncBoostNotifications().catch(()=>{});
        return;
       }
