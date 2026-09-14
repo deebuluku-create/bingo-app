@@ -6315,35 +6315,12 @@ function openBoost(c){openContentBoost(c,"vehicle")}
 function openBoostModal(c){openBoost(c)}
 async function aaPrepareBoostQuote(){
  const c=state.boostTarget;if(!c)return;
- const type=aaBoostTargetType(c);
- if(!["vehicle","property","stay","food_business"].includes(type)){
-  /* Placement quoting only covers the post types Change 09 targets —
-     every other target type (spare/cv/job/profile/post) keeps using
-     the pre-existing direct-pay flow, unchanged. */
-  return requestBoostPayment();
- }
- const plan=aaBoostPlanByAmount(state.boostBudget)||aaBoostPlanByAmount(500);
- if(!plan){toast("Choose a boost budget first.");return}
- if(state.boostQuoteBusy)return;
- state.boostQuoteBusy=true;render();
- if(state.testMode){
-  const placement=AA_BOOST_PLACEMENTS.find(p=>p.id===state.boostPlacementId)||AA_BOOST_PLACEMENTS[0];
-  const amount=plan.amount+(placement.surcharge||0);
-  const startsAt=new Date();
-  const expiresAt=new Date(startsAt.getTime()+Number(state.boostDays||7)*86400000);
-  state.boostQuote={quote_id:"test_quote_"+Date.now(),amount_kes:amount,starts_at:startsAt.toISOString(),expires_at:expiresAt.toISOString(),placement_label:placement.label,geo_label:aaBoostLocationLabel(state.boostTargeting?.location)};
-  state.boostQuoteBusy=false;render();return;
- }
- if(!sb){state.boostQuoteBusy=false;toast("Boost pricing service is not connected.");render();return}
- try{
-  const input={post_id:String(c.id),post_type:type,placement_id:state.boostPlacementId,budget_amount:plan.amount,duration_id:Number(state.boostDays),geo:state.boostTargeting?.location||"all"};
-  const {data,error}=await sb.functions.invoke("boost-quote",{body:input});
-  if(error)throw error;
-  if(data?.error)throw new Error(data.error);
-  state.boostQuote=data;
- }catch(e){toast("Could not prepare a boost quote: "+String(e?.message||e))}
- state.boostQuoteBusy=false;
- render();
+ /* boost-quote is not deployed to Supabase (confirmed against the live
+    dashboard) and is not required: the deployed mpesa-boost function
+    prices every boost itself, server-side, from `days` alone — there is
+    no separate quote step to call. Go straight to payment for every
+    boost target type instead of depending on an undeployed function. */
+ return requestBoostPayment();
 }
 function aaCancelBoostQuote(){state.boostQuote=null;render()}
 async function confirmBoost(){
@@ -8036,27 +8013,13 @@ function aaVisitorKey(){
  return v;
 }
 async function aaRecordPromotedClick(c,placement="claim_deal"){
- if(!c||!c.isBoosted||state.testMode||!sb)return;
- try{
-  const response=await fetch(`${SUPABASE_URL}/functions/v1/mpesa-boost`,{
-   method:"POST",
-   headers:{"Content-Type":"application/json","apikey":SUPABASE_PUBLISHABLE_KEY},
-   body:JSON.stringify({
-    action:"record_ad_click",
-    listing_id:String(c.id),
-    visitor_key:aaVisitorKey(),
-    placement:String(placement||"claim_deal")
-   })
-  });
-  const data=await response.json().catch(()=>({}));
-  if(data?.charged===true){
-   c.boostRemaining=Number(data.remaining_amount||0);
-   c.boostClickCount=Number(data.click_count||0);
-   if(data.low_balance===true && aaListingOwnerId(c)===String(state.user?.id||"")){
-    toast(`Boost balance is low: KES ${money(data.remaining_amount||0)} remaining. Add more to keep the advertisement running.`);
-   }
-  }
- }catch(err){console.warn("Promoted click tracking unavailable:",err?.message||err)}
+ /* Disabled: confirmed against the live Supabase dashboard that the
+    deployed mpesa-boost function does not implement a "record_ad_click"
+    action (its only actions are the ones create_boost/boost_status use).
+    Calling it would only fail every time, so this is now a no-op rather
+    than an always-losing network request. Re-enable only once a backend
+    action for per-click charge tracking actually exists. */
+ return;
 }
 function aaOpenPromotedDeal(c){
  if(!c)return;
@@ -13643,7 +13606,11 @@ function boostHTML(c){
  const isCorporate=agentBiz?.businessClass==="Corporate";
  const introEligible=agentBiz&&!isCorporate&&!agentBiz.agentIntroBoostUsed;
  const budgetChoices=isCorporate?AA_CORPORATE_BUDGETS:AA_BOOST_BUDGETS;
- const placementFlow=["vehicle","property","stay","food_business"].includes(type);
+ /* Only true once a live server quote exists. boost-quote is not deployed,
+    so state.boostQuote is never set and this always evaluates false — the
+    ordinary direct-pay form (with its own phone number field) renders for
+    every target type, matching what aaPrepareBoostQuote() now does. */
+ const placementFlow=!!(state.boostQuote&&["vehicle","property","stay","food_business"].includes(type));
  return `<div class="overlay"><div class="modal">
   <button class="close" onclick="state.boostTarget=null;render()">×</button>
   <h2>Boost ${aaBoostTargetLabel(type)}</h2>
