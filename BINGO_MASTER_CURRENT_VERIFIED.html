@@ -13781,17 +13781,8 @@ async function aaPollBoostPayment(boostId,accessToken,targetType="vehicle",targe
  while(Date.now()-started<timeoutMs){
   await new Promise(r=>setTimeout(r,2000));
   try{
-   const response=await fetch(`${SUPABASE_URL}/functions/v1/mpesa-boost`,{
-    method:"POST",
-    headers:{
-     "Content-Type":"application/json",
-     "apikey":SUPABASE_PUBLISHABLE_KEY,
-     "Authorization":`Bearer ${accessToken}`
-    },
-    body:JSON.stringify({action:"boost_status",boost_id:String(boostId)})
-   });
-   const data=await response.json().catch(()=>({}));
-   if(!response.ok)continue;
+   const {data,error:statusError}=await sb.functions.invoke("mpesa-boost",{body:{action:"boost_status",boost_id:String(boostId)}});
+   if(statusError)continue;
    if(data?.status==="active"||data?.payment_status==="paid"){
     aaApplyConfirmedBoostLocally(targetType,targetId,data?.remaining_amount,extra);
     aaSetMpesaButtonState("success","Success",`Payment confirmed. Your ${aaBoostTargetLabel(targetType).toLowerCase()} is now boosted.`);
@@ -13859,14 +13850,8 @@ async function requestBoostPayment(opts){
 
   state.user={...state.user,id:session.user.id,email:session.user.email||state.user?.email||""};
 
-  const response=await fetch(`${SUPABASE_URL}/functions/v1/mpesa-boost`,{
-   method:"POST",
-   headers:{
-    "Content-Type":"application/json",
-    "apikey":SUPABASE_PUBLISHABLE_KEY,
-    "Authorization":`Bearer ${session.access_token}`
-   },
-   body:JSON.stringify({
+  const {data,error:invokeError}=await sb.functions.invoke("mpesa-boost",{
+   body:{
     action:"create_boost",
     listing_id:String(c.id),
     target_id:String(c.id),
@@ -13882,11 +13867,14 @@ async function requestBoostPayment(opts){
      gender:String(state.boostTargeting?.gender||"all")
     },
     phone
-   })
+   }
   });
 
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data?.error||data?.message||`M-Pesa request failed (${response.status}).`);
+  if(invokeError){
+   let serverMessage="";
+   try{const errBody=await invokeError.context?.json?.();serverMessage=errBody?.error||errBody?.message||""}catch(_){}
+   throw new Error(serverMessage||invokeError.message||"M-Pesa request failed.");
+  }
 
   const backendAmount=Number(data?.amount ?? data?.budget_amount ?? 0);
   if(backendAmount!==selectedAmount){
