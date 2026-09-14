@@ -4825,7 +4825,7 @@ var state = {
  foodItemPrepType:"ready_made", foodItemAvailable:true, foodItemPreviewOpen:false, foodItemDetailId:"", foodItemDraftFields:null,
  pendingMemberIntent:null, memberEntranceOpen:false,
  moderationCases:[], moderationPanelTarget:null,
- adCampaigns:[], adDraft:null, adDraftId:null,
+ adCampaigns:[], adDraft:null, adDraftId:null, adQueue:[], adSlotState:{},
  agentSalarySummary:null, agentManagedBusinesses:[], agentInvitations:[], agentPermissionCache:{}, agentInviteTarget:null, agentSalaryDirectory:[],
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
@@ -7879,8 +7879,114 @@ function aaFeedCardHTML(c,i){
 var aaFeedObserver=null;
 var AA_AD_INTERVAL_MS=0;
 var aaAdTimer=null;
-function aaStartAdTimer(){return}
-function aaStopAdTimer(){if(aaAdTimer){clearTimeout(aaAdTimer);aaAdTimer=null}}
+/* ---- Ad slots and unified queue (Change 08) ----
+   AA_AD_SLOTS is the small, explicit list of approved zones — adding a
+   slot here is the only way a new one can ever render; nothing inserts
+   an ad into arbitrary blank space. Home intentionally has exactly one,
+   so it stays mainly organic and never exceeds the "no more than two"
+   rule even before that rule has to be enforced. The unified queue
+   (state.adQueue) merges the Change 07 Advertising Manager's live
+   campaigns with currently active paid listing boosts — both sources
+   are backend authoritative (RLS-scoped campaign rows; the existing
+   isBoosted/boostRemaining fields already trusted everywhere else in
+   this file), never a client-invented status. */
+const AA_AD_SLOTS=[{id:"home-banner",page:"home",capability:"medium"}];
+function aaAdSlotDef(slotId){return AA_AD_SLOTS.find(s=>s.id===slotId)}
+function aaEligibleQueueItems(slot,now=Date.now()){
+ return (state.adQueue||[]).filter(x=>x.status==="active"&&Date.parse(x.starts_at)<=now&&Date.parse(x.expires_at)>now&&x.eligible_slots?.includes(slot.id));
+}
+function aaCanRenderAdSlot(){return !aaHomeOverlayOpen()}
+async function aaLoadAdQueue(page){
+ const campaigns=state.testMode?[]:await aaLoadLiveAdCampaigns(page);
+ const fromCampaigns=campaigns.map(c=>({
+  id:"campaign_"+c.id,source:"campaign",status:"active",
+  starts_at:c.starts_at,expires_at:c.expires_at,
+  eligible_slots:AA_AD_SLOTS.filter(s=>s.page===page&&(c.eligible_pages||[]).includes(s.page)).map(s=>s.id),
+  campaign:c
+ }));
+ const farFuture=new Date(Date.now()+30*86400000).toISOString();
+ const boostedVehicles=page==="home"?(state.listings||[]).filter(x=>x.isBoosted&&(x.boostRemaining===undefined||x.boostRemaining>0)):[];
+ const fromBoosts=boostedVehicles.map(x=>({
+  id:"boost_vehicle_"+x.id,source:"boost",status:"active",
+  starts_at:x.createdAt||new Date(0).toISOString(),expires_at:farFuture,
+  eligible_slots:AA_AD_SLOTS.filter(s=>s.page===page).map(s=>s.id),
+  boostTarget:x
+ }));
+ state.adQueue=[...fromCampaigns,...fromBoosts];
+ return state.adQueue;
+}
+function aaAdSlotEnsureIndex(slotId){
+ state.adSlotState=state.adSlotState||{};
+ if(!state.adSlotState[slotId])state.adSlotState[slotId]={index:0};
+}
+function aaOpenCampaignDestination(c){
+ if(!c)return;
+ if(c.destination_type==="post"){
+  if(c.destination_post_type==="vehicle")aaOpenDynamicPromotedListing(c.destination_value);
+  else if(c.destination_post_type==="food_business")aaOpenFoodMediaViewer(c.destination_value,0);
+  else if(c.destination_post_type==="property"||c.destination_post_type==="stay")aaOpenProperties("browse");
+  else toast("This sponsored post is not available.");
+  return;
+ }
+ if(c.destination_type==="url"&&/^https:\/\//i.test(c.destination_value||"")){
+  window.open(c.destination_value,"_blank","noopener,noreferrer");
+ }
+}
+function aaOpenAdSlotDestination(queueItemId){
+ const item=(state.adQueue||[]).find(x=>String(x.id)===String(queueItemId));
+ if(!item)return;
+ if(item.source==="campaign")aaOpenCampaignDestination(item.campaign);
+ else if(item.source==="boost"&&item.boostTarget)openDetails(item.boostTarget);
+}
+function aaAdSlotInnerHTML(slot,item){
+ if(!item)return "";
+ if(item.source==="campaign"){
+  const c=item.campaign;
+  let creative="";
+  if(c.source_type==="image")creative=`<img src="${bingoSafeMediaAttr(c.media_url)}" alt="${esc(c.name||"Advertisement")}" style="width:100%;height:100%;object-fit:cover">`;
+  else if(c.source_type==="video")creative=`<video src="${bingoSafeMediaAttr(c.media_url)}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover"></video>`;
+  else creative=`<div class="aa-ad-slot-post"><b>${esc(c.name||"Sponsored")}</b></div>`;
+  return `<span class="aa-ad-slot-label">Sponsored</span><div class="aa-ad-slot-creative" onclick='aaOpenAdSlotDestination(${JSON.stringify(item.id)})'>${creative}</div>`;
+ }
+ const x=item.boostTarget||{};
+ return `<span class="aa-ad-slot-label">Sponsored</span><div class="aa-ad-slot-creative" onclick='aaOpenAdSlotDestination(${JSON.stringify(item.id)})'><img src="${bingoSafeMediaAttr(x.image)}" alt="${esc(x.title||"")}" style="width:100%;height:100%;object-fit:cover"><div class="aa-ad-slot-caption">${esc(x.title||"")}</div></div>`;
+}
+function aaAdSlotHTML(slotId){
+ const slot=aaAdSlotDef(slotId);
+ if(!slot||!aaCanRenderAdSlot())return "";
+ const items=aaEligibleQueueItems(slot);
+ if(!items.length)return "";
+ aaAdSlotEnsureIndex(slotId);
+ const st=state.adSlotState[slotId];
+ const item=items[st.index%items.length];
+ return `<div class="aa-ad-slot aa-ad-slot-${esc(slot.capability)}" id="aaAdSlot_${esc(slotId)}">${aaAdSlotInnerHTML(slot,item)}</div>`;
+}
+function aaRotateApprovedSlot(slotId){
+ if(!aaCanRenderAdSlot())return;
+ const slot=aaAdSlotDef(slotId);
+ aaAdSlotEnsureIndex(slotId);
+ const st=state.adSlotState[slotId];
+ const items=aaEligibleQueueItems(slot);
+ if(!slot||!st||!items.length)return;
+ st.index=(st.index+1)%items.length;
+ const host=document.getElementById("aaAdSlot_"+slotId);
+ if(host)host.innerHTML=aaAdSlotInnerHTML(slot,items[st.index]);
+}
+function aaStartAdSlot(slot,index){
+ const delay=5000+(index*2500);
+ return setInterval(()=>aaRotateApprovedSlot(slot.id),delay);
+}
+function aaStartAdTimer(){
+ aaStopAdTimer();
+ if(!aaCanRenderAdSlot())return;
+ const slot=aaAdSlotDef("home-banner");
+ if(!slot)return;
+ aaLoadAdQueue(slot.page).then(()=>{
+  if(!aaCanRenderAdSlot()||state.view!=="home"||!aaEligibleQueueItems(slot).length)return;
+  aaAdTimer=aaStartAdSlot(slot,0);
+ });
+}
+function aaStopAdTimer(){if(aaAdTimer){clearInterval(aaAdTimer);aaAdTimer=null}}
 function aaCloseAd(){state.adOpen=false;render()}
 function aaPauseAllFeedVideos(){
  document.querySelectorAll("#auto-arcade-widget .aa360-video").forEach(v=>{try{v.pause()}catch(e){}});
@@ -10702,7 +10808,7 @@ ${state.view==="home"?`<div class="aa-assistant-nav-wrap" id="aaAssistantNavWrap
 }
 function homeHTML(boosted,rows,all,pages){
  const videos=aaMixedFeedItems();
- return `<section class="aa360-shell">${aaFeedFilterHTML()}${videos.length?`<div class="aa360-feed">${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div>`:`<div class="aa360-empty"><div><h2>360View is ready</h2><p>No vehicle, property or food video has been published yet.</p><button class="btn btn-red" onclick="openPostVehicle()">Post a Vehicle</button></div></div>`}</section>`;
+ return `<section class="aa360-shell">${aaFeedFilterHTML()}${aaAdSlotHTML("home-banner")}${videos.length?`<div class="aa360-feed">${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div>`:`<div class="aa360-empty"><div><h2>360View is ready</h2><p>No vehicle, property or food video has been published yet.</p><button class="btn btn-red" onclick="openPostVehicle()">Post a Vehicle</button></div></div>`}</section>`;
 }
 function listingType(c){return String(c?.listingType||"sale").toLowerCase()==="hire"?"hire":"sale"}
 function listingBadge(c){return listingType(c)==="hire"?'<span class="badge badge-green">FOR HIRE</span>':'<span class="badge badge-red">FOR SALE</span>'}
@@ -11591,17 +11697,8 @@ async function aaMaybeServeAd(page){
 }
 function aaOpenAdDestination(){
  const c=state.adOpen;if(!c)return;
- if(c.destination_type==="post"){
-  aaCloseAd();
-  if(c.destination_post_type==="vehicle")aaOpenDynamicPromotedListing(c.destination_value);
-  else if(c.destination_post_type==="food_business")aaOpenFoodMediaViewer(c.destination_value,0);
-  else if(c.destination_post_type==="property"||c.destination_post_type==="stay")aaOpenProperties("browse");
-  else toast("This sponsored post is not available.");
-  return;
- }
- if(c.destination_type==="url"&&/^https:\/\//i.test(c.destination_value||"")){
-  window.open(c.destination_value,"_blank","noopener,noreferrer");
- }
+ if(c.destination_type==="post")aaCloseAd();
+ aaOpenCampaignDestination(c);
 }
 function aaAdHTML(){
  const c=state.adOpen;
@@ -19141,6 +19238,18 @@ Preserve all existing onclick actions, routes, forms and button wording.
 
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label{grid-column:1/-1;color:var(--aa-future-gold,#f3be2b);font-size:9.5px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin:8px 0 -2px;opacity:.85}
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label:first-child{margin-top:0}
+</style>
+
+<style id="bingo-change08-ad-slots-style">
+#auto-arcade-widget .aa-ad-slot{position:relative;border-radius:14px;overflow:hidden;margin:10px 0;background:#0b1321;border:1px solid rgba(243,190,43,.35)}
+#auto-arcade-widget .aa-ad-slot-large{height:220px}
+#auto-arcade-widget .aa-ad-slot-medium{height:140px}
+#auto-arcade-widget .aa-ad-slot-small{height:90px}
+#auto-arcade-widget .aa-ad-slot-micro{height:56px}
+#auto-arcade-widget .aa-ad-slot-label{position:absolute;top:8px;left:8px;z-index:2;font-size:8.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#071225;background:var(--bingo-gold,#f3be2b);padding:3px 7px;border-radius:999px}
+#auto-arcade-widget .aa-ad-slot-creative{width:100%;height:100%;cursor:pointer;position:relative}
+#auto-arcade-widget .aa-ad-slot-post{display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#fff;text-align:center;padding:10px}
+#auto-arcade-widget .aa-ad-slot-caption{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;background:linear-gradient(0deg,rgba(0,0,0,.75),transparent);color:#fff;font-size:11px;font-weight:800}
 </style>
 
 <style id="bingo-agent-salary-style">
