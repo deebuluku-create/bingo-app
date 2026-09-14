@@ -4826,6 +4826,7 @@ var state = {
  pendingMemberIntent:null, memberEntranceOpen:false,
  moderationCases:[], moderationPanelTarget:null,
  adCampaigns:[], adDraft:null, adDraftId:null, adQueue:[], adSlotState:{},
+ boostPlacementId:"feed-priority", boostQuote:null, boostQuoteBusy:false, successMessage:"",
  agentSalarySummary:null, agentManagedBusinesses:[], agentInvitations:[], agentPermissionCache:{}, agentInviteTarget:null, agentSalaryDirectory:[],
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
@@ -5855,7 +5856,16 @@ function authHTML(){
  if(state.authMode==="register")return `<div class="overlay"><div class="modal" style="width:min(470px,100%);max-height:94vh"><button class="close" onclick="state.authOpen=false;render()">×</button><h2>Create My Bingo Profile</h2><p>Sign up uses the same profile details you will later edit from My Profile.</p>${aaUnifiedProfileFields('register')}<button class="btn aa-login-primary" style="width:100%;margin-top:12px" type="button" onclick="fastAuthContinue()" ${state.authBusy?'disabled':''}>${state.authBusy?'Creating account…':'Create Account'}</button>${state.authError?`<div class="notice" style="color:#ff8f94">${esc(state.authError)}</div>`:''}<button class="btn" style="width:100%;margin-top:8px" onclick="state.authMode='login';state.authError='';render()">Already have an account? Log In</button></div></div>`;
  return `<div class="overlay"><div class="modal aa-login-panel"><button class="close" onclick="state.authOpen=false;render()">×</button><h2 class="aa-login-title"><span>Welcome Back to</span><img src="${BINGO_LOGO_SRC}" alt="Bingo" class="aa-login-title-logo"></h2><div class="aa-login-form"><label class="aa-login-label">Email<input id="aLoginEmail" class="field aa-login-field" type="email" autocomplete="email" placeholder="you@example.com" value="${esc(d.email??state.user.email??'')}"></label><label class="aa-login-label">Password<div class="aa-login-password-wrap"><input id="aLoginPassword" class="field aa-password-field aa-login-field" type="password" autocomplete="current-password" placeholder="Password"><button id="aaLoginEye" class="aa-login-eye" type="button" aria-label="Show password" onclick="aaToggleLoginPassword()">◌</button></div></label>${state.authError?`<div class="aa-login-error">${esc(state.authError)}</div>`:`<div class="aa-login-error"></div>`}<button class="aa-login-forgot" type="button" onclick="state.authMode='forgot';state.authError='';render()">Forgot password?</button><button class="btn aa-login-primary" type="button" onclick="fastLoginContinue()" ${state.authBusy?'disabled':''}>${state.authBusy?'Signing in…':'Log In'}</button><button class="btn aa-login-google" type="button" onclick="aaGoogleLogin()" ${state.authBusy?'disabled':''}><span class="aa-google-g"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.9-2.26 5.36-4.78 7.18l7.73 6c4.51-4.16 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1-.76-4.59c0-1.59.27-3.13.76-4.59l-7.98-6.19A24 24 0 0 0 0 24c0 3.87.92 7.53 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.92-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg></span><span>Continue with Google</span></button><div class="aa-login-signup">Don't have an account? <button type="button" onclick="state.authMode='register';state.authError='';render()">Sign up</button></div></div></div></div>`;
 }
-function successHTML(){return ""}
+function aaShowSuccess(message){state.successMessage=String(message||"Success");state.successOpen=true;render()}
+function successHTML(){
+ return `<div class="overlay aa-success-overlay" role="status" aria-live="polite">
+  <div class="modal aa-success-card">
+   <div class="aa-success-check">✓</div>
+   <h2 style="margin-top:8px">${esc(state.successMessage||"Success")}</h2>
+   <button class="btn btn-gold" style="width:100%;margin-top:14px" onclick="state.successOpen=false;render()">Done</button>
+  </div>
+ </div>`;
+}
 function share(type,c){
  if(!c)return;
  if(!aaRequireMember({action:"share",targetId:c.id}))return;
@@ -6111,6 +6121,16 @@ function aaSetBoostTargeting(key,value){
  state.boostTargeting=state.boostTargeting||{location:"all",age:"all",gender:"all"};
  state.boostTargeting[key]=String(value||"all");
 }
+const AA_BOOST_PLACEMENTS=[
+ {id:"feed-priority",label:"Priority in Home Feed",desc:"Ranks higher in the organic Home video feed."},
+ {id:"home-banner",label:"Home Sponsored Banner",desc:"Also rotates in the Home sponsored banner slot.",surcharge:300}
+];
+function aaSetBoostPlacement(id){
+ if(!AA_BOOST_PLACEMENTS.some(p=>p.id===id)){toast("Invalid placement selected.");return}
+ state.boostPlacementId=id;
+ state.boostQuote=null;
+ render();
+}
 function openContentBoost(item,type){
  if(!item){toast("This post could not be found.");return}
  if(!aaRequireMember({action:"boost",mode:"register",targetId:item.id})){return}
@@ -6120,13 +6140,50 @@ function openContentBoost(item,type){
  state.boostBudget=500;
  state.boostDays=7;
  state.boostTargeting={location:"all",age:"all",gender:"all"};
+ state.boostPlacementId="feed-priority";
+ state.boostQuote=null;
+ state.boostQuoteBusy=false;
  render();
 }
 function openBoost(c){openContentBoost(c,"vehicle")}
 // Backward-compatible name used by earlier card markup.
 function openBoostModal(c){openBoost(c)}
+async function aaPrepareBoostQuote(){
+ const c=state.boostTarget;if(!c)return;
+ const type=aaBoostTargetType(c);
+ if(!["vehicle","property","stay","food_business"].includes(type)){
+  /* Placement quoting only covers the post types Change 09 targets —
+     every other target type (spare/cv/job/profile/post) keeps using
+     the pre-existing direct-pay flow, unchanged. */
+  return requestBoostPayment();
+ }
+ const plan=aaBoostPlanByAmount(state.boostBudget)||aaBoostPlanByAmount(500);
+ if(!plan){toast("Choose a boost budget first.");return}
+ if(state.boostQuoteBusy)return;
+ state.boostQuoteBusy=true;render();
+ if(state.testMode){
+  const placement=AA_BOOST_PLACEMENTS.find(p=>p.id===state.boostPlacementId)||AA_BOOST_PLACEMENTS[0];
+  const amount=plan.amount+(placement.surcharge||0);
+  const startsAt=new Date();
+  const expiresAt=new Date(startsAt.getTime()+Number(state.boostDays||7)*86400000);
+  state.boostQuote={quote_id:"test_quote_"+Date.now(),amount_kes:amount,starts_at:startsAt.toISOString(),expires_at:expiresAt.toISOString(),placement_label:placement.label,geo_label:aaBoostLocationLabel(state.boostTargeting?.location)};
+  state.boostQuoteBusy=false;render();return;
+ }
+ if(!sb){state.boostQuoteBusy=false;toast("Boost pricing service is not connected.");render();return}
+ try{
+  const input={post_id:String(c.id),post_type:type,placement_id:state.boostPlacementId,budget_amount:plan.amount,duration_id:Number(state.boostDays),geo:state.boostTargeting?.location||"all"};
+  const {data,error}=await sb.functions.invoke("boost-quote",{body:input});
+  if(error)throw error;
+  if(data?.error)throw new Error(data.error);
+  state.boostQuote=data;
+ }catch(e){toast("Could not prepare a boost quote: "+String(e?.message||e))}
+ state.boostQuoteBusy=false;
+ render();
+}
+function aaCancelBoostQuote(){state.boostQuote=null;render()}
 async function confirmBoost(){
- return requestBoostPayment();
+ if(!state.boostQuote?.quote_id)return aaPrepareBoostQuote();
+ return requestBoostPayment({quote_id:state.boostQuote.quote_id});
 }
 async function aaVehicleFileToDataUrl(file){
  if(!file||!String(file.type||"").startsWith("image/"))return "";
@@ -7582,6 +7639,25 @@ function aaPurgeExpiredTrash(){
  state.trashListings=(state.trashListings||[]).filter(c=>!expired.some(e=>String(e.id)===String(c.id)));save();
  expired.forEach(c=>{if(sb&&state.user?.id&&!state.testMode){sb.from("vehicle_listings").delete().eq("id",c.id).eq("user_id",state.user.id).then(()=>{}).catch(()=>{})}});
 }
+/* Expiry stops promotion but leaves the original post published (Change 09):
+   a boosted item with a known expiry (set once a placement-based boost is
+   confirmed) simply stops being isBoosted once past it — the listing
+   itself is never touched. Items without a known expiry (the pre-existing
+   budget-only boosts) are left exactly as before. */
+function aaPurgeExpiredBoosts(){
+ const now=Date.now();
+ let touched=false;
+ (state.listings||[]).forEach(c=>{
+  if(c.isBoosted&&c.boostExpiresAt&&new Date(c.boostExpiresAt).getTime()<=now){c.isBoosted=false;touched=true}
+ });
+ const props=aaProperties();
+ let propsTouched=false;
+ props.forEach(p=>{
+  if(p.isBoosted&&p.boostExpiresAt&&new Date(p.boostExpiresAt).getTime()<=now){p.isBoosted=false;propsTouched=true}
+ });
+ if(propsTouched)aaV69Write("aa_v69_properties",props);
+ if(touched||propsTouched)save();
+}
 function aaMyListingManagementHTML(c){
  if(aaListingOwnerId(c)!==String(state.user?.id||""))return "";
  return `<div class="aa-manage-row"><button class="btn" onclick='aaEditVehicle(${JSON.stringify(String(c.id))})'>Edit</button><button class="btn btn-red" onclick='aaSoftDeleteListing(${JSON.stringify(String(c.id))})'>Delete</button></div>`;
@@ -7905,10 +7981,14 @@ async function aaLoadAdQueue(page){
   campaign:c
  }));
  const farFuture=new Date(Date.now()+30*86400000).toISOString();
- const boostedVehicles=page==="home"?(state.listings||[]).filter(x=>x.isBoosted&&(x.boostRemaining===undefined||x.boostRemaining>0)):[];
+ /* Only a boost the owner explicitly placed in the Home banner (Change 09's
+    placement picker) is eligible for this slot; a plain feed-priority
+    boost still elevates the item in the organic feed but never appears
+    here, matching the owner's own choice. */
+ const boostedVehicles=page==="home"?(state.listings||[]).filter(x=>x.isBoosted&&x.boostPlacementId==="home-banner"&&(x.boostRemaining===undefined||x.boostRemaining>0)):[];
  const fromBoosts=boostedVehicles.map(x=>({
   id:"boost_vehicle_"+x.id,source:"boost",status:"active",
-  starts_at:x.createdAt||new Date(0).toISOString(),expires_at:farFuture,
+  starts_at:x.createdAt||new Date(0).toISOString(),expires_at:x.boostExpiresAt||farFuture,
   eligible_slots:AA_AD_SLOTS.filter(s=>s.page===page).map(s=>s.id),
   boostTarget:x
  }));
@@ -7992,7 +8072,7 @@ function aaPauseAllFeedVideos(){
  document.querySelectorAll("#auto-arcade-widget .aa360-video").forEach(v=>{try{v.pause()}catch(e){}});
 }
 function aaHomeOverlayOpen(){
- return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||state.adOpen||state.agentInviteTarget||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
+ return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||state.adOpen||state.agentInviteTarget||state.successOpen||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
 }
 function aaInit360Feed(){
  if(aaFeedObserver){try{aaFeedObserver.disconnect()}catch(e){}}
@@ -10628,6 +10708,7 @@ function aaRouteRecordedVideo(dest,obj){
 
 function render(){
  aaPurgeExpiredTrash();
+ aaPurgeExpiredBoosts();
  aaNormalizeProfileView();
  const filteredListings=filtered(), rows=paged(), pages=totalPages();
  const boosted=state.listings.filter(x=>x.isBoosted).length?state.listings.filter(x=>x.isBoosted):demoListings.filter(x=>x.isBoosted);
@@ -13067,18 +13148,50 @@ function aaBoostEstimatedReach(){
  else scope=7;
  return Math.round((plan?.clicks||0)*scope);
 }
+function aaBoostQuoteConfirmHTML(c,type){
+ const q=state.boostQuote;
+ return `<div class="overlay"><div class="modal">
+  <button class="close" onclick="state.boostTarget=null;state.boostQuote=null;render()">×</button>
+  <h2>Confirm Your Boost</h2>
+  <div class="boost-summary">
+   <div class="aa-boost-summary-row"><span>Post</span><b>${esc(c.title||c.name||"Bingo post")}</b></div>
+   <div class="aa-boost-summary-row"><span>Placement</span><b>${esc(q?.placement_label||"—")}</b></div>
+   <div class="aa-boost-summary-row"><span>Location</span><b>${esc(q?.geo_label||"Kenya-wide")}</b></div>
+   <div class="aa-boost-summary-row"><span>Amount</span><b style="color:#f5b91e;font-size:16px">KES ${money(q?.amount_kes||0)}</b></div>
+   <div class="aa-boost-summary-row"><span>Starts</span><b>${q?.starts_at?new Date(q.starts_at).toLocaleString():"—"}</b></div>
+   <div class="aa-boost-summary-row"><span>Ends</span><b>${q?.expires_at?new Date(q.expires_at).toLocaleString():"—"}</b></div>
+  </div>
+  <div class="notice">This is the exact amount and schedule Bingo will charge — nothing here is a guess. Pressing YES starts the M-Pesa request; the boost activates only after Safaricom confirms payment.</div>
+  <label class="form-label" style="margin-top:12px">Safaricom M-Pesa Number</label>
+  <input id="aaBoostPhone" class="field full" type="tel" placeholder="0712345678 or 254712345678" value="${esc(state.user.phone||"")}">
+  <div class="details-actions" style="margin-top:12px">
+   <button class="btn" onclick="aaCancelBoostQuote()">← Edit / Cancel</button>
+   <button id="aaMpesaPayButton" class="btn btn-gold aa-mpesa-pay-btn" onclick="confirmBoost()"><span class="aa-pay-spinner"></span><span id="aaMpesaPayButtonText">YES, PAY KES ${money(q?.amount_kes||0)} WITH M-PESA</span></button>
+  </div>
+  <div id="aaMpesaInlineStatus" class="aa-mpesa-inline-status"></div>
+ </div></div>`;
+}
 function boostHTML(c){
  const type=aaBoostTargetType(c),t=state.boostTargeting||{location:"all",age:"all",gender:"all"};
+ if(state.boostQuote&&["vehicle","property","stay","food_business"].includes(type))return aaBoostQuoteConfirmHTML(c,type);
  const plan=aaBoostPlanByAmount(state.boostBudget)||aaBoostPlanByAmount(500);
  const agentBiz=aaAgentBoostContext(c);
  const isCorporate=agentBiz?.businessClass==="Corporate";
  const introEligible=agentBiz&&!isCorporate&&!agentBiz.agentIntroBoostUsed;
  const budgetChoices=isCorporate?AA_CORPORATE_BUDGETS:AA_BOOST_BUDGETS;
+ const placementFlow=["vehicle","property","stay","food_business"].includes(type);
  return `<div class="overlay"><div class="modal">
   <button class="close" onclick="state.boostTarget=null;render()">×</button>
   <h2>Boost ${aaBoostTargetLabel(type)}</h2>
   <p>${esc(c.title||c.name||"Bingo post")}</p>
   ${isCorporate?`<div class="notice" style="color:#f5b91e">This business is classified Corporate (50+ employees). Corporate boost: 30-day minimum, starting KES 25,000/month.</div>`:""}
+  ${placementFlow?`<div class="boost-summary">
+   <b>Choose Placement</b>
+   <div class="aa-budget-grid">
+    ${AA_BOOST_PLACEMENTS.map(p=>`<button type="button" class="aa-budget-btn ${state.boostPlacementId===p.id?"active":""}" onclick="aaSetBoostPlacement('${p.id}')">${esc(p.label)}${p.surcharge?` (+KES ${money(p.surcharge)})`:""}</button>`).join("")}
+   </div>
+   <div class="aa-budget-auto">${esc(AA_BOOST_PLACEMENTS.find(p=>p.id===state.boostPlacementId)?.desc||"")}</div>
+  </div>`:""}
   ${introEligible?`<div class="boost-summary" style="border-color:var(--gold)"><b style="color:var(--gold)">Agent Introductory Offer</b><p style="margin:4px 0">This business qualifies for a one-time KES 200 / 30-day boost.</p><button type="button" class="aa-budget-btn ${Number(state.boostBudget)===AA_AGENT_INTRO_PLAN.amount?"active":""}" onclick="aaSetBoostBudget(${AA_AGENT_INTRO_PLAN.amount})">KES ${money(AA_AGENT_INTRO_PLAN.amount)} (Intro Offer)</button></div>`:""}
 
   <div class="boost-summary">
@@ -13132,11 +13245,11 @@ function boostHTML(c){
    <div class="aa-budget-auto">This is an estimate based on your budget and how narrow or wide your chosen area is. Actual reach can vary once the boost is live.</div>
   </div>
 
-  <label class="form-label" style="margin-top:12px">Safaricom M-Pesa Number</label>
-  <input id="aaBoostPhone" class="field full" type="tel" placeholder="0712345678 or 254712345678" value="${esc(state.user.phone||"")}">
-  <button id="aaMpesaPayButton" class="btn btn-gold aa-mpesa-pay-btn" style="width:100%;margin-top:12px" onclick="requestBoostPayment()"><span class="aa-pay-spinner"></span><span id="aaMpesaPayButtonText">PAY KES ${money(plan.amount)} WITH M-PESA</span></button>
+  ${placementFlow?"":`<label class="form-label" style="margin-top:12px">Safaricom M-Pesa Number</label>
+  <input id="aaBoostPhone" class="field full" type="tel" placeholder="0712345678 or 254712345678" value="${esc(state.user.phone||"")}">`}
+  <button id="aaMpesaPayButton" class="btn btn-gold aa-mpesa-pay-btn" style="width:100%;margin-top:12px" ${state.boostQuoteBusy?"disabled":""} onclick="confirmBoost()"><span class="aa-pay-spinner"></span><span id="aaMpesaPayButtonText">${state.boostQuoteBusy?"PREPARING YOUR QUOTE…":placementFlow?`REVIEW & PAY (~KES ${money(plan.amount)})`:`PAY KES ${money(plan.amount)} WITH M-PESA`}</span></button>
   <div id="aaMpesaInlineStatus" class="aa-mpesa-inline-status"></div>
-  <div class="notice">After you press Pay, this button will show payment progress. The boost becomes active only after Safaricom confirms successful payment.</div>
+  <div class="notice">${placementFlow?"Bingo will show the exact amount, start and end date before any M-Pesa request is sent.":"After you press Pay, this button will show payment progress. The boost becomes active only after Safaricom confirms successful payment."}</div>
  </div></div>`;
 }
 /* v18: mpesa-boost backend requires action="create_boost". */
@@ -13173,7 +13286,8 @@ function aaResetMpesaButton(){aaSetMpesaButtonState("idle","","")}
 function aaResetMpesaButton(){
  aaSetMpesaButtonState("idle","","");
 }
-function aaApplyConfirmedBoostLocally(targetType,targetId,balance){
+function aaApplyConfirmedBoostLocally(targetType,targetId,balance,extra){
+ extra=extra||{};
  let item=null;
  if(targetType==="vehicle")item=(state.listings||[]).find(x=>String(x.id)===String(targetId));
  else if(targetType==="spare")item=(state.spareParts||[]).find(x=>String(x.id)===String(targetId));
@@ -13188,11 +13302,16 @@ function aaApplyConfirmedBoostLocally(targetType,targetId,balance){
    if(String(state.user?.id||"")===String(targetId)){state.user.isBoosted=true;item=state.user}
  }
  else if(targetType==="post")item=(state.posts||[]).find?.(x=>String(x.id)===String(targetId))||null;
- if(item){item.isBoosted=true;if(balance!==undefined)item.boostRemaining=Number(balance||0)}
+ if(item){
+  item.isBoosted=true;
+  if(balance!==undefined)item.boostRemaining=Number(balance||0);
+  if(extra.expiresAt)item.boostExpiresAt=extra.expiresAt;
+  if(extra.placementId)item.boostPlacementId=extra.placementId;
+ }
  if(item)aaRecordAgentCommissionIfApplicable(item,Number(state.boostBudget||0));
  save();
 }
-async function aaPollBoostPayment(boostId,accessToken,targetType="vehicle",targetId=""){
+async function aaPollBoostPayment(boostId,accessToken,targetType="vehicle",targetId="",extra){
  const started=Date.now();
  const timeoutMs=150000;
  while(Date.now()-started<timeoutMs){
@@ -13210,7 +13329,7 @@ async function aaPollBoostPayment(boostId,accessToken,targetType="vehicle",targe
    const data=await response.json().catch(()=>({}));
    if(!response.ok)continue;
    if(data?.status==="active"||data?.payment_status==="paid"){
-    aaApplyConfirmedBoostLocally(targetType,targetId,data?.remaining_amount);
+    aaApplyConfirmedBoostLocally(targetType,targetId,data?.remaining_amount,extra);
     aaSetMpesaButtonState("success","Success",`Payment confirmed. Your ${aaBoostTargetLabel(targetType).toLowerCase()} is now boosted.`);
     toast("Success. Boost activated.");
     try{await aaRefreshCurrentView?.()}catch(_){}
@@ -13231,14 +13350,17 @@ async function aaPollBoostPayment(boostId,accessToken,targetType="vehicle",targe
  aaSetMpesaButtonState("failed","Payment not confirmed","We did not receive a successful M-Pesa confirmation. Would you like to try again?");
 }
 
-async function requestBoostPayment(){
+async function requestBoostPayment(opts){
+ opts=opts||{};
  const c=state.boostTarget;if(!c)return;
  const type=aaBoostTargetType(c);
  const phone=normalizeKenyanPhone(document.getElementById("aaBoostPhone")?.value||state.user.phone);
- const selectedAmount=Number(state.boostBudget);
- const plan=aaBoostPlanByAmount(selectedAmount);
+ const quote=opts.quote_id?state.boostQuote:null;
+ const selectedAmount=quote?Number(quote.amount_kes):Number(state.boostBudget);
+ const plan=aaBoostPlanByAmount(state.boostBudget);
  if(!phone){toast("Enter a valid Kenyan M-Pesa number.");return}
- if(!plan){toast("Please select a valid boost amount before paying.");return}
+ if(!quote&&!plan){toast("Please select a valid boost amount before paying.");return}
+ const boostExtra=quote?{expiresAt:quote.expires_at,placementId:state.boostPlacementId}:{};
 
  aaSetMpesaButtonState("waiting","M-Pesa request started",`Requesting exactly KES ${money(selectedAmount)}. Check your phone and enter your M-Pesa PIN.`);
 
@@ -13252,9 +13374,12 @@ async function requestBoostPayment(){
     const item=(state.candidates||[]).find(x=>String(x.id)===String(c.id));if(item){item.isBoosted=true;item._testBoost=true}
    }
    save();
-   aaApplyConfirmedBoostLocally(type,String(c.id),plan.amount);
+   aaApplyConfirmedBoostLocally(type,String(c.id),selectedAmount,boostExtra);
    aaSetMpesaButtonState("success","Success",`payment accepted. Your ${aaBoostTargetLabel(type).toLowerCase()} is now boosted.`);
-   setTimeout(()=>{state.boostTarget=null;render()},1800);
+   setTimeout(()=>{
+    state.boostTarget=null;state.boostQuote=null;
+    aaShowSuccess(quote?"Your Boost Is Live":`Your ${aaBoostTargetLabel(type)} is now boosted.`);
+   },1800);
   },2600);
   return;
  }
@@ -13282,9 +13407,10 @@ async function requestBoostPayment(){
     listing_id:String(c.id),
     target_id:String(c.id),
     target_type:type,
+    quote_id:quote?quote.quote_id:undefined,
     budget_amount:selectedAmount,
     exact_amount:selectedAmount,
-    days:Number(plan.days),
+    days:Number(quote?state.boostDays:plan.days),
     click_price:Number(AA_AD_CLICK_PRICE),
     targeting:{
      location:String(state.boostTargeting?.location||"all"),
@@ -13306,10 +13432,13 @@ async function requestBoostPayment(){
   aaSetMpesaButtonState("waiting","M-Pesa prompt sent",`Safaricom prompt requested for exactly KES ${money(selectedAmount)}. Enter your PIN on your phone.`);
 
   if(data?.boost_id){
-   await aaPollBoostPayment(data.boost_id,session.access_token,type,String(c.id));
+   await aaPollBoostPayment(data.boost_id,session.access_token,type,String(c.id),boostExtra);
    const payText=document.getElementById("aaMpesaPayButtonText")?.textContent||"";
    if(payText.includes("SUCCESS")){
-    setTimeout(()=>{state.boostTarget=null;render()},1100);
+    setTimeout(()=>{
+     state.boostTarget=null;state.boostQuote=null;
+     aaShowSuccess(quote?"Your Boost Is Live":`Your ${aaBoostTargetLabel(type)} is now boosted.`);
+    },1100);
    }
   }else{
    aaSetMpesaButtonState("failed","Unable to track payment","The payment request started but no boost reference was returned.");
@@ -13544,6 +13673,7 @@ function aaCloseTopOverlay(){
  if(state.moderationPanelTarget){state.moderationPanelTarget=null;render();return true}
  if(state.adOpen){aaCloseAd();return true}
  if(state.agentInviteTarget){state.agentInviteTarget=null;render();return true}
+ if(state.successOpen){state.successOpen=false;render();return true}
  if(state.privacyTarget){state.privacyTarget=null;render();return true}
  if(state.authOpen){state.authOpen=false;state.authError="";render();return true}
  return false;
@@ -19238,6 +19368,14 @@ Preserve all existing onclick actions, routes, forms and button wording.
 
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label{grid-column:1/-1;color:var(--aa-future-gold,#f3be2b);font-size:9.5px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin:8px 0 -2px;opacity:.85}
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label:first-child{margin-top:0}
+</style>
+
+<style id="bingo-change09-boost-success-style">
+#auto-arcade-widget .aa-success-overlay{z-index:220}
+#auto-arcade-widget .aa-success-card{text-align:center;max-width:340px}
+#auto-arcade-widget .aa-success-check{width:64px;height:64px;line-height:64px;margin:0 auto;border-radius:50%;background:linear-gradient(145deg,#1fae5a,#0f7a3c);color:#fff;font-size:32px;font-weight:900;box-shadow:0 0 30px rgba(31,174,90,.5);animation:aaSuccessPop .5s cubic-bezier(.34,1.56,.64,1)}
+@keyframes aaSuccessPop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@media (prefers-reduced-motion: reduce){#auto-arcade-widget .aa-success-check{animation:none}}
 </style>
 
 <style id="bingo-change08-ad-slots-style">
