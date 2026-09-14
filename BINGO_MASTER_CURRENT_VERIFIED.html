@@ -9442,7 +9442,7 @@ function aaCancelFoodSubscription(id){
  if(!confirm('Cancel this restaurant advertisement? The business record will remain saved.'))return;
  f.status='suspended';f.subscription_expires_at=new Date().toISOString();aaV69Write('aa_v69_foods',a);toast('Restaurant advertisement cancelled.');aaOpenFood('mine')
 }
-function aaMixedFeedItems(){const v=(typeof aaVideoListings==='function'?aaVideoListings():[]).map(x=>({...x,kind:'vehicle',feed_title:x.title,feed_desc:x.description,feed_media:x.videoUrl||x.video_url||x.video||'',feed_location:aaSearchLocationText(x)||x.location||'Kenya',feed_seller:x.sellerName||'Bingo Seller'}));const p=aaProperties().flatMap(x=>(x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_pv${i}`,kind:'property',source:x,feed_title:x.title,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:'Property Seller',created_at:x.created_at})));const f=aaFoods().filter(aaFoodActive).flatMap(x=>(x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_fv${i}`,kind:'food',source:x,feed_title:x.business_name,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:x.business_name,created_at:x.created_at})));let all=[...v,...p,...f];const seed=String(state.user?.id||sessionStorage.getItem('aa_feed_seed')||Math.random());if(!sessionStorage.getItem('aa_feed_seed'))sessionStorage.setItem('aa_feed_seed',seed);const score=s=>{let n=0;for(const c of String(s))n=(n*31+c.charCodeAt(0))>>>0;return n};all.sort((a,b)=>{const followBoost=(x)=>x.kind==='vehicle'&&typeof aaIsFollowing==='function'&&aaIsFollowing(x.sellerId||x.userId)?10000000000000:0;const ta=new Date(a.created_at||a.createdAt||0).getTime()+followBoost(a)+score(seed+a.id)%1000000;const tb=new Date(b.created_at||b.createdAt||0).getTime()+followBoost(b)+score(seed+b.id)%1000000;return tb-ta});return all}
+function aaMixedFeedItems(){const v=(typeof aaVideoListings==='function'?aaVideoListings():[]).map(x=>({...x,kind:'vehicle',feed_title:x.title,feed_desc:x.description,feed_media:x.videoUrl||x.video_url||x.video||'',feed_location:aaSearchLocationText(x)||x.location||'Kenya',feed_seller:x.sellerName||'Bingo Seller'}));const p=aaProperties().flatMap(x=>(x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_pv${i}`,kind:'property',source:x,feed_title:x.title,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:'Property Seller',created_at:x.created_at})));const f=aaFoods().filter(aaFoodActive).flatMap(x=>(x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_fv${i}`,kind:'food',source:x,feed_title:x.business_name,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:x.business_name,created_at:x.created_at})));let all=[...v,...p,...f];let aaFeedSeedStored="";try{aaFeedSeedStored=sessionStorage.getItem('aa_feed_seed')||""}catch(e){}const seed=String(state.user?.id||aaFeedSeedStored||Math.random());if(!aaFeedSeedStored){try{sessionStorage.setItem('aa_feed_seed',seed)}catch(e){}}const score=s=>{let n=0;for(const c of String(s))n=(n*31+c.charCodeAt(0))>>>0;return n};all.sort((a,b)=>{const followBoost=(x)=>x.kind==='vehicle'&&typeof aaIsFollowing==='function'&&aaIsFollowing(x.sellerId||x.userId)?10000000000000:0;const ta=new Date(a.created_at||a.createdAt||0).getTime()+followBoost(a)+score(seed+a.id)%1000000;const tb=new Date(b.created_at||b.createdAt||0).getTime()+followBoost(b)+score(seed+b.id)%1000000;return tb-ta});return all}
 function aaMixedFeedCardHTML(c,i){if(c.kind==='vehicle')return aaFeedCardHTML(c,i);const media=`<video class="aa360-video" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"></video>`;const type=c.kind==='food'?'FOOD':'PROPERTY';const price=c.kind==='property'?`<div class="aa360-price">KES ${money(c.source?.price||0)}</div>`:'';const actions=c.kind==='food'?`<button class="call" onclick="location.href='tel:${esc(c.source?.phone||'')}'">Call Delivery</button><button class="wa" onclick="window.open('https://wa.me/${esc(String(c.source?.whatsapp||c.source?.phone||'').replace(/\D/g,''))}','_blank')">WhatsApp</button>`:`<button class="call" onclick="aaOpenProperties('browse')">View Property</button><button class="chat" onclick="toast('Property negotiation will use Bingo Chat after backend deployment.')">Negotiate</button>`;return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div><span class="aa-type-label">${type}</span><div class="aa360-info"><div class="aa360-seller-wrap"><div class="aa360-seller"><span><b>${esc(c.feed_seller)}</b><small>${esc(c.feed_location)}</small></span></div></div><div class="aa360-title">${esc(c.feed_title)}</div>${price}<div class="aa360-desc">${esc(c.feed_desc||'')}</div><div class="aa360-actions">${actions}</div></div></section>`}
 function aaOpenCameraDestination(){
  document.getElementById('aaV69CameraDest')?.remove();
@@ -15650,13 +15650,14 @@ Only requested areas changed:
 
   /* ---------------- Arrow-only first-visit swipe coach ---------------- */
   function runSwipeCoach(){
-    if(state.view!=="home"||sessionStorage.getItem('aa_swipe_tutorial_done')==='1')return;
+    let tutorialDone="";try{tutorialDone=sessionStorage.getItem('aa_swipe_tutorial_done')||""}catch(e){}
+    if(state.view!=="home"||tutorialDone==='1')return;
     if(document.getElementById('aaSwipeCoach'))return;
     const coach=document.createElement('div');coach.id='aaSwipeCoach';coach.className='aa-swipe-coach up';coach.innerHTML='<span>↑</span>';
     root.appendChild(coach);
     setTimeout(()=>{coach.className='aa-swipe-coach';coach.innerHTML='<span>↑</span>';},3100);
     setTimeout(()=>{coach.className='aa-swipe-coach down';coach.innerHTML='<span>↓</span>';},8000);
-    setTimeout(()=>{coach.remove();sessionStorage.setItem('aa_swipe_tutorial_done','1');},11250);
+    setTimeout(()=>{coach.remove();try{sessionStorage.setItem('aa_swipe_tutorial_done','1')}catch(e){}},11250);
   }
 
   /* ---------------- Guest limited public profile ---------------- */
@@ -16807,6 +16808,12 @@ window.sellerHTML=function(s,cars){
 if(window.__BINGO_FIX07__)return;
 if(typeof bingoIsElementorEditor==="function" && bingoIsElementorEditor())return;
 window.__BINGO_FIX07__=true;
+
+/* Disabled: guests must be able to freely swipe through and watch the
+   complete video feed without being time-blocked. Sign Up/Log In is
+   already prompted per-action (Call, Inbox, Comment, Post, Boost,
+   Profile) at the point each action is triggered. */
+return;
 
 const LIMIT_MS=5*60*1000;
 const SESSION_KEY="bingo_guest_home_browse_v1";
