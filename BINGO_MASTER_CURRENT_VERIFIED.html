@@ -4804,7 +4804,7 @@ var aaSolutionMessageSeed=[
 var state = {
  view:"home", location:"All Kenya", perPage:6, page:1, listings:demoListings,
  userRole:null, agentDirectory:[], roleAuditLog:[], superUserSearch:"", superUserResult:null, superUserTerritoryInput:"",
- foodMediaViewer:null,
+ foodMediaViewer:null, foodBusinesses:[], foodEditId:null, foodPublishBusy:false, foodPublishProgress:"",
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
  successOpen:false, callTarget:null, isLoggedIn:false, authBusy:false, authError:"", lastOtpTouch:0, resendUntil:0, resendTimer:null, visits:Number(aaStorage.get("aa_visits")||0), shareCount:Number(aaStorage.get("aa_share_count")||0),
@@ -8936,13 +8936,114 @@ function aaClosePropertyMediaViewer(){
  if(old){old.querySelectorAll('video').forEach(v=>{try{v.pause()}catch(e){}});old.remove()}
  aaMediaViewerList=[];aaMediaViewerIndex=0;
 }
-function aaFoods(){return aaV69Read('aa_v69_foods',[])}
+/* ===== Food business Supabase persistence (Food Video Persistence fix) =====
+   Food previously had no backend at all: aaFoods() only ever read
+   localStorage, aaSubmitFood() converted picked files to base64 and stored
+   a recorded video's session-only blob: URL as if it were permanent media.
+   Both disappear once the session/browser storage entry is gone. Food now
+   follows the same pattern already proven for property_listings: real
+   Storage upload before the database row, a verified reload before showing
+   success, and no blob:/base64 URL ever saved as permanent media. */
+const AA_FOOD_MEDIA_BUCKET='food-media';
+function aaNewFoodBusinessId(){
+ try{if(window.crypto&&typeof window.crypto.randomUUID==='function')return window.crypto.randomUUID()}catch(e){}
+ return `food-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+async function aaUploadFoodMedia(files,userId,businessId,onProgress){
+ if(!sb)return {media:[],paths:[],error:new Error('No database connection. Bingo could not reach Supabase.')};
+ if(!files||!files.length)return {media:[],paths:[],error:new Error('No media selected')};
+ const media=[],paths=[];
+ try{
+  if(!userId)throw new Error('You must be logged in before uploading media.');
+  if(!businessId)throw new Error('A business ID is required before media can be stored.');
+  for(let i=0;i<files.length;i++){
+   const file=files[i];
+   const fileErr=aaValidatePropertyMediaFile(file);
+   if(fileErr)throw new Error(fileErr);
+   if(typeof onProgress==='function')try{onProgress(i+1,files.length)}catch(e){}
+   const isVideo=AA_PROPERTY_MEDIA_VIDEO_TYPES.test(String(file.type||''));
+   const safe=(file.name||`food-${i}`).replace(/[^a-zA-Z0-9._-]/g,'-');
+   const path=`${userId}/${businessId}/${Date.now()}-${i+1}-${safe}`;
+   let up;
+   try{
+    up=await sb.storage.from(AA_FOOD_MEDIA_BUCKET).upload(path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
+   }catch(networkError){throw new Error(aaFriendlyStorageError(networkError))}
+   if(up.error)throw new Error(aaFriendlyStorageError(up.error));
+   paths.push(path);
+   const pub=sb.storage.from(AA_FOOD_MEDIA_BUCKET).getPublicUrl(path);
+   const url=pub?.data?.publicUrl||'';
+   if(!url)throw new Error('Food media uploaded but no public URL was returned.');
+   media.push({type:isVideo?'video':'image',storageBucket:AA_FOOD_MEDIA_BUCKET,storagePath:path,url,mimeType:file.type||(isVideo?'video/mp4':'image/jpeg'),sizeBytes:file.size||0,createdAt:new Date().toISOString(),name:file.name||safe});
+  }
+  return {media,paths,error:null};
+ }catch(error){
+  return {media,paths,error:new Error(aaFriendlyStorageError(error))};
+ }
+}
+async function aaDeleteUploadedFoodMedia(paths){
+ if(!sb||!Array.isArray(paths)||!paths.length)return;
+ try{await sb.storage.from(AA_FOOD_MEDIA_BUCKET).remove(paths)}catch(e){console.warn('Could not clean up failed food media upload',e)}
+}
+async function aaInsertFoodBusiness(payload){
+ if(!sb||!state.user?.id)return {data:null,error:new Error('No database session')};
+ return await sb.from('food_businesses').insert(payload).select().single();
+}
+async function aaUpdateFoodBusiness(id,payload){
+ if(!sb||!state.user?.id)return {data:null,error:new Error('No database session')};
+ return await sb.from('food_businesses').update(payload).eq('id',id).eq('user_id',state.user.id).select().single();
+}
+async function aaVerifyFoodBusiness(id){
+ if(!sb||!id)return {data:null,error:new Error('Cannot verify saved business without database connection.')};
+ const result=await sb.from('food_businesses').select('*').eq('id',id).eq('user_id',state.user.id).single();
+ if(result.error)return result;
+ if(!result.data)return {data:null,error:new Error('The business was not found after saving.')};
+ return result;
+}
+function aaMapFoodBusinessRow(row){
+ return {
+  id:row.id,user_id:String(row.user_id||''),local_owner:false,_localOnly:false,kind:'food',
+  business_name:row.business_name||'',title:row.business_name||'',category:row.category||'',
+  county:row.county||'',town:row.town||'',delivery_area:row.delivery_area||'',
+  phone:row.phone||'',whatsapp:row.whatsapp||'',opening_hours:row.opening_hours||'',
+  price_range:row.price_range||'',delivery_available:!!row.delivery_available,
+  description:row.description||'',media:Array.isArray(row.media)?row.media:[],
+  status:row.status||'inactive',subscription_expires_at:row.subscription_expires_at||null,
+  created_at:row.created_at,createdAt:row.created_at
+ };
+}
+function aaFoods(){
+ const cloud=Array.isArray(state.foodBusinesses)?state.foodBusinesses:[];
+ const seen=new Set(cloud.map(x=>String(x.id)));
+ const legacy=aaV69Read('aa_v69_foods',[]).filter(x=>!seen.has(String(x.id))).map(x=>({...x,_localOnly:true}));
+ return [...cloud,...legacy];
+}
+let aaFoodsLoading=false;
+async function aaLoadFoods(){
+ if(state.testMode)return;
+ if(!sb||aaFoodsLoading)return;
+ aaFoodsLoading=true;
+ try{
+  const own=state.user?.id?await sb.from('food_businesses').select('*').eq('user_id',state.user.id):{data:[],error:null};
+  if(own.error)throw own.error;
+  const pub=await sb.from('food_businesses').select('*').eq('status','active').gt('subscription_expires_at',new Date().toISOString());
+  if(pub.error)throw pub.error;
+  const map=new Map();
+  (own.data||[]).forEach(r=>map.set(String(r.id),r));
+  (pub.data||[]).forEach(r=>{if(!map.has(String(r.id)))map.set(String(r.id),r)});
+  state.foodBusinesses=[...map.values()].map(aaMapFoodBusinessRow);
+ }catch(e){
+  console.warn('Bingo: food businesses unavailable. Using local cache only.',String(e?.message||e));
+  if(!Array.isArray(state.foodBusinesses))state.foodBusinesses=[];
+ }
+ aaFoodsLoading=false;
+ render();
+}
 function aaPropertyMedia(p){return Array.isArray(p?.media)?p.media:[]}
 function aaFoodMedia(p){return Array.isArray(p?.media)?p.media:[]}
 function aaRemainingDays(exp){if(!exp)return 0;return Math.max(0,Math.ceil((new Date(exp).getTime()-Date.now())/86400000))}
 function aaFoodActive(f){return aaRemainingDays(f?.subscription_expires_at)>0&&String(f?.status||'').toLowerCase()!=='suspended'}
 function aaOpenProperties(tab='browse'){state.propertyTab=tab;state.view='properties';if(tab==='stays'&&!state.stayView)state.stayView='landing';aaLoadProperties();render();window.scrollTo(0,0)}
-function aaOpenFood(tab='browse'){state.foodTab=tab;state.view='food';render();window.scrollTo(0,0)}
+function aaOpenFood(tab='browse'){state.foodTab=tab;state.view='food';aaLoadFoods();render();window.scrollTo(0,0)}
 function aaMediaPreviewHTML(media,businessId){
  return (media||[]).map((m,i)=>{
   const isVideo=m.type==='video';
@@ -8974,6 +9075,7 @@ function aaOpenFoodMediaViewer(businessId,mediaIndex,menuItemId){
 }
 function aaCloseFoodMediaViewer(){
  const v=state.foodMediaViewer;
+ try{document.getElementById('aaFoodViewerVideo')?.pause()}catch(e){}
  state.foodMediaViewer=null;
  render();
  if(v)window.scrollTo(0,v.returnScrollY||0);
@@ -9640,8 +9742,157 @@ async function aaDeleteProperty(id){
  aaOpenProperties('mine');
 }
 function aaFoodHTML(){const tab=state.foodTab||'browse', all=aaFoods(), visible=all.filter(aaFoodActive);return `<section style="padding:18px 0 105px"><h2>Food & Home Delivery</h2><p class="notice">Restaurants and food businesses use a paid monthly advertising subscription. KES 1,000 per 30 days via M-Pesa. The counter runs from 30 days down to 0.</p><div class="aa-v69-tabs"><button class="btn ${tab==='browse'?'btn-red':''}" onclick="aaOpenFood('browse')">Browse Food</button><button class="btn ${tab==='post'?'btn-red':''}" onclick="aaOpenFood('post')">Post Food Business</button><button class="btn ${tab==='mine'?'btn-red':''}" onclick="aaOpenFood('mine')">My Food Business</button></div>${tab==='post'?aaFoodPostHTML():tab==='mine'?aaFoodMineHTML(all.filter(x=>String(x.user_id||'')===String(state.user?.id||'')||x.local_owner)):aaFoodListHTML(visible)}</section>`}
-function aaFoodPostHTML(){return `<div class="aa-v69-card"><h3>Create Food Business Listing</h3><form onsubmit="aaSubmitFood(event)"><div class="form-grid"><label>Business Name<input required name="business_name"></label><label>Category<select name="category">${AA_FOOD_TYPES.map(x=>`<option>${esc(x)}</option>`).join('')}</select></label><label>County<input required name="county"></label><label>Town / Area<input required name="town"></label><label>Delivery Area<input required name="delivery_area" placeholder="Nyali, Bamburi, Mombasa CBD"></label><label>Phone<input required name="phone" type="tel"></label><label>WhatsApp<input name="whatsapp" type="tel"></label><label>Opening Hours<input name="opening_hours" placeholder="8:00 AM - 11:00 PM"></label><label>Price Range<input name="price_range" placeholder="KES 300 - 2,500"></label><label>Home Delivery<select name="delivery_available"><option value="yes">Yes</option><option value="no">No</option></select></label><label class="full">Description<textarea required name="description" rows="4"></textarea></label><label class="full">Food Photos / Videos<input id="aaFoodMedia" type="file" accept="image/*,video/*" multiple></label></div><div class="details-actions" style="margin-top:10px"><button class="btn" type="button" onclick="aaOpenDualCamera('food')">Record Video</button><button class="btn btn-red" type="submit">Save Business</button></div><div id="aaFoodRecorded" class="aa-v69-media-grid"></div></form></div>`}
-async function aaSubmitFood(e){e.preventDefault();if(!state.isLoggedIn&&!state.testMode){openAuth('login');return}const fd=new FormData(e.target);const picked=await aaFileToLocalMedia(document.getElementById('aaFoodMedia')?.files,6);const rec=state.v69Recorded?.food?[state.v69Recorded.food]:[];const f={id:'food_'+Date.now(),user_id:state.user?.id||'',local_owner:true,kind:'food',business_name:fd.get('business_name'),title:fd.get('business_name'),category:fd.get('category'),county:fd.get('county'),town:fd.get('town'),delivery_area:fd.get('delivery_area'),phone:fd.get('phone'),whatsapp:fd.get('whatsapp'),opening_hours:fd.get('opening_hours'),price_range:fd.get('price_range'),delivery_available:fd.get('delivery_available')==='yes',description:fd.get('description'),media:[...rec,...picked].slice(0,10),status:'inactive',subscription_expires_at:null,created_at:new Date().toISOString()};const a=aaFoods();a.unshift(f);aaV69Write('aa_v69_foods',a);if(state.v69Recorded)delete state.v69Recorded.food;toast('Food business saved. Activate a subscription to appear publicly.');aaOpenFood('mine')}
+function aaFoodPostHTML(){
+ const editItem=state.foodEditId?aaFoods().find(x=>String(x.id)===String(state.foodEditId)):null;
+ const d=editItem||{};
+ const contextKey=editItem?('edit:'+editItem.id):'new';
+ if(state.foodDraftMediaFor!==contextKey){
+  aaMediaDraftReset('food',editItem&&Array.isArray(editItem.media)?editItem.media:[]);
+  state.foodDraftMediaFor=contextKey;
+ }
+ const busy=!!state.foodPublishBusy;
+ return `<div class="aa-v69-card"><h3>${editItem?'Edit Food Business':'Create Food Business Listing'}</h3><form onsubmit="aaSubmitFood(event)"><div class="form-grid"><label>Business Name<input required name="business_name" value="${esc(d.business_name||'')}"></label><label>Category<select name="category">${AA_FOOD_TYPES.map(x=>`<option ${d.category===x?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label>County<input required name="county" value="${esc(d.county||'')}"></label><label>Town / Area<input required name="town" value="${esc(d.town||'')}"></label><label>Delivery Area<input required name="delivery_area" placeholder="Nyali, Bamburi, Mombasa CBD" value="${esc(d.delivery_area||'')}"></label><label>Phone<input required name="phone" type="tel" value="${esc(d.phone||'')}"></label><label>WhatsApp<input name="whatsapp" type="tel" value="${esc(d.whatsapp||'')}"></label><label>Opening Hours<input name="opening_hours" placeholder="8:00 AM - 11:00 PM" value="${esc(d.opening_hours||'')}"></label><label>Price Range<input name="price_range" placeholder="KES 300 - 2,500" value="${esc(d.price_range||'')}"></label><label>Home Delivery<select name="delivery_available"><option value="yes" ${d.delivery_available?'selected':''}>Yes</option><option value="no" ${d.delivery_available===false?'selected':''}>No</option></select></label><label class="full">Description<textarea required name="description" rows="4">${esc(d.description||'')}</textarea></label><label class="full">Food Photos / Videos<input type="file" accept="image/*,video/*" multiple ${busy?'disabled':''} onchange="aaMediaDraftAddFiles('food',this.files);this.value=''"></label></div><p class="notice" style="margin-top:8px">Tap ★ to set the cover, ◀▶ to reorder, ✕ to remove. Tap a thumbnail to preview it full-screen.</p>${aaMediaGalleryHTML(aaMediaDraftGet('food').items,{editable:true,draftKey:'food',emptyText:'No photos or videos added yet.'})}<div class="details-actions" style="margin-top:10px"><button class="btn" type="button" ${busy?'disabled':''} onclick="aaOpenDualCamera('food')">Record Video</button>${editItem?`<button class="btn" type="button" ${busy?'disabled':''} onclick="aaCancelFoodEdit()">Cancel</button>`:''}<button class="btn btn-red" type="submit" ${busy?'disabled':''}>${busy?(state.foodPublishProgress||'Publishing…'):(editItem?'Save Changes':'Save Business')}</button></div></form></div>`;
+}
+function aaEditFoodBusiness(id){
+ const item=aaFoods().find(x=>String(x.id)===String(id));
+ if(!item)return;
+ if(item._localOnly){toast("This business is stored locally only and can't be edited online yet. Delete and re-post it to make changes.");return}
+ if(!state.user?.id||String(item.user_id||'')!==String(state.user.id)){toast('You can only edit your own Food business.');return}
+ state.foodEditId=id;
+ state.foodTab='post';
+ state.view='food';
+ render();
+ window.scrollTo(0,0);
+}
+function aaCancelFoodEdit(){aaMediaDraftReset('food',[]);state.foodDraftMediaFor='';state.foodEditId=null;aaOpenFood('mine')}
+async function aaSubmitFood(e){
+ e.preventDefault();
+ if(!state.isLoggedIn&&!state.testMode){openAuth('login');return}
+ if(state.foodPublishBusy)return;
+ const fd=new FormData(e.target);
+ const editId=state.foodEditId;
+ state.foodPublishBusy=true;
+ state.foodPublishProgress='Publishing…';
+ render();
+ try{
+  const basePayload={
+   business_name:fd.get('business_name')||'',category:fd.get('category')||'',
+   county:fd.get('county')||'',town:fd.get('town')||'',delivery_area:fd.get('delivery_area')||'',
+   phone:fd.get('phone')||'',whatsapp:fd.get('whatsapp')||'',opening_hours:fd.get('opening_hours')||'',
+   price_range:fd.get('price_range')||'',delivery_available:fd.get('delivery_available')==='yes',
+   description:fd.get('description')||''
+  };
+  if(state.testMode){
+   const original=editId?aaFoods().find(x=>String(x.id)===String(editId)):null;
+   const draftItems=aaMediaDraftGet('food').items;
+   const p={id:editId||('food_'+Date.now()),user_id:state.user?.id||'',local_owner:true,kind:'food',...basePayload,
+    media:draftItems.map(({type,url,name})=>({type,url,name})).slice(0,10),
+    status:original?.status||'inactive',subscription_expires_at:original?.subscription_expires_at||null,
+    created_at:original?.created_at||new Date().toISOString()};
+   const arr=aaV69Read('aa_v69_foods',[]);
+   const idx=arr.findIndex(x=>String(x.id)===String(editId));
+   if(idx>=0)arr[idx]=p;else arr.unshift(p);
+   aaV69Write('aa_v69_foods',arr);
+   aaMediaDraftReset('food',[]);
+   state.foodDraftMediaFor='';
+   state.foodEditId=null;
+   toast(editId?'Food business updated (preview mode).':'Food business added in memory only (preview mode).');
+   aaOpenFood('mine');
+   return;
+  }
+  if(!sb||!state.user?.id){toast('You must be logged in to save a Food business.');return}
+  if(editId){
+   const original=aaFoods().find(x=>String(x.id)===String(editId));
+   if(!original){toast('This business could not be found.');state.foodEditId=null;return}
+   if(original._localOnly){toast("This business is stored locally only and can't be edited online yet. Delete and re-post it to make changes.");return}
+   if(String(original.user_id||'')!==String(state.user.id)){toast('You can only edit your own Food business.');return}
+   const keptMedia=aaMediaDraftKeptExisting('food');
+   const removedPaths=aaMediaDraftRemovedPaths('food');
+   const newFiles=aaMediaDraftFilesForUpload('food');
+   const upload=newFiles.length?await aaUploadFoodMedia(newFiles,state.user.id,editId,(n,total)=>{state.foodPublishProgress=`Uploading file ${n} of ${total}…`;render()}):{media:[],paths:[],error:null};
+   if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error));return}
+   const payload={...basePayload,media:[...keptMedia,...upload.media]};
+   state.foodPublishProgress='Saving listing…';render();
+   const upd=await aaUpdateFoodBusiness(editId,payload);
+   if(upd.error){
+    await aaDeleteUploadedFoodMedia(upload.paths);
+    toast('Could not save changes: '+String(upd.error.message||upd.error));
+    return;
+   }
+   const verify=await aaVerifyFoodBusiness(editId);
+   if(verify.error){
+    toast('Could not confirm your changes saved correctly: '+String(verify.error.message||verify.error)+' Your draft is unchanged — try Save again.');
+    return;
+   }
+   const mapped=aaMapFoodBusinessRow(verify.data);
+   if(!Array.isArray(state.foodBusinesses))state.foodBusinesses=[];
+   const idx=state.foodBusinesses.findIndex(x=>String(x.id)===String(editId));
+   if(idx>=0)state.foodBusinesses[idx]=mapped;else state.foodBusinesses.unshift(mapped);
+   if(removedPaths.length)await aaDeleteUploadedFoodMedia(removedPaths);
+   aaMediaDraftReset('food',[]);
+   state.foodDraftMediaFor='';
+   state.foodEditId=null;
+   toast('Food business updated.');
+   aaOpenFood('mine');
+   return;
+  }
+  const businessId=aaNewFoodBusinessId();
+  const userId=state.user.id;
+  const files=aaMediaDraftFilesForUpload('food');
+  if(!files.length){toast('Add at least one photo or video before saving.');return}
+  const upload=await aaUploadFoodMedia(files,userId,businessId,(n,total)=>{state.foodPublishProgress=`Uploading file ${n} of ${total}…`;render()});
+  if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error));return}
+  const payload={id:businessId,user_id:userId,...basePayload,media:upload.media,status:'inactive',subscription_expires_at:null};
+  state.foodPublishProgress='Saving listing…';render();
+  const ins=await aaInsertFoodBusiness(payload);
+  if(ins.error){
+   await aaDeleteUploadedFoodMedia(upload.paths);
+   toast('Could not save Food business: '+String(ins.error.message||ins.error));
+   return;
+  }
+  const verify=await aaVerifyFoodBusiness(businessId);
+  if(verify.error){
+   toast('Food business could not be verified after saving: '+String(verify.error.message||verify.error));
+   return;
+  }
+  const mapped=aaMapFoodBusinessRow(verify.data);
+  if(!Array.isArray(state.foodBusinesses))state.foodBusinesses=[];
+  state.foodBusinesses.unshift(mapped);
+  aaMediaDraftReset('food',[]);
+  state.foodDraftMediaFor='';
+  toast('Food business saved. Activate a subscription to appear publicly.');
+  aaOpenFood('mine');
+ }finally{
+  state.foodPublishBusy=false;
+  state.foodPublishProgress='';
+  render();
+ }
+}
+async function aaDeleteFoodBusiness(id){
+ const item=aaFoods().find(x=>String(x.id)===String(id));
+ if(!item)return;
+ if(!confirm('Delete this Food business? This cannot be undone.'))return;
+ if(item._localOnly){
+  aaV69Write('aa_v69_foods',aaV69Read('aa_v69_foods',[]).filter(x=>String(x.id)!==String(id)));
+  aaOpenFood('mine');
+  return;
+ }
+ if(!sb||!state.user?.id||String(item.user_id||'')!==String(state.user.id)){toast('You can only delete your own Food business.');return}
+ const del=await sb.from('food_businesses').delete().eq('id',id).eq('user_id',state.user.id);
+ if(del.error){toast('Could not delete business: '+String(del.error.message||del.error));return}
+ if(Array.isArray(state.foodBusinesses))state.foodBusinesses=state.foodBusinesses.filter(x=>String(x.id)!==String(id));
+ const paths=(Array.isArray(item.media)?item.media:[]).map(m=>m.storagePath).filter(Boolean);
+ if(paths.length){
+  try{
+   const rm=await sb.storage.from(AA_FOOD_MEDIA_BUCKET).remove(paths);
+   if(rm.error)toast('Business deleted. Some media files could not be removed from storage.');
+   else toast('Food business deleted.');
+  }catch(e){toast('Business deleted. Some media files could not be removed from storage.')}
+ }else{
+  toast('Food business deleted.');
+ }
+ aaOpenFood('mine');
+}
 function aaFoodMineHTML(a){
  if(!a.length)return `<div class="aa-v69-card"><p>You have not created a food business yet.</p><button class="btn btn-red" onclick="aaOpenFood('post')">Create Food Business</button></div>`;
  return a.map(f=>{
@@ -9659,6 +9910,10 @@ function aaFoodMineHTML(a){
     <button class="btn" onclick="aaCancelFoodSubscription('${esc(f.id)}')">Cancel Ad</button>
    </div>
    <div class="notice">After successful M-Pesa confirmation, the listing is active for 30 days. At 0 days it stops appearing publicly until renewed. Cancel stops the advertisement without deleting the business record.</div>
+   <div class="details-actions" style="margin-top:8px">
+    <button class="btn" onclick="aaEditFoodBusiness('${esc(f.id)}')">Edit</button>
+    <button class="btn btn-red" onclick="aaDeleteFoodBusiness('${esc(f.id)}')">Delete</button>
+   </div>
   </div>`;
  }).join('')
 }
@@ -9714,7 +9969,7 @@ function aaRouteRecordedVideo(dest,obj){
  }
  if(dest==='property'){aaMediaDraftAddRecorded('property',obj);aaOpenProperties('post');return}
  if(dest==='stay'){aaMediaDraftAddRecorded('stay',obj);return}
- if(dest==='food'){aaOpenFood('post');setTimeout(()=>{const box=document.getElementById('aaFoodRecorded');if(box)box.innerHTML=`<video src="${bingoSafeMediaAttr(obj.url)}" controls playsinline></video>`},100);return}
+ if(dest==='food'){aaMediaDraftAddRecorded('food',obj);aaOpenFood('post');return}
  if(dest==='job'){openJobs('vacancy');setTimeout(()=>{const form=document.querySelector('#app form');if(form){let p=document.getElementById('aaJobRecordedPreview');if(!p){p=document.createElement('div');p.id='aaJobRecordedPreview';p.className='boost-summary';form.prepend(p)}p.innerHTML=`<b>Recorded video ready for this vacancy</b><video src="${bingoSafeMediaAttr(obj.url)}" controls playsinline style="width:100%;max-height:360px;background:#000;margin-top:8px"></video><div class="notice">The recording is attached to this posting session. Permanent Job video storage can use the same Supabase publishing engine in the next backend step.</div>`}},120);return}
  // profile
  state.v69ProfileCameraPosts=state.v69ProfileCameraPosts||[];state.v69ProfileCameraPosts.unshift(obj);openProfile();setTimeout(()=>{const modal=document.querySelector('#app .modal');if(modal){let p=document.getElementById('aaProfileCameraPosts');if(!p){p=document.createElement('div');p.id='aaProfileCameraPosts';p.className='boost-summary';const actions=modal.querySelector('.dashboard-actions');actions?.insertAdjacentElement('afterend',p)}p.innerHTML=`<b>My Camera Post</b><video src="${bingoSafeMediaAttr(obj.url)}" controls playsinline style="width:100%;max-height:420px;background:#000;margin-top:8px"></video><div class="notice">Video is ready on your profile for this session.</div>`}},120)
