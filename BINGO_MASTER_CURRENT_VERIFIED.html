@@ -4824,6 +4824,7 @@ var state = {
  foodMenuItemsByBusiness:{}, foodMenuBusinessId:"", foodItemEditId:null, foodItemPublishBusy:false, foodItemPublishProgress:"",
  foodItemPrepType:"ready_made", foodItemAvailable:true, foodItemPreviewOpen:false, foodItemDetailId:"", foodItemDraftFields:null,
  pendingMemberIntent:null, memberEntranceOpen:false,
+ moderationCases:[], moderationPanelTarget:null,
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
  successOpen:false, callTarget:null, isLoggedIn:false, authBusy:false, authError:"", lastOtpTouch:0, resendUntil:0, resendTimer:null, visits:Number(aaStorage.get("aa_visits")||0), shareCount:Number(aaStorage.get("aa_share_count")||0),
@@ -4941,7 +4942,14 @@ function filtered(){
 function isFav(id){return (state.favorites||[]).some(x=>String(x)===String(id))}
 function toggleFav(id){if(!aaRequireMember({action:"save",targetId:id}))return;state.favorites=isFav(id)?state.favorites.filter(x=>String(x)!==String(id)):[...state.favorites,String(id)];save();render()}
 function reportListing(id){state.reportTarget=id;render()}
-function submitReport(){const c=state.listings.find(x=>x.id===state.reportTarget);const reason=document.getElementById("reportReason")?.value||"Other";if(!c)return;state.inbox.push({id:Date.now(),type:"report",candidateName:"Admin report",text:`Listing #${c.id} reported: ${reason}`,from:"System",archived:false,blocked:false,reported:true,createdAt:new Date().toISOString()});save();state.reportTarget=null;toast("Thank you. The listing has been flagged for review.")}
+async function submitReport(){
+ const c=state.listings.find(x=>x.id===state.reportTarget);
+ const reason=document.getElementById("reportReason")?.value||"Other";
+ const details=document.getElementById("reportDetails")?.value||"";
+ if(!c)return;
+ state.reportTarget=null;render();
+ await aaSubmitReport("vehicle",c.id,aaListingOwnerId(c)||null,reason,details);
+}
 
 function callSeller(c){
  if(!state.isLoggedIn){openAuth("login");return}
@@ -7874,7 +7882,7 @@ function aaPauseAllFeedVideos(){
  document.querySelectorAll("#auto-arcade-widget .aa360-video").forEach(v=>{try{v.pause()}catch(e){}});
 }
 function aaHomeOverlayOpen(){
- return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
+ return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
 }
 function aaInit360Feed(){
  if(aaFeedObserver){try{aaFeedObserver.disconnect()}catch(e){}}
@@ -8140,17 +8148,12 @@ function aaDeleteCommunityGroup(id){
  state.communityGroups=(state.communityGroups||[]).filter(x=>String(x.id)!==String(id));
  state.communityGroupId="";save();state.view="community-groups";render();toast("Group deleted.");
 }
-function aaReportCommunityMember(groupId,memberId){
+async function aaReportCommunityMember(groupId,memberId){
  if(!aaIsAutoArcadeMember()){openAuth("login");return}
  if(String(memberId)===String(state.user.id)){toast("You cannot report yourself.");return}
  const reason=prompt("Briefly tell Bingo why you are reporting this member:");
  if(!reason||!String(reason).trim())return;
- state.communityReports=[...(state.communityReports||[]),{
-   id:"rpt_"+Date.now(),groupId:String(groupId),reportedUserId:String(memberId),
-   reporterUserId:String(state.user.id),reason:String(reason).trim(),
-   status:"pending",createdAt:new Date().toISOString()
- }];
- save();toast("Report submitted to Bingo moderation.");
+ await aaSubmitReport("community_member",memberId,memberId,reason.trim(),"Group: "+String(groupId));
 }
 function aaCommunityGroupsHTML(){
  const q=String(state.communityGroupSearch||"").trim().toLowerCase();
@@ -9868,7 +9871,7 @@ function aaPropertyListHTML(a,mine){if(!a.length)return `<div class="aa-v69-card
  const actions=isStay
   ?`<div class="details-actions"><button class="btn" onclick='aaStayCall(${JSON.stringify(p.contactPhone||"")})'>Call</button><button class="btn" onclick='aaStayInbox(${JSON.stringify({id:p.id,title:p.title,contactPhone:p.contactPhone,nightlyRate:p.price,hostName:p.sellerName||"Host"})})'>Inbox</button><button class="btn" onclick='aaStayRequestViewing(${JSON.stringify({id:p.id,title:p.title,contactPhone:p.contactPhone,nightlyRate:p.price,hostName:p.sellerName||"Host"})})'>Request Viewing</button><button class="btn btn-gold" onclick='aaStayNegotiate(${JSON.stringify({id:p.id,title:p.title,nightlyRate:p.price})})'>Negotiate</button></div>`
   :`<div class="details-actions"><button class="btn" onclick="toast('Viewing request messaging will use the connected backend.')">Request Viewing</button><button class="btn btn-red" onclick="toast('Price negotiation will open Bingo Chat once the property backend is connected.')">Negotiate Price</button></div>`;
- return `<article class="aa-v69-card"><span class="badge badge-red">${esc(isStay?(p.duration||'Short-term'):(p.purpose||'PROPERTY'))}</span>${aaPropertyMediaGalleryHTML(p.media)}<h3>${esc(p.title)}</h3>${p._localOnly?`<div class="notice" style="margin:2px 0">Local only — not visible on other devices</div>`:''}<div class="price">${priceLine}</div><div class="meta">${esc(p.type||'Property')} · ${esc(p.town||'')}, ${esc(p.county||'')}</div><p>${esc(p.description||'')}</p>${actions}${mine?`<button class="btn" style="margin-top:8px" onclick="${isStay?'aaEditStay':'aaEditProperty'}('${esc(p.id)}')">Edit</button><button class="btn" style="margin-top:8px" onclick="aaDeleteProperty('${esc(p.id)}')">Delete</button>`:''}</article>`;
+ return `<article class="aa-v69-card"><span class="badge badge-red">${esc(isStay?(p.duration||'Short-term'):(p.purpose||'PROPERTY'))}</span>${aaPropertyMediaGalleryHTML(p.media)}<h3>${esc(p.title)}</h3>${p._localOnly?`<div class="notice" style="margin:2px 0">Local only — not visible on other devices</div>`:''}<div class="price">${priceLine}</div><div class="meta">${esc(p.type||'Property')} · ${esc(p.town||'')}, ${esc(p.county||'')}</div><p>${esc(p.description||'')}</p>${actions}${mine?`<button class="btn" style="margin-top:8px" onclick="${isStay?'aaEditStay':'aaEditProperty'}('${esc(p.id)}')">Edit</button><button class="btn" style="margin-top:8px" onclick="aaDeleteProperty('${esc(p.id)}')">Delete</button>`:''}${aaAdminControlsHTML(isStay?"stay":"property",p.id,p.user_id||p.userId||"")}</article>`;
 }).join('')}</div>`}
 async function aaDeleteProperty(id){
  const item=aaProperties().find(x=>String(x.id)===String(id));
@@ -10447,7 +10450,7 @@ function aaFoodMineHTML(a){
   </div>`;
  }).join('')
 }
-function aaFoodListHTML(a){if(!a.length)return `<div class="aa-v69-card"><p>No active food business is available yet.</p></div>`;return `<div class="aa-v69-grid">${a.map(f=>`<article class="aa-v69-card"><button type="button" style="all:unset;display:block;width:100%;position:relative;cursor:pointer" onclick="aaOpenFoodMediaViewer('${esc(f.id)}',0)">${f.media?.[0]?.type==='video'?`<video src="${bingoSafeMediaAttr(f.media[0].url)}" muted playsinline preload="metadata" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#000"></video><span class="aa-media-play">▶</span>`:`<img src="${bingoSafeMediaAttr(f.media?.[0]?.url||'')}" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#111" alt="">`}</button><h3>${esc(f.business_name)}</h3><div class="meta">${esc(f.category)} · Delivery: ${esc(f.delivery_area)}</div><p>${esc(f.description)}</p><div class="details-actions"><button class="btn" onclick="location.href='tel:${esc(f.phone)}'">Call for Delivery</button><button class="btn btn-green" onclick="window.open('https://wa.me/${esc(String(f.whatsapp||f.phone).replace(/\D/g,''))}','_blank')">WhatsApp</button></div><button class="btn btn-gold" style="width:100%;margin-top:7px" onclick="aaOpenFoodMenu('${esc(f.id)}')">View Menu</button></article>`).join('')}</div>`}
+function aaFoodListHTML(a){if(!a.length)return `<div class="aa-v69-card"><p>No active food business is available yet.</p></div>`;return `<div class="aa-v69-grid">${a.map(f=>`<article class="aa-v69-card"><button type="button" style="all:unset;display:block;width:100%;position:relative;cursor:pointer" onclick="aaOpenFoodMediaViewer('${esc(f.id)}',0)">${f.media?.[0]?.type==='video'?`<video src="${bingoSafeMediaAttr(f.media[0].url)}" muted playsinline preload="metadata" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#000"></video><span class="aa-media-play">▶</span>`:`<img src="${bingoSafeMediaAttr(f.media?.[0]?.url||'')}" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#111" alt="">`}</button><h3>${esc(f.business_name)}</h3><div class="meta">${esc(f.category)} · Delivery: ${esc(f.delivery_area)}</div><p>${esc(f.description)}</p><div class="details-actions"><button class="btn" onclick="location.href='tel:${esc(f.phone)}'">Call for Delivery</button><button class="btn btn-green" onclick="window.open('https://wa.me/${esc(String(f.whatsapp||f.phone).replace(/\D/g,''))}','_blank')">WhatsApp</button></div><button class="btn btn-gold" style="width:100%;margin-top:7px" onclick="aaOpenFoodMenu('${esc(f.id)}')">View Menu</button>${aaAdminControlsHTML("food_business",f.id,f.user_id||"")}</article>`).join('')}</div>`}
 async function aaStartFoodSubscription(id,months){
  months=1;
  const amount=1000;
@@ -10674,7 +10677,7 @@ ${state.view==="home"?`<div class="aa-assistant-nav-wrap" id="aaAssistantNavWrap
     </div>
   </nav>
  </div>`:""}
- ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.adOpen?aaAdHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   aaDynamicAdAfterRender();
@@ -10699,6 +10702,7 @@ function cardHTML(c){
  <button class="seller" style="width:100%;text-align:left" onclick='openSeller(${JSON.stringify(String(c.sellerId||c.userId||""))})'><img src="${bingoSafeMediaAttr(c.sellerPhoto)}" alt="" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&q=80'"><span class="seller-name">${aaFollowTopControlHTML({id:c.sellerId||c.userId,name:c.sellerName})}${esc(c.sellerName)}${aaFollowStatsHTML(c.sellerId||c.userId)}<br>${aaPresenceBadge({id:c.sellerId,sellerId:c.sellerId,phone:c.sellerPhone})}</span></button>
  <div class="card-actions"><button class="small-btn ${isFav(c.id)?'fav-on':''}" onclick='toggleFav(${id})'>${isFav(c.id)?'♥ Saved':'♡ Save'}</button><button class="small-btn share-count" onclick='state.shareTarget=state.listings.find(x=>String(x.id)===${id});render()'>Share</button><button class="small-btn" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'>Details</button></div>
  <div class="details-actions"><button class="small-btn" onclick='callSeller(state.listings.find(x=>String(x.id)===${id}))'>Call</button>${state.isLoggedIn&&aaListingOwnerId(c)===String(state.user?.id||"")?`<button class="small-btn" onclick='openBoost(state.listings.find(x=>String(x.id)===${id}))'>Boost</button>`:""}</div>
+ ${aaAdminControlsHTML("vehicle",c.id,aaListingOwnerId(c))}
  </div></article>`;
 }
 function aaSetDetailImage(src,index){
@@ -11215,6 +11219,20 @@ async function aaLoadUserRole(){
   state.userRole={role:"member",territory:""};
  }
  await aaDeliverRoleNotifications();
+ await aaDeliverModerationNotifications();
+}
+async function aaDeliverModerationNotifications(){
+ if(!sb||!state.user?.id)return;
+ try{
+  const {data,error}=await sb.from("bingo_moderation_notifications").select("id,message").eq("user_id",state.user.id).eq("delivered",false);
+  if(error||!Array.isArray(data)||!data.length)return;
+  state.inbox=state.inbox||[];
+  data.forEach(n=>{
+   state.inbox.unshift({id:Date.now()+Math.random(),type:"moderation",text:n.message,from:"Bingo Moderation",createdAt:new Date().toISOString(),archived:false,blocked:false});
+  });
+  save();
+  await sb.from("bingo_moderation_notifications").update({delivered:true}).in("id",data.map(n=>n.id));
+ }catch(e){console.warn("Bingo: moderation notification delivery skipped.",String(e?.message||e))}
 }
 async function aaDeliverRoleNotifications(){
  if(!sb||!state.user?.id)return;
@@ -11309,9 +11327,167 @@ function aaOpenSuperUserDashboard(){
  state.view="super-admin";
  aaLoadAgentDirectory();
  aaLoadRoleAuditLog();
+ aaLoadModerationCases();
  render();window.scrollTo(0,0);
 }
 function aaReturnToSuperUserDashboard(){aaOpenSuperUserDashboard()}
+
+/* ---- Moderation and All Posts admin (Change 06) ----
+   A report never punishes automatically — it opens a bingo_moderation_cases
+   row for review. Every state change (dismiss/hide/restore/delete/escalate)
+   runs through the bingo_moderation_action SECURITY DEFINER RPC, which
+   re-checks the caller's verified role and, for an Agent, that the case is
+   actually assigned to them, before touching anything. aaHasPermission is a
+   client-side convenience gate for showing/hiding controls only — the RPC
+   is the real authority. */
+function aaHasPermission(perm){
+ if(aaIsSuperUser())return true;
+ if(!aaIsAgentRole())return false;
+ return ["moderation:view","moderation:dismiss","moderation:request_edit"].includes(String(perm||""));
+}
+async function aaSubmitReport(targetType,targetId,targetOwnerId,reason,details){
+ if(!state.isLoggedIn){openAuth("login");return false}
+ if(!sb){toast("Report service is not ready. Please try again.");return false}
+ const cleanReason=String(reason||"").trim();
+ if(!cleanReason){toast("Choose a reason before submitting.");return false}
+ try{
+  const {error}=await sb.rpc("bingo_submit_report",{p_target_type:targetType,p_target_id:String(targetId),p_target_owner_id:targetOwnerId||null,p_reason:cleanReason,p_details:String(details||"")});
+  if(error)throw error;
+  toast("Thank you. Your report has been sent for review — it will not automatically affect the account.");
+  return true;
+ }catch(e){toast("Could not submit report: "+String(e?.message||e));return false}
+}
+async function aaAdminModerate(caseId,action,reason){
+ if(!aaIsSuperUser()&&!aaHasPermission("moderation:"+action))throw new Error("Not authorized");
+ if(!reason?.trim())throw new Error("A reason is required");
+ const {data,error}=await sb.rpc("bingo_moderation_action",{p_case_id:caseId,p_action:action,p_reason:reason.trim()});
+ if(error)throw error;
+ return data;
+}
+async function aaLoadModerationCases(){
+ if(!sb||!state.user?.id){state.moderationCases=[];return}
+ try{
+  const {data,error}=await sb.from("bingo_moderation_cases").select("*").order("created_at",{ascending:false}).limit(150);
+  if(error)throw error;
+  state.moderationCases=Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load moderation cases.",String(e?.message||e));state.moderationCases=[]}
+}
+async function aaModerationAct(caseId,action){
+ const verbs={dismiss:"dismiss this report",request_edit:"ask the owner to edit this post",hide:"temporarily hide this post",restore:"restore this post to public view",delete:"permanently delete this post",escalate:"escalate this case for further review"};
+ if(action==="delete"&&!confirm("Delete this post? This removes it from Bingo and cannot be undone."))return;
+ const reason=prompt("Reason (required) — you are about to "+(verbs[action]||action)+":");
+ if(!reason||!reason.trim()){toast("A reason is required.");return}
+ try{
+  await aaAdminModerate(caseId,action,reason);
+  toast("Moderation action recorded.");
+  await aaLoadModerationCases();
+  render();
+ }catch(e){toast("Could not complete this action: "+String(e?.message||e))}
+}
+async function aaAssignModerationCase(caseId){
+ if(!aaIsSuperUser())return;
+ const dir=Array.isArray(state.agentDirectory)?state.agentDirectory:[];
+ if(!dir.length){toast("No approved Agents to assign yet.");return}
+ const list=dir.map((a,i)=>`${i+1}. ${a.full_name||a.email} (${a.territory||"—"})`).join("\n");
+ const pick=prompt("Assign to which Agent? Enter the number:\n"+list);
+ const agent=dir[Number(pick)-1];
+ if(!agent){toast("No Agent selected.");return}
+ try{
+  const {error}=await sb.rpc("bingo_moderation_assign",{p_case_id:caseId,p_agent_id:agent.user_id});
+  if(error)throw error;
+  toast("Case assigned to "+(agent.full_name||agent.email)+".");
+  await aaLoadModerationCases();
+  render();
+ }catch(e){toast("Could not assign case: "+String(e?.message||e))}
+}
+function aaModerationCaseRowHTML(c){
+ const canAct=aaIsSuperUser()||(aaIsAgentRole()&&String(c.assigned_agent_id||"")===String(state.user?.id||""));
+ const actions=aaIsSuperUser()?["dismiss","request_edit","hide","restore","delete","escalate"]:["dismiss","request_edit"];
+ const labels={dismiss:"Dismiss",request_edit:"Request Edit",hide:"Hide",restore:"Restore",delete:"Delete",escalate:"Escalate"};
+ return `<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
+  <b style="font-size:12px">${esc(c.target_type)} · ${esc(String(c.target_id||"").slice(0,12))}</b>
+  <span class="meta" style="float:right">${esc(c.status)}</span>
+  <div class="meta">Reason: ${esc(c.reason||"")}</div>
+  ${c.details?`<div class="meta">${esc(c.details)}</div>`:""}
+  <div class="meta">${new Date(c.created_at).toLocaleString()}</div>
+  ${c.status==="open"&&canAct?`<div class="details-actions" style="margin-top:6px">${actions.map(a=>`<button class="small-btn" onclick='aaModerationAct(${JSON.stringify(c.id)},${JSON.stringify(a)})'>${labels[a]}</button>`).join("")}</div>`:""}
+  ${c.status!=="open"&&c.resolution_reason?`<div class="notice" style="margin-top:6px">Resolved (${esc(c.status)}): ${esc(c.resolution_reason)}</div>`:""}
+  ${aaIsSuperUser()&&c.status==="open"&&!c.assigned_agent_id?`<button class="small-btn" style="margin-top:6px" onclick='aaAssignModerationCase(${JSON.stringify(c.id)})'>Assign to Agent</button>`:""}
+ </div>`;
+}
+function aaModerationQueueHTML(){
+ const cases=Array.isArray(state.moderationCases)?state.moderationCases:[];
+ if(!cases.length)return `<p class="notice">No moderation cases yet.</p>`;
+ return cases.map(c=>aaModerationCaseRowHTML(c)).join("");
+}
+function aaAgentModerationQueueHTML(){
+ const cases=(Array.isArray(state.moderationCases)?state.moderationCases:[]).filter(c=>String(c.assigned_agent_id||"")===String(state.user?.id||""));
+ if(!cases.length)return `<p class="notice">No cases are assigned to you right now.</p>`;
+ return cases.map(c=>aaModerationCaseRowHTML(c)).join("");
+}
+function aaAllPostsHTML(){
+ const vehicles=(state.listings||[]).map(c=>({type:"vehicle",id:c.id,title:c.title,ownerId:aaListingOwnerId(c)}));
+ const properties=aaProperties().map(p=>({type:AA_STAY_TYPES.includes(p.type)?"stay":"property",id:p.id,title:p.title,ownerId:p.user_id||p.userId||""}));
+ const foods=(state.foodBusinesses||[]).map(f=>({type:"food_business",id:f.id,title:f.business_name,ownerId:f.user_id||""}));
+ const all=[...vehicles,...properties,...foods];
+ if(!all.length)return `<p class="notice">No posts to review yet.</p>`;
+ return all.map(item=>`<div class="aa-boost-summary-row"><span>${esc(item.title||"Untitled")} <span class="meta">(${esc(item.type)})</span></span><button class="small-btn" onclick='aaOpenModeration(${JSON.stringify(item.type)},${JSON.stringify(String(item.id))},${JSON.stringify(item.ownerId||"")})'>Report / Moderate</button></div>`).join("");
+}
+function aaOpenModeration(targetType,targetId,ownerId){
+ if(!state.isLoggedIn){openAuth("login");return}
+ state.moderationPanelTarget={targetType,targetId:String(targetId),ownerId:ownerId||""};
+ render();
+}
+function aaCloseModerationPanel(){state.moderationPanelTarget=null;render()}
+function aaModerationPanelHTML(){
+ const t=state.moderationPanelTarget;if(!t)return "";
+ const cases=(Array.isArray(state.moderationCases)?state.moderationCases:[]).filter(c=>c.target_type===t.targetType&&String(c.target_id)===String(t.targetId));
+ const open=cases.find(c=>c.status==="open");
+ return `<div class="overlay"><div class="modal">
+  <button class="close" onclick="aaCloseModerationPanel()">×</button>
+  <h2>Moderate ${esc(String(t.targetType||"").replace(/_/g," "))}</h2>
+  <p class="notice" style="margin-top:0">Reports lead to review, not automatic punishment.</p>
+  ${cases.length?`<div style="margin:10px 0">${cases.map(c=>aaModerationCaseRowHTML(c)).join("")}</div>`:""}
+  ${!open?`
+   <select id="aaModerationReason" class="field">
+    <option>Suspicious / possible scam</option>
+    <option>Incorrect information</option>
+    <option>Inappropriate content</option>
+    <option>Duplicate listing</option>
+    <option>Other</option>
+   </select>
+   <textarea class="field" id="aaModerationDetails" style="margin-top:8px" placeholder="Optional details"></textarea>
+   <button class="btn btn-red" style="width:100%;margin-top:10px" onclick="aaSubmitModerationReport()">Submit Report</button>
+  `:""}
+ </div></div>`;
+}
+async function aaSubmitModerationReport(){
+ const t=state.moderationPanelTarget;if(!t)return;
+ const reason=document.getElementById("aaModerationReason")?.value||"Other";
+ const details=document.getElementById("aaModerationDetails")?.value||"";
+ const ok=await aaSubmitReport(t.targetType,t.targetId,t.ownerId||null,reason,details);
+ if(ok){await aaLoadModerationCases();render()}
+}
+async function aaOpenEditRequest(targetType,targetId,ownerId){
+ if(!aaIsSuperUser()&&!aaHasPermission("moderation:request_edit")){toast("Not authorized.");return}
+ const reason=prompt("What should the owner correct or improve?");
+ if(!reason||!reason.trim())return;
+ const ok=await aaSubmitReport(targetType,String(targetId),ownerId||null,"Edit requested by moderator",reason.trim());
+ if(!ok)return;
+ await aaLoadModerationCases();
+ const c=(state.moderationCases||[]).find(x=>x.target_type===targetType&&String(x.target_id)===String(targetId)&&x.status==="open");
+ if(!c){toast("Could not locate the new case.");return}
+ try{
+  await aaAdminModerate(c.id,"request_edit",reason.trim());
+  toast("Edit request sent to the owner.");
+  await aaLoadModerationCases();
+  render();
+ }catch(e){toast("Could not send edit request: "+String(e?.message||e))}
+}
+function aaAdminControlsHTML(targetType,targetId,ownerId){
+ if(!aaIsSuperUser()&&!aaHasPermission("moderation:view"))return "";
+ return `<div class="aa-admin-actions"><button class="small-btn" onclick='aaOpenEditRequest(${JSON.stringify(targetType)},${JSON.stringify(String(targetId))},${JSON.stringify(ownerId||"")})'>Request Edit</button><button class="small-btn" onclick='aaOpenModeration(${JSON.stringify(targetType)},${JSON.stringify(String(targetId))},${JSON.stringify(ownerId||"")})'>Moderate</button></div>`;
+}
 async function aaSuperUserSearchEmail(){
  if(!aaIsSuperUser())return;
  const email=document.getElementById("aaSuperUserEmailInput")?.value||"";
@@ -11328,6 +11504,7 @@ function aaSwitchToAgent(){
  if(!aaIsAgentRole()){toast("This account does not have Agent status.");return}
  state.agentModeActive=true;
  render();window.scrollTo(0,0);
+ aaLoadModerationCases().then(render);
 }
 function aaBackToMyProfile(){
  state.agentModeActive=false;
@@ -11376,10 +11553,12 @@ function aaAgentDashboardHTML(){
    <button class="btn" onclick="state.agentDashView='mine';render()">My Businesses</button>
    <button class="btn" onclick="state.agentDashView='commission';render()">Commission</button>
    <button class="btn" onclick="state.agentDashView='withdrawals';render()">Withdrawals</button>
+   <button class="btn" onclick="state.agentDashView='moderation';render()">Moderation</button>
   </div>
   ${state.agentDashView==="mine"?`<div class="boost-summary" style="margin-top:12px"><b>My Businesses</b>${!biz.length?'<p class="notice">No businesses onboarded yet. Tap + Add Business to start.</p>':biz.map(b=>`<div class="aa360-item" style="position:relative;height:auto;min-height:0;padding:10px;margin-top:8px;border:1px solid var(--line);border-radius:10px"><b style="font-size:13px">${esc(b.title||b.name||"Business")}</b><div class="meta">${esc(b._cat)} · ${esc(b.businessClass||"Small")} · ${b.isBoosted?"Boosted":"Not boosted"}</div></div>`).join("")}</div>`:""}
   ${state.agentDashView==="commission"?`<div class="boost-summary" style="margin-top:12px"><b>Commission (${aaCommissionRate()}% of eligible Bingo revenue)</b>${!aaAgentLedger(uid).length?'<p class="notice">No commission recorded yet — commission accrues automatically when a business you onboarded is successfully boosted.</p>':aaAgentLedger(uid).map(l=>`<div class="aa-boost-summary-row"><span>${esc(l.businessName)} · ${new Date(l.createdAt).toLocaleDateString()}</span><b style="color:#f5b91e">+KES ${money(l.commission)}</b></div>`).join("")}<div class="aa-boost-summary-row" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span>Total eligible commission</span><b style="color:#f5b91e;font-size:15px">KES ${money(totals.earned)}</b></div></div>`:""}
   ${state.agentDashView==="withdrawals"?aaAgentWithdrawalsHTML():""}
+  ${state.agentDashView==="moderation"?`<div class="boost-summary" style="margin-top:12px"><b>Assigned Moderation Cases</b><p class="notice" style="margin-top:0">Only cases the Super User has assigned to you appear here, and only Dismiss / Request Edit are available to Agents.</p>${aaAgentModerationQueueHTML()}</div>`:""}
  </div></section>`;
 }
 function aaAgentWithdrawalsHTML(){
@@ -11528,6 +11707,16 @@ function aaSuperUserDashboardHTML(){
    ${!dir.length?'<p class="notice">No approved Agents yet.</p>':dir.map(a=>`<div class="aa-boost-summary-row"><span>${esc(a.full_name||a.email)} · ${esc(a.territory||"")}</span><b class="meta">${a.approved_at?new Date(a.approved_at).toLocaleDateString():""}</b></div>`).join("")}
   </div>
   <div class="boost-summary" style="margin-top:14px">${aaSuperUserWithdrawalQueueHTML()}</div>
+  <div class="boost-summary" style="margin-top:14px">
+   <b>Moderation Queue</b>
+   <p class="notice" style="margin-top:0">Reports lead to review, not automatic punishment. Every action here requires a reason and is recorded in the audit log.</p>
+   ${aaModerationQueueHTML()}
+  </div>
+  <div class="boost-summary" style="margin-top:14px">
+   <b>All Posts</b>
+   <p class="notice" style="margin-top:0">Every vehicle, property/stay and food business currently loaded. Report or moderate any of them from here.</p>
+   ${aaAllPostsHTML()}
+  </div>
   <div class="boost-summary" style="margin-top:14px">
    <b>Audit Log</b>
    ${!audit.length?'<p class="notice">No admin actions recorded yet.</p>':audit.map(l=>`<div class="aa-boost-summary-row" style="display:block"><b style="font-size:11px">${esc(l.action)}</b><div class="meta">${new Date(l.created_at).toLocaleString()} · target ${esc(String(l.target_id||"").slice(0,8))}…</div></div>`).join("")}
@@ -12637,6 +12826,7 @@ function aaCloseTopOverlay(){
  if(state.boostTarget){state.boostTarget=null;render();return true}
  if(state.shareTarget){state.shareTarget=null;render();return true}
  if(state.reportTarget){state.reportTarget=null;render();return true}
+ if(state.moderationPanelTarget){state.moderationPanelTarget=null;render();return true}
  if(state.privacyTarget){state.privacyTarget=null;render();return true}
  if(state.authOpen){state.authOpen=false;state.authError="";render();return true}
  return false;
@@ -18329,6 +18519,11 @@ Preserve all existing onclick actions, routes, forms and button wording.
 
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label{grid-column:1/-1;color:var(--aa-future-gold,#f3be2b);font-size:9.5px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin:8px 0 -2px;opacity:.85}
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label:first-child{margin-top:0}
+</style>
+
+<style id="bingo-change06-moderation-style">
+#auto-arcade-widget .aa-admin-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(243,190,43,.4)}
+#auto-arcade-widget .aa-admin-actions::before{content:"ADMIN";display:block;width:100%;font-size:8.5px;font-weight:900;letter-spacing:.1em;color:var(--bingo-gold,#f3be2b);opacity:.8;margin-bottom:2px}
 </style>
 
 <style id="bgc-generic-categories-style">
