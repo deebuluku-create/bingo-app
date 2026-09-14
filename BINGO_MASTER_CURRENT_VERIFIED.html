@@ -4804,6 +4804,7 @@ var aaSolutionMessageSeed=[
 var state = {
  view:"home", location:"All Kenya", perPage:6, page:1, listings:demoListings,
  userRole:null, agentDirectory:[], roleAuditLog:[], superUserSearch:"", superUserResult:null, superUserTerritoryInput:"",
+ foodMediaViewer:null,
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
  successOpen:false, callTarget:null, isLoggedIn:false, authBusy:false, authError:"", lastOtpTouch:0, resendUntil:0, resendTimer:null, visits:Number(aaStorage.get("aa_visits")||0), shareCount:Number(aaStorage.get("aa_share_count")||0),
@@ -8942,7 +8943,88 @@ function aaRemainingDays(exp){if(!exp)return 0;return Math.max(0,Math.ceil((new 
 function aaFoodActive(f){return aaRemainingDays(f?.subscription_expires_at)>0&&String(f?.status||'').toLowerCase()!=='suspended'}
 function aaOpenProperties(tab='browse'){state.propertyTab=tab;state.view='properties';if(tab==='stays'&&!state.stayView)state.stayView='landing';aaLoadProperties();render();window.scrollTo(0,0)}
 function aaOpenFood(tab='browse'){state.foodTab=tab;state.view='food';render();window.scrollTo(0,0)}
-function aaMediaPreviewHTML(media){return (media||[]).map((m,i)=>m.type==='video'?`<video src="${bingoSafeMediaAttr(m.url)}" controls playsinline></video>`:`<img src="${bingoSafeMediaAttr(m.url)}" alt="Media ${i+1}">`).join('')}
+function aaMediaPreviewHTML(media,businessId){
+ return (media||[]).map((m,i)=>{
+  const isVideo=m.type==='video';
+  const inner=isVideo
+   ?`<video src="${bingoSafeMediaAttr(m.url)}" muted playsinline preload="metadata"></video><span class="aa-media-play">▶</span>`
+   :`<img src="${bingoSafeMediaAttr(m.url)}" alt="Media ${i+1}">`;
+  return `<button type="button" style="all:unset;display:block;width:100%;position:relative;cursor:pointer" onclick="aaOpenFoodMediaViewer('${esc(String(businessId||''))}',${i})">${inner}</button>`;
+ }).join('');
+}
+/* ---- Food media full-screen viewer (Change 1: play Food video directly) ----
+   Reuses the existing full-screen viewer chrome (.aa-property-media-viewer /
+   .aa-property-media-viewer-close, object-fit:contain, natural proportions,
+   close button) and the Food business's own permanent media URL — no second
+   video copy, no new Storage path. Closing clears only state.foodMediaViewer;
+   it never touches the Food business record, draft, media array, Storage
+   path, or subscription status. */
+function aaOpenFoodMediaViewer(businessId,mediaIndex,menuItemId){
+ const biz=aaFoods().find(x=>String(x.id)===String(businessId));
+ const media=aaFoodMedia(biz);
+ if(!media.length)return;
+ state.foodMediaViewer={
+  open:true,
+  businessId:String(businessId||''),
+  menuItemId:menuItemId?String(menuItemId):'',
+  mediaIndex:Math.max(0,Math.min(media.length-1,Number(mediaIndex)||0)),
+  returnScrollY:window.scrollY
+ };
+ render();
+}
+function aaCloseFoodMediaViewer(){
+ const v=state.foodMediaViewer;
+ state.foodMediaViewer=null;
+ render();
+ if(v)window.scrollTo(0,v.returnScrollY||0);
+}
+function aaFoodMediaViewerNav(dir){
+ const v=state.foodMediaViewer;
+ if(!v)return;
+ const biz=aaFoods().find(x=>String(x.id)===String(v.businessId));
+ const media=aaFoodMedia(biz);
+ if(!media.length)return;
+ v.mediaIndex=(v.mediaIndex+dir+media.length)%media.length;
+ render();
+}
+function aaFoodMediaViewerHTML(){
+ const v=state.foodMediaViewer;
+ if(!v?.open)return '';
+ const biz=aaFoods().find(x=>String(x.id)===String(v.businessId));
+ const media=aaFoodMedia(biz);
+ const item=media[v.mediaIndex];
+ if(!item)return '';
+ const isVideo=item.type==='video';
+ return `<div class="aa-property-media-viewer" onclick="if(event.target===this)aaCloseFoodMediaViewer()">
+  <button type="button" class="btn aa-property-media-viewer-close" aria-label="Close" onclick="aaCloseFoodMediaViewer()">✕</button>
+  ${media.length>1?`<button type="button" class="btn" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);z-index:3" aria-label="Previous" onclick="aaFoodMediaViewerNav(-1)">‹</button><button type="button" class="btn" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:3" aria-label="Next" onclick="aaFoodMediaViewerNav(1)">›</button>`:''}
+  ${isVideo
+    ?`<video id="aaFoodViewerVideo" src="${bingoSafeMediaAttr(item.url)}" controls playsinline preload="metadata"></video><button type="button" id="aaFoodViewerUnmute" class="btn btn-gold" hidden style="position:absolute;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:3" onclick="aaUnmuteFoodViewerVideo()">🔊 Unmute</button>`
+    :`<img src="${bingoSafeMediaAttr(item.url)}" alt="">`}
+ </div>`;
+}
+function aaTryPlayFoodViewerVideo(){
+ const v=document.getElementById('aaFoodViewerVideo');
+ if(!v)return;
+ v.muted=false;
+ const p=v.play();
+ if(p&&p.catch){
+  p.catch(()=>{
+   v.muted=true;
+   const btn=document.getElementById('aaFoodViewerUnmute');
+   if(btn)btn.hidden=false;
+   v.play().catch(()=>{});
+  });
+ }
+}
+function aaUnmuteFoodViewerVideo(){
+ const v=document.getElementById('aaFoodViewerVideo');
+ if(!v)return;
+ v.muted=false;
+ v.play().catch(()=>{});
+ const btn=document.getElementById('aaFoodViewerUnmute');
+ if(btn)btn.hidden=true;
+}
 function aaFileToLocalMedia(files,maxVideos=3){return Promise.all(Array.from(files||[]).slice(0,8).map(f=>new Promise(res=>{if(f.type.startsWith('video/')&&maxVideos<=0)return res(null);const r=new FileReader();r.onload=()=>res({type:f.type.startsWith('video/')?'video':'image',url:r.result,name:f.name});r.onerror=()=>res(null);r.readAsDataURL(f)}))).then(a=>{let vc=0;return a.filter(x=>x&&(x.type!=='video'||++vc<=maxVideos))})}
 function aaPropertyHTML(){const tab=state.propertyTab||'browse', all=aaProperties();return `<section style="padding:18px 0 105px"><h2>Properties</h2><p class="notice">Buy, rent or lease property across Kenya. Property videos can also appear in the Bingo Home discovery feed.</p><div class="aa-v69-tabs"><button class="btn ${tab==='browse'?'btn-red':''}" onclick="aaOpenProperties('browse')">Browse Properties</button><button class="btn ${tab==='post'?'btn-red':''}" onclick="aaOpenProperties('post')">Post Property</button><button class="btn ${tab==='stays'?'btn-red':''}" onclick="aaOpenProperties('stays')">Bingo Stays</button><button class="btn ${tab==='mine'?'btn-red':''}" onclick="aaOpenProperties('mine')">My Properties</button></div>${tab==='post'?aaPropertyPostHTML():tab==='stays'?aaFurnishedStaysHTML():tab==='mine'?aaPropertyListHTML(all.filter(x=>String(x.user_id||x.userId||'')===String(state.user?.id||'')||(x._localOnly&&x.local_owner)),true):aaPropertyListHTML(all,false)}</section>`}
 function aaEditProperty(id){
@@ -9570,7 +9652,7 @@ function aaFoodMineHTML(a){
     <span class="aa-sub-pill ${act?'active':'expired'}">${act?`${d} day${d===1?'':'s'} remaining`:'0 days · inactive'}</span>
    </div>
    <div class="meta">${esc(f.category)} · ${esc(f.town)}, ${esc(f.county)}</div>
-   <div class="aa-v69-media-grid">${aaMediaPreviewHTML(f.media)}</div>
+   <div class="aa-v69-media-grid">${aaMediaPreviewHTML(f.media,f.id)}</div>
    <div class="aa93-food-counter"><b>${Math.min(30,d)}</b><span>DAYS</span><small>${act?'Advertising active':'Advertising stopped'}</small></div>
    <div class="details-actions" style="margin-top:12px">
     <button class="btn btn-gold" onclick="aaStartFoodSubscription('${esc(f.id)}',1)">Renew / Pay KES 1,000</button>
@@ -9580,7 +9662,7 @@ function aaFoodMineHTML(a){
   </div>`;
  }).join('')
 }
-function aaFoodListHTML(a){if(!a.length)return `<div class="aa-v69-card"><p>No active food business is available yet.</p></div>`;return `<div class="aa-v69-grid">${a.map(f=>`<article class="aa-v69-card">${f.media?.[0]?.type==='video'?`<video src="${esc(f.media[0].url)}" controls playsinline style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#000"></video>`:`<img src="${esc(f.media?.[0]?.url||'')}" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#111" alt="">`}<h3>${esc(f.business_name)}</h3><div class="meta">${esc(f.category)} · Delivery: ${esc(f.delivery_area)}</div><p>${esc(f.description)}</p><div class="details-actions"><button class="btn" onclick="location.href='tel:${esc(f.phone)}'">Call for Delivery</button><button class="btn btn-green" onclick="window.open('https://wa.me/${esc(String(f.whatsapp||f.phone).replace(/\D/g,''))}','_blank')">WhatsApp</button></div></article>`).join('')}</div>`}
+function aaFoodListHTML(a){if(!a.length)return `<div class="aa-v69-card"><p>No active food business is available yet.</p></div>`;return `<div class="aa-v69-grid">${a.map(f=>`<article class="aa-v69-card"><button type="button" style="all:unset;display:block;width:100%;position:relative;cursor:pointer" onclick="aaOpenFoodMediaViewer('${esc(f.id)}',0)">${f.media?.[0]?.type==='video'?`<video src="${bingoSafeMediaAttr(f.media[0].url)}" muted playsinline preload="metadata" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#000"></video><span class="aa-media-play">▶</span>`:`<img src="${bingoSafeMediaAttr(f.media?.[0]?.url||'')}" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#111" alt="">`}</button><h3>${esc(f.business_name)}</h3><div class="meta">${esc(f.category)} · Delivery: ${esc(f.delivery_area)}</div><p>${esc(f.description)}</p><div class="details-actions"><button class="btn" onclick="location.href='tel:${esc(f.phone)}'">Call for Delivery</button><button class="btn btn-green" onclick="window.open('https://wa.me/${esc(String(f.whatsapp||f.phone).replace(/\D/g,''))}','_blank')">WhatsApp</button></div></article>`).join('')}</div>`}
 async function aaStartFoodSubscription(id,months){
  months=1;
  const amount=1000;
@@ -9792,11 +9874,12 @@ ${state.view==="home"?`<div class="aa-assistant-nav-wrap" id="aaAssistantNavWrap
     </div>
   </nav>
  </div>`:""}
- ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.adOpen?aaAdHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.adOpen?aaAdHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){aaInit360Feed();aaStartAdTimer()}else{aaStopAdTimer()}
   aaDynamicAdAfterRender();
   if(state.view==="add")aaInstallVehicleUploadEnhancer();
+  if(state.foodMediaViewer?.open)aaTryPlayFoodViewerVideo();
  });
 }
 function homeHTML(boosted,rows,all,pages){
