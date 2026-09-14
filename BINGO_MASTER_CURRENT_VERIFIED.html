@@ -4822,7 +4822,7 @@ var state = {
  userRole:null, agentDirectory:[], roleAuditLog:[], superUserSearch:"", superUserResult:null, superUserTerritoryInput:"",
  foodMediaViewer:null, foodBusinesses:[], foodEditId:null, foodPublishBusy:false, foodPublishProgress:"",
  foodMenuItemsByBusiness:{}, foodMenuBusinessId:"", foodItemEditId:null, foodItemPublishBusy:false, foodItemPublishProgress:"",
- foodItemPrepType:"ready_made", foodItemAvailable:true, foodItemPreviewOpen:false, foodItemDetailId:"",
+ foodItemPrepType:"ready_made", foodItemAvailable:true, foodItemPreviewOpen:false, foodItemDetailId:"", foodItemDraftFields:null,
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
  successOpen:false, callTarget:null, isLoggedIn:false, authBusy:false, authError:"", lastOtpTouch:0, resendUntil:0, resendTimer:null, visits:Number(aaStorage.get("aa_visits")||0), shareCount:Number(aaStorage.get("aa_share_count")||0),
@@ -9089,6 +9089,7 @@ function aaFoodViewerMedia(v){
  const biz=aaFoods().find(x=>String(x.id)===String(v.businessId));
  return aaFoodMedia(biz);
 }
+function aaFoodViewerKeydown(e){if(e.key==='Escape')aaCloseFoodMediaViewer()}
 function aaOpenFoodMediaViewer(businessId,mediaIndex,menuItemId){
  const media=aaFoodViewerMedia({businessId,menuItemId});
  if(!media.length)return;
@@ -9099,11 +9100,15 @@ function aaOpenFoodMediaViewer(businessId,mediaIndex,menuItemId){
   mediaIndex:Math.max(0,Math.min(media.length-1,Number(mediaIndex)||0)),
   returnScrollY:window.scrollY
  };
+ document.body.style.overflow='hidden';
+ document.addEventListener('keydown',aaFoodViewerKeydown);
  render();
 }
 function aaCloseFoodMediaViewer(){
  const v=state.foodMediaViewer;
  try{document.getElementById('aaFoodViewerVideo')?.pause()}catch(e){}
+ document.body.style.overflow='';
+ document.removeEventListener('keydown',aaFoodViewerKeydown);
  state.foodMediaViewer=null;
  render();
  if(v)window.scrollTo(0,v.returnScrollY||0);
@@ -10040,6 +10045,7 @@ function aaOpenFoodItemForm(businessId,itemId){
 function aaCancelFoodItemForm(){
  aaMediaDraftReset('foodmenu',[]);
  state.foodItemDraftMediaFor='';
+ state.foodItemDraftFields=null;
  state.foodItemEditId=null;
  aaOpenFoodMenu(state.foodMenuBusinessId);
 }
@@ -10061,10 +10067,15 @@ async function aaSaveFoodMenuItem(publish){
  const name=document.getElementById('aaFoodItemName')?.value.trim()||'';
  const description=document.getElementById('aaFoodItemDescription')?.value.trim()||'';
  const price=Number(document.getElementById('aaFoodItemPrice')?.value||0);
+ const editId=state.foodItemEditId;
+ const contextKey=editId?('edit:'+editId):('new:'+businessId);
+ // Keep whatever the owner typed visible across a failed save/publish —
+ // re-render must never blank a completed form (only aaMediaDraftGet still
+ // holds the selected file; this mirrors that for the text fields).
+ state.foodItemDraftFields={contextKey,name,description,price_kes:price};
  if(!name){toast('Enter the food name before saving.');return}
  if(!description){toast('Enter a description before saving.');return}
  if(!(price>0)){toast('Enter a valid price before saving.');return}
- const editId=state.foodItemEditId;
  state.foodItemPublishBusy=true;
  state.foodItemPublishProgress=publish?'Publishing…':'Saving draft…';
  render();
@@ -10084,6 +10095,7 @@ async function aaSaveFoodMenuItem(publish){
    state.foodMenuItemsByBusiness[businessId]=list;
    aaMediaDraftReset('foodmenu',[]);
    state.foodItemDraftMediaFor='';
+   state.foodItemDraftFields=null;
    state.foodItemEditId=null;
    toast(publish?'Food item published (preview mode).':'Food item saved as a draft (preview mode).');
    aaOpenFoodMenu(businessId);
@@ -10124,6 +10136,7 @@ async function aaSaveFoodMenuItem(publish){
   if(removedPaths.length)await aaDeleteUploadedFoodMedia(removedPaths);
   aaMediaDraftReset('foodmenu',[]);
   state.foodItemDraftMediaFor='';
+  state.foodItemDraftFields=null;
   state.foodItemEditId=null;
   toast(publish?'Food item published.':'Food item saved as a draft.');
   aaOpenFoodMenu(businessId);
@@ -10184,7 +10197,12 @@ function aaFoodItemFormHTML(){
   state.foodItemDraftMediaFor=contextKey;
   state.foodItemPrepType=d.preparation_type==='made_to_order'?'made_to_order':'ready_made';
   state.foodItemAvailable=d.available!==false;
+  state.foodItemDraftFields=null;
  }
+ // A failed save/publish leaves state.foodItemDraftFields set for this same
+ // context so the completed form re-renders with what the owner typed,
+ // never blank — only a successful save or Cancel clears it.
+ const fields=(state.foodItemDraftFields&&state.foodItemDraftFields.contextKey===contextKey)?state.foodItemDraftFields:d;
  const busy=!!state.foodItemPublishBusy;
  const current=aaMediaDraftGet('foodmenu').items[0];
  return `<div class="aa-v69-card">
@@ -10192,9 +10210,9 @@ function aaFoodItemFormHTML(){
   <h3 style="margin:0 0 2px">${editItem?'Edit Food Item':'Add New Food Menu Item'}</h3>
   <p class="notice" style="margin-top:0">${esc(biz.business_name)} · Fill in the details below to add a food item to your menu.</p>
   <div class="form-grid">
-   <label class="full">Food Name<input id="aaFoodItemName" required placeholder="e.g. Grilled Tilapia" value="${esc(d.name||'')}"></label>
-   <label class="full">Description<textarea id="aaFoodItemDescription" required rows="4" placeholder="e.g. Fresh tilapia served with ugali, kachumbari and a side of greens.">${esc(d.description||'')}</textarea></label>
-   <label class="full">Price (KSh)<input id="aaFoodItemPrice" required type="number" min="0" step="1" placeholder="e.g. 650" value="${d.price_kes?esc(String(d.price_kes)):''}"></label>
+   <label class="full">Food Name<input id="aaFoodItemName" required placeholder="e.g. Grilled Tilapia" value="${esc(fields.name||'')}"></label>
+   <label class="full">Description<textarea id="aaFoodItemDescription" required rows="4" placeholder="e.g. Fresh tilapia served with ugali, kachumbari and a side of greens.">${esc(fields.description||'')}</textarea></label>
+   <label class="full">Price (KSh)<input id="aaFoodItemPrice" required type="number" min="0" step="1" placeholder="e.g. 650" value="${fields.price_kes?esc(String(fields.price_kes)):''}"></label>
   </div>
   <div class="form-grid" style="margin-top:4px">
    <div class="full"><label class="form-label">Preparation Type</label><div class="details-actions">
