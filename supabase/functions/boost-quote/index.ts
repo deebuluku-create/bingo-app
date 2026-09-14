@@ -158,22 +158,17 @@ Deno.serve(async (req) => {
 });
 
 // ----------------------------------------------------------------------------
-// REQUIRED companion change to the existing mpesa-boost function (not in
-// this repository, so it cannot be edited here — apply this manually):
-//
-//   When the incoming create_boost request includes a quote_id, mpesa-boost
-//   must:
-//     1. Look up bingo_boost_quotes by id + user_id (from the verified JWT)
-//        + status = 'quoted'. Reject if missing/expired/already used.
-//     2. Use ONLY that row's amount_kes and expires_at for the STK push and
-//        for whatever it records as the boost's budget/expiry — never the
-//        budget_amount/exact_amount/days fields the client may still send
-//        alongside quote_id.
-//     3. On confirmed Safaricom callback, set that quote row's status to
-//        'paid' and store the resulting boost_id on it, so a quote can
-//        never be charged twice.
-//
-//   Requests that omit quote_id keep working exactly as before (the
-//   pre-Change-09 spare/CV/job/profile boost paths in Mother HTML never
-//   send one).
+// UPDATE (Packet 09 server closure): the companion change this note used to
+// describe as required manual work on the existing mpesa-boost function is
+// now implemented as a full replacement — see
+// supabase/functions/mpesa-boost/index.ts and
+// supabase/bingo_change_boost_payment_server_closure.sql. That function
+// reads amount/placement/dates only from the stored bingo_boost_quotes row
+// when quote_id is present, activates the boost and credits Agent
+// commission exactly once inside one atomic transaction
+// (bingo_activate_boost_from_quote), and keeps the legacy no-quote_id path
+// (spare/CV/job/profile boosts) working exactly as before. It was written
+// fresh rather than edited in place because the previously-deployed
+// mpesa-boost source is not part of this repository — read its own header
+// comment before deploying it over whatever is live today.
 // ----------------------------------------------------------------------------
