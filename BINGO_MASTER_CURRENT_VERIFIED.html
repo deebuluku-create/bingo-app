@@ -5080,7 +5080,18 @@ function aaHelpSellButtonHTML(listingType,listingId,ownerId,summary){
  if(Number(summary.accepted_count||0)>=3)return `<button class="btn" disabled>Help Sell Full 3/3</button>`;
  return `<button class="btn" onclick='aaOpenHelpSellRules(${JSON.stringify(listingType)},${JSON.stringify(String(listingId))},${JSON.stringify(ownerId||"")})'>Help Sell</button>`;
 }
+/* Hardening correction: Help Sell requires a real backend owner column
+   to verify against. Property/Stay/Food Business have one; vehicle
+   (Bingo's primary listing type) and every other client-local listing
+   type do not, so a request for them could only ever trust a client-
+   supplied owner_id — safe enough to prevent unauthorized access (only
+   the true owner's own session can ever accept), but not safe enough to
+   avoid spamming a stranger's queue, misleading notifications and an
+   unreliable audit trail. Help Sell stays disabled for those types
+   until a real vehicle-listings backend table exists. */
+const AA_HELP_SELL_ELIGIBLE_TYPES=["property","stay","food_business"];
 function aaHelpSellBlockHTML(listingType,listingId,ownerId){
+ if(!AA_HELP_SELL_ELIGIBLE_TYPES.includes(listingType))return "";
  if(!aaIsRealUserId(ownerId))return "";
  const summary=aaHelpSellSummary(listingType,listingId);
  return `<div class="aa-help-sell-row">${aaHelpSellStatusHTML(summary)}${aaHelpSellButtonHTML(listingType,listingId,ownerId,summary)}</div>`;
