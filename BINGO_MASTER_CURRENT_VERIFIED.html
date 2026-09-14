@@ -4803,6 +4803,7 @@ var aaSolutionMessageSeed=[
 
 var state = {
  view:"home", location:"All Kenya", perPage:6, page:1, listings:demoListings,
+ userRole:null, agentDirectory:[], roleAuditLog:[], superUserSearch:"", superUserResult:null, superUserTerritoryInput:"",
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
  successOpen:false, callTarget:null, isLoggedIn:false, authBusy:false, authError:"", lastOtpTouch:0, resendUntil:0, resendTimer:null, visits:Number(aaStorage.get("aa_visits")||0), shareCount:Number(aaStorage.get("aa_share_count")||0),
@@ -5490,6 +5491,8 @@ async function aaLoadAuthenticatedProfile(authUser){
  aaMigrateLegacyOwnListings();
  aaSyncOwnProfileToListings();
  if(state.seller && aaIsOwnSeller(state.seller))state.seller=aaOwnerProfileSeller();
+ await aaLoadUserRole();
+ if(state.userRole?.role==="super_user")state.view="super-admin";
  save();
 }
 
@@ -9677,6 +9680,7 @@ function render(){
   ${state.view==="candidateChat"&&state.selectedCandidate?candidateChatHTML(state.selectedCandidate):""}
   ${state.view==="inbox"?inboxHTML():""}
   ${state.view==="chat"&&state.selected?chatHTML(state.selected):""}
+  ${state.view==="super-admin"?aaSuperUserDashboardHTML():""}
  </main>
  <button class="aa-refresh-fab" title="Refresh this page" aria-label="Refresh this page" onclick="aaRefreshCurrentView()">↻</button>
  <!-- Bottom tabs: Home, Search, Sell, Market, Rooms, Profile. Inbox is accessed from Profile/header. -->
@@ -10306,42 +10310,139 @@ function aaAnnounceAgentIntroEligibility(item){
  }
 }
 
-/* ---- Super User (demo) role management ---- */
-function aaIsSuperUser(){return !!state.user?.isSuperUser}
-function aaGrantAgentRole(county){
+/* ---- Secure Super User / Agent role management ----
+   Authority lives only in the Supabase bingo_user_roles table (see
+   supabase/bingo_change2_super_user_security.sql), loaded into
+   state.userRole after a verified Supabase Auth session is confirmed.
+   Nothing here ever sets a role from a browser control, localStorage,
+   sessionStorage, a query parameter, or an email comparison — state.userRole
+   is fail-closed (missing session, load error, or missing row => "member")
+   and save() never persists it, so a forged local flag grants nothing. */
+function aaIsSuperUser(){return state.userRole?.role==="super_user"}
+function aaIsAgentRole(){return state.userRole?.role==="agent"}
+function aaAgentTerritory(){return state.userRole?.territory||""}
+async function aaLoadUserRole(){
+ if(!sb||!state.user?.id){state.userRole={role:"member",territory:""};return}
+ try{
+  const {data,error}=await sb.from("bingo_user_roles").select("role,territory").eq("user_id",state.user.id).maybeSingle();
+  if(error)throw error;
+  state.userRole={role:data?.role||"member",territory:data?.territory||""};
+ }catch(e){
+  console.warn("Bingo: could not verify account role — defaulting to member.",String(e?.message||e));
+  state.userRole={role:"member",territory:""};
+ }
+ await aaDeliverRoleNotifications();
+}
+async function aaDeliverRoleNotifications(){
+ if(!sb||!state.user?.id)return;
+ try{
+  const {data,error}=await sb.from("bingo_role_notifications").select("id,message").eq("user_id",state.user.id).eq("delivered",false);
+  if(error||!Array.isArray(data)||!data.length)return;
+  state.inbox=state.inbox||[];
+  data.forEach(n=>{
+   state.inbox.unshift({id:Date.now()+Math.random(),type:"agent_welcome",text:n.message,from:"Bingo",createdAt:new Date().toISOString(),archived:false,blocked:false});
+  });
+  save();
+  await sb.from("bingo_role_notifications").update({delivered:true}).in("id",data.map(n=>n.id));
+ }catch(e){console.warn("Bingo: role notification delivery skipped.",String(e?.message||e))}
+}
+async function aaFindUserByEmail(email){
+ if(!sb)return {data:null,error:new Error("No database connection.")};
+ const clean=String(email||"").trim();
+ if(!clean)return {data:null,error:new Error("Enter an email address to search.")};
+ try{
+  const {data,error}=await sb.rpc("bingo_admin_find_user_by_email",{p_email:clean});
+  if(error)throw error;
+  const row=Array.isArray(data)?data[0]:data;
+  if(!row)return {data:null,error:new Error("No Bingo account is registered with that email.")};
+  return {data:row,error:null};
+ }catch(e){return {data:null,error:new Error(String(e?.message||e))}}
+}
+async function aaSuperUserRefreshSearch(){
+ if(!state.superUserResult?.email)return;
+ const {data}=await aaFindUserByEmail(state.superUserResult.email);
+ if(data)state.superUserResult=data;
+}
+async function aaGrantAgentRole(targetUserId,territory){
  if(!aaIsSuperUser()){toast("Only the Super User can grant Agent status.");return}
- if(!state.user)return;
- state.user.isAgent=true;
- state.user.agentCounty=county||state.user.agentCounty||"Nairobi";
- state.user.agentApprovedAt=new Date().toISOString();
- state.inbox=state.inbox||[];
- state.inbox.unshift({
-  id:Date.now(),type:"agent_welcome",
-  text:`Congratulations — you are now a Bingo Agent for ${state.user.agentCounty}! Switch to Agent from your Profile to onboard businesses (Bingo Stays, Restaurants, Vehicles, Properties and more). Your first qualifying small business gets a KES 200 / 30-day introductory boost. You earn up to ${aaCommissionRate()}% of eligible Bingo revenue from businesses you onboard, on a monthly commission cycle. Minimum withdrawal is KES 10,000, paid to your registered M-Pesa number after Super User review — typically within 6 hours of approval.`,
-  from:"Bingo",createdAt:new Date().toISOString(),archived:false,blocked:false
- });
- save();
- toast("Agent role granted. A welcome message was sent to the Inbox.");
- render();
+ const county=String(territory||"").trim();
+ if(!targetUserId){toast("Search for and select an account first.");return}
+ if(!county){toast("Choose a county/territory before granting Agent role.");return}
+ try{
+  const {error}=await sb.rpc("bingo_admin_grant_agent",{p_user_id:targetUserId,p_territory:county});
+  if(error)throw error;
+  toast("Agent role granted. A welcome message will appear in that member's Inbox.");
+  await aaSuperUserRefreshSearch();
+  await aaLoadAgentDirectory();
+  await aaLoadRoleAuditLog();
+  render();
+ }catch(e){toast("Could not grant Agent role: "+String(e?.message||e))}
 }
-function aaRevokeAgentRole(){
- if(!aaIsSuperUser()){toast("Only the Super User can change Agent status.");return}
- if(!state.user)return;
- state.user.isAgent=false;
- state.agentModeActive=false;
- save();
- toast("Agent role revoked. The member's normal Bingo profile is unaffected.");
- render();
+async function aaUpdateAgentTerritory(targetUserId,territory){
+ if(!aaIsSuperUser()){toast("Only the Super User can update Agent territory.");return}
+ const county=String(territory||"").trim();
+ if(!targetUserId||!county){toast("Choose a county/territory before updating.");return}
+ try{
+  const {error}=await sb.rpc("bingo_admin_update_agent_territory",{p_user_id:targetUserId,p_territory:county});
+  if(error)throw error;
+  toast("Agent territory updated.");
+  await aaSuperUserRefreshSearch();
+  await aaLoadAgentDirectory();
+  await aaLoadRoleAuditLog();
+  render();
+ }catch(e){toast("Could not update territory: "+String(e?.message||e))}
 }
-function aaToggleDemoSuperUser(){
- if(!state.user)return;
- state.user.isSuperUser=!state.user.isSuperUser;
- save();render();
+async function aaRevokeAgentRole(targetUserId){
+ if(!aaIsSuperUser()){toast("Only the Super User can revoke Agent role.");return}
+ if(!targetUserId){toast("Search for and select an account first.");return}
+ try{
+  const {error}=await sb.rpc("bingo_admin_revoke_agent",{p_user_id:targetUserId});
+  if(error)throw error;
+  toast("Agent role revoked. The member's normal Bingo account is unaffected.");
+  await aaSuperUserRefreshSearch();
+  await aaLoadAgentDirectory();
+  await aaLoadRoleAuditLog();
+  render();
+ }catch(e){toast("Could not revoke Agent role: "+String(e?.message||e))}
+}
+async function aaLoadAgentDirectory(){
+ if(!aaIsSuperUser()||!sb)return;
+ try{
+  const {data,error}=await sb.rpc("bingo_admin_list_agents");
+  if(error)throw error;
+  state.agentDirectory=Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load Agent directory.",String(e?.message||e));state.agentDirectory=[]}
+}
+async function aaLoadRoleAuditLog(){
+ if(!aaIsSuperUser()||!sb)return;
+ try{
+  const {data,error}=await sb.from("bingo_role_audit_log").select("*").order("created_at",{ascending:false}).limit(50);
+  if(error)throw error;
+  state.roleAuditLog=Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load role audit log.",String(e?.message||e));state.roleAuditLog=[]}
+}
+function aaOpenSuperUserDashboard(){
+ if(!aaIsSuperUser()){toast("Only the Super User can open this dashboard.");return}
+ state.view="super-admin";
+ aaLoadAgentDirectory();
+ aaLoadRoleAuditLog();
+ render();window.scrollTo(0,0);
+}
+function aaReturnToSuperUserDashboard(){aaOpenSuperUserDashboard()}
+async function aaSuperUserSearchEmail(){
+ if(!aaIsSuperUser())return;
+ const email=document.getElementById("aaSuperUserEmailInput")?.value||"";
+ state.superUserSearch=email;
+ state.superUserTerritoryInput="";
+ const {data,error}=await aaFindUserByEmail(email);
+ if(error){toast(String(error.message||error));state.superUserResult=null;render();return}
+ state.superUserResult=data;
+ render();
 }
 
 /* ---- Switch to Agent / Back to My Profile ---- */
 function aaSwitchToAgent(){
- if(!state.user?.isAgent){toast("This account does not have Agent status.");return}
+ if(!aaIsAgentRole()){toast("This account does not have Agent status.");return}
  state.agentModeActive=true;
  render();window.scrollTo(0,0);
 }
@@ -10367,7 +10468,7 @@ function aaAgentPerformanceHTML(){
  const boosts=biz.filter(b=>b.isBoosted);
  const totals=aaAgentLedgerTotals(uid);
  return `<div class="boost-summary">
-  <b>Performance — ${esc(state.user?.agentCounty||"Territory not set")}</b>
+  <b>Performance — ${esc(aaAgentTerritory()||"Territory not set")}</b>
   <div class="stat-grid" style="margin-top:10px">
    <div class="stat"><b>${biz.length}</b><span>Businesses Onboarded</span></div>
    <div class="stat"><b>${counts["Bingo Stays"]||0}</b><span>Bingo Stays</span></div>
@@ -10385,7 +10486,7 @@ function aaAgentDashboardHTML(){
  return `<section style="padding:20px 0 105px"><div class="modal" style="max-height:none">
   <button class="btn" onclick="aaBackToMyProfile()">← Back to My Profile</button>
   <h2 style="margin-top:12px">Agent Dashboard</h2>
-  <p class="notice" style="margin-top:0">Territory: <b style="color:var(--gold)">${esc(state.user?.agentCounty||"Not set")}</b> · This is the same Bingo account — switching modes never logs you out.</p>
+  <p class="notice" style="margin-top:0">Territory: <b style="color:var(--gold)">${esc(aaAgentTerritory()||"Not set")}</b> · This is the same Bingo account — switching modes never logs you out.</p>
   ${aaAgentPerformanceHTML()}
   <div class="dashboard-actions" style="margin-top:12px">
    <button class="btn btn-red" onclick="aaOpenAgentAddBusiness()">+ Add Business</button>
@@ -10420,7 +10521,7 @@ function aaRequestAgentWithdrawal(){
  if(totals.available<AA_AGENT_WITHDRAW_MIN){toast(`Minimum withdrawal is KES ${money(AA_AGENT_WITHDRAW_MIN)}.`);return}
  state.user.agentPayoutPhone=phone;
  const list=aaAgentWithdrawals();
- list.unshift({id:"wd_"+Date.now(),agentId:uid,agentName:aaOwnProfileName(),agentCounty:state.user?.agentCounty||"",
+ list.unshift({id:"wd_"+Date.now(),agentId:uid,agentName:aaOwnProfileName(),agentCounty:aaAgentTerritory(),
   amount:totals.available,phone,status:"pending",createdAt:new Date().toISOString()});
  aaSaveAgentWithdrawals(list);
  state.inbox=state.inbox||[];
@@ -10489,23 +10590,66 @@ function aaRecordAgentCommissionIfApplicable(item,paidAmount){
 
 function aaAgentProfilePanelHTML(){
  let out="";
- if(state.user?.isAgent){
-  out+=`<div class="boost-summary" style="margin-top:12px;border-color:var(--gold)"><b style="color:var(--gold)">Bingo Agent — ${esc(state.user.agentCounty||"")}</b><p class="notice" style="margin-top:4px">You have Agent status on this same Bingo account.</p><button class="btn btn-gold" style="width:100%;margin-top:6px" onclick="aaSwitchToAgent()">Switch to Agent</button></div>`;
+ if(aaIsAgentRole()){
+  out+=`<div class="boost-summary" style="margin-top:12px;border-color:var(--gold)"><b style="color:var(--gold)">Bingo Agent — ${esc(aaAgentTerritory())}</b><p class="notice" style="margin-top:4px">You have Agent status on this same Bingo account.</p><button class="btn btn-gold" style="width:100%;margin-top:6px" onclick="aaSwitchToAgent()">Switch to Agent</button></div>`;
  }
- out+=`<div class="boost-summary" style="margin-top:12px"><b>Super User (Demo)</b><p class="notice" style="margin-top:4px">Placeholder for real Super User authentication — used here only so this Agent workflow can be tested end-to-end from one account.</p><button class="btn" style="width:100%" onclick="aaToggleDemoSuperUser()">${state.user?.isSuperUser?"Turn Off Super User (Demo)":"Turn On Super User (Demo)"}</button>
-  ${state.user?.isSuperUser?`<div style="margin-top:10px">
-    <label class="form-label">Grant Agent role to this account</label>
-    <input class="field" id="aaAgentGrantCounty" placeholder="County / territory, e.g. Kisumu" value="${esc(state.user?.agentCounty||"")}">
-    <div class="details-actions" style="margin-top:6px">
-     <button class="btn btn-red" onclick="aaGrantAgentRole(document.getElementById('aaAgentGrantCounty').value)">${state.user?.isAgent?"Update Agent Territory":"Grant Agent Role"}</button>
-     ${state.user?.isAgent?`<button class="btn" onclick="aaRevokeAgentRole()">Revoke Agent Role</button>`:""}
-    </div>
-    <label class="form-label" style="margin-top:10px">Commission rate (%)</label>
-    <input class="field" type="number" min="0" max="100" value="${esc(aaCommissionRate())}" onchange="state.commissionRatePercent=Number(this.value);save();toast('Commission rate updated.')">
-    ${aaSuperUserWithdrawalQueueHTML()}
-   </div>`:""}
- </div>`;
+ if(aaIsSuperUser()){
+  out+=`<div class="boost-summary" style="margin-top:12px;border-color:var(--gold)"><b style="color:var(--gold)">Super User</b><p class="notice" style="margin-top:4px">This account is verified as a platform administrator against your Supabase account role.</p><button class="btn btn-gold" style="width:100%;margin-top:6px" onclick="aaOpenSuperUserDashboard()">Open Super User Dashboard</button></div>`;
+ }
  return out;
+}
+function aaSuperUserDashboardHTML(){
+ if(!aaIsSuperUser()){
+  return `<section style="padding:20px 0 100px"><div class="modal"><h2>Not authorized</h2><p>This dashboard is restricted to the Super User.</p><button class="btn" onclick="goHome()">Back to Home</button></div></section>`;
+ }
+ const r=state.superUserResult;
+ const dir=Array.isArray(state.agentDirectory)?state.agentDirectory:[];
+ const audit=Array.isArray(state.roleAuditLog)?state.roleAuditLog:[];
+ return `<section style="padding:20px 0 105px"><div class="modal" style="max-height:none">
+  <h2 style="margin:0 0 4px">Super User Dashboard</h2>
+  <p class="notice" style="margin-top:0">Protected administrator area. Every action here is verified against your Supabase account role and recorded in the audit log.</p>
+  <div class="dashboard-actions" style="margin-top:10px">
+   <button class="btn" onclick="goHome()">Home</button>
+   <button class="btn" onclick="goAccount()">Profile</button>
+   <button class="btn" onclick="aaOpenProperties('browse')">Properties</button>
+   <button class="btn" onclick="aaOpenFood('browse')">Food</button>
+   <button class="btn" onclick="openJobs('jobs')">Jobs/CVs</button>
+   <button class="btn" onclick="openInbox()">Inbox</button>
+  </div>
+  <div class="boost-summary" style="margin-top:14px">
+   <b>Find Bingo Account</b>
+   <label class="form-label" style="margin-top:8px">Exact registered email</label>
+   <input class="field" id="aaSuperUserEmailInput" placeholder="member@example.com" value="${esc(state.superUserSearch||"")}">
+   <button class="btn btn-red" style="width:100%;margin-top:8px" onclick="aaSuperUserSearchEmail()">Search</button>
+   ${r?`<div class="boost-summary" style="margin-top:10px;border-color:var(--gold)">
+     <b>${esc(r.full_name||"Bingo Member")}</b>
+     <div class="meta">${esc(r.email)}</div>
+     <div class="meta">Registered ${r.created_at?new Date(r.created_at).toLocaleDateString():"—"}</div>
+     <div class="meta">Current role: <b style="color:var(--gold)">${esc(r.role)}</b>${r.role==="agent"?` · Territory: <b>${esc(r.territory||"—")}</b>`:""}</div>
+     ${r.role==="super_user"?`<div class="notice" style="margin-top:6px">The Super User role cannot be changed from this dashboard.</div>`:`
+      <label class="form-label" style="margin-top:8px">County / territory</label>
+      <input class="field" id="aaSuperUserTerritoryInput" placeholder="e.g. Kisumu" value="${esc(state.superUserTerritoryInput||r.territory||"")}">
+      <div class="details-actions" style="margin-top:8px">
+       <button class="btn btn-red" onclick="${r.role==="agent"?"aaUpdateAgentTerritory":"aaGrantAgentRole"}(${JSON.stringify(r.user_id)},document.getElementById('aaSuperUserTerritoryInput').value)">${r.role==="agent"?"Update Agent Territory":"Grant Agent Role"}</button>
+       ${r.role==="agent"?`<button class="btn" onclick="aaRevokeAgentRole(${JSON.stringify(r.user_id)})">Revoke Agent Role</button>`:""}
+      </div>`}
+    </div>`:""}
+  </div>
+  <div class="boost-summary" style="margin-top:14px">
+   <b>Commission (applies to every Agent)</b>
+   <label class="form-label" style="margin-top:8px">Commission rate (%)</label>
+   <input class="field" type="number" min="0" max="100" value="${esc(aaCommissionRate())}" onchange="state.commissionRatePercent=Number(this.value);save();toast('Commission rate updated.');render()">
+  </div>
+  <div class="boost-summary" style="margin-top:14px">
+   <b>Agent Directory</b>
+   ${!dir.length?'<p class="notice">No approved Agents yet.</p>':dir.map(a=>`<div class="aa-boost-summary-row"><span>${esc(a.full_name||a.email)} · ${esc(a.territory||"")}</span><b class="meta">${a.approved_at?new Date(a.approved_at).toLocaleDateString():""}</b></div>`).join("")}
+  </div>
+  <div class="boost-summary" style="margin-top:14px">${aaSuperUserWithdrawalQueueHTML()}</div>
+  <div class="boost-summary" style="margin-top:14px">
+   <b>Audit Log</b>
+   ${!audit.length?'<p class="notice">No admin actions recorded yet.</p>':audit.map(l=>`<div class="aa-boost-summary-row" style="display:block"><b style="font-size:11px">${esc(l.action)}</b><div class="meta">${new Date(l.created_at).toLocaleString()} · target ${esc(String(l.target_id||"").slice(0,8))}…</div></div>`).join("")}
+  </div>
+ </div></section>`;
 }
 function aaSuperUserWithdrawalQueueHTML(){
  const pending=aaAgentWithdrawals().filter(w=>w.status==="pending");
@@ -10647,6 +10791,7 @@ async function logoutAutoArcade(){
  try{if(aaPresenceChannel){await aaPresenceChannel.untrack().catch(()=>{});sb?.removeChannel?.(aaPresenceChannel);aaPresenceChannel=null}}catch(e){}
  state.isLoggedIn=false;state.authOpen=false;state.authBusy=false;state.redirectAfterLogin="";
  state.user={id:"",firstName:"",lastName:"",accountType:"individual",companyName:"",username:"",phone:"",showPhone:true,email:"",location:"Nairobi",bio:"",photo_url:"",isVerified:false};
+ state.userRole=null;state.agentModeActive=false;
  save();goHome();toast("Logged out.");
 }
 
@@ -11646,7 +11791,9 @@ function aaCloseTopOverlay(){
        return;
       }
       if(event==="SIGNED_OUT"&&!state.testMode){
-       state.isLoggedIn=false;state.user={...state.user,id:"",isVerified:false};state.seller=null;save();render();
+       state.isLoggedIn=false;state.user={...state.user,id:"",isVerified:false};state.seller=null;state.userRole=null;state.agentModeActive=false;
+       if(state.view==="super-admin")state.view="home";
+       save();render();
       }
      });
     }
