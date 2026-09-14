@@ -8013,12 +8013,13 @@ function aaVisitorKey(){
  return v;
 }
 async function aaRecordPromotedClick(c,placement="claim_deal"){
- /* Disabled: confirmed against the live Supabase dashboard that the
-    deployed mpesa-boost function does not implement a "record_ad_click"
-    action (its only actions are the ones create_boost/boost_status use).
-    Calling it would only fail every time, so this is now a no-op rather
-    than an always-losing network request. Re-enable only once a backend
-    action for per-click charge tracking actually exists. */
+ /* Disabled: confirmed by reading the actual deployed mpesa-boost source
+    that it recognizes exactly one POST action ("create_boost") plus
+    Safaricom's own callback — there is no "record_ad_click" and no
+    "boost_status" action at all. Calling this would only fail every
+    time, so it is now a no-op rather than an always-losing network
+    request. Re-enable only once a backend action for per-click charge
+    tracking actually exists. */
  return;
 }
 function aaOpenPromotedDeal(c){
@@ -13732,26 +13733,31 @@ function aaApplyConfirmedBoostLocally(targetType,targetId,balance,extra){
 async function aaPollBoostPayment(boostId,accessToken,targetType="vehicle",targetId="",extra){
  const started=Date.now();
  const timeoutMs=150000;
+ /* mpesa-boost has no "boost_status" action — confirmed by reading its
+    actual deployed source: it recognizes exactly one POST action
+    ("create_boost") plus the Safaricom callback at ?callback=1, and
+    rejects anything else with "Unknown action." Calling boost_status
+    here would guarantee a false "payment not confirmed" on every real
+    payment. Poll the auto_arcade_boosts row that function itself
+    writes to instead — its own callback flips status to "active" only
+    once Safaricom's payment is verified. This assumes RLS lets the
+    signed-in owner read their own row; if it doesn't, this behaves the
+    same as before (times out to the same honest failure message),
+    never worse. */
  while(Date.now()-started<timeoutMs){
   await new Promise(r=>setTimeout(r,2000));
   try{
-   const {data,error:statusError}=await sb.functions.invoke("mpesa-boost",{body:{action:"boost_status",boost_id:String(boostId)}});
-   if(statusError)continue;
-   if(data?.status==="active"||data?.payment_status==="paid"){
-    aaApplyConfirmedBoostLocally(targetType,targetId,data?.remaining_amount,extra);
+   const {data,error:statusError}=await sb.from("auto_arcade_boosts").select("status,starts_at,ends_at").eq("id",String(boostId)).maybeSingle();
+   if(statusError||!data)continue;
+   if(data.status==="active"){
+    aaApplyConfirmedBoostLocally(targetType,targetId,undefined,{...extra,expiresAt:data.ends_at});
     aaSetMpesaButtonState("success","Success",`Payment confirmed. Your ${aaBoostTargetLabel(targetType).toLowerCase()} is now boosted.`);
     toast("Success. Boost activated.");
     try{await aaRefreshCurrentView?.()}catch(_){}
     return;
    }
-   const paymentState=String(data?.payment_status||data?.status||"").toLowerCase();
-   const resultCode=Number(data?.result_code);
-   if(paymentState==="cancelled"||resultCode===1032){
-    aaSetMpesaButtonState("cancelled","Payment cancelled","The M-Pesa payment was cancelled and no boost was activated. Would you like to try again?");
-    return;
-   }
-   if(["failed","payment_failed"].includes(paymentState)){
-    aaSetMpesaButtonState("failed","Payment unsuccessful",data?.message||"M-Pesa did not complete this payment. Would you like to try again?");
+   if(data.status==="payment_failed"){
+    aaSetMpesaButtonState("failed","Payment unsuccessful","M-Pesa did not complete this payment. Would you like to try again?");
     return;
    }
   }catch(err){console.warn("Boost status check failed:",err)}
@@ -13796,6 +13802,15 @@ async function requestBoostPayment(opts){
   return;
  }
  if(!sb){aaSetMpesaButtonState("failed","Payment service unavailable","Please refresh and try again.");return}
+ /* Confirmed by reading the deployed mpesa-boost source: it checks
+    ownership against vehicle_listings unconditionally and has no
+    branch for any other post type, so a non-vehicle boost attempt
+    would always fail server-side with "Listing was not found." Catch
+    this locally instead of sending a request known to fail. */
+ if(type!=="vehicle"){
+  aaSetMpesaButtonState("failed","Not available for this listing type","M-Pesa boosting is currently available for vehicle listings only.");
+  return;
+ }
 
  try{
   const {data:sessionData,error:sessionError}=await sb.auth.getSession();
@@ -13822,9 +13837,17 @@ async function requestBoostPayment(opts){
    throw new Error(serverMessage||invokeError.message||"M-Pesa request failed.");
   }
 
-  const backendAmount=Number(data?.amount ?? data?.budget_amount ?? 0);
-  if(backendAmount!==expectedAmount){
-   throw new Error(`Payment amount mismatch. Expected KES ${money(expectedAmount)} (${days} day${days===1?"":"s"} × KES 500) but the server prepared KES ${money(backendAmount)}. Payment stopped.`);
+  /* The deployed function's rare 202 "transaction record could not be
+     saved, but the STK Push was already sent" response omits `amount`
+     entirely (confirmed in its source) — only verify the amount when
+     the server actually returned one, so that specific still-successful
+     case isn't rejected here as a false mismatch after Safaricom has
+     already been asked to charge the correct amount. */
+  if(data?.amount!==undefined){
+   const backendAmount=Number(data.amount);
+   if(backendAmount!==expectedAmount){
+    throw new Error(`Payment amount mismatch. Expected KES ${money(expectedAmount)} (${days} day${days===1?"":"s"} × KES 500) but the server prepared KES ${money(backendAmount)}. Payment stopped.`);
+   }
   }
 
   aaSetMpesaButtonState("waiting","M-Pesa prompt sent",`Safaricom prompt requested for exactly KES ${money(expectedAmount)}. Enter your PIN on your phone.`);

@@ -1,276 +1,1551 @@
 // ============================================================================
-// BINGO — mpesa-boost Edge Function (Packet 09 server closure)
+// BINGO — mpesa-boost Edge Function
 //
-// This is a fresh, complete implementation, NOT an edit of whatever is
-// currently deployed as mpesa-boost — that function's source is not part
-// of this repository, so it could not be opened or diffed. Deploy this in
-// its place only after reading it end to end and confirming it covers
-// everything the live function currently does (in particular: if you use
-// a different Daraja shortcode type, a different M-Pesa provider, or
-// already persist transactions in a table this file doesn't know about,
-// adapt the marked sections below before deploying).
+// This is the EXACT source of the function as deployed to the live
+// Supabase project (Bingo App Kenya, ref ktwkfavryihrfwghsbuo),
+// downloaded directly from the Supabase dashboard and committed here
+// verbatim (only this header comment was added) so this repository is
+// an accurate backup of production rather than a guess at it. The
+// previous version of this file in this repository was a fresh
+// implementation written without access to the real deployed source —
+// it has been fully superseded and replaced by this file.
 //
-// Contract preserved exactly for Mother HTML (no client change needed):
-//   POST { action:"create_boost", listing_id, target_id, target_type,
-//          quote_id?, budget_amount, exact_amount, days, click_price,
-//          targeting, phone } -> { amount, budget_amount, boost_id }
-//   POST { action:"boost_status", boost_id } -> { status, payment_status,
-//          remaining_amount, result_code, message }
-//   Safaricom's own POST (Body.stkCallback, no action/apikey) is handled
-//   as the payment callback on this same endpoint.
+// Confirmed facts about this function (from reading this source):
+//   - Reads MPESA_ENVIRONMENT (not MPESA_ENV) for sandbox/production.
+//   - Prices every boost at a fixed MPESA_PRICE_PER_DAY = 500 (KES),
+//     server-side only — the client cannot influence the amount charged.
+//   - Only two actions exist: POST {action:"create_boost", listing_id,
+//     days, phone} (requires a Bearer JWT), and Safaricom's own callback
+//     at ?callback=1 (Body.stkCallback shape). There is NO boost_status
+//     action — any other action value returns a 400 "Unknown action"
+//     error.
+//   - Ownership is checked against vehicle_listings(id, user_id) — this
+//     function only ever supports vehicle listings; any other post type
+//     will always fail with "Listing was not found."
+//   - Writes to auto_arcade_boosts (the pending/active boost record) and
+//     mpesa_transactions (the raw M-Pesa transaction log), keyed to each
+//     other by auto_arcade_boosts.id = mpesa_transactions.boost_id.
 //
-// Required environment variables (Supabase project secrets — never in
-// Mother HTML): SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
-// MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_SHORTCODE,
-// MPESA_PASSKEY, MPESA_CALLBACK_URL, MPESA_ENV ("sandbox" or "production").
-//
-// Deploy: supabase functions deploy mpesa-boost
+// Do not deploy over the live function without first diffing this file
+// against a freshly re-downloaded copy — someone may have changed the
+// deployed version since this copy was taken.
 // ============================================================================
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-// Supabase provides this to every Edge Function automatically — it is the
-// same browser-safe publishable/anon key Mother HTML already uses, not a
-// secret. Used only to open a client scoped to the caller's own JWT so
-// RLS-aware, auth.uid()-based RPCs (bingo_boost_activation_status) see the
-// real caller instead of no one, which the service-role client would.
-const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-const MPESA_ENV = (Deno.env.get("MPESA_ENV") || "sandbox").toLowerCase();
-const MPESA_BASE = MPESA_ENV === "production" ? "https://api.safaricom.co.ke" : "https://sandbox.safaricom.co.ke";
-const MPESA_CONSUMER_KEY = Deno.env.get("MPESA_CONSUMER_KEY")!;
-const MPESA_CONSUMER_SECRET = Deno.env.get("MPESA_CONSUMER_SECRET")!;
-const MPESA_SHORTCODE = Deno.env.get("MPESA_SHORTCODE")!;
-const MPESA_PASSKEY = Deno.env.get("MPESA_PASSKEY")!;
-const MPESA_CALLBACK_URL = Deno.env.get("MPESA_CALLBACK_URL")!;
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json",
+};
 
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-  };
-}
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...corsHeaders() } });
-}
+const MPESA_PRICE_PER_DAY = 500;
 
-function mpesaTimestamp(): string {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-}
+const MPESA_ENVIRONMENT =
+  (Deno.env.get("MPESA_ENVIRONMENT") || "sandbox").toLowerCase();
 
-async function getMpesaToken(): Promise<string> {
-  const auth = btoa(`${MPESA_CONSUMER_KEY}:${MPESA_CONSUMER_SECRET}`);
-  const res = await fetch(`${MPESA_BASE}/oauth/v1/generate?grant_type=client_credentials`, {
-    headers: { Authorization: `Basic ${auth}` },
+const MPESA_BASE_URL =
+  MPESA_ENVIRONMENT === "production"
+    ? "https://api.safaricom.co.ke"
+    : "https://sandbox.safaricom.co.ke";
+
+/* ---------------------------------------------------------
+   BASIC RESPONSE HELPER
+--------------------------------------------------------- */
+
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: corsHeaders,
   });
-  if (!res.ok) throw new Error("Could not authenticate with M-Pesa.");
-  const data = await res.json();
+}
+
+/* ---------------------------------------------------------
+   PHONE NUMBER NORMALIZATION
+--------------------------------------------------------- */
+
+function normalizeKenyanPhone(value: string): string | null {
+  let phone = String(value || "").trim();
+
+  phone = phone.replace(/[^\d+]/g, "");
+
+  if (phone.startsWith("+")) {
+    phone = phone.substring(1);
+  }
+
+  if (phone.startsWith("0")) {
+    phone = "254" + phone.substring(1);
+  }
+
+  if (phone.startsWith("7")) {
+    phone = "254" + phone;
+  }
+
+  if (!/^254[17]\d{8}$/.test(phone)) {
+    return null;
+  }
+
+  return phone;
+}
+
+/* ---------------------------------------------------------
+   REQUIRED SECRET HELPER
+--------------------------------------------------------- */
+
+function getRequiredSecret(name: string): string {
+  const value = Deno.env.get(name);
+
+  if (!value || !value.trim()) {
+    throw new Error(`Missing Supabase secret: ${name}`);
+  }
+
+  return value.trim();
+}
+
+/* ---------------------------------------------------------
+   SUPABASE ADMIN CLIENT
+--------------------------------------------------------- */
+
+function getSupabaseAdmin() {
+  const supabaseUrl = getRequiredSecret("SUPABASE_URL");
+
+  let secretKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  /*
+   * Current Supabase projects expose secret keys through
+   * SUPABASE_SECRET_KEYS.
+   *
+   * We also support the older service-role variable.
+   */
+  if (!secretKey) {
+    const secretKeysRaw = Deno.env.get("SUPABASE_SECRET_KEYS");
+
+    if (secretKeysRaw) {
+      try {
+        const secretKeys = JSON.parse(secretKeysRaw);
+        secretKey =
+          secretKeys.default ||
+          secretKeys["default"];
+      } catch {
+        // Continue to the missing-key error.
+      }
+    }
+  }
+
+  if (!secretKey) {
+    throw new Error(
+      "Supabase server secret key is unavailable. Check SUPABASE_SECRET_KEYS or SUPABASE_SERVICE_ROLE_KEY.",
+    );
+  }
+
+  return createClient(supabaseUrl, secretKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+/* ---------------------------------------------------------
+   AUTHENTICATED USER
+--------------------------------------------------------- */
+
+async function getAuthenticatedUser(req: Request) {
+  const authorization = req.headers.get("Authorization");
+
+  if (!authorization?.startsWith("Bearer ")) {
+    return null;
+  }
+
+  const accessToken = authorization
+    .substring("Bearer ".length)
+    .trim();
+
+  if (!accessToken) {
+    return null;
+  }
+
+  const supabaseUrl = getRequiredSecret("SUPABASE_URL");
+
+  let publishableKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+  /*
+   * Current Supabase projects expose publishable keys
+   * through SUPABASE_PUBLISHABLE_KEYS.
+   */
+  if (!publishableKey) {
+    const publishableKeysRaw =
+      Deno.env.get("SUPABASE_PUBLISHABLE_KEYS");
+
+    if (publishableKeysRaw) {
+      try {
+        const publishableKeys =
+          JSON.parse(publishableKeysRaw);
+
+        publishableKey =
+          publishableKeys.default ||
+          publishableKeys["default"];
+      } catch {
+        // Continue to the missing-key error.
+      }
+    }
+  }
+
+  if (!publishableKey) {
+    throw new Error(
+      "Supabase publishable/anon key is unavailable.",
+    );
+  }
+
+  const supabase = createClient(
+    supabaseUrl,
+    publishableKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    },
+  );
+
+  const { data, error } =
+    await supabase.auth.getUser(accessToken);
+
+  if (error || !data.user) {
+    return null;
+  }
+
+  return data.user;
+}
+
+/* ---------------------------------------------------------
+   M-PESA OAUTH ACCESS TOKEN
+--------------------------------------------------------- */
+
+async function getMpesaAccessToken(): Promise<string> {
+  const consumerKey =
+    getRequiredSecret("MPESA_CONSUMER_KEY");
+
+  const consumerSecret =
+    getRequiredSecret("MPESA_CONSUMER_SECRET");
+
+  const credentials = btoa(
+    `${consumerKey}:${consumerSecret}`,
+  );
+
+  const response = await fetch(
+    `${MPESA_BASE_URL}/oauth/v1/generate?grant_type=client_credentials`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Basic ${credentials}`,
+        Accept: "application/json",
+      },
+    },
+  );
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    throw new Error(
+      `M-Pesa OAuth failed (${response.status}): ${text}`,
+    );
+  }
+
+  let data: any;
+
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(
+      "M-Pesa OAuth returned invalid JSON.",
+    );
+  }
+
+  if (!data.access_token) {
+    throw new Error(
+      "M-Pesa OAuth response did not contain access_token.",
+    );
+  }
+
   return data.access_token;
 }
 
-async function stkPush(opts: { phone: string; amount: number; accountRef: string; desc: string }) {
-  const token = await getMpesaToken();
-  const timestamp = mpesaTimestamp();
-  const password = btoa(`${MPESA_SHORTCODE}${MPESA_PASSKEY}${timestamp}`);
-  const res = await fetch(`${MPESA_BASE}/mpesa/stkpush/v1/processrequest`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      BusinessShortCode: MPESA_SHORTCODE,
-      Password: password,
-      Timestamp: timestamp,
-      TransactionType: "CustomerPayBillOnline",
-      Amount: Math.round(opts.amount),
-      PartyA: opts.phone,
-      PartyB: MPESA_SHORTCODE,
-      PhoneNumber: opts.phone,
-      CallBackURL: MPESA_CALLBACK_URL,
-      AccountReference: opts.accountRef,
-      TransactionDesc: opts.desc,
+/* ---------------------------------------------------------
+   KENYAN TIMESTAMP
+--------------------------------------------------------- */
+
+function makeTimestamp(): string {
+  /*
+   * Daraja expects Kenyan local time:
+   *
+   * YYYYMMDDHHmmss
+   *
+   * Kenya uses UTC+3.
+   *
+   * Adding the offset before extracting UTC components
+   * correctly handles midnight/day/month/year rollover.
+   */
+  const kenyaTime = new Date(
+    Date.now() + 3 * 60 * 60 * 1000,
+  );
+
+  const yyyy = kenyaTime.getUTCFullYear();
+  const mm = String(
+    kenyaTime.getUTCMonth() + 1,
+  ).padStart(2, "0");
+
+  const dd = String(
+    kenyaTime.getUTCDate(),
+  ).padStart(2, "0");
+
+  const hh = String(
+    kenyaTime.getUTCHours(),
+  ).padStart(2, "0");
+
+  const mi = String(
+    kenyaTime.getUTCMinutes(),
+  ).padStart(2, "0");
+
+  const ss = String(
+    kenyaTime.getUTCSeconds(),
+  ).padStart(2, "0");
+
+  return `${yyyy}${mm}${dd}${hh}${mi}${ss}`;
+}
+
+/* ---------------------------------------------------------
+   BASE64
+--------------------------------------------------------- */
+
+function base64Encode(value: string): string {
+  return btoa(
+    unescape(
+      encodeURIComponent(value),
+    ),
+  );
+}
+
+/* ---------------------------------------------------------
+   CALLBACK URL
+--------------------------------------------------------- */
+
+function getCallbackUrl(): string {
+  const configured =
+    Deno.env.get("MPESA_CALLBACK_URL");
+
+  if (!configured || !configured.trim()) {
+    throw new Error(
+      "MPESA_CALLBACK_URL has not been configured yet.",
+    );
+  }
+
+  return configured.trim();
+}
+
+/* ---------------------------------------------------------
+   M-PESA STK PUSH
+--------------------------------------------------------- */
+
+async function initiateStkPush(params: {
+  phone: string;
+  amount: number;
+  accountReference: string;
+  transactionDescription: string;
+}) {
+  const shortcode =
+    getRequiredSecret("MPESA_SHORTCODE");
+
+  const passkey =
+    getRequiredSecret("MPESA_PASSKEY");
+
+  const callbackUrl =
+    getCallbackUrl();
+
+  const timestamp =
+    makeTimestamp();
+
+  const password =
+    base64Encode(
+      `${shortcode}${passkey}${timestamp}`,
+    );
+
+  const accessToken =
+    await getMpesaAccessToken();
+
+  const payload = {
+    BusinessShortCode:
+      Number(shortcode),
+
+    Password:
+      password,
+
+    Timestamp:
+      timestamp,
+
+    TransactionType:
+      "CustomerPayBillOnline",
+
+    Amount:
+      Math.round(params.amount),
+
+    PartyA:
+      Number(params.phone),
+
+    PartyB:
+      Number(shortcode),
+
+    PhoneNumber:
+      Number(params.phone),
+
+    CallBackURL:
+      callbackUrl,
+
+    AccountReference:
+      params.accountReference,
+
+    TransactionDesc:
+      params.transactionDescription,
+  };
+
+  console.log(
+    "Sending M-Pesa STK Push:",
+    JSON.stringify({
+      amount: payload.Amount,
+      phone: params.phone,
+      accountReference:
+        params.accountReference,
+      environment:
+        MPESA_ENVIRONMENT,
     }),
-  });
-  const data = await res.json();
-  if (!res.ok || data.ResponseCode !== "0") {
-    throw new Error(data?.errorMessage || data?.ResponseDescription || "M-Pesa could not start the payment request.");
-  }
-  return data as { CheckoutRequestID: string; MerchantRequestID: string };
-}
+  );
 
-function normalizePhone(raw: string): string {
-  const digits = String(raw || "").replace(/\D/g, "");
-  if (digits.startsWith("254")) return digits;
-  if (digits.startsWith("0")) return "254" + digits.slice(1);
-  if (digits.startsWith("7") || digits.startsWith("1")) return "254" + digits;
-  return digits;
-}
+  const response = await fetch(
+    `${MPESA_BASE_URL}/mpesa/stkpush/v1/processrequest`,
+    {
+      method: "POST",
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
-  if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
+      headers: {
+        Authorization:
+          `Bearer ${accessToken}`,
 
-  let body: Record<string, unknown>;
+        "Content-Type":
+          "application/json",
+
+        Accept:
+          "application/json",
+      },
+
+      body:
+        JSON.stringify(payload),
+    },
+  );
+
+  const text =
+    await response.text();
+
+  let data: any;
+
   try {
-    body = await req.json();
+    data =
+      JSON.parse(text);
   } catch {
-    return json({ error: "Invalid request body." }, 400);
+    throw new Error(
+      `M-Pesa STK Push returned invalid JSON: ${text}`,
+    );
   }
 
-  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+  if (!response.ok) {
+    throw new Error(
+      `M-Pesa STK Push failed (${response.status}): ${
+        data?.errorMessage || text
+      }`,
+    );
+  }
 
-  // -------------------------------------------------------------------
-  // Safaricom's own callback: no `action`, no Authorization Bearer from
-  // our app — its shape is Body.stkCallback. Handle it before anything
-  // that requires a Bingo user JWT.
-  // -------------------------------------------------------------------
-  const stkCallback = (body as any)?.Body?.stkCallback;
-  if (stkCallback) {
-    const checkoutRequestId = String(stkCallback.CheckoutRequestID || "");
-    const resultCode = Number(stkCallback.ResultCode);
-    const resultDesc = String(stkCallback.ResultDesc || "");
-    const items: any[] = stkCallback.CallbackMetadata?.Item || [];
-    const pick = (name: string) => items.find((i) => i.Name === name)?.Value;
-    const amount = Number(pick("Amount") ?? 0);
-    const receipt = pick("MpesaReceiptNumber") ? String(pick("MpesaReceiptNumber")) : null;
+  if (
+    data?.ResponseCode &&
+    String(data.ResponseCode) !== "0"
+  ) {
+    throw new Error(
+      data?.ResponseDescription ||
+        data?.CustomerMessage ||
+        "M-Pesa rejected the STK Push.",
+    );
+  }
 
-    const { data: quote } = await admin
-      .from("bingo_boost_quotes")
-      .select("*")
-      .eq("checkout_request_id", checkoutRequestId)
-      .maybeSingle();
+  return data;
+}
 
-    // Log every callback we receive, success or not, for audit/replay
-    // detection. A duplicate receipt hitting the unique index is expected
-    // on a Safaricom retry and is treated as already handled, not an error.
-    try {
-      await admin.from("bingo_boost_mpesa_log").insert({
-        quote_id: quote?.id ?? null,
-        checkout_request_id: checkoutRequestId,
-        mpesa_receipt_number: receipt,
-        result_code: Number.isFinite(resultCode) ? resultCode : null,
-        result_desc: resultDesc,
-        amount: Number.isFinite(amount) ? amount : null,
-        raw_payload: body,
+/* ---------------------------------------------------------
+   CREATE BOOST + START PAYMENT
+--------------------------------------------------------- */
+
+async function createBoostPayment(
+  req: Request,
+) {
+  const user =
+    await getAuthenticatedUser(req);
+
+  if (!user) {
+    return json(
+      {
+        ok: false,
+        error:
+          "You must be signed in to boost a listing.",
+      },
+      401,
+    );
+  }
+
+  const body =
+    await req.json();
+
+  const listingId =
+    String(
+      body?.listing_id || "",
+    ).trim();
+
+  const phoneInput =
+    String(
+      body?.phone || "",
+    ).trim();
+
+  const requestedDays =
+    Number(body?.days);
+
+  if (!listingId) {
+    return json(
+      {
+        ok: false,
+        error:
+          "listing_id is required.",
+      },
+      400,
+    );
+  }
+
+  if (
+    !Number.isInteger(requestedDays) ||
+    requestedDays < 1 ||
+    requestedDays > 365
+  ) {
+    return json(
+      {
+        ok: false,
+        error:
+          "Boost days must be a whole number between 1 and 365.",
+      },
+      400,
+    );
+  }
+
+  const phone =
+    normalizeKenyanPhone(
+      phoneInput,
+    );
+
+  if (!phone) {
+    return json(
+      {
+        ok: false,
+        error:
+          "Enter a valid Kenyan M-Pesa number, for example 0712345678.",
+      },
+      400,
+    );
+  }
+
+  const totalAmount =
+    requestedDays *
+    MPESA_PRICE_PER_DAY;
+
+  const supabaseAdmin =
+    getSupabaseAdmin();
+
+  /* -------------------------------------------------------
+     VERIFY LISTING OWNERSHIP
+  ------------------------------------------------------- */
+
+  const {
+    data: listing,
+    error: listingError,
+  } = await supabaseAdmin
+    .from("vehicle_listings")
+    .select("id,user_id")
+    .eq("id", listingId)
+    .maybeSingle();
+
+  if (listingError) {
+    console.error(
+      "Listing lookup error:",
+      listingError,
+    );
+
+    return json(
+      {
+        ok: false,
+        error:
+          "Unable to verify the listing. Check that vehicle_listings is the correct listing table.",
+      },
+      500,
+    );
+  }
+
+  if (!listing) {
+    return json(
+      {
+        ok: false,
+        error:
+          "Listing was not found.",
+      },
+      404,
+    );
+  }
+
+  if (
+    String(listing.user_id) !==
+    String(user.id)
+  ) {
+    return json(
+      {
+        ok: false,
+        error:
+          "You can only boost your own listing.",
+      },
+      403,
+    );
+  }
+
+  /* -------------------------------------------------------
+     CREATE PENDING BOOST
+  ------------------------------------------------------- */
+
+  const {
+    data: boost,
+    error: boostError,
+  } =
+    await supabaseAdmin
+      .from("auto_arcade_boosts")
+      .insert({
+        listing_id:
+          listingId,
+
+        user_id:
+          user.id,
+
+        days:
+          requestedDays,
+
+        price_per_day:
+          MPESA_PRICE_PER_DAY,
+
+        total_amount:
+          totalAmount,
+
+        seller_id:
+          user.id,
+
+        duration_days:
+          requestedDays,
+
+        amount:
+          totalAmount,
+
+        phone,
+
+        payment_status:
+          "pending",
+
+        boost_status:
+          "pending",
+
+        status:
+          "pending",
+      })
+      .select()
+      .single();
+
+  if (boostError) {
+    console.error(
+      "Boost creation error:",
+      boostError,
+    );
+
+    return json(
+      {
+        ok: false,
+        error:
+          "The boost could not be created. Check the auto_arcade_boosts table columns.",
+      },
+      500,
+    );
+  }
+
+  const accountReference =
+    `BOOST-${String(
+      boost.id,
+    ).substring(0, 12)}`;
+
+  /* -------------------------------------------------------
+     START M-PESA PAYMENT
+  ------------------------------------------------------- */
+
+  let stkResponse: any;
+
+  try {
+    stkResponse =
+      await initiateStkPush({
+        phone,
+
+        amount:
+          totalAmount,
+
+        accountReference,
+
+        transactionDescription:
+          `Auto Arcade listing boost - ${requestedDays} day(s)`,
       });
-    } catch (e) {
-      // unique_violation on mpesa_receipt_number = replayed callback we
-      // already processed; acknowledge to Safaricom and stop here.
-      return json({ ResultCode: 0, ResultDesc: "Already processed" });
-    }
+  } catch (error) {
+    console.error(
+      "STK Push error:",
+      error,
+    );
 
-    if (resultCode === 0 && quote && receipt) {
-      try {
-        await admin.rpc("bingo_activate_boost_from_quote", {
-          p_quote_id: quote.id,
-          p_mpesa_receipt: receipt,
-          p_confirmed_amount: amount,
-          p_checkout_request_id: checkoutRequestId,
-        });
-      } catch (e) {
-        console.error("Boost activation failed", e);
-        // Do not throw back to Safaricom — the payment succeeded on their
-        // side regardless; this is logged for manual reconciliation.
-      }
-    }
+    await supabaseAdmin
+      .from("auto_arcade_boosts")
+      .update({
+        status:
+          "payment_failed",
+      })
+      .eq(
+        "id",
+        boost.id,
+      );
 
-    // Safaricom only needs a 200 with this shape; it is not shown to the user.
-    return json({ ResultCode: 0, ResultDesc: "Accepted" });
+    return json(
+      {
+        ok: false,
+
+        boost_id:
+          boost.id,
+
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unable to send M-Pesa STK Push.",
+      },
+      502,
+    );
   }
 
-  // -------------------------------------------------------------------
-  // Everything else requires a verified Bingo user session.
-  // -------------------------------------------------------------------
-  const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-  if (!jwt) return json({ error: "Sign in required." }, 401);
-  const { data: userData, error: userError } = await admin.auth.getUser(jwt);
-  if (userError || !userData?.user?.id) return json({ error: "Could not verify your session. Please log in again." }, 401);
-  const userId = userData.user.id;
+  /* -------------------------------------------------------
+     SAVE M-PESA TRANSACTION
+  ------------------------------------------------------- */
 
-  const action = String(body.action || "");
+  const {
+    error: transactionError,
+  } =
+    await supabaseAdmin
+      .from("mpesa_transactions")
+      .insert({
+        boost_id:
+          boost.id,
 
-  if (action === "create_boost") {
-    let quoteId = body.quote_id ? String(body.quote_id) : null;
-    let amount: number;
-    let postType = String(body.target_type || "vehicle");
+        user_id:
+          user.id,
 
-    if (quoteId) {
-      // Quote-authoritative path (Change 09 + this closure): the server
-      // reads amount/placement/dates ONLY from the stored quote — any
-      // budget_amount/exact_amount/days sent alongside quote_id is
-      // ignored, per this packet's own requirement.
-      const { data: quote, error } = await admin.from("bingo_boost_quotes").select("*").eq("id", quoteId).eq("user_id", userId).maybeSingle();
-      if (error || !quote) return json({ error: "Quote not found." }, 404);
-      if (quote.status !== "quoted" || new Date(quote.expires_at) <= new Date()) {
-        return json({ error: "This quote is no longer valid. Please request a new one." }, 409);
-      }
-      amount = Number(quote.amount_kes);
-      postType = quote.post_type;
-    } else {
-      // Legacy/compatibility path (spare parts, CVs, jobs, profile boosts
-      // — none of Change 09's placement flow): still trusts the client's
-      // amount, exactly as the pre-existing behavior did. Synthesizes a
-      // quote row so the callback/activation code path stays single and
-      // consistent instead of maintaining two parallel mechanisms.
-      amount = Number(body.exact_amount ?? body.budget_amount ?? 0);
-      if (!amount || amount <= 0) return json({ error: "Invalid boost amount." }, 400);
-      const days = Number(body.days || 30);
-      const startsAt = new Date();
-      const expiresAt = new Date(startsAt.getTime() + days * 86400000);
-      const { data: synthQuote, error: synthError } = await admin
-        .from("bingo_boost_quotes")
-        .insert({
-          user_id: userId,
-          post_id: String(body.target_id || body.listing_id || ""),
-          post_type: postType,
-          placement_id: "legacy",
-          duration_days: days,
-          geo: String((body.targeting as any)?.location || "all"),
-          amount_kes: amount,
-          starts_at: startsAt.toISOString(),
-          expires_at: expiresAt.toISOString(),
-          status: "quoted",
-        })
-        .select()
-        .single();
-      if (synthError || !synthQuote) return json({ error: "Could not prepare this boost for payment." }, 500);
-      quoteId = synthQuote.id;
-    }
+        listing_id:
+          listingId,
 
-    const phone = normalizePhone(String(body.phone || ""));
-    if (!phone || phone.length < 12) return json({ error: "Enter a valid Safaricom M-Pesa number." }, 400);
+        phone_number:
+          phone,
 
-    let stk;
-    try {
-      stk = await stkPush({ phone, amount, accountRef: `BINGO-${quoteId}`, desc: `Bingo ${postType} boost` });
-    } catch (e) {
-      return json({ error: String((e as Error)?.message || e) }, 502);
-    }
+        amount:
+          totalAmount,
 
-    await admin.from("bingo_boost_quotes").update({ checkout_request_id: stk.CheckoutRequestID }).eq("id", quoteId);
+        merchant_request_id:
+          stkResponse?.MerchantRequestID ||
+          null,
 
-    return json({ amount, budget_amount: amount, boost_id: quoteId });
+        checkout_request_id:
+          stkResponse?.CheckoutRequestID ||
+          null,
+
+        result_code:
+          null,
+
+        result_description:
+          null,
+
+        mpesa_receipt_number:
+          null,
+
+        status:
+          "pending",
+      });
+
+  if (transactionError) {
+    console.error(
+      "Transaction record error:",
+      transactionError,
+    );
+
+    /*
+     * The STK Push has already been sent.
+     * Do not mark the payment as failed simply because
+     * our local transaction record failed.
+     */
+    return json(
+      {
+        ok: true,
+
+        boost_id:
+          boost.id,
+
+        payment_pending:
+          true,
+
+        warning:
+          "STK Push was sent, but the local transaction record could not be saved. Check Supabase logs before retrying.",
+      },
+      202,
+    );
   }
 
-  if (action === "boost_status") {
-    const quoteId = String(body.boost_id || "");
-    if (!quoteId) return json({ error: "Missing boost reference." }, 400);
-    // bingo_boost_activation_status checks auth.uid() against the quote's
-    // owner, so it must be called with the caller's own JWT, not the
-    // service-role admin client (which has no authenticated user context).
-    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { headers: { Authorization: `Bearer ${jwt}` } } });
-    const { data, error } = await userClient.rpc("bingo_boost_activation_status", { p_quote_id: quoteId });
-    if (error) return json({ status: "failed", message: String(error.message || error) });
-    const status = (data as any)?.status;
+  return json({
+    ok: true,
+
+    boost_id:
+      boost.id,
+
+    payment_pending:
+      true,
+
+    amount:
+      totalAmount,
+
+    days:
+      requestedDays,
+
+    phone,
+
+    merchant_request_id:
+      stkResponse?.MerchantRequestID ||
+      null,
+
+    checkout_request_id:
+      stkResponse?.CheckoutRequestID ||
+      null,
+
+    customer_message:
+      stkResponse?.CustomerMessage ||
+      "Enter your M-Pesa PIN on your phone.",
+  });
+}
+
+/* ---------------------------------------------------------
+   M-PESA CALLBACK
+--------------------------------------------------------- */
+
+async function handleMpesaCallback(
+  req: Request,
+) {
+  const body =
+    await req.json();
+
+  console.log(
+    "Received M-Pesa callback:",
+    JSON.stringify(body),
+  );
+
+  const stkCallback =
+    body?.Body?.stkCallback;
+
+  /*
+   * Safaricom expects a successful HTTP response even when
+   * there is nothing useful to process.
+   */
+  if (!stkCallback) {
     return json({
-      status: status === "paid" ? "active" : status,
-      payment_status: status === "paid" ? "paid" : status,
-      remaining_amount: undefined,
-      message: status === "paid" ? "Payment confirmed." : status === "expired" ? "This boost request has expired." : undefined,
+      ResultCode: 0,
+      ResultDesc:
+        "Callback received.",
     });
   }
 
-  return json({ error: "Unknown action." }, 400);
-});
+  const checkoutRequestId =
+    stkCallback.CheckoutRequestID;
+
+  const resultCode =
+    Number(
+      stkCallback.ResultCode,
+    );
+
+  const resultDescription =
+    stkCallback.ResultDesc ||
+    "";
+
+  if (!checkoutRequestId) {
+    console.error(
+      "M-Pesa callback missing CheckoutRequestID.",
+    );
+
+    return json({
+      ResultCode: 0,
+      ResultDesc:
+        "Callback received.",
+    });
+  }
+
+  const supabaseAdmin =
+    getSupabaseAdmin();
+
+  /* -------------------------------------------------------
+     FIND TRANSACTION
+  ------------------------------------------------------- */
+
+  const {
+    data: transaction,
+    error,
+  } =
+    await supabaseAdmin
+      .from("mpesa_transactions")
+      .select("*")
+      .eq(
+        "checkout_request_id",
+        checkoutRequestId,
+      )
+      .maybeSingle();
+
+  if (error) {
+    console.error(
+      "Transaction lookup error:",
+      error,
+    );
+
+    return json({
+      ResultCode: 0,
+      ResultDesc:
+        "Callback received.",
+    });
+  }
+
+  if (!transaction) {
+    console.error(
+      "No transaction found for CheckoutRequestID:",
+      checkoutRequestId,
+    );
+
+    return json({
+      ResultCode: 0,
+      ResultDesc:
+        "Callback received.",
+    });
+  }
+
+  /* -------------------------------------------------------
+     IDEMPOTENCY PROTECTION
+  ------------------------------------------------------- */
+
+  /*
+   * Safaricom/webhook infrastructure can retry callbacks.
+   *
+   * If this transaction has already been completed,
+   * do not activate the boost again.
+   */
+  if (
+    transaction.status === "paid" ||
+    transaction.status === "failed"
+  ) {
+    console.log(
+      "Ignoring duplicate callback for completed transaction:",
+      transaction.id,
+    );
+
+    return json({
+      ResultCode: 0,
+      ResultDesc:
+        "Callback already processed.",
+    });
+  }
+
+  /* -------------------------------------------------------
+     CALLBACK METADATA
+  ------------------------------------------------------- */
+
+  const callbackItems =
+    stkCallback?.CallbackMetadata?.Item ||
+    [];
+
+  function metadataValue(
+    name: string,
+  ) {
+    const item =
+      callbackItems.find(
+        (entry: any) =>
+          entry?.Name === name,
+      );
+
+    return item?.Value ?? null;
+  }
+
+  const receiptNumber =
+    metadataValue(
+      "MpesaReceiptNumber",
+    );
+
+  const transactionDate =
+    metadataValue(
+      "TransactionDate",
+    );
+
+  const phoneNumber =
+    metadataValue(
+      "PhoneNumber",
+    );
+
+  const callbackAmount =
+    metadataValue(
+      "Amount",
+    );
+
+  /* -------------------------------------------------------
+     SUCCESSFUL PAYMENT
+  ------------------------------------------------------- */
+
+  if (resultCode === 0) {
+    /*
+     * Verify the amount when Safaricom supplies it.
+     */
+    if (
+      callbackAmount !== null &&
+      Number(callbackAmount) !==
+        Number(transaction.amount)
+    ) {
+      console.error(
+        "M-Pesa callback amount mismatch:",
+        {
+          expected:
+            transaction.amount,
+
+          received:
+            callbackAmount,
+
+          checkoutRequestId,
+        },
+      );
+
+      await supabaseAdmin
+        .from(
+          "mpesa_transactions",
+        )
+        .update({
+          status:
+            "failed",
+
+          result_code:
+            resultCode,
+
+          result_description:
+            "Payment amount mismatch.",
+
+          completed_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          "id",
+          transaction.id,
+        );
+
+      await supabaseAdmin
+        .from(
+          "auto_arcade_boosts",
+        )
+        .update({
+          status:
+            "payment_failed",
+        })
+        .eq(
+          "id",
+          transaction.boost_id,
+        );
+
+      return json({
+        ResultCode: 0,
+        ResultDesc:
+          "Callback processed.",
+      });
+    }
+
+    /* -----------------------------------------------------
+       MARK TRANSACTION PAID
+    ----------------------------------------------------- */
+
+    const {
+      error:
+        updateTransactionError,
+    } =
+      await supabaseAdmin
+        .from(
+          "mpesa_transactions",
+        )
+        .update({
+          status:
+            "paid",
+
+          result_code:
+            resultCode,
+
+          result_description:
+            resultDescription,
+
+          mpesa_receipt_number:
+            receiptNumber
+              ? String(
+                  receiptNumber,
+                )
+              : null,
+
+          transaction_date:
+            transactionDate
+              ? String(
+                  transactionDate,
+                )
+              : null,
+
+          callback_phone:
+            phoneNumber
+              ? String(
+                  phoneNumber,
+                )
+              : null,
+
+          completed_at:
+            new Date().toISOString(),
+        })
+        .eq(
+          "id",
+          transaction.id,
+        );
+
+    if (updateTransactionError) {
+      console.error(
+        "Transaction payment update failed:",
+        updateTransactionError,
+      );
+
+      return json({
+        ResultCode: 0,
+        ResultDesc:
+          "Callback received.",
+      });
+    }
+
+    /* -----------------------------------------------------
+       GET BOOST
+    ----------------------------------------------------- */
+
+    const {
+      data: boost,
+      error:
+        boostLookupError,
+    } =
+      await supabaseAdmin
+        .from(
+          "auto_arcade_boosts",
+        )
+        .select("*")
+        .eq(
+          "id",
+          transaction.boost_id,
+        )
+        .maybeSingle();
+
+    if (
+      boostLookupError ||
+      !boost
+    ) {
+      console.error(
+        "Boost lookup failed after payment:",
+        boostLookupError,
+      );
+
+      return json({
+        ResultCode: 0,
+        ResultDesc:
+          "Callback received.",
+      });
+    }
+
+    /*
+     * Extra protection against a race/duplicate callback.
+     */
+    if (
+      boost.status === "active"
+    ) {
+      console.log(
+        "Boost is already active:",
+        boost.id,
+      );
+
+      return json({
+        ResultCode: 0,
+        ResultDesc:
+          "Boost already activated.",
+      });
+    }
+
+    /* -----------------------------------------------------
+       DETERMINE BOOST START TIME
+    ----------------------------------------------------- */
+
+    const now =
+      new Date();
+
+    let startDate =
+      now;
+
+    /*
+     * If another active boost exists for this listing,
+     * queue the new boost after it.
+     */
+    const {
+      data: existingBoost,
+    } =
+      await supabaseAdmin
+        .from(
+          "auto_arcade_boosts",
+        )
+        .select(
+          "id,ends_at",
+        )
+        .eq(
+          "listing_id",
+          transaction.listing_id,
+        )
+        .eq(
+          "status",
+          "active",
+        )
+        .gt(
+          "ends_at",
+          now.toISOString(),
+        )
+        .order(
+          "ends_at",
+          {
+            ascending: false,
+          },
+        )
+        .limit(1)
+        .maybeSingle();
+
+    if (
+      existingBoost?.ends_at
+    ) {
+      const existingEnd =
+        new Date(
+          existingBoost.ends_at,
+        );
+
+      if (
+        existingEnd >
+        startDate
+      ) {
+        startDate =
+          existingEnd;
+      }
+    }
+
+    /* -----------------------------------------------------
+       CALCULATE END DATE
+    ----------------------------------------------------- */
+
+    const days =
+      Number(
+        boost.days || 1,
+      );
+
+    const endDate =
+      new Date(
+        startDate,
+      );
+
+    endDate.setDate(
+      endDate.getDate() +
+        days,
+    );
+
+    /* -----------------------------------------------------
+       ACTIVATE BOOST
+    ----------------------------------------------------- */
+
+    const {
+      error:
+        activateError,
+    } =
+      await supabaseAdmin
+        .from(
+          "auto_arcade_boosts",
+        )
+        .update({
+          status:
+            "active",
+
+          starts_at:
+            startDate.toISOString(),
+
+          ends_at:
+            endDate.toISOString(),
+        })
+        .eq(
+          "id",
+          boost.id,
+        );
+
+    if (activateError) {
+      console.error(
+        "Boost activation failed:",
+        activateError,
+      );
+
+      /*
+       * Payment remains recorded as paid.
+       *
+       * We intentionally do not mark the payment failed,
+       * because the customer actually paid.
+       */
+    }
+
+    return json({
+      ResultCode: 0,
+      ResultDesc:
+        "Callback processed successfully.",
+    });
+  }
+
+  /* -------------------------------------------------------
+     FAILED / CANCELLED PAYMENT
+  ------------------------------------------------------- */
+
+  await supabaseAdmin
+    .from(
+      "mpesa_transactions",
+    )
+    .update({
+      status:
+        "failed",
+
+      result_code:
+        resultCode,
+
+      result_description:
+        resultDescription,
+
+      completed_at:
+        new Date().toISOString(),
+    })
+    .eq(
+      "id",
+      transaction.id,
+    );
+
+  await supabaseAdmin
+    .from(
+      "auto_arcade_boosts",
+    )
+    .update({
+      status:
+        "payment_failed",
+    })
+    .eq(
+      "id",
+      transaction.boost_id,
+    );
+
+  return json({
+    ResultCode: 0,
+    ResultDesc:
+      "Callback processed successfully.",
+  });
+}
+
+/* ---------------------------------------------------------
+   HEALTH CHECK
+--------------------------------------------------------- */
+
+async function healthCheck() {
+  const required = [
+    "MPESA_CONSUMER_KEY",
+    "MPESA_CONSUMER_SECRET",
+    "MPESA_PASSKEY",
+    "MPESA_SHORTCODE",
+    "MPESA_CALLBACK_URL",
+  ];
+
+  const configured =
+    Object.fromEntries(
+      required.map(
+        (key) => [
+          key,
+          Boolean(
+            Deno.env.get(key),
+          ),
+        ],
+      ),
+    );
+
+  return json({
+    ok: true,
+
+    function:
+      "mpesa-boost",
+
+    environment:
+      MPESA_ENVIRONMENT,
+
+    configured,
+
+    message:
+      "M-Pesa boost function is running.",
+  });
+}
+
+/* ---------------------------------------------------------
+   MAIN SERVER
+--------------------------------------------------------- */
+
+Deno.serve(
+  async (req: Request) => {
+    /* -----------------------------------------------------
+       CORS PREFLIGHT
+    ----------------------------------------------------- */
+
+    if (
+      req.method ===
+      "OPTIONS"
+    ) {
+      return new Response(
+        "ok",
+        {
+          headers:
+            corsHeaders,
+        },
+      );
+    }
+
+    try {
+      const url =
+        new URL(
+          req.url,
+        );
+
+      /* ---------------------------------------------------
+         HEALTH CHECK
+      --------------------------------------------------- */
+
+      if (
+        req.method ===
+        "GET"
+      ) {
+        return await healthCheck();
+      }
+
+      /* ---------------------------------------------------
+         ONLY POST AFTER THIS POINT
+      --------------------------------------------------- */
+
+      if (
+        req.method !==
+        "POST"
+      ) {
+        return json(
+          {
+            ok: false,
+            error:
+              "Method not allowed.",
+          },
+          405,
+        );
+      }
+
+      /* ---------------------------------------------------
+         M-PESA CALLBACK
+      --------------------------------------------------- */
+
+      /*
+       * Safaricom calls:
+       *
+       * /mpesa-boost?callback=1
+       */
+      if (
+        url.searchParams.get(
+          "callback",
+        ) === "1"
+      ) {
+        return await handleMpesaCallback(
+          req,
+        );
+      }
+
+      /* ---------------------------------------------------
+         FRONTEND REQUEST
+      --------------------------------------------------- */
+
+      /*
+       * Expected body:
+       *
+       * {
+       *   "action": "create_boost",
+       *   "listing_id": "...",
+       *   "days": 3,
+       *   "phone": "0712345678"
+       * }
+       */
+
+      const body =
+        await req
+          .clone()
+          .json();
+
+      if (
+        body?.action ===
+        "create_boost"
+      ) {
+        return await createBoostPayment(
+          req,
+        );
+      }
+
+      return json(
+        {
+          ok: false,
+
+          error:
+            "Unknown action. Use action=create_boost.",
+        },
+        400,
+      );
+    } catch (error) {
+      console.error(
+        "mpesa-boost error:",
+        error,
+      );
+
+      return json(
+        {
+          ok: false,
+
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unexpected server error.",
+        },
+        500,
+      );
+    }
+  },
+);
