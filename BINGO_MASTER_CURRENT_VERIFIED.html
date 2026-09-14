@@ -6900,7 +6900,7 @@ const {data,error}=await sb.from("vehicle_listings").select("*").eq("status","pu
    // Never allow backend loading to erase the six original Home-page posts.
    // Demo posts stay first; database/user posts continue onto the next page.
    const savedLocal=(state.listings||[]).filter(x=>!x._fromDb&&!x._localDemo);
-  const merged=[...dbRows,...savedLocal];
+  const merged=[...demoListings,...dbRows,...savedLocal];
    const seen=new Set();
    state.listings=merged.filter(x=>{
     const k=String(x.id);
