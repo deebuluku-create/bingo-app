@@ -4828,6 +4828,7 @@ var state = {
  adCampaigns:[], adDraft:null, adDraftId:null, adQueue:[], adSlotState:{},
  boostPlacementId:"feed-priority", boostQuote:null, boostQuoteBusy:false, successMessage:"",
  agentSalarySummary:null, agentManagedBusinesses:[], agentInvitations:[], agentPermissionCache:{}, agentInviteTarget:null, agentSalaryDirectory:[], agentProgressBulletin:null, agentWithdrawalsBackend:[],
+ helpSellSummaries:{}, helpSellSummaryPending:{}, helpSellRulesTarget:null, ownerHelpSellRequests:[], myHelpSellListings:[],
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
  successOpen:false, callTarget:null, isLoggedIn:false, authBusy:false, authError:"", lastOtpTouch:0, resendUntil:0, resendTimer:null, visits:Number(aaStorage.get("aa_visits")||0), shareCount:Number(aaStorage.get("aa_share_count")||0),
@@ -5035,6 +5036,156 @@ function aaIsOwnSeller(s){
 function aaListingOwnerId(c){
  return String(c?.userId||c?.user_id||c?.ownerId||c?.owner_id||c?.sellerId||c?.seller_id||"").trim();
 }
+
+/* ---- Help Sell: three-member collaboration ----
+   New, additive member feature: a signed-in non-owner may request to
+   help sell someone else's published listing; the owner accepts/rejects,
+   at most three helpers are ever active per listing (enforced by a
+   locked server transaction — browser state is never the authority),
+   and the owner can remove a helper or close Help Sell when the listing
+   sells. Every mutation goes through a protected RPC
+   (bingo_change_help_sell_collaboration.sql); this module only renders
+   state and calls them. */
+function aaIsRealUserId(id){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id||""))}
+function aaHelpSellKey(listingType,listingId){return listingType+":"+String(listingId)}
+async function aaLoadHelpSellSummaryNow(listingType,listingId){
+ if(!sb)return null;
+ try{
+  const {data,error}=await sb.rpc("bingo_help_sell_listing_summary",{p_listing_type:listingType,p_listing_id:String(listingId)});
+  if(error)throw error;
+  state.helpSellSummaries[aaHelpSellKey(listingType,listingId)]=data;
+  return data;
+ }catch(e){console.warn("Bingo: could not load Help Sell summary.",String(e?.message||e));return null}
+}
+function aaHelpSellSummary(listingType,listingId){
+ const key=aaHelpSellKey(listingType,listingId);
+ const cached=state.helpSellSummaries[key];
+ if(cached)return cached;
+ if(!sb||state.helpSellSummaryPending[key])return null;
+ state.helpSellSummaryPending[key]=true;
+ aaLoadHelpSellSummaryNow(listingType,listingId).then(()=>{delete state.helpSellSummaryPending[key];render()});
+ return null;
+}
+function aaHelpSellStatusHTML(summary){
+ const active=Math.min(3,Math.max(0,Number(summary?.accepted_count||0)));
+ if(!active)return "";
+ return `<div class="aa-help-sell-status"><span class="aa-help-sell-dot"></span><strong>${active>=3?"Help Sell Full":"Help Selling Active"} - ${active}/3</strong></div>`;
+}
+function aaHelpSellButtonHTML(listingType,listingId,ownerId,summary){
+ if(!state.isLoggedIn)return `<button class="btn" onclick="openAuth('login')">Help Sell</button>`;
+ if(String(ownerId||"")===String(state.user?.id||""))return "";
+ if(!summary)return `<button class="btn" disabled>Help Sell</button>`;
+ if(summary.my_status==="accepted")return `<button class="btn btn-red" onclick='aaLeaveHelpSell(${JSON.stringify(summary.my_request_id)})'>Leave</button>`;
+ if(summary.my_status==="pending")return `<button class="btn" disabled>Request Pending</button>`;
+ if(Number(summary.accepted_count||0)>=3)return `<button class="btn" disabled>Help Sell Full 3/3</button>`;
+ return `<button class="btn" onclick='aaOpenHelpSellRules(${JSON.stringify(listingType)},${JSON.stringify(String(listingId))},${JSON.stringify(ownerId||"")})'>Help Sell</button>`;
+}
+function aaHelpSellBlockHTML(listingType,listingId,ownerId){
+ if(!aaIsRealUserId(ownerId))return "";
+ const summary=aaHelpSellSummary(listingType,listingId);
+ return `<div class="aa-help-sell-row">${aaHelpSellStatusHTML(summary)}${aaHelpSellButtonHTML(listingType,listingId,ownerId,summary)}</div>`;
+}
+const AA_HELP_SELL_RULES_VERSION="help-sell-v1";
+const AA_HELP_SELL_RULES_TEXT="I agree to represent this listing honestly and respectfully. I will not change the price, mislead buyers, collect unauthorized payments, impersonate the owner, misuse private information or violate Bingo policies. Confirmed violations may result in removal from the listing, suspension of Help Sell access or an account ban.";
+function aaOpenHelpSellRules(listingType,listingId,ownerId){
+ if(!state.isLoggedIn){openAuth("login");return}
+ state.helpSellRulesTarget={listingType,listingId:String(listingId),ownerId:ownerId||""};
+ render();
+}
+function aaCloseHelpSellRules(){state.helpSellRulesTarget=null;render()}
+function aaHelpSellRulesHTML(){
+ const t=state.helpSellRulesTarget;if(!t)return "";
+ return `<div class="overlay"><div class="modal aa-help-sell-rules">
+  <button class="close" onclick="aaCloseHelpSellRules()">×</button>
+  <h2>Help Sell Rules</h2>
+  <label><input type="checkbox" id="aaHelpSellRulesAccepted"><span>${esc(AA_HELP_SELL_RULES_TEXT)}</span></label>
+  <button class="btn btn-red" style="width:100%;margin-top:14px" onclick='aaRequestHelpSell(${JSON.stringify(t.listingType)},${JSON.stringify(t.listingId)},${JSON.stringify(t.ownerId)})'>Send Request</button>
+ </div></div>`;
+}
+async function aaRequestHelpSell(listingType,listingId,ownerId){
+ const box=document.getElementById("aaHelpSellRulesAccepted");
+ if(!box?.checked){toast("Accept the Help Sell rules before requesting.");return}
+ if(!sb){toast("Help Sell service is not connected.");return}
+ const {error}=await sb.rpc("bingo_request_help_sell",{p_listing_type:listingType,p_listing_id:String(listingId),p_owner_id:ownerId||null,p_rules_version:AA_HELP_SELL_RULES_VERSION});
+ if(error){toast("Help Sell request failed: "+String(error.message||error));return}
+ toast("Request sent to the listing owner.");
+ state.helpSellRulesTarget=null;
+ await aaLoadHelpSellSummaryNow(listingType,listingId);
+ render();
+}
+async function aaLeaveHelpSell(requestId){
+ if(!confirm("Leave this Help Sell listing? Your position will become available."))return;
+ const {error}=await sb.rpc("bingo_helper_leave_listing",{p_request_id:requestId});
+ if(error){toast("Could not leave: "+String(error.message||error));return}
+ toast("You left the listing.");
+ state.helpSellSummaries={};
+ await aaLoadMyHelpSellListings();
+ render();
+}
+async function aaOwnerAcceptHelpSeller(requestId){
+ const {error}=await sb.rpc("bingo_owner_accept_help_seller",{p_request_id:requestId});
+ if(error){toast(error.message||"The request could not be accepted.");return}
+ toast("Helper accepted.");
+ state.helpSellSummaries={};
+ await aaLoadOwnerHelpSellRequests();
+ render();
+}
+async function aaOwnerRejectHelpSeller(requestId){
+ const {error}=await sb.rpc("bingo_owner_reject_help_seller",{p_request_id:requestId});
+ if(error){toast("The request could not be rejected.");return}
+ await aaLoadOwnerHelpSellRequests();
+ render();
+}
+async function aaOwnerRemoveHelpSeller(requestId){
+ if(!confirm("Remove this helper from your listing?"))return;
+ const {error}=await sb.rpc("bingo_owner_remove_help_seller",{p_request_id:requestId});
+ if(error){toast("Could not remove helper: "+String(error.message||error));return}
+ toast("Helper removed.");
+ state.helpSellSummaries={};
+ await aaLoadOwnerHelpSellRequests();
+ render();
+}
+async function aaCloseHelpSellForListing(listingType,listingId){
+ if(!confirm("Mark this listing sold and close all Help Sell activity for it? This does not delete the listing."))return;
+ const {error}=await sb.rpc("bingo_complete_help_sell_listing",{p_listing_type:listingType,p_listing_id:String(listingId)});
+ if(error){toast("Could not close Help Sell: "+String(error.message||error));return}
+ toast("Help Sell closed for this listing.");
+ state.helpSellSummaries={};
+ await aaLoadOwnerHelpSellRequests();
+ render();
+}
+async function aaLoadOwnerHelpSellRequests(){
+ if(!state.isLoggedIn||!sb){state.ownerHelpSellRequests=[];return}
+ try{
+  const {data,error}=await sb.from("bingo_help_sell_requests").select("*").eq("owner_id",state.user.id).in("status",["pending","accepted"]).order("requested_at",{ascending:false});
+  if(error)throw error;
+  state.ownerHelpSellRequests=Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load Help Sell requests.",String(e?.message||e));state.ownerHelpSellRequests=[]}
+}
+async function aaLoadMyHelpSellListings(){
+ if(!state.isLoggedIn||!sb){state.myHelpSellListings=[];return}
+ try{
+  const {data,error}=await sb.from("bingo_help_sell_requests").select("*").eq("helper_id",state.user.id).in("status",["pending","accepted"]).order("requested_at",{ascending:false});
+  if(error)throw error;
+  state.myHelpSellListings=Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load your Help Sell listings.",String(e?.message||e));state.myHelpSellListings=[]}
+}
+function aaHelpSellPendingRequestsHTML(){
+ const pending=(state.ownerHelpSellRequests||[]).filter(r=>r.status==="pending");
+ const accepted=(state.ownerHelpSellRequests||[]).filter(r=>r.status==="accepted");
+ return `<div class="boost-summary" style="margin-top:12px">
+  <b>Pending Help Sell Requests</b>
+  ${!pending.length?'<p class="notice">No pending requests.</p>':pending.map(r=>`<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px"><b style="font-size:12px">${esc(r.listing_type)} · ${esc(String(r.listing_id).slice(0,10))}</b><div class="meta">Requested ${new Date(r.requested_at).toLocaleString()}</div><div class="details-actions" style="margin-top:6px"><button class="small-btn" onclick='aaOwnerAcceptHelpSeller(${JSON.stringify(r.id)})'>Accept</button><button class="small-btn" onclick='aaOwnerRejectHelpSeller(${JSON.stringify(r.id)})'>Reject</button></div></div>`).join("")}
+  ${accepted.length?`<b style="margin-top:10px;display:block">Active Helpers</b>${accepted.map(r=>`<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px"><b style="font-size:12px">${esc(r.listing_type)} · ${esc(String(r.listing_id).slice(0,10))}</b><div class="meta">Accepted ${new Date(r.accepted_at).toLocaleString()}</div><div class="details-actions" style="margin-top:6px"><button class="small-btn" onclick='aaOwnerRemoveHelpSeller(${JSON.stringify(r.id)})'>Remove</button><button class="small-btn" onclick='aaCloseHelpSellForListing(${JSON.stringify(r.listing_type)},${JSON.stringify(r.listing_id)})'>Mark Listing Sold</button></div></div>`).join("")}`:""}
+ </div>`;
+}
+function aaMyHelpSellListingsHTML(){
+ const list=state.myHelpSellListings||[];
+ return `<div class="boost-summary" style="margin-top:12px">
+  <b>Listings I Help Sell</b>
+  ${!list.length?'<p class="notice">You are not helping sell any listings yet.</p>':list.map(r=>`<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px"><b style="font-size:12px">${esc(r.listing_type)} · ${esc(String(r.listing_id).slice(0,10))}</b><span class="aa-sub-pill ${r.status==="accepted"?"active":"expired"}" style="margin-left:6px">${esc(r.status.toUpperCase())}</span>${r.status==="accepted"?`<div class="details-actions" style="margin-top:6px"><button class="small-btn" onclick='aaLeaveHelpSell(${JSON.stringify(r.id)})'>Leave</button></div>`:""}</div>`).join("")}
+ </div>`;
+}
 function aaBindListingToAuthenticatedOwner(c){
  if(!c||!state.isLoggedIn)return c;
  const ownId=String(state.user?.id||"").trim();
@@ -5099,6 +5250,8 @@ function goAccount(){
  state.view="seller";
  render();
  window.scrollTo(0,0);
+ aaLoadOwnerHelpSellRequests().then(render);
+ aaLoadMyHelpSellListings().then(render);
 }
 var aaBackStack=[];
 
@@ -8072,7 +8225,7 @@ function aaPauseAllFeedVideos(){
  document.querySelectorAll("#auto-arcade-widget .aa360-video").forEach(v=>{try{v.pause()}catch(e){}});
 }
 function aaHomeOverlayOpen(){
- return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||state.adOpen||state.agentInviteTarget||state.successOpen||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
+ return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||state.adOpen||state.agentInviteTarget||state.successOpen||state.helpSellRulesTarget||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
 }
 function aaInit360Feed(){
  if(aaFeedObserver){try{aaFeedObserver.disconnect()}catch(e){}}
@@ -10061,7 +10214,7 @@ function aaPropertyListHTML(a,mine){if(!a.length)return `<div class="aa-v69-card
  const actions=isStay
   ?`<div class="details-actions"><button class="btn" onclick='aaStayCall(${JSON.stringify(p.contactPhone||"")})'>Call</button><button class="btn" onclick='aaStayInbox(${JSON.stringify({id:p.id,title:p.title,contactPhone:p.contactPhone,nightlyRate:p.price,hostName:p.sellerName||"Host"})})'>Inbox</button><button class="btn" onclick='aaStayRequestViewing(${JSON.stringify({id:p.id,title:p.title,contactPhone:p.contactPhone,nightlyRate:p.price,hostName:p.sellerName||"Host"})})'>Request Viewing</button><button class="btn btn-gold" onclick='aaStayNegotiate(${JSON.stringify({id:p.id,title:p.title,nightlyRate:p.price})})'>Negotiate</button></div>`
   :`<div class="details-actions"><button class="btn" onclick="toast('Viewing request messaging will use the connected backend.')">Request Viewing</button><button class="btn btn-red" onclick="toast('Price negotiation will open Bingo Chat once the property backend is connected.')">Negotiate Price</button></div>`;
- return `<article class="aa-v69-card"><span class="badge badge-red">${esc(isStay?(p.duration||'Short-term'):(p.purpose||'PROPERTY'))}</span>${aaPropertyMediaGalleryHTML(p.media)}<h3>${esc(p.title)}</h3>${p._localOnly?`<div class="notice" style="margin:2px 0">Local only — not visible on other devices</div>`:''}<div class="price">${priceLine}</div><div class="meta">${esc(p.type||'Property')} · ${esc(p.town||'')}, ${esc(p.county||'')}</div><p>${esc(p.description||'')}</p>${actions}${mine?`<button class="btn" style="margin-top:8px" onclick="${isStay?'aaEditStay':'aaEditProperty'}('${esc(p.id)}')">Edit</button><button class="btn" style="margin-top:8px" onclick="aaDeleteProperty('${esc(p.id)}')">Delete</button><button class="btn" style="margin-top:8px" onclick="aaOpenInviteAgentModal('${isStay?'stay':'property'}','${esc(p.id)}')">Invite Agent</button>`:''}${aaAdminControlsHTML(isStay?"stay":"property",p.id,p.user_id||p.userId||"")}</article>`;
+ return `<article class="aa-v69-card"><span class="badge badge-red">${esc(isStay?(p.duration||'Short-term'):(p.purpose||'PROPERTY'))}</span>${aaPropertyMediaGalleryHTML(p.media)}<h3>${esc(p.title)}</h3>${p._localOnly?`<div class="notice" style="margin:2px 0">Local only — not visible on other devices</div>`:''}<div class="price">${priceLine}</div><div class="meta">${esc(p.type||'Property')} · ${esc(p.town||'')}, ${esc(p.county||'')}</div><p>${esc(p.description||'')}</p>${actions}${mine?`<button class="btn" style="margin-top:8px" onclick="${isStay?'aaEditStay':'aaEditProperty'}('${esc(p.id)}')">Edit</button><button class="btn" style="margin-top:8px" onclick="aaDeleteProperty('${esc(p.id)}')">Delete</button><button class="btn" style="margin-top:8px" onclick="aaOpenInviteAgentModal('${isStay?'stay':'property'}','${esc(p.id)}')">Invite Agent</button>`:''}${aaHelpSellBlockHTML(isStay?"stay":"property",p.id,p.user_id||p.userId||"")}${aaAdminControlsHTML(isStay?"stay":"property",p.id,p.user_id||p.userId||"")}</article>`;
 }).join('')}</div>`}
 async function aaDeleteProperty(id){
  const item=aaProperties().find(x=>String(x.id)===String(id));
@@ -10647,7 +10800,7 @@ function aaFoodMineHTML(a){
   </div>`;
  }).join('')
 }
-function aaFoodListHTML(a){if(!a.length)return `<div class="aa-v69-card"><p>No active food business is available yet.</p></div>`;return `<div class="aa-v69-grid">${a.map(f=>`<article class="aa-v69-card"><button type="button" style="all:unset;display:block;width:100%;position:relative;cursor:pointer" onclick="aaOpenFoodMediaViewer('${esc(f.id)}',0)">${f.media?.[0]?.type==='video'?`<video src="${bingoSafeMediaAttr(f.media[0].url)}" muted playsinline preload="metadata" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#000"></video><span class="aa-media-play">▶</span>`:`<img src="${bingoSafeMediaAttr(f.media?.[0]?.url||'')}" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#111" alt="">`}</button><h3>${esc(f.business_name)}</h3><div class="meta">${esc(f.category)} · Delivery: ${esc(f.delivery_area)}</div><p>${esc(f.description)}</p><div class="details-actions"><button class="btn" onclick="location.href='tel:${esc(f.phone)}'">Call for Delivery</button><button class="btn btn-green" onclick="window.open('https://wa.me/${esc(String(f.whatsapp||f.phone).replace(/\D/g,''))}','_blank')">WhatsApp</button></div><button class="btn btn-gold" style="width:100%;margin-top:7px" onclick="aaOpenFoodMenu('${esc(f.id)}')">View Menu</button>${aaAdminControlsHTML("food_business",f.id,f.user_id||"")}</article>`).join('')}</div>`}
+function aaFoodListHTML(a){if(!a.length)return `<div class="aa-v69-card"><p>No active food business is available yet.</p></div>`;return `<div class="aa-v69-grid">${a.map(f=>`<article class="aa-v69-card"><button type="button" style="all:unset;display:block;width:100%;position:relative;cursor:pointer" onclick="aaOpenFoodMediaViewer('${esc(f.id)}',0)">${f.media?.[0]?.type==='video'?`<video src="${bingoSafeMediaAttr(f.media[0].url)}" muted playsinline preload="metadata" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#000"></video><span class="aa-media-play">▶</span>`:`<img src="${bingoSafeMediaAttr(f.media?.[0]?.url||'')}" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#111" alt="">`}</button><h3>${esc(f.business_name)}</h3><div class="meta">${esc(f.category)} · Delivery: ${esc(f.delivery_area)}</div><p>${esc(f.description)}</p><div class="details-actions"><button class="btn" onclick="location.href='tel:${esc(f.phone)}'">Call for Delivery</button><button class="btn btn-green" onclick="window.open('https://wa.me/${esc(String(f.whatsapp||f.phone).replace(/\D/g,''))}','_blank')">WhatsApp</button></div><button class="btn btn-gold" style="width:100%;margin-top:7px" onclick="aaOpenFoodMenu('${esc(f.id)}')">View Menu</button>${aaHelpSellBlockHTML("food_business",f.id,f.user_id||"")}${aaAdminControlsHTML("food_business",f.id,f.user_id||"")}</article>`).join('')}</div>`}
 async function aaStartFoodSubscription(id,months){
  months=1;
  const amount=1000;
@@ -10875,7 +11028,7 @@ ${state.view==="home"?`<div class="aa-assistant-nav-wrap" id="aaAssistantNavWrap
     </div>
   </nav>
  </div>`:""}
- ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   aaDynamicAdAfterRender();
@@ -10904,6 +11057,7 @@ function cardHTML(c){
  <button class="seller" style="width:100%;text-align:left" onclick='openSeller(${JSON.stringify(String(c.sellerId||c.userId||""))})'><img src="${bingoSafeMediaAttr(c.sellerPhoto)}" alt="" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&q=80'"><span class="seller-name">${aaFollowTopControlHTML({id:c.sellerId||c.userId,name:c.sellerName})}${esc(c.sellerName)}${aaFollowStatsHTML(c.sellerId||c.userId)}<br>${aaPresenceBadge({id:c.sellerId,sellerId:c.sellerId,phone:c.sellerPhone})}</span></button>
  <div class="card-actions"><button class="small-btn ${isFav(c.id)?'fav-on':''}" onclick='toggleFav(${id})'>${isFav(c.id)?'♥ Saved':'♡ Save'}</button><button class="small-btn share-count" onclick='state.shareTarget=state.listings.find(x=>String(x.id)===${id});render()'>Share</button><button class="small-btn" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'>Details</button></div>
  <div class="details-actions"><button class="small-btn" onclick='callSeller(state.listings.find(x=>String(x.id)===${id}))'>Call</button>${state.isLoggedIn&&aaListingOwnerId(c)===String(state.user?.id||"")?`<button class="small-btn" onclick='openBoost(state.listings.find(x=>String(x.id)===${id}))'>Boost</button>`:""}</div>
+ ${aaHelpSellBlockHTML("vehicle",c.id,aaListingOwnerId(c))}
  ${aaAdminControlsHTML("vehicle",c.id,aaListingOwnerId(c))}
  </div></article>`;
 }
@@ -11007,7 +11161,7 @@ function detailsHTML(c){
  const imgs=(Array.isArray(c.images)&&c.images.length?c.images:[c.image]).filter(Boolean).slice(0,6);
  const main=imgs[0]||c.image||""; const isVideo=aaMediaType(c)==="video"&&aaVideoUrl(c);
  const ownId=String(state.user?.id||state.user?.user_id||""); const vehicleOwnerId=String(c.userId||c.user_id||c.ownerId||c.sellerId||"");
- return `<section style="padding:18px 0 100px"><button class="btn" onclick="goBack()">← Back</button><div class="detail-grid" style="margin-top:12px"><div>${isVideo?`<div class="aa-media-wrap"><video class="detail-img" style="display:block" src="${bingoSafeMediaAttr(aaVideoUrl(c))}" poster="${bingoSafeMediaAttr(main)}" controls playsinline></video></div><button class="btn" style="width:100%;margin-top:8px" onclick='aaDownloadListingVideo(state.selected)'>⬇ Download Video</button>`:`<div class="aa-media-wrap"><img id="aaDetailMainImage" class="detail-img" src="${bingoSafeMediaAttr(main)}" alt="${esc(c.title)}" onclick="aaOpenListingGallery(state.selected,Math.max(0,aaListingImages(state.selected).indexOf(this.src)))" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900&q=85'"></div>${imgs.length?`<div class="aa-gallery-thumbs">${imgs.map((src,i)=>`<button class="aa-gallery-thumb ${i===0?'active':''}" onclick='aaSetDetailImage(${JSON.stringify(src)},${i})'><img src="${bingoSafeMediaAttr(src)}" alt="${esc(c.title)} ${i+1}"></button>`).join('')}</div><button class="btn" style="width:100%;margin-top:8px" onclick="aaOpenListingGallery(state.selected,0)">▦ View All Photos Larger</button>`:''}<button class="btn" style="width:100%;margin-top:8px" onclick='aaDownloadCurrentPhoto(state.selected)'>⬇ Download Current Photo</button>`}<div class="mobile-cta"><button class="btn" type="button" data-aa-call="selected">Call</button><button class="btn btn-green" onclick="contact('whatsapp',state.selected)">WhatsApp</button><button class="btn btn-red" onclick="contact('chat',state.selected)">Message</button></div></div><div class="modal" style="max-height:none"><div style="display:flex;justify-content:space-between;gap:8px"><h2>${esc(c.title)}</h2>${c.isBoosted?'<span class="boost-label">BOOSTED</span>':''}</div><div class="boost-price">${listingType(c)==="hire"?hirePrice(c):`KES ${money(c.price)}`}</div><div class="expiry">${listingExpiry(c)}</div><div class="specs"><div class="spec"><span>Listing</span><b>${listingType(c)==="hire"?'FOR HIRE':'FOR SALE'}</b></div><div class="spec"><span>Year</span><b>${c.year}</b></div><div class="spec"><span>Mileage</span><b>${money(c.mileage)} km</b></div><div class="spec"><span>Location</span><b>${esc(aaSearchLocationText(c)||c.location)}</b></div><div class="spec"><span>Condition</span><b>${esc(c.condition)}</b></div><div class="spec"><span>Fuel</span><b>${esc(c.fuel)}</b></div><div class="spec"><span>Transmission</span><b>${esc(c.transmission)}</b></div></div><div class="desc">${esc(c.description)}</div><button class="seller" style="width:100%;text-align:left;margin-top:14px" onclick='openSeller(${JSON.stringify(String(c.sellerId||c.userId||""))})'><img src="${bingoSafeMediaAttr(c.sellerPhoto)}" alt=""><span>${aaFollowTopControlHTML({id:c.sellerId||c.userId,name:c.sellerName})}<b style="font-size:12px">${esc(c.sellerName)}</b>${aaFollowStatsHTML(c.sellerId||c.userId)}<br><small style="color:#ffd700;font-size:10.7px;font-weight:800;text-decoration:underline">View the Profile</small></span></button><div class="details-actions"><button class="btn" onclick="state.shareTarget=state.selected;render()">Share (${c.shares||0})</button><button class="btn ${isFav(c.id)?'fav-on':''}" onclick='toggleFav(${JSON.stringify(String(c.id))})'>${isFav(c.id)?'♥ Saved':'♡ Favourite'}</button></div><div class="details-actions"><button class="btn" type="button" data-aa-call="selected">Call Seller</button>${state.isLoggedIn&&aaListingOwnerId(c)===String(state.user?.id||"")?`<button class="btn" onclick='openBoost(state.listings.find(x=>String(x.id)===${JSON.stringify(String(c.id))}))'>Boost</button>`:''}<button class="btn btn-red" onclick="contact('chat',state.selected)">Message Seller</button></div><button class="btn btn-green" style="width:100%;margin-top:7px" onclick="contact('whatsapp',state.selected)">WhatsApp Seller</button>${state.isLoggedIn&&vehicleOwnerId===ownId?`<div class="aa-manage-row" style="margin-top:10px"><button class="btn" onclick='aaEditVehicle(${JSON.stringify(String(c.id))})'>✎ Edit My Post</button><button class="btn btn-red" onclick='aaSoftDeleteListing(${JSON.stringify(String(c.id))})'>Delete My Post</button></div>`:""}<button class="btn" style="width:100%;margin-top:7px" onclick="reportListing(state.selected.id)">Report Listing</button></div></div></section>`
+ return `<section style="padding:18px 0 100px"><button class="btn" onclick="goBack()">← Back</button><div class="detail-grid" style="margin-top:12px"><div>${isVideo?`<div class="aa-media-wrap"><video class="detail-img" style="display:block" src="${bingoSafeMediaAttr(aaVideoUrl(c))}" poster="${bingoSafeMediaAttr(main)}" controls playsinline></video></div><button class="btn" style="width:100%;margin-top:8px" onclick='aaDownloadListingVideo(state.selected)'>⬇ Download Video</button>`:`<div class="aa-media-wrap"><img id="aaDetailMainImage" class="detail-img" src="${bingoSafeMediaAttr(main)}" alt="${esc(c.title)}" onclick="aaOpenListingGallery(state.selected,Math.max(0,aaListingImages(state.selected).indexOf(this.src)))" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900&q=85'"></div>${imgs.length?`<div class="aa-gallery-thumbs">${imgs.map((src,i)=>`<button class="aa-gallery-thumb ${i===0?'active':''}" onclick='aaSetDetailImage(${JSON.stringify(src)},${i})'><img src="${bingoSafeMediaAttr(src)}" alt="${esc(c.title)} ${i+1}"></button>`).join('')}</div><button class="btn" style="width:100%;margin-top:8px" onclick="aaOpenListingGallery(state.selected,0)">▦ View All Photos Larger</button>`:''}<button class="btn" style="width:100%;margin-top:8px" onclick='aaDownloadCurrentPhoto(state.selected)'>⬇ Download Current Photo</button>`}<div class="mobile-cta"><button class="btn" type="button" data-aa-call="selected">Call</button><button class="btn btn-green" onclick="contact('whatsapp',state.selected)">WhatsApp</button><button class="btn btn-red" onclick="contact('chat',state.selected)">Message</button></div></div><div class="modal" style="max-height:none"><div style="display:flex;justify-content:space-between;gap:8px"><h2>${esc(c.title)}</h2>${c.isBoosted?'<span class="boost-label">BOOSTED</span>':''}</div><div class="boost-price">${listingType(c)==="hire"?hirePrice(c):`KES ${money(c.price)}`}</div><div class="expiry">${listingExpiry(c)}</div><div class="specs"><div class="spec"><span>Listing</span><b>${listingType(c)==="hire"?'FOR HIRE':'FOR SALE'}</b></div><div class="spec"><span>Year</span><b>${c.year}</b></div><div class="spec"><span>Mileage</span><b>${money(c.mileage)} km</b></div><div class="spec"><span>Location</span><b>${esc(aaSearchLocationText(c)||c.location)}</b></div><div class="spec"><span>Condition</span><b>${esc(c.condition)}</b></div><div class="spec"><span>Fuel</span><b>${esc(c.fuel)}</b></div><div class="spec"><span>Transmission</span><b>${esc(c.transmission)}</b></div></div><div class="desc">${esc(c.description)}</div><button class="seller" style="width:100%;text-align:left;margin-top:14px" onclick='openSeller(${JSON.stringify(String(c.sellerId||c.userId||""))})'><img src="${bingoSafeMediaAttr(c.sellerPhoto)}" alt=""><span>${aaFollowTopControlHTML({id:c.sellerId||c.userId,name:c.sellerName})}<b style="font-size:12px">${esc(c.sellerName)}</b>${aaFollowStatsHTML(c.sellerId||c.userId)}<br><small style="color:#ffd700;font-size:10.7px;font-weight:800;text-decoration:underline">View the Profile</small></span></button><div class="details-actions"><button class="btn" onclick="state.shareTarget=state.selected;render()">Share (${c.shares||0})</button><button class="btn ${isFav(c.id)?'fav-on':''}" onclick='toggleFav(${JSON.stringify(String(c.id))})'>${isFav(c.id)?'♥ Saved':'♡ Favourite'}</button></div><div class="details-actions"><button class="btn" type="button" data-aa-call="selected">Call Seller</button>${state.isLoggedIn&&aaListingOwnerId(c)===String(state.user?.id||"")?`<button class="btn" onclick='openBoost(state.listings.find(x=>String(x.id)===${JSON.stringify(String(c.id))}))'>Boost</button>`:''}<button class="btn btn-red" onclick="contact('chat',state.selected)">Message Seller</button></div><button class="btn btn-green" style="width:100%;margin-top:7px" onclick="contact('whatsapp',state.selected)">WhatsApp Seller</button>${state.isLoggedIn&&vehicleOwnerId===ownId?`<div class="aa-manage-row" style="margin-top:10px"><button class="btn" onclick='aaEditVehicle(${JSON.stringify(String(c.id))})'>✎ Edit My Post</button><button class="btn btn-red" onclick='aaSoftDeleteListing(${JSON.stringify(String(c.id))})'>Delete My Post</button></div>`:""}${aaHelpSellBlockHTML("vehicle",c.id,vehicleOwnerId)}<button class="btn" style="width:100%;margin-top:7px" onclick="reportListing(state.selected.id)">Report Listing</button></div></div></section>`
 }
 /* ---------- CHAT VENDOR ONLINE / OFFLINE PRESENCE ---------- */
 var aaPresenceChannel=null;var aaPresenceState={};
@@ -11223,7 +11377,7 @@ function sellerHTML(s,cars){
   return `<div class="aa-review"><div><span class="aa-rating-stars">${starsHTML(r.rating)}</span>${r.rating?` <span style="font-size:9px;color:#7f8ba0">${r.rating}/5</span>`:""}${ownerEntry?` <span class="meta">(owner comment — not counted)</span>`:""}</div>${r.text?`<div style="font-size:11px;line-height:1.5;margin-top:4px">${esc(r.text)}</div>`:""}<div style="font-size:9px;color:#7f8ba0;margin-top:4px">${esc(r.author||"Bingo Member")}</div>${r.reply?`<div class="notice" style="margin-top:8px"><b>${esc(r.replyAuthor||s.name)} replied:</b><br>${esc(r.reply)}</div>`:""}${canReply?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><textarea id="reviewReply_${esc(String(r.id))}" class="field" rows="2" placeholder="Reply to this review..."></textarea><button class="btn" style="width:100%;margin-top:6px" onclick='replyToProfileReview(${JSON.stringify(String(r.id))})'>Reply</button></div>`:""}</div>`;
  }).join(""):`<div class="notice">No reviews yet. Be the first logged-in member to review this profile.</div>`;
 
- return `<section style="padding:20px 0 100px"><button class="btn" onclick="goHome()">Back</button><div class="modal ${s.gold?"aa-gold-qualified":""}" style="max-height:none;margin-top:12px"><div class="profile-head"><div style="position:relative"><img class="profile-photo" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)"><div style="position:absolute;right:0;bottom:4px;background:#071020;border-radius:99px;padding:3px 5px">${aaPresenceBadge(s)}</div></div><div>${aaFollowTopControlHTML(s)}<h2>${esc(s.name)}</h2>${aaFollowStatsHTML(sellerKey,true)}${s.location?`<p>${esc(s.location)}</p>`:""}${aaMemberSinceHTML(s)}<p>${esc(s.bio)}</p><small style="color:#f5b91e;font-weight:900">${s.gold?"Gold Member":"Bingo Member"}</small></div></div><div class="boost-summary" style="margin-top:12px"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div><div class="notice">${rs.count} review${rs.count===1?"":"s"}</div></div><div class="details-actions" style="margin-top:14px"><button class="btn" type="button" data-aa-call="seller">Call</button><button class="btn btn-green" onclick="contact('whatsapp',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}'})">WhatsApp</button><button class="btn btn-red" onclick="contact('chat',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}',sellerGold:${s.gold?"true":"false"},title:'Profile conversation'})">Bingo Chat</button></div>${own?`${aaPostTodayHTML()}${aaMyTopicsHTML()}${aaAgentProfilePanelHTML()}<div class="aa-room-reward"><b>${gold()?"★ GOLD MEMBER":"Community Gold Progress"}</b><br>Accepted Solution Room answers: ${aaAcceptedSolutionsFor(state.user?.id)}/${aaGoldAcceptedTarget()}. Outstanding Gold Members may qualify for annual Bingo recognition and rewards.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+ return `<section style="padding:20px 0 100px"><button class="btn" onclick="goHome()">Back</button><div class="modal ${s.gold?"aa-gold-qualified":""}" style="max-height:none;margin-top:12px"><div class="profile-head"><div style="position:relative"><img class="profile-photo" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)"><div style="position:absolute;right:0;bottom:4px;background:#071020;border-radius:99px;padding:3px 5px">${aaPresenceBadge(s)}</div></div><div>${aaFollowTopControlHTML(s)}<h2>${esc(s.name)}</h2>${aaFollowStatsHTML(sellerKey,true)}${s.location?`<p>${esc(s.location)}</p>`:""}${aaMemberSinceHTML(s)}<p>${esc(s.bio)}</p><small style="color:#f5b91e;font-weight:900">${s.gold?"Gold Member":"Bingo Member"}</small></div></div><div class="boost-summary" style="margin-top:12px"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div><div class="notice">${rs.count} review${rs.count===1?"":"s"}</div></div><div class="details-actions" style="margin-top:14px"><button class="btn" type="button" data-aa-call="seller">Call</button><button class="btn btn-green" onclick="contact('whatsapp',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}'})">WhatsApp</button><button class="btn btn-red" onclick="contact('chat',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}',sellerGold:${s.gold?"true":"false"},title:'Profile conversation'})">Bingo Chat</button></div>${own?`${aaPostTodayHTML()}${aaMyTopicsHTML()}${aaAgentProfilePanelHTML()}${aaHelpSellPendingRequestsHTML()}${aaMyHelpSellListingsHTML()}<div class="aa-room-reward"><b>${gold()?"★ GOLD MEMBER":"Community Gold Progress"}</b><br>Accepted Solution Room answers: ${aaAcceptedSolutionsFor(state.user?.id)}/${aaGoldAcceptedTarget()}. Outstanding Gold Members may qualify for annual Bingo recognition and rewards.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
 <button class="btn btn-gold" style="width:100%" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">Edit My Profile</button>
 <button class="btn" style="width:100%" onclick="openInbox()">✉ Messages${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button>
 </div><div class="aa-owner-posts-panel"><div class="aa-owner-posts-head"><h3>My Vehicle Posts</h3><span class="aa-owner-posts-count">${aaOwnActiveListings().length}/15 Active</span></div><div class="aa-owner-posts-note">Your published videos and photos are arranged below. Tap a post to open it, or use × to delete it.</div>${cars.length?`<div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,true)).join("")}</div>`:`<div class="notice">No active vehicle posts.</div>`}</div><div class="boost-summary"><b>Deleted Items · 30-day recovery</b>${aaTrashHTML()}</div>`:""}<div class="boost-summary"><b>Reviews</b>${reviewList}${state.isLoggedIn?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><label class="form-label">Your rating (optional)</label><select id="profileRating" class="field"><option value="0">No star rating</option><option value="5">★★★★★ 5</option><option value="4">★★★★☆ 4</option><option value="3">★★★☆☆ 3</option><option value="2">★★☆☆☆ 2</option><option value="1">★☆☆☆☆ 1</option></select><label class="form-label" style="margin-top:8px">Your review (optional)</label><textarea id="profileReview" class="field" rows="3" placeholder="${own?"Owner comments are allowed but do not count toward your profile rating.":"Write a review about this profile..."}"></textarea><button class="btn btn-red" style="width:100%;margin-top:8px" onclick='submitProfileReview(${JSON.stringify(sellerKey)})'>Submit Review</button></div>`:`<div class="notice">Sign up / log in to submit a rating or review.</div>`}</div>${own?"":`<div class="section-title" style="margin-top:18px"><h2>More vehicles by ${esc(s.name)}</h2></div><div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,false)).join("")||"<p>No other listings yet.</p>"}</div>`}</div></section>`
@@ -13767,6 +13921,7 @@ function aaCloseTopOverlay(){
  if(state.adOpen){aaCloseAd();return true}
  if(state.agentInviteTarget){state.agentInviteTarget=null;render();return true}
  if(state.successOpen){state.successOpen=false;render();return true}
+ if(state.helpSellRulesTarget){state.helpSellRulesTarget=null;render();return true}
  if(state.privacyTarget){state.privacyTarget=null;render();return true}
  if(state.authOpen){state.authOpen=false;state.authError="";render();return true}
  return false;
@@ -19461,6 +19616,17 @@ Preserve all existing onclick actions, routes, forms and button wording.
 
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label{grid-column:1/-1;color:var(--aa-future-gold,#f3be2b);font-size:9.5px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin:8px 0 -2px;opacity:.85}
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label:first-child{margin-top:0}
+</style>
+
+<style id="bingo-help-sell-style">
+#auto-arcade-widget .aa-help-sell-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:8px}
+#auto-arcade-widget .aa-help-sell-status{display:inline-flex;align-items:center;gap:8px;color:#71f2bd;font-size:12px;font-weight:900}
+#auto-arcade-widget .aa-help-sell-dot{width:11px;height:11px;border-radius:50%;background:#38e99b;box-shadow:0 0 12px #38e99b;animation:aaHelpSellBlink 1.1s infinite}
+@keyframes aaHelpSellBlink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.72)}}
+@media (prefers-reduced-motion: reduce){#auto-arcade-widget .aa-help-sell-dot{animation:none}}
+#auto-arcade-widget .aa-help-sell-rules{background:linear-gradient(145deg,#14253d,#0a1424);border:1px solid rgba(255,198,34,.55);border-radius:16px;padding:16px}
+#auto-arcade-widget .aa-help-sell-rules label{display:flex;gap:10px;align-items:flex-start;color:#eef4ff;line-height:1.45}
+#auto-arcade-widget .aa-help-sell-rules input{width:20px;height:20px;flex:0 0 auto;accent-color:#f5b91e}
 </style>
 
 <style id="bingo-agent-1000-target-style">
