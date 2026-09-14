@@ -4825,6 +4825,7 @@ var state = {
  foodItemPrepType:"ready_made", foodItemAvailable:true, foodItemPreviewOpen:false, foodItemDetailId:"", foodItemDraftFields:null,
  pendingMemberIntent:null, memberEntranceOpen:false,
  moderationCases:[], moderationPanelTarget:null,
+ adCampaigns:[], adDraft:null, adDraftId:null,
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
  successOpen:false, callTarget:null, isLoggedIn:false, authBusy:false, authError:"", lastOtpTouch:0, resendUntil:0, resendTimer:null, visits:Number(aaStorage.get("aa_visits")||0), shareCount:Number(aaStorage.get("aa_share_count")||0),
@@ -7877,12 +7878,11 @@ var aaAdTimer=null;
 function aaStartAdTimer(){return}
 function aaStopAdTimer(){if(aaAdTimer){clearTimeout(aaAdTimer);aaAdTimer=null}}
 function aaCloseAd(){state.adOpen=false;render()}
-function aaAdHTML(){return ""}
 function aaPauseAllFeedVideos(){
  document.querySelectorAll("#auto-arcade-widget .aa360-video").forEach(v=>{try{v.pause()}catch(e){}});
 }
 function aaHomeOverlayOpen(){
- return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
+ return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||state.adOpen||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
 }
 function aaInit360Feed(){
  if(aaFeedObserver){try{aaFeedObserver.disconnect()}catch(e){}}
@@ -10683,6 +10683,10 @@ ${state.view==="home"?`<div class="aa-assistant-nav-wrap" id="aaAssistantNavWrap
   aaDynamicAdAfterRender();
   if(state.view==="add")aaInstallVehicleUploadEnhancer();
   if(state.foodMediaViewer?.open)aaTryPlayFoodViewerVideo();
+  if(state.adOpen&&state.adOpen.source_type==="html"){
+   const host=document.getElementById("aaAdFrameHost_"+state.adOpen.id);
+   if(host&&!host.querySelector("iframe"))host.appendChild(aaAdCreativeFrame(state.adOpen.creative_html||""));
+  }
  });
 }
 function homeHTML(boosted,rows,all,pages){
@@ -11328,6 +11332,7 @@ function aaOpenSuperUserDashboard(){
  aaLoadAgentDirectory();
  aaLoadRoleAuditLog();
  aaLoadModerationCases();
+ aaLoadAdCampaigns();
  render();window.scrollTo(0,0);
 }
 function aaReturnToSuperUserDashboard(){aaOpenSuperUserDashboard()}
@@ -11487,6 +11492,339 @@ async function aaOpenEditRequest(targetType,targetId,ownerId){
 function aaAdminControlsHTML(targetType,targetId,ownerId){
  if(!aaIsSuperUser()&&!aaHasPermission("moderation:view"))return "";
  return `<div class="aa-admin-actions"><button class="small-btn" onclick='aaOpenEditRequest(${JSON.stringify(targetType)},${JSON.stringify(String(targetId))},${JSON.stringify(ownerId||"")})'>Request Edit</button><button class="small-btn" onclick='aaOpenModeration(${JSON.stringify(targetType)},${JSON.stringify(String(targetId))},${JSON.stringify(ownerId||"")})'>Moderate</button></div>`;
+}
+
+/* ---- Advertising Manager (Change 07) ----
+   aaAdHTML() used to return "" — there was no manager behind the dormant
+   state.adOpen / aaCloseAd() slot. Every lifecycle mutation below runs
+   through a Super-User-only SECURITY DEFINER RPC (bingo_change_advertising_manager.sql);
+   this module only assembles the payload and renders what comes back. */
+const AA_AD_PAGES=["home","market","properties","food","jobs","topics"];
+function aaAdDraftNew(){
+ return {name:"",reference:"",source_type:"image",source_post_type:"",source_post_id:"",media_url:"",creative_html:"",
+  destination_type:"post",destination_post_type:"",destination_value:"",starts_at:"",expires_at:"",priority:0,eligible_pages:["home"]};
+}
+function aaSanitizeAdMarkup(html){
+ const ALLOWED_TAGS=new Set(["DIV","SPAN","P","A","IMG","B","STRONG","I","EM","BR","H1","H2","H3","H4","UL","OL","LI","SMALL","SUP","SUB","STYLE"]);
+ const ALLOWED_ATTRS={A:["href","target","rel"],IMG:["src","alt","width","height"],DIV:["class"],SPAN:["class"],P:["class"]};
+ let doc;
+ try{doc=new DOMParser().parseFromString(String(html||""),"text/html")}catch(e){return ""}
+ function clean(node){
+  [...node.children].forEach(el=>{
+   if(!ALLOWED_TAGS.has(el.tagName)){el.remove();return}
+   [...el.attributes].forEach(attr=>{
+    const allowed=ALLOWED_ATTRS[el.tagName]||[];
+    if(/^on/i.test(attr.name)||!allowed.includes(attr.name.toLowerCase())){el.removeAttribute(attr.name);return}
+    if((attr.name.toLowerCase()==="href"||attr.name.toLowerCase()==="src")&&/^\s*(javascript|data|vbscript):/i.test(attr.value)){el.removeAttribute(attr.name)}
+   });
+   if(el.tagName==="A"){el.setAttribute("target","_top");el.setAttribute("rel","noopener noreferrer nofollow")}
+   if(el.tagName==="STYLE"){el.textContent=String(el.textContent||"").replace(/expression\s*\(/gi,"").replace(/javascript:/gi,"").replace(/@import/gi,"")}
+   clean(el);
+  });
+ }
+ clean(doc.body);
+ return `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;font-family:Arial,sans-serif}</style></head><body>${doc.body.innerHTML}</body></html>`;
+}
+function aaAdCreativeFrame(srcdoc){
+ const frame=document.createElement("iframe");
+ frame.setAttribute("sandbox","allow-popups");
+ frame.referrerPolicy="no-referrer";
+ frame.style.cssText="width:100%;min-height:160px;border:0;display:block";
+ frame.srcdoc=aaSanitizeAdMarkup(srcdoc);
+ return frame;
+}
+function aaValidateAdDestination(type,value){
+ if(type==="none")return true;
+ if(type==="url")return /^https:\/\//i.test(String(value||""));
+ if(type==="post")return !!String(value||"").trim();
+ return false;
+}
+async function aaLoadAdCampaigns(){
+ if(!aaIsSuperUser()||!sb)return;
+ try{
+  const {data,error}=await sb.from("bingo_ad_campaigns").select("*").order("created_at",{ascending:false}).limit(200);
+  if(error)throw error;
+  state.adCampaigns=Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load advertising campaigns.",String(e?.message||e));state.adCampaigns=[]}
+}
+async function aaLoadLiveAdCampaigns(page){
+ if(!sb)return [];
+ try{
+  const {data,error}=await sb.from("bingo_ad_campaigns").select("*").eq("status","published").contains("eligible_pages",[page]).order("priority",{ascending:false}).limit(20);
+  if(error)throw error;
+  return Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load live advertising.",String(e?.message||e));return []}
+}
+var aaAdsShownThisSession=new Set();
+async function aaMaybeServeAd(page){
+ if(!sb||state.testMode)return;
+ if(state.view!=="home"||aaHomeOverlayOpen())return;
+ const live=await aaLoadLiveAdCampaigns(page||"home");
+ const pick=live.find(c=>!aaAdsShownThisSession.has(c.id));
+ if(!pick)return;
+ aaAdsShownThisSession.add(pick.id);
+ state.adOpen=pick;
+ render();
+}
+function aaOpenAdDestination(){
+ const c=state.adOpen;if(!c)return;
+ if(c.destination_type==="post"){
+  aaCloseAd();
+  if(c.destination_post_type==="vehicle")aaOpenDynamicPromotedListing(c.destination_value);
+  else if(c.destination_post_type==="food_business")aaOpenFoodMediaViewer(c.destination_value,0);
+  else if(c.destination_post_type==="property"||c.destination_post_type==="stay")aaOpenProperties("browse");
+  else toast("This sponsored post is not available.");
+  return;
+ }
+ if(c.destination_type==="url"&&/^https:\/\//i.test(c.destination_value||"")){
+  window.open(c.destination_value,"_blank","noopener,noreferrer");
+ }
+}
+function aaAdHTML(){
+ const c=state.adOpen;
+ if(!c)return "";
+ const clickable=c.destination_type!=="none";
+ let creative="";
+ if(c.source_type==="image"){
+  creative=`<img src="${bingoSafeMediaAttr(c.media_url)}" alt="${esc(c.name||"Advertisement")}" style="width:100%;max-height:60vh;object-fit:cover;border-radius:12px;display:block;background:#111">`;
+ }else if(c.source_type==="video"){
+  creative=`<video src="${bingoSafeMediaAttr(c.media_url)}" autoplay muted loop playsinline style="width:100%;max-height:60vh;object-fit:cover;border-radius:12px;display:block;background:#000"></video>`;
+ }else if(c.source_type==="post"){
+  creative=`<div class="boost-summary" style="margin:0"><b>${esc(c.name||"Sponsored")}</b><p class="notice" style="margin-top:6px">Tap to view this sponsored Bingo post.</p></div>`;
+ }else if(c.source_type==="html"){
+  creative=`<div id="aaAdFrameHost_${esc(c.id)}" style="width:100%;min-height:160px"></div>`;
+ }
+ return `<div class="overlay aa-ad-overlay" role="dialog" aria-label="Advertisement">
+  <div class="modal aa-ad-modal">
+   <button class="close" onclick="aaCloseAd()">×</button>
+   <span class="aa-ad-label">Sponsored</span>
+   <div class="aa-ad-creative" ${clickable?`onclick="aaOpenAdDestination()" style="cursor:pointer"`:""}>${creative}</div>
+  </div>
+ </div>`;
+}
+function aaOpenAdCampaignForm(id){
+ if(!aaIsSuperUser())return;
+ if(!id){state.adDraft=aaAdDraftNew();state.adDraftId=null;render();return}
+ const c=(state.adCampaigns||[]).find(x=>String(x.id)===String(id));
+ if(!c){toast("Campaign not found.");return}
+ state.adDraftId=c.id;
+ state.adDraft={name:c.name||"",reference:c.reference||"",source_type:c.source_type||"image",
+  source_post_type:c.source_post_type||"",source_post_id:c.source_post_id||"",media_url:c.media_url||"",
+  creative_html:c.creative_html||"",destination_type:c.destination_type||"post",
+  destination_post_type:c.destination_post_type||"",destination_value:c.destination_value||"",
+  starts_at:c.starts_at?String(c.starts_at).slice(0,16):"",expires_at:c.expires_at?String(c.expires_at).slice(0,16):"",
+  priority:c.priority||0,eligible_pages:Array.isArray(c.eligible_pages)?c.eligible_pages.slice():["home"]};
+ render();
+}
+function aaCancelAdCampaignForm(){state.adDraft=null;state.adDraftId=null;render()}
+function aaAdDraftReadForm(){
+ const d=state.adDraft;if(!d)return;
+ d.name=document.getElementById("aaAdName")?.value||"";
+ d.reference=document.getElementById("aaAdReference")?.value||"";
+ d.source_type=document.getElementById("aaAdSourceType")?.value||"image";
+ d.source_post_type=document.getElementById("aaAdSourcePostType")?.value||"";
+ d.source_post_id=document.getElementById("aaAdSourcePostId")?.value||"";
+ d.creative_html=document.getElementById("aaAdCreativeHtml")?.value||"";
+ d.destination_type=document.getElementById("aaAdDestType")?.value||"post";
+ d.destination_post_type=document.getElementById("aaAdDestPostType")?.value||"";
+ d.destination_value=document.getElementById("aaAdDestValue")?.value||"";
+ d.starts_at=document.getElementById("aaAdStartsAt")?.value||"";
+ d.expires_at=document.getElementById("aaAdExpiresAt")?.value||"";
+ d.priority=Number(document.getElementById("aaAdPriority")?.value||0);
+ d.eligible_pages=AA_AD_PAGES.filter(p=>document.getElementById("aaAdPage_"+p)?.checked);
+}
+async function aaAdUploadMedia(input){
+ const file=input?.files?.[0];if(!file||!state.adDraft)return;
+ if(!sb){toast("Media service is not ready.");return}
+ if(!/^image\/|^video\//.test(file.type)){toast("Choose an image or video file.");return}
+ if(file.size>60*1024*1024){toast("Please choose a file smaller than 60 MB.");return}
+ try{
+  const path=`campaigns/${state.adDraftId||"draft-"+Date.now()}/${Date.now()}-${file.name}`.replace(/\s+/g,"-");
+  const up=await sb.storage.from("ad-media").upload(path,file,{upsert:true});
+  if(up.error)throw up.error;
+  const {data}=sb.storage.from("ad-media").getPublicUrl(path);
+  state.adDraft.media_url=data?.publicUrl||"";
+  state.adDraft.source_type=file.type.startsWith("video/")?"video":"image";
+  toast("Creative uploaded.");
+  render();
+ }catch(e){toast("Could not upload creative: "+String(e?.message||e))}
+}
+async function aaSaveAdDraft(){
+ aaAdDraftReadForm();
+ const d=state.adDraft;if(!d)return;
+ if(!d.name.trim()){toast("Campaign name is required.");return}
+ if(!aaValidateAdDestination(d.destination_type,d.destination_type==="post"?d.destination_value:d.destination_value)){toast("Enter a valid destination before saving.");return}
+ try{
+  const payload={...d,starts_at:d.starts_at?new Date(d.starts_at).toISOString():"",expires_at:d.expires_at?new Date(d.expires_at).toISOString():""};
+  const {data,error}=await sb.rpc("bingo_ad_save",{p_id:state.adDraftId||null,p_payload:payload});
+  if(error)throw error;
+  state.adDraftId=data;
+  toast("Campaign saved as draft.");
+  await aaLoadAdCampaigns();
+  render();
+ }catch(e){toast("Could not save campaign: "+String(e?.message||e))}
+}
+function aaPreviewAdDraft(){
+ aaAdDraftReadForm();
+ const d=state.adDraft;if(!d)return;
+ state.adOpen={...d,id:state.adDraftId||"preview"};
+ render();
+}
+async function aaPublishAdCampaign(id){
+ try{
+  const {error}=await sb.rpc("bingo_ad_publish",{p_id:id});
+  if(error)throw error;
+  toast("Campaign published.");
+  await aaLoadAdCampaigns();render();
+ }catch(e){toast("Could not publish: "+String(e?.message||e))}
+}
+async function aaPauseAdCampaign(id){
+ try{
+  const {error}=await sb.rpc("bingo_ad_pause",{p_id:id});
+  if(error)throw error;
+  toast("Campaign paused.");
+  await aaLoadAdCampaigns();render();
+ }catch(e){toast("Could not pause: "+String(e?.message||e))}
+}
+async function aaResumeAdCampaign(id){
+ try{
+  const {error}=await sb.rpc("bingo_ad_resume",{p_id:id});
+  if(error)throw error;
+  toast("Campaign resumed.");
+  await aaLoadAdCampaigns();render();
+ }catch(e){toast("Could not resume: "+String(e?.message||e))}
+}
+async function aaExtendAdCampaign(id){
+ const current=(state.adCampaigns||[]).find(x=>String(x.id)===String(id));
+ const input=prompt("New expiry date/time (YYYY-MM-DD HH:MM):",current?.expires_at?new Date(current.expires_at).toISOString().slice(0,16).replace("T"," "):"");
+ if(!input)return;
+ const d=new Date(input.replace(" ","T"));
+ if(isNaN(d.getTime())){toast("Enter a valid date and time.");return}
+ try{
+  const {error}=await sb.rpc("bingo_ad_extend",{p_id:id,p_new_expiry:d.toISOString()});
+  if(error)throw error;
+  toast("Campaign extended.");
+  await aaLoadAdCampaigns();render();
+ }catch(e){toast("Could not extend: "+String(e?.message||e))}
+}
+async function aaDuplicateAdCampaign(id){
+ try{
+  const {error}=await sb.rpc("bingo_ad_duplicate",{p_id:id});
+  if(error)throw error;
+  toast("Campaign duplicated as a new draft.");
+  await aaLoadAdCampaigns();render();
+ }catch(e){toast("Could not duplicate: "+String(e?.message||e))}
+}
+async function aaRetireAdCampaign(id){
+ if(!confirm("Retire this campaign? It will stop serving but stay on record."))return;
+ try{
+  const {error}=await sb.rpc("bingo_ad_retire",{p_id:id});
+  if(error)throw error;
+  toast("Campaign retired.");
+  await aaLoadAdCampaigns();render();
+ }catch(e){toast("Could not retire: "+String(e?.message||e))}
+}
+async function aaDeleteAdCampaign(id){
+ if(!confirm("Permanently delete this campaign? This cannot be undone."))return;
+ try{
+  const {error}=await sb.rpc("bingo_ad_delete",{p_id:id});
+  if(error)throw error;
+  toast("Campaign deleted.");
+  await aaLoadAdCampaigns();render();
+ }catch(e){toast("Could not delete: "+String(e?.message||e))}
+}
+function aaAdCampaignRowHTML(c){
+ const live=c.status==="published"||c.status==="scheduled";
+ return `<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
+  <b style="font-size:12px">${esc(c.name)}</b> <span class="meta">· ${esc(c.source_type)} · priority ${c.priority||0}</span>
+  <span class="meta" style="float:right">${esc(c.status)}</span>
+  <div class="meta">${esc((c.eligible_pages||[]).join(", ")||"No pages selected")}</div>
+  <div class="meta">${c.starts_at?new Date(c.starts_at).toLocaleString():"No start"} → ${c.expires_at?new Date(c.expires_at).toLocaleString():"No expiry"}</div>
+  <div class="details-actions" style="margin-top:6px">
+   <button class="small-btn" onclick='aaOpenAdCampaignForm(${JSON.stringify(c.id)})'>Edit</button>
+   ${c.status==="draft"||c.status==="paused"?`<button class="small-btn" onclick='aaPublishAdCampaign(${JSON.stringify(c.id)})'>Publish</button>`:""}
+   ${live?`<button class="small-btn" onclick='aaPauseAdCampaign(${JSON.stringify(c.id)})'>Pause</button>`:""}
+   ${c.status==="paused"?`<button class="small-btn" onclick='aaResumeAdCampaign(${JSON.stringify(c.id)})'>Resume</button>`:""}
+   ${c.status!=="retired"?`<button class="small-btn" onclick='aaExtendAdCampaign(${JSON.stringify(c.id)})'>Extend</button>`:""}
+   <button class="small-btn" onclick='aaDuplicateAdCampaign(${JSON.stringify(c.id)})'>Duplicate</button>
+   ${c.status!=="retired"?`<button class="small-btn" onclick='aaRetireAdCampaign(${JSON.stringify(c.id)})'>Retire</button>`:""}
+   <button class="small-btn" style="color:#ff8f94" onclick='aaDeleteAdCampaign(${JSON.stringify(c.id)})'>Delete</button>
+  </div>
+ </div>`;
+}
+function aaAdCampaignFormHTML(){
+ const d=state.adDraft;if(!d)return "";
+ return `<div class="boost-summary" style="margin-top:10px;border-color:var(--gold)">
+  <b>${state.adDraftId?"Edit Campaign":"New Campaign"}</b>
+  <label class="form-label" style="margin-top:8px">Campaign name</label>
+  <input class="field" id="aaAdName" value="${esc(d.name)}">
+  <label class="form-label" style="margin-top:8px">Reference / code</label>
+  <input class="field" id="aaAdReference" value="${esc(d.reference)}">
+  <label class="form-label" style="margin-top:8px">Creative source</label>
+  <select class="field" id="aaAdSourceType" onchange="state.adDraft.source_type=this.value;render()">
+   <option value="image" ${d.source_type==="image"?"selected":""}>Image</option>
+   <option value="video" ${d.source_type==="video"?"selected":""}>Video</option>
+   <option value="post" ${d.source_type==="post"?"selected":""}>Existing Bingo post</option>
+   <option value="html" ${d.source_type==="html"?"selected":""}>Custom HTML/CSS (sandboxed)</option>
+  </select>
+  ${d.source_type==="image"||d.source_type==="video"?`
+   <label class="form-label" style="margin-top:8px">Upload creative (image or video)</label>
+   <input class="field" type="file" accept="image/*,video/*" onchange="aaAdUploadMedia(this)">
+   ${d.media_url?`<div class="notice" style="margin-top:6px">Creative uploaded.</div>`:""}
+  `:""}
+  ${d.source_type==="post"?`
+   <label class="form-label" style="margin-top:8px">Post type</label>
+   <select class="field" id="aaAdSourcePostType">
+    <option value="vehicle" ${d.source_post_type==="vehicle"?"selected":""}>Vehicle</option>
+    <option value="property" ${d.source_post_type==="property"?"selected":""}>Property</option>
+    <option value="stay" ${d.source_post_type==="stay"?"selected":""}>Bingo Stay</option>
+    <option value="food_business" ${d.source_post_type==="food_business"?"selected":""}>Food Business</option>
+   </select>
+   <label class="form-label" style="margin-top:8px">Post ID</label>
+   <input class="field" id="aaAdSourcePostId" value="${esc(d.source_post_id)}" placeholder="Paste the post ID from All Posts">
+  `:""}
+  ${d.source_type==="html"?`
+   <label class="form-label" style="margin-top:8px">HTML/CSS creative (scripts, forms and top navigation are always blocked)</label>
+   <textarea class="field" id="aaAdCreativeHtml" rows="6" style="font-family:monospace;font-size:11px">${esc(d.creative_html)}</textarea>
+  `:""}
+  <label class="form-label" style="margin-top:8px">Destination</label>
+  <select class="field" id="aaAdDestType">
+   <option value="post" ${d.destination_type==="post"?"selected":""}>Existing Bingo post</option>
+   <option value="url" ${d.destination_type==="url"?"selected":""}>External URL (https only)</option>
+   <option value="none" ${d.destination_type==="none"?"selected":""}>Not clickable</option>
+  </select>
+  <select class="field" id="aaAdDestPostType" style="margin-top:6px">
+   <option value="vehicle" ${d.destination_post_type==="vehicle"?"selected":""}>Vehicle</option>
+   <option value="property" ${d.destination_post_type==="property"?"selected":""}>Property</option>
+   <option value="stay" ${d.destination_post_type==="stay"?"selected":""}>Bingo Stay</option>
+   <option value="food_business" ${d.destination_post_type==="food_business"?"selected":""}>Food Business</option>
+  </select>
+  <input class="field" id="aaAdDestValue" style="margin-top:6px" value="${esc(d.destination_value)}" placeholder="Post ID, or https:// URL">
+  <label class="form-label" style="margin-top:8px">Eligible pages</label>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">${AA_AD_PAGES.map(p=>`<label style="font-size:11px;display:flex;gap:4px;align-items:center"><input type="checkbox" id="aaAdPage_${p}" ${d.eligible_pages.includes(p)?"checked":""}> ${esc(p)}</label>`).join("")}</div>
+  <label class="form-label" style="margin-top:8px">Starts</label>
+  <input class="field" id="aaAdStartsAt" type="datetime-local" value="${esc(d.starts_at)}">
+  <label class="form-label" style="margin-top:8px">Expires</label>
+  <input class="field" id="aaAdExpiresAt" type="datetime-local" value="${esc(d.expires_at)}">
+  <label class="form-label" style="margin-top:8px">Priority (higher shows first)</label>
+  <input class="field" id="aaAdPriority" type="number" value="${d.priority||0}">
+  <div class="dashboard-actions" style="margin-top:10px">
+   <button class="btn" onclick="aaSaveAdDraft()">Save Draft</button>
+   <button class="btn btn-gold" onclick="aaPreviewAdDraft()">Preview</button>
+   <button class="btn" onclick="aaCancelAdCampaignForm()">Cancel</button>
+  </div>
+ </div>`;
+}
+function aaAdManagerHTML(){
+ if(!aaIsSuperUser())return "";
+ const list=Array.isArray(state.adCampaigns)?state.adCampaigns:[];
+ return `<div class="boost-summary" style="margin-top:14px">
+  <b>Advertising Manager</b>
+  <p class="notice" style="margin-top:0">Create, preview, publish, schedule, pause, extend, resume, duplicate, retire, or delete a campaign. Every change is recorded in the advertising audit log.</p>
+  <button class="btn btn-red" onclick="aaOpenAdCampaignForm(null)">+ New Campaign</button>
+  ${state.adDraft?aaAdCampaignFormHTML():""}
+  <div style="margin-top:12px">${!list.length?'<p class="notice">No campaigns yet.</p>':list.map(c=>aaAdCampaignRowHTML(c)).join("")}</div>
+ </div>`;
 }
 async function aaSuperUserSearchEmail(){
  if(!aaIsSuperUser())return;
@@ -11717,6 +12055,7 @@ function aaSuperUserDashboardHTML(){
    <p class="notice" style="margin-top:0">Every vehicle, property/stay and food business currently loaded. Report or moderate any of them from here.</p>
    ${aaAllPostsHTML()}
   </div>
+  ${aaAdManagerHTML()}
   <div class="boost-summary" style="margin-top:14px">
    <b>Audit Log</b>
    ${!audit.length?'<p class="notice">No admin actions recorded yet.</p>':audit.map(l=>`<div class="aa-boost-summary-row" style="display:block"><b style="font-size:11px">${esc(l.action)}</b><div class="meta">${new Date(l.created_at).toLocaleString()} · target ${esc(String(l.target_id||"").slice(0,8))}…</div></div>`).join("")}
@@ -12827,6 +13166,7 @@ function aaCloseTopOverlay(){
  if(state.shareTarget){state.shareTarget=null;render();return true}
  if(state.reportTarget){state.reportTarget=null;render();return true}
  if(state.moderationPanelTarget){state.moderationPanelTarget=null;render();return true}
+ if(state.adOpen){aaCloseAd();return true}
  if(state.privacyTarget){state.privacyTarget=null;render();return true}
  if(state.authOpen){state.authOpen=false;state.authError="";render();return true}
  return false;
@@ -12885,8 +13225,10 @@ function aaCloseTopOverlay(){
         aaSyncBoostNotifications(),
         aaLoadVehicles()
        ]).then(()=>render());
+       aaMaybeServeAd("home");
       }else{
        aaLoadVehicles().then(()=>render()).catch(()=>{});
+       aaMaybeServeAd("home");
       }
      }).catch(()=>{aaLoadVehicles().then(()=>render()).catch(()=>{})});
     },0);
@@ -18519,6 +18861,13 @@ Preserve all existing onclick actions, routes, forms and button wording.
 
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label{grid-column:1/-1;color:var(--aa-future-gold,#f3be2b);font-size:9.5px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin:8px 0 -2px;opacity:.85}
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label:first-child{margin-top:0}
+</style>
+
+<style id="bingo-change07-advertising-style">
+#auto-arcade-widget .aa-ad-overlay{position:fixed;inset:0;z-index:210;display:flex;align-items:center;justify-content:center;background:rgba(3,7,19,.82);padding:16px}
+#auto-arcade-widget .aa-ad-modal{position:relative;width:min(440px,100%);max-height:88vh;overflow:auto;background:#0b1321;border:1px solid rgba(243,190,43,.5);border-radius:16px;padding:16px}
+#auto-arcade-widget .aa-ad-label{display:inline-block;font-size:8.5px;font-weight:900;letter-spacing:.12em;color:var(--bingo-gold,#f3be2b);text-transform:uppercase;margin-bottom:8px;opacity:.85}
+#auto-arcade-widget .aa-ad-creative{border-radius:12px;overflow:hidden}
 </style>
 
 <style id="bingo-change06-moderation-style">
