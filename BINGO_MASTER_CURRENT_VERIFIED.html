@@ -13566,14 +13566,15 @@ function callHTML(c){
 }
 
 function aaBoostEstimatedReach(){
- const plan=aaBoostPlanByAmount(state.boostBudget)||aaBoostPlanByAmount(500);
+ const days=Number(state.boostDays)||1;
+ const estimatedClicks=Math.round((days*500)/AA_AD_CLICK_PRICE);
  const loc=String(state.boostTargeting?.location||"all");
  let scope=40;
  if(loc==="all")scope=40;
  else if(loc==="other")scope=14;
  else if(loc.indexOf("county:")===0)scope=20;
  else scope=7;
- return Math.round((plan?.clicks||0)*scope);
+ return Math.round(estimatedClicks*scope);
 }
 function aaBoostQuoteConfirmHTML(c,type){
  const q=state.boostQuote;
@@ -13601,47 +13602,34 @@ function aaBoostQuoteConfirmHTML(c,type){
 function boostHTML(c){
  const type=aaBoostTargetType(c),t=state.boostTargeting||{location:"all",age:"all",gender:"all"};
  if(state.boostQuote&&["vehicle","property","stay","food_business"].includes(type))return aaBoostQuoteConfirmHTML(c,type);
- const plan=aaBoostPlanByAmount(state.boostBudget)||aaBoostPlanByAmount(500);
  const agentBiz=aaAgentBoostContext(c);
  const isCorporate=agentBiz?.businessClass==="Corporate";
- const introEligible=agentBiz&&!isCorporate&&!agentBiz.agentIntroBoostUsed;
- const budgetChoices=isCorporate?AA_CORPORATE_BUDGETS:AA_BOOST_BUDGETS;
  /* Only true once a live server quote exists. boost-quote is not deployed,
     so state.boostQuote is never set and this always evaluates false — the
     ordinary direct-pay form (with its own phone number field) renders for
     every target type, matching what aaPrepareBoostQuote() now does. */
  const placementFlow=!!(state.boostQuote&&["vehicle","property","stay","food_business"].includes(type));
+ /* Pricing (Change: minimal corrective pricing commit) — the only
+    authoritative price for a boost, matching the deployed mpesa-boost
+    function's own fixed KES 500/day rate. The old click-budget presets
+    (AA_BOOST_BUDGETS/AA_CORPORATE_BUDGETS/AA_AGENT_INTRO_PLAN) no longer
+    drive anything on this screen or in the payment request; they remain
+    defined elsewhere only in case an unrelated legacy feature still
+    reads them. */
+ const days=Number(state.boostDays)||1;
+ const expectedAmount=days*500;
  return `<div class="overlay"><div class="modal">
   <button class="close" onclick="state.boostTarget=null;render()">×</button>
   <h2>Boost ${aaBoostTargetLabel(type)}</h2>
   <p>${esc(c.title||c.name||"Bingo post")}</p>
-  ${isCorporate?`<div class="notice" style="color:#f5b91e">This business is classified Corporate (50+ employees). Corporate boost: 30-day minimum, starting KES 25,000/month.</div>`:""}
-  ${placementFlow?`<div class="boost-summary">
-   <b>Choose Placement</b>
-   <div class="aa-budget-grid">
-    ${AA_BOOST_PLACEMENTS.map(p=>`<button type="button" class="aa-budget-btn ${state.boostPlacementId===p.id?"active":""}" onclick="aaSetBoostPlacement('${p.id}')">${esc(p.label)}${p.surcharge?` (+KES ${money(p.surcharge)})`:""}</button>`).join("")}
-   </div>
-   <div class="aa-budget-auto">${esc(AA_BOOST_PLACEMENTS.find(p=>p.id===state.boostPlacementId)?.desc||"")}</div>
-  </div>`:""}
-  ${introEligible?`<div class="boost-summary" style="border-color:var(--gold)"><b style="color:var(--gold)">Agent Introductory Offer</b><p style="margin:4px 0">This business qualifies for a one-time KES 200 / 30-day boost.</p><button type="button" class="aa-budget-btn ${Number(state.boostBudget)===AA_AGENT_INTRO_PLAN.amount?"active":""}" onclick="aaSetBoostBudget(${AA_AGENT_INTRO_PLAN.amount})">KES ${money(AA_AGENT_INTRO_PLAN.amount)} (Intro Offer)</button></div>`:""}
-
-  <div class="boost-summary">
-   <b>Choose Your Boost Budget</b>
-   <div class="aa-budget-grid">
-    ${budgetChoices.map(p=>`<button type="button" class="aa-budget-btn ${Number(state.boostBudget)===p.amount?"active":""}" onclick="aaSetBoostBudget(${p.amount})">KES ${money(p.amount)}</button>`).join("")}
-   </div>
-   <div class="aa-budget-auto">
-    Bingo uses this amount as an advertising balance. Each qualified advertisement click costs <b>KES ${money(AA_AD_CLICK_PRICE)}</b>.
-    This budget can pay for up to <b>${plan.clicks}</b> qualified clicks. The advertisement pauses when the remaining balance is below KES ${money(AA_AD_CLICK_PRICE)}.
-    Repeated accidental clicks from the same device are protected from immediate double charging.
-   </div>
-  </div>
-
+  ${isCorporate?`<div class="notice" style="color:#f5b91e">This business is classified Corporate (50+ employees). Contact Bingo support for corporate boost pricing.</div>`:""}
   <div class="boost-summary">
    <b>Boost Duration</b>
    <div class="aa-budget-grid">
     ${AA_BOOST_DURATIONS.map(d=>`<button type="button" class="aa-budget-btn ${Number(state.boostDays)===d.days?"active":""}" onclick="aaSetBoostDuration(${d.days})">${d.label}</button>`).join("")}
    </div>
+   <div class="aa-boost-summary-row"><span>Rate</span><b>KES 500 / day</b></div>
+   <div class="aa-boost-summary-row"><span>Total amount</span><b style="color:#f5b91e;font-size:16px">KES ${money(expectedAmount)}</b></div>
   </div>
 
   <div class="boost-summary">
@@ -13667,18 +13655,17 @@ function boostHTML(c){
      <option value="female" ${t.gender==="female"?"selected":""}>Female</option>
     </select>
    </div>
-   <div class="aa-boost-summary-row"><span>Boost duration</span><b>${AA_BOOST_DURATIONS.find(d=>d.days===Number(state.boostDays))?.label||state.boostDays+" days"}</b></div><div class="aa-boost-summary-row"><span>Advertising balance</span><b style="color:#f5b91e;font-size:15px">KES ${money(plan.amount)}</b></div><div class="aa-boost-summary-row"><span>Charge per qualified click</span><b>KES ${money(AA_AD_CLICK_PRICE)}</b></div>
   </div>
 
   <div class="boost-summary">
    <b>Targeted Reach — ${esc(aaBoostLocationLabel(t.location))}</b>
    <div class="aa-boost-summary-row"><span>Estimated people reached</span><b style="color:#7ee787;font-size:15px">~${money(aaBoostEstimatedReach())} views</b></div>
-   <div class="aa-budget-auto">This is an estimate based on your budget and how narrow or wide your chosen area is. Actual reach can vary once the boost is live.</div>
+   <div class="aa-budget-auto">This is an estimate based on your boost duration and how narrow or wide your chosen area is. Actual reach can vary once the boost is live.</div>
   </div>
 
   ${placementFlow?"":`<label class="form-label" style="margin-top:12px">Safaricom M-Pesa Number</label>
   <input id="aaBoostPhone" class="field full" type="tel" placeholder="0712345678 or 254712345678" value="${esc(state.user.phone||"")}">`}
-  <button id="aaMpesaPayButton" class="btn btn-gold aa-mpesa-pay-btn" style="width:100%;margin-top:12px" ${state.boostQuoteBusy?"disabled":""} onclick="confirmBoost()"><span class="aa-pay-spinner"></span><span id="aaMpesaPayButtonText">${state.boostQuoteBusy?"PREPARING YOUR QUOTE…":placementFlow?`REVIEW & PAY (~KES ${money(plan.amount)})`:`PAY KES ${money(plan.amount)} WITH M-PESA`}</span></button>
+  <button id="aaMpesaPayButton" class="btn btn-gold aa-mpesa-pay-btn" style="width:100%;margin-top:12px" onclick="confirmBoost()"><span class="aa-pay-spinner"></span><span id="aaMpesaPayButtonText">${placementFlow?`REVIEW & PAY (~KES ${money(expectedAmount)})`:`PAY KES ${money(expectedAmount)} WITH M-PESA`}</span></button>
   <div id="aaMpesaInlineStatus" class="aa-mpesa-inline-status"></div>
   <div class="notice">${placementFlow?"Bingo will show the exact amount, start and end date before any M-Pesa request is sent.":"After you press Pay, this button will show payment progress. The boost becomes active only after Safaricom confirms successful payment."}</div>
  </div></div>`;
@@ -13697,7 +13684,7 @@ function aaSetMpesaButtonState(kind,title,text){
     kind==="success"?"✓ SUCCESS":
     kind==="cancelled"?"PAYMENT CANCELLED":
     kind==="failed"?"PAYMENT UNSUCCESSFUL":
-    `PAY KES ${money(aaBoostPlanByAmount(state.boostBudget)?.amount||0)} WITH M-PESA`;
+    `PAY KES ${money(Number(state.boostDays||1)*500)} WITH M-PESA`;
  }
  if(box){
   box.className="aa-mpesa-inline-status"+(kind==="waiting"?" show":kind==="success"?" show success":unsuccessful?" show failed":"");
@@ -13739,7 +13726,7 @@ function aaApplyConfirmedBoostLocally(targetType,targetId,balance,extra){
   if(extra.expiresAt)item.boostExpiresAt=extra.expiresAt;
   if(extra.placementId)item.boostPlacementId=extra.placementId;
  }
- if(item)aaRecordAgentCommissionIfApplicable(item,Number(state.boostBudget||0));
+ if(item)aaRecordAgentCommissionIfApplicable(item,Number(extra.amountPaid||0));
  save();
 }
 async function aaPollBoostPayment(boostId,accessToken,targetType="vehicle",targetId="",extra){
@@ -13777,14 +13764,17 @@ async function requestBoostPayment(opts){
  const c=state.boostTarget;if(!c)return;
  const type=aaBoostTargetType(c);
  const phone=normalizeKenyanPhone(document.getElementById("aaBoostPhone")?.value||state.user.phone);
- const quote=opts.quote_id?state.boostQuote:null;
- const selectedAmount=quote?Number(quote.amount_kes):Number(state.boostBudget);
- const plan=aaBoostPlanByAmount(state.boostBudget);
+ const days=Number(state.boostDays);
  if(!phone){toast("Enter a valid Kenyan M-Pesa number.");return}
- if(!quote&&!plan){toast("Please select a valid boost amount before paying.");return}
- const boostExtra=quote?{expiresAt:quote.expires_at,placementId:state.boostPlacementId}:{};
+ if(!Number.isInteger(days)||days<1||days>365){toast("Choose a valid boost duration (1–365 days).");return}
+ /* The only authoritative price: KES 500 per day, matching the deployed
+    mpesa-boost function exactly. Computed and validated here, before the
+    Edge Function is ever called, so a bad local value can never trigger
+    an STK push we then have to reject after the fact. */
+ const expectedAmount=days*500;
+ const boostExtra={amountPaid:expectedAmount};
 
- aaSetMpesaButtonState("waiting","M-Pesa request started",`Requesting exactly KES ${money(selectedAmount)}. Check your phone and enter your M-Pesa PIN.`);
+ aaSetMpesaButtonState("waiting","M-Pesa request started",`Requesting exactly KES ${money(expectedAmount)}. Check your phone and enter your M-Pesa PIN.`);
 
  if(state.testMode){
   window.setTimeout(()=>{
@@ -13796,11 +13786,11 @@ async function requestBoostPayment(opts){
     const item=(state.candidates||[]).find(x=>String(x.id)===String(c.id));if(item){item.isBoosted=true;item._testBoost=true}
    }
    save();
-   aaApplyConfirmedBoostLocally(type,String(c.id),selectedAmount,boostExtra);
+   aaApplyConfirmedBoostLocally(type,String(c.id),expectedAmount,boostExtra);
    aaSetMpesaButtonState("success","Success",`payment accepted. Your ${aaBoostTargetLabel(type).toLowerCase()} is now boosted.`);
    setTimeout(()=>{
     state.boostTarget=null;state.boostQuote=null;
-    aaShowSuccess(quote?"Your Boost Is Live":`Your ${aaBoostTargetLabel(type)} is now boosted.`);
+    aaShowSuccess(`Your ${aaBoostTargetLabel(type)} is now boosted.`);
    },1800);
   },2600);
   return;
@@ -13821,18 +13811,7 @@ async function requestBoostPayment(opts){
    body:{
     action:"create_boost",
     listing_id:String(c.id),
-    target_id:String(c.id),
-    target_type:type,
-    quote_id:quote?quote.quote_id:undefined,
-    budget_amount:selectedAmount,
-    exact_amount:selectedAmount,
-    days:Number(quote?state.boostDays:plan.days),
-    click_price:Number(AA_AD_CLICK_PRICE),
-    targeting:{
-     location:String(state.boostTargeting?.location||"all"),
-     age:String(state.boostTargeting?.age||"all"),
-     gender:String(state.boostTargeting?.gender||"all")
-    },
+    days,
     phone
    }
   });
@@ -13844,11 +13823,11 @@ async function requestBoostPayment(opts){
   }
 
   const backendAmount=Number(data?.amount ?? data?.budget_amount ?? 0);
-  if(backendAmount!==selectedAmount){
-   throw new Error(`Payment amount mismatch. You selected KES ${money(selectedAmount)} but the server prepared KES ${money(backendAmount)}. Payment stopped.`);
+  if(backendAmount!==expectedAmount){
+   throw new Error(`Payment amount mismatch. Expected KES ${money(expectedAmount)} (${days} day${days===1?"":"s"} × KES 500) but the server prepared KES ${money(backendAmount)}. Payment stopped.`);
   }
 
-  aaSetMpesaButtonState("waiting","M-Pesa prompt sent",`Safaricom prompt requested for exactly KES ${money(selectedAmount)}. Enter your PIN on your phone.`);
+  aaSetMpesaButtonState("waiting","M-Pesa prompt sent",`Safaricom prompt requested for exactly KES ${money(expectedAmount)}. Enter your PIN on your phone.`);
 
   if(data?.boost_id){
    await aaPollBoostPayment(data.boost_id,session.access_token,type,String(c.id),boostExtra);
@@ -13856,7 +13835,7 @@ async function requestBoostPayment(opts){
    if(payText.includes("SUCCESS")){
     setTimeout(()=>{
      state.boostTarget=null;state.boostQuote=null;
-     aaShowSuccess(quote?"Your Boost Is Live":`Your ${aaBoostTargetLabel(type)} is now boosted.`);
+     aaShowSuccess(`Your ${aaBoostTargetLabel(type)} is now boosted.`);
     },1100);
    }
   }else{
