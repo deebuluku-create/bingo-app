@@ -7265,7 +7265,7 @@ function deleteOwnJob(id){
  window.scrollTo(0,0);
  toast("Job deleted.");
 }
-function openInbox(){aaRememberPage(); state.view="inbox"; render(); window.scrollTo(0,0); }
+function openInbox(){if(!state.isLoggedIn){openAuth("login");return} aaRememberPage(); state.view="inbox"; render(); window.scrollTo(0,0); }
 function openPrivacy(id){
  state.privacyTarget=id;
  render();
@@ -7563,9 +7563,10 @@ function aaToggleInterested(id){state.interested=aaInterested({id})?state.intere
 function aaViewCount(c){return Number((state.viewCounts||{})[String(c?.id)]||c?.views||0)}
 function aaCommentCount(c){return ((state.feedComments||{})[String(c?.id)]||[]).length}
 function aaRecordFeedView(id){const key=String(id),seenKey="aa_seen_"+key;try{if(sessionStorage.getItem(seenKey))return;sessionStorage.setItem(seenKey,"1")}catch(e){}state.viewCounts=state.viewCounts||{};state.viewCounts[key]=Number(state.viewCounts[key]||0)+1;save()}
-function aaOpenComments(c){if(!c)return;state.commentTarget=c;render()}
+function aaOpenComments(c){if(!c)return;if(!state.isLoggedIn){openAuth("login");return}state.commentTarget=c;render()}
 function aaCloseComments(){state.commentTarget=null;render()}
 function aaSubmitComment(){
+ if(!state.isLoggedIn){aaCloseComments();openAuth("login");return}
  const c=state.commentTarget;if(!c)return;
  const el=document.getElementById("aaCommentInput"),txt=String(el?.value||"").trim();
  if(!txt)return;
