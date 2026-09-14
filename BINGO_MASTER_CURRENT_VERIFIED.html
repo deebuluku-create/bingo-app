@@ -4829,6 +4829,7 @@ var state = {
  boostPlacementId:"feed-priority", boostQuote:null, boostQuoteBusy:false, successMessage:"",
  agentSalarySummary:null, agentManagedBusinesses:[], agentInvitations:[], agentPermissionCache:{}, agentInviteTarget:null, agentSalaryDirectory:[], agentProgressBulletin:null, agentWithdrawalsBackend:[],
  helpSellSummaries:{}, helpSellSummaryPending:{}, helpSellRulesTarget:null, ownerHelpSellRequests:[], myHelpSellListings:[],
+ activePromotions:[], promotionDraft:null, adminPromotions:[], promotionAnalytics:null,
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
  successOpen:false, callTarget:null, isLoggedIn:false, authBusy:false, authError:"", lastOtpTouch:0, resendUntil:0, resendTimer:null, visits:Number(aaStorage.get("aa_visits")||0), shareCount:Number(aaStorage.get("aa_share_count")||0),
@@ -7965,7 +7966,7 @@ function aaInterested(c){return (state.interested||[]).some(id=>String(id)===Str
 function aaToggleInterested(id){if(!aaRequireMember({action:"interested",targetId:id}))return;state.interested=aaInterested({id})?state.interested.filter(x=>String(x)!==String(id)):[...(state.interested||[]),String(id)];save();render()}
 function aaViewCount(c){return Number((state.viewCounts||{})[String(c?.id)]||c?.views||0)}
 function aaCommentCount(c){return ((state.feedComments||{})[String(c?.id)]||[]).length}
-function aaRecordFeedView(id){const key=String(id),seenKey="aa_seen_"+key;try{if(sessionStorage.getItem(seenKey))return;sessionStorage.setItem(seenKey,"1")}catch(e){}state.viewCounts=state.viewCounts||{};state.viewCounts[key]=Number(state.viewCounts[key]||0)+1;save()}
+function aaRecordFeedView(id,postType,postId){const key=String(id),seenKey="aa_seen_"+key;let already=false;try{if(sessionStorage.getItem(seenKey))already=true;else sessionStorage.setItem(seenKey,"1")}catch(e){}if(!already){state.viewCounts=state.viewCounts||{};state.viewCounts[key]=Number(state.viewCounts[key]||0)+1;save()}if(postType&&postId&&typeof aaRecordRealImpression==="function")aaRecordRealImpression(postType,postId,"home-feed");}
 function aaOpenComments(c){if(!c)return;if(!aaRequireMember({action:"comment",targetId:c.id}))return;state.commentTarget=c;render()}
 function aaCloseComments(){state.commentTarget=null;render()}
 function aaSubmitComment(){
@@ -8111,11 +8112,192 @@ function aaFeedCardHTML(c,i){
  const interested=(state.interested||[]).filter(x=>String(x)===String(c.id)).length+(Number(c.interested||0));
  const isVideo=aaMediaType(c)==="video"&&!!aaVideoUrl(c,i);
  const media=isVideo
-   ? `<video class="aa360-video" data-aa-video-id="${esc(c.id)}" src="${esc(aaVideoUrl(c,i))}" poster="${esc(aaMainPhoto(c))}" muted playsinline loop preload="${i<2?"auto":"metadata"}"></video>`
+   ? `<video class="aa360-video" data-aa-video-id="${esc(c.id)}" data-aa-post-type="vehicle" data-aa-post-id="${esc(c.id)}" src="${esc(aaVideoUrl(c,i))}" poster="${esc(aaMainPhoto(c))}" muted playsinline loop preload="${i<2?"auto":"metadata"}"></video>`
    : `<img class="aa360-photo" src="${esc(aaMainPhoto(c))}" alt="${esc(c.title||"Promoted vehicle")}">`;
- const promoted=c?.isBoosted?`<div class="aa-ad-label">Ad</div>`:"";
+ const promoLabel=aaPromotionLabel(c);
+ const promoted=c?.isBoosted?`<div class="aa-ad-label">Ad</div>`:promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";
  return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}<div class="aa360-side"><div><button class="aa360-action" aria-label="Views" title="Views">${aaSideIcon("views")}</button><span>${aaCompact(aaViewCount(c))}</span></div><div><button class="aa360-action ${aaInterested(c)?"on":""}" onclick='aaToggleInterested(${id})' aria-label="Interested" title="Interested">${aaSideIcon("interested")}</button><span>${aaCompact(interested)}</span></div><div><button class="aa360-action" onclick='aaOpenComments(state.listings.find(x=>String(x.id)===${id}))' aria-label="Comments" title="Comments">${aaSideIcon("comments")}</button><span>${aaCompact(aaCommentCount(c))}</span></div><div><button class="aa360-action" onclick='state.shareTarget=state.listings.find(x=>String(x.id)===${id});render()' aria-label="Share" title="Share">${aaSideIcon("share")}</button><span>${aaCompact(c.shares||0)}</span></div><div><button class="aa360-action" onclick='${isVideo?`aaDownloadListingVideo(state.listings.find(x=>String(x.id)===${id}))`:`aaDownloadCurrentPhoto(state.listings.find(x=>String(x.id)===${id}))`}' aria-label="Download" title="Download">${aaSideIcon("download")}</button><span>Download</span></div><div><button class="aa360-action ${isFav(c.id)?"on":""}" onclick='toggleFav(${id})' aria-label="Save" title="Save">${aaSideIcon("save")}</button><span>${isFav(c.id)?"Saved":"Save"}</span></div></div><div class="aa360-info"><div class="aa360-seller-wrap"><button class="aa360-seller" title="Open seller profile" aria-label="Open seller profile" onclick='openSeller(${sellerId})'><img src="${esc(aaProfilePhoto(c.sellerPhoto || (state.isLoggedIn && aaListingOwnerId(c)===String(state.user?.id||"") ? state.user?.photo_url : "")))}" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.sellerName||"Bingo Seller")}</b>${aaListingSellerRating(c)}${aaFollowStatsHTML(c.sellerId||c.userId)}<small style="color:#f5b91e">${esc(aaListingUsername(c))}</small><small>${aaPresenceBadge({id:c.sellerId,sellerId:c.sellerId,phone:c.sellerPhone})}</small></span></button>${aaFeedFollowButtonHTML(c)}</div><div>${listingBadge(c)}</div><div class="aa360-title">${esc(c.title)}</div><div class="aa360-price">${price}</div><div class="aa360-specs"><span>${esc(c.year||"")}</span><span>${money(c.mileage)} KM</span><span>${esc(c.fuel||"")}</span><span>${esc(c.transmission||"")}</span><span>${esc(c.condition||"")}</span><span>${esc(aaSearchLocationText(c)||c.location||"Kenya")}</span></div><div class="aa360-desc">${esc(c.description||"")}${c.description&&c.description.length>60?` <button type="button" class="aa360-readmore" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'>Read more ›</button>`:""}</div><div class="aa360-actions"><button class="call" onclick='callSeller(state.listings.find(x=>String(x.id)===${id}))'>Call</button><button class="chat" onclick='contact("chat",state.listings.find(x=>String(x.id)===${id}))'>Message</button><button class="wa" onclick='contact("whatsapp",state.listings.find(x=>String(x.id)===${id}))'>WhatsApp</button><button class="negotiate" onclick='if(typeof aaDU1Negotiate==="function")aaDU1Negotiate(${id});else toast("Negotiation opens Bingo Chat.")'>Negotiate</button></div></div></section>`;
 }
+/* ---- Promotion geography and analytics (Change 10) ----
+   Super-User-controlled distribution by objective (visibility/ranking/
+   editorial) and geography, time-boxed, always labeled — never presented
+   as organic Trending — plus real, server-deduplicated impression/click
+   analytics. Sits alongside, and never duplicates, the Change 07 ad
+   campaigns or the Change 09 owner-paid boosts. */
+const AA_MAX_PROMOTION_WEIGHT=5000;
+const AA_PROMOTION_OBJECTIVES=[
+ {id:"visibility",label:"Visibility"},
+ {id:"ranking",label:"Ranking Boost"},
+ {id:"editorial",label:"Editorial Pick"}
+];
+function aaGeoMatches(geography,viewerLocation){
+ const geo=String(geography||"nationwide").toLowerCase();
+ if(!geo||geo==="nationwide"||geo==="all")return true;
+ const viewer=String(viewerLocation||"").toLowerCase();
+ if(!viewer||viewer==="all kenya")return true;
+ if(geo==="nairobi")return viewer.includes("nairobi");
+ if(geo==="mombasa")return /mombasa|nyali|bamburi|likoni|kisauni|changamwe/.test(viewer);
+ const parts=geo.split(":");
+ const slug=(parts.length>1?parts[1]:parts[0]).replace(/-/g," ").trim();
+ return !!slug&&viewer.includes(slug);
+}
+function aaPromotionAdjustment(post,viewerContext,now=Date.now()){
+ const rules=(post.activePromotionRules||[]).filter(r=>Date.parse(r.starts_at)<=now&&Date.parse(r.expires_at)>now&&aaGeoMatches(r.geography,viewerContext));
+ return Math.min(rules.reduce((sum,r)=>sum+Number(r.ranking_weight||0),0),AA_MAX_PROMOTION_WEIGHT);
+}
+function aaPromotionLabel(post){
+ const rules=post?.activePromotionRules;
+ return Array.isArray(rules)&&rules.length?String(rules[0].label||"Promoted"):"";
+}
+async function aaLoadActivePromotions(){
+ if(!sb){state.activePromotions=[];return}
+ try{
+  const {data,error}=await sb.from("bingo_promotion_rules").select("*").eq("status","active").lte("starts_at",new Date().toISOString()).gt("expires_at",new Date().toISOString());
+  if(error)throw error;
+  state.activePromotions=Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load active promotions.",String(e?.message||e));state.activePromotions=[]}
+}
+function aaAttachPromotions(post,postType,postId){
+ const rules=(state.activePromotions||[]).filter(r=>r.post_type===postType&&String(r.post_id)===String(postId));
+ if(rules.length)post.activePromotionRules=rules;
+ return post;
+}
+function aaAnalyticsSessionKey(){return String(aaFeedSeed())}
+async function aaSendAnalyticsEvent(type,payload){
+ if(!sb)return;
+ try{
+  await sb.rpc("bingo_record_analytics_event",{
+   p_event_type:type,p_post_type:String(payload?.post_type||""),p_post_id:String(payload?.post_id||""),
+   p_slot_id:payload?.slot_id?String(payload.slot_id):null,p_session_key:aaAnalyticsSessionKey()
+  });
+ }catch(e){/* analytics failures must never disrupt the feed */}
+}
+function aaRecordRealImpression(postType,postId,slotId){
+ if(document.visibilityState!=="visible")return;
+ aaSendAnalyticsEvent("impression",{post_type:postType,post_id:postId,slot_id:slotId});
+}
+function aaRecordRealClick(postType,postId,slotId){
+ aaSendAnalyticsEvent("click",{post_type:postType,post_id:postId,slot_id:slotId});
+}
+async function aaLoadPromotionAnalytics(){
+ if(!aaIsSuperUser()||!sb)return;
+ try{
+  const {data,error}=await sb.rpc("bingo_promotion_analytics_summary");
+  if(error)throw error;
+  state.promotionAnalytics=data||null;
+ }catch(e){console.warn("Bingo: could not load promotion analytics.",String(e?.message||e));state.promotionAnalytics=null}
+}
+async function aaLoadAdminPromotions(){
+ if(!aaIsSuperUser()||!sb)return;
+ try{
+  const {data,error}=await sb.rpc("bingo_admin_list_promotions");
+  if(error)throw error;
+  state.adminPromotions=Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load promotions.",String(e?.message||e));state.adminPromotions=[]}
+}
+function aaOpenPromotionForm(postType,postId){
+ state.promotionDraft={postType:postType||"vehicle",postId:postId?String(postId):"",objective:"visibility",geography:"nationwide",rankingWeight:100,label:"Promoted",startsAt:"",expiresAt:""};
+ render();
+}
+function aaCancelPromotionForm(){state.promotionDraft=null;render()}
+async function aaSubmitPromotion(){
+ const d=state.promotionDraft;if(!d)return;
+ d.postType=document.getElementById("aaPromoPostType")?.value||d.postType;
+ d.postId=document.getElementById("aaPromoPostId")?.value||d.postId;
+ d.objective=document.getElementById("aaPromoObjective")?.value||d.objective;
+ d.geography=document.getElementById("aaPromoGeography")?.value||d.geography;
+ d.rankingWeight=Number(document.getElementById("aaPromoWeight")?.value||100);
+ d.label=document.getElementById("aaPromoLabel")?.value||"Promoted";
+ d.startsAt=document.getElementById("aaPromoStarts")?.value||"";
+ d.expiresAt=document.getElementById("aaPromoExpires")?.value||"";
+ if(!d.postId.trim()){toast("Enter a post ID to promote.");return}
+ if(!d.expiresAt){toast("Choose an expiry date and time.");return}
+ const startsAt=d.startsAt?new Date(d.startsAt):new Date();
+ const expiresAt=new Date(d.expiresAt);
+ if(!(expiresAt>startsAt)){toast("Expiry must be later than the start date.");return}
+ try{
+  const {error}=await sb.rpc("bingo_admin_create_promotion",{
+   p_post_type:d.postType,p_post_id:d.postId.trim(),p_objective:d.objective,p_geography:d.geography,
+   p_ranking_weight:d.rankingWeight,p_label:d.label,p_starts_at:startsAt.toISOString(),p_expires_at:expiresAt.toISOString()
+  });
+  if(error)throw error;
+  toast("Promotion activated.");
+  state.promotionDraft=null;
+  await aaLoadAdminPromotions();
+  render();
+ }catch(e){toast("Could not create promotion: "+String(e?.message||e))}
+}
+async function aaRevokePromotion(id){
+ if(!confirm("Revoke this promotion?"))return;
+ try{
+  const {error}=await sb.rpc("bingo_admin_revoke_promotion",{p_id:id});
+  if(error)throw error;
+  toast("Promotion revoked.");
+  await aaLoadAdminPromotions();
+  render();
+ }catch(e){toast("Could not revoke promotion: "+String(e?.message||e))}
+}
+function aaPromotionFormHTML(){
+ const d=state.promotionDraft;if(!d)return "";
+ return `<div class="boost-summary" style="margin-top:10px;border-color:var(--gold)">
+  <b>New Promotion</b>
+  <label class="form-label" style="margin-top:8px">Post type</label>
+  <select class="field" id="aaPromoPostType">
+   <option value="vehicle" ${d.postType==="vehicle"?"selected":""}>Vehicle</option>
+   <option value="property" ${d.postType==="property"?"selected":""}>Property</option>
+   <option value="stay" ${d.postType==="stay"?"selected":""}>Bingo Stay</option>
+   <option value="food_business" ${d.postType==="food_business"?"selected":""}>Food Business</option>
+  </select>
+  <label class="form-label" style="margin-top:8px">Post ID (copy from All Posts)</label>
+  <input class="field" id="aaPromoPostId" value="${esc(d.postId)}" placeholder="Post ID">
+  <label class="form-label" style="margin-top:8px">Objective</label>
+  <select class="field" id="aaPromoObjective">
+   ${AA_PROMOTION_OBJECTIVES.map(o=>`<option value="${o.id}" ${d.objective===o.id?"selected":""}>${esc(o.label)}</option>`).join("")}
+  </select>
+  <label class="form-label" style="margin-top:8px">Geography</label>
+  <select class="field" id="aaPromoGeography">
+   <option value="nationwide" ${d.geography==="nationwide"?"selected":""}>Nationwide</option>
+   <option value="nairobi" ${d.geography==="nairobi"?"selected":""}>Nairobi</option>
+   <option value="mombasa" ${d.geography==="mombasa"?"selected":""}>Mombasa</option>
+   ${AA_BOOST_LOCATIONS.filter(x=>x.v!=="all"&&x.v!=="other").map(x=>`<option value="${esc(x.v)}" ${d.geography===x.v?"selected":""}>${esc(x.l)}</option>`).join("")}
+  </select>
+  <label class="form-label" style="margin-top:8px">Ranking weight (max ${AA_MAX_PROMOTION_WEIGHT})</label>
+  <input class="field" id="aaPromoWeight" type="number" min="0" max="${AA_MAX_PROMOTION_WEIGHT}" value="${d.rankingWeight}">
+  <label class="form-label" style="margin-top:8px">Label shown to members</label>
+  <input class="field" id="aaPromoLabel" value="${esc(d.label)}" placeholder="Promoted">
+  <label class="form-label" style="margin-top:8px">Starts</label>
+  <input class="field" id="aaPromoStarts" type="datetime-local">
+  <label class="form-label" style="margin-top:8px">Expires</label>
+  <input class="field" id="aaPromoExpires" type="datetime-local">
+  <div class="dashboard-actions" style="margin-top:10px">
+   <button class="btn btn-red" onclick="aaSubmitPromotion()">Activate Promotion</button>
+   <button class="btn" onclick="aaCancelPromotionForm()">Cancel</button>
+  </div>
+ </div>`;
+}
+function aaPromotionListHTML(){
+ const list=Array.isArray(state.adminPromotions)?state.adminPromotions:[];
+ if(!list.length)return `<p class="notice">No promotions yet.</p>`;
+ return list.map(r=>`<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
+  <b style="font-size:12px">${esc(r.post_type)} · ${esc(String(r.post_id).slice(0,10))}</b> <span class="meta">· ${esc(r.objective)} · ${esc(r.geography)}</span>
+  <span class="aa-sub-pill ${r.status==="active"?"active":"expired"}" style="margin-left:6px">${esc(r.status.toUpperCase())}</span>
+  <div class="meta">Weight ${r.ranking_weight} · Label "${esc(r.label)}"</div>
+  <div class="meta">${new Date(r.starts_at).toLocaleString()} → ${new Date(r.expires_at).toLocaleString()}</div>
+  ${r.status==="active"?`<button class="small-btn" style="margin-top:6px" onclick='aaRevokePromotion(${JSON.stringify(r.id)})'>Revoke</button>`:""}
+ </div>`).join("");
+}
+function aaPromotionAnalyticsHTML(){
+ const a=state.promotionAnalytics;
+ if(!a)return `<p class="notice">Analytics not loaded yet.</p>`;
+ const rows=Array.isArray(a.promotions)?a.promotions:[];
+ return `<div class="stat-grid" style="margin-top:6px">
+  <div class="stat"><b>${a.open_moderation_cases??0}</b><span>Open Moderation Cases</span></div>
+  <div class="stat"><b>${a.boosts_last_30_days??0}</b><span>Boosts (30 days)</span></div>
+  <div class="stat"><b>${a.agent_actions_last_30_days??0}</b><span>Agent Actions (30 days)</span></div>
+ </div>
+ ${rows.length?`<div style="margin-top:10px">${rows.map(r=>{const ctr=Number(r.impressions||0)>0?(Number(r.clicks||0)/Number(r.impressions||1)*100).toFixed(1):"0.0";return `<div class="aa-boost-summary-row"><span>${esc(r.post_type)} · ${esc(String(r.post_id).slice(0,8))}…</span><b class="meta">${r.impressions} impr · ${r.clicks} clicks · ${ctr}% CTR</b></div>`}).join("")}</div>`:'<p class="notice" style="margin-top:8px">No promotion impressions recorded yet.</p>'}`;
+}
+
 var aaFeedObserver=null;
 var AA_AD_INTERVAL_MS=0;
 var aaAdTimer=null;
@@ -8241,10 +8423,25 @@ function aaHomeOverlayOpen(){
 function aaInit360Feed(){
  if(aaFeedObserver){try{aaFeedObserver.disconnect()}catch(e){}}
  const vids=[...document.querySelectorAll("#auto-arcade-widget .aa360-video")];if(!vids.length)return;
- aaFeedObserver=new IntersectionObserver(entries=>{entries.forEach(entry=>{const v=entry.target;if(entry.isIntersecting&&entry.intersectionRatio>=.7){vids.forEach(x=>{if(x!==v){try{x.pause()}catch(e){}}});v.muted=true;const p=v.play();if(p&&p.catch)p.catch(()=>{});aaRecordFeedView(v.dataset.aaVideoId)}else{try{v.pause()}catch(e){}}})},{threshold:[0,.7,1]});
+ aaFeedObserver=new IntersectionObserver(entries=>{entries.forEach(entry=>{const v=entry.target;if(entry.isIntersecting&&entry.intersectionRatio>=.7){vids.forEach(x=>{if(x!==v){try{x.pause()}catch(e){}}});v.muted=true;const p=v.play();if(p&&p.catch)p.catch(()=>{});aaRecordFeedView(v.dataset.aaVideoId,v.dataset.aaPostType,v.dataset.aaPostId)}else{try{v.pause()}catch(e){}}})},{threshold:[0,.7,1]});
  vids.forEach(v=>aaFeedObserver.observe(v));
  requestAnimationFrame(()=>aaFeedGoTo(aaFeedCurrentIndex(),"auto"));
 }
+(function installFeedClickAnalyticsBridge(){
+ if(window.__aaFeedClickBridge)return;window.__aaFeedClickBridge=true;
+ document.addEventListener("click",function(e){
+  const root=document.getElementById("auto-arcade-widget");
+  if(!root||!root.contains(e.target))return;
+  const actionBtn=e.target.closest(".aa360-actions button, .aa360-action");
+  if(!actionBtn)return;
+  const item=e.target.closest(".aa360-item");
+  if(!item)return;
+  const video=item.querySelector(".aa360-video");
+  const postType=video?.dataset?.aaPostType;
+  const postId=video?.dataset?.aaPostId;
+  if(postType&&postId&&typeof aaRecordRealClick==="function")aaRecordRealClick(postType,postId,"home-feed");
+ },true);
+})();
 
 
 function aaOpenMarket(){aaRememberPage();state.view="market";state.spareSelected=null;state.marketListingType=state.marketListingType||"spare_parts";render();window.scrollTo(0,0)}
@@ -10834,8 +11031,8 @@ function aaCancelFoodSubscription(id){
  if(!confirm('Cancel this restaurant advertisement? The business record will remain saved.'))return;
  f.status='suspended';f.subscription_expires_at=new Date().toISOString();aaV69Write('aa_v69_foods',a);toast('Restaurant advertisement cancelled.');aaOpenFood('mine')
 }
-function aaMixedFeedItems(){const v=(typeof aaVideoListings==='function'?aaVideoListings():[]).map(x=>({...x,kind:'vehicle',feed_title:x.title,feed_desc:x.description,feed_media:x.videoUrl||x.video_url||x.video||'',feed_location:aaSearchLocationText(x)||x.location||'Kenya',feed_seller:x.sellerName||'Bingo Seller'}));const p=aaProperties().flatMap(x=>(x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_pv${i}`,kind:'property',source:x,feed_title:x.title,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:'Property Seller',created_at:x.created_at})));const f=aaFoods().filter(aaFoodActive).flatMap(x=>(x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_fv${i}`,kind:'food',source:x,feed_title:x.business_name,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:x.business_name,created_at:x.created_at})));let all=[...v,...p,...f];let aaFeedSeedStored="";try{aaFeedSeedStored=sessionStorage.getItem('aa_feed_seed')||""}catch(e){}const seed=String(state.user?.id||aaFeedSeedStored||Math.random());if(!aaFeedSeedStored){try{sessionStorage.setItem('aa_feed_seed',seed)}catch(e){}}const score=s=>{let n=0;for(const c of String(s))n=(n*31+c.charCodeAt(0))>>>0;return n};all.sort((a,b)=>{const followBoost=(x)=>x.kind==='vehicle'&&typeof aaIsFollowing==='function'&&aaIsFollowing(x.sellerId||x.userId)?10000000000000:0;const ta=new Date(a.created_at||a.createdAt||0).getTime()+followBoost(a)+score(seed+a.id)%1000000;const tb=new Date(b.created_at||b.createdAt||0).getTime()+followBoost(b)+score(seed+b.id)%1000000;return tb-ta});return all}
-function aaMixedFeedCardHTML(c,i){if(c.kind==='vehicle')return aaFeedCardHTML(c,i);const media=`<video class="aa360-video" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"></video>`;const type=c.kind==='food'?'FOOD':'PROPERTY';const price=c.kind==='property'?`<div class="aa360-price">KES ${money(c.source?.price||0)}</div>`:'';const actions=c.kind==='food'?`<button class="call" onclick="location.href='tel:${esc(c.source?.phone||'')}'">Call Delivery</button><button class="wa" onclick="window.open('https://wa.me/${esc(String(c.source?.whatsapp||c.source?.phone||'').replace(/\D/g,''))}','_blank')">WhatsApp</button>`:`<button class="call" onclick="aaOpenProperties('browse')">View Property</button><button class="chat" onclick="toast('Property negotiation will use Bingo Chat after backend deployment.')">Negotiate</button>`;return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div><span class="aa-type-label">${type}</span><div class="aa360-info"><div class="aa360-seller-wrap"><div class="aa360-seller"><span><b>${esc(c.feed_seller)}</b><small>${esc(c.feed_location)}</small></span></div></div><div class="aa360-title">${esc(c.feed_title)}</div>${price}<div class="aa360-desc">${esc(c.feed_desc||'')}</div><div class="aa360-actions">${actions}</div></div></section>`}
+function aaMixedFeedItems(){const v=(typeof aaVideoListings==='function'?aaVideoListings():[]).map(x=>({...x,kind:'vehicle',feed_title:x.title,feed_desc:x.description,feed_media:x.videoUrl||x.video_url||x.video||'',feed_location:aaSearchLocationText(x)||x.location||'Kenya',feed_seller:x.sellerName||'Bingo Seller',_promoType:'vehicle',_promoId:x.id}));const p=aaProperties().flatMap(x=>(x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_pv${i}`,kind:'property',source:x,feed_title:x.title,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:'Property Seller',created_at:x.created_at,_promoType:(typeof AA_STAY_TYPES!=='undefined'&&AA_STAY_TYPES.includes(x.type))?'stay':'property',_promoId:x.id})));const f=aaFoods().filter(aaFoodActive).flatMap(x=>(x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_fv${i}`,kind:'food',source:x,feed_title:x.business_name,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:x.business_name,created_at:x.created_at,_promoType:'food_business',_promoId:x.id})));let all=[...v,...p,...f];all.forEach(item=>aaAttachPromotions(item,item._promoType,item._promoId));let aaFeedSeedStored="";try{aaFeedSeedStored=sessionStorage.getItem('aa_feed_seed')||""}catch(e){}const seed=String(state.user?.id||aaFeedSeedStored||Math.random());if(!aaFeedSeedStored){try{sessionStorage.setItem('aa_feed_seed',seed)}catch(e){}}const score=s=>{let n=0;for(const c of String(s))n=(n*31+c.charCodeAt(0))>>>0;return n};const viewerLoc=typeof aaViewerFeedLocation==='function'?aaViewerFeedLocation():'All Kenya';all.sort((a,b)=>{const followBoost=(x)=>x.kind==='vehicle'&&typeof aaIsFollowing==='function'&&aaIsFollowing(x.sellerId||x.userId)?10000000000000:0;const promo=(x)=>aaPromotionAdjustment(x,viewerLoc)*1000000;const ta=new Date(a.created_at||a.createdAt||0).getTime()+followBoost(a)+promo(a)+score(seed+a.id)%1000000;const tb=new Date(b.created_at||b.createdAt||0).getTime()+followBoost(b)+promo(b)+score(seed+b.id)%1000000;return tb-ta});return all}
+function aaMixedFeedCardHTML(c,i){if(c.kind==='vehicle')return aaFeedCardHTML(c,i);const media=`<video class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"></video>`;const type=c.kind==='food'?'FOOD':'PROPERTY';const price=c.kind==='property'?`<div class="aa360-price">KES ${money(c.source?.price||0)}</div>`:'';const promoLabel=aaPromotionLabel(c);const promoted=promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";const actions=c.kind==='food'?`<button class="call" onclick="location.href='tel:${esc(c.source?.phone||'')}'">Call Delivery</button><button class="wa" onclick="window.open('https://wa.me/${esc(String(c.source?.whatsapp||c.source?.phone||'').replace(/\D/g,''))}','_blank')">WhatsApp</button>`:`<button class="call" onclick="aaOpenProperties('browse')">View Property</button><button class="chat" onclick="toast('Property negotiation will use Bingo Chat after backend deployment.')">Negotiate</button>`;return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}<span class="aa-type-label">${type}</span><div class="aa360-info"><div class="aa360-seller-wrap"><div class="aa360-seller"><span><b>${esc(c.feed_seller)}</b><small>${esc(c.feed_location)}</small></span></div></div><div class="aa360-title">${esc(c.feed_title)}</div>${price}<div class="aa360-desc">${esc(c.feed_desc||'')}</div><div class="aa360-actions">${actions}</div></div></section>`}
 function aaOpenCameraDestination(){
  document.getElementById('aaV69CameraDest')?.remove();
  const w=document.createElement('div');w.id='aaV69CameraDest';w.className='aa-camera-dest';
@@ -11709,6 +11906,8 @@ function aaOpenSuperUserDashboard(){
  aaLoadAdCampaigns();
  aaLoadAgentSalaryDirectory();
  aaLoadAgentWithdrawalsBackend();
+ aaLoadAdminPromotions();
+ aaLoadPromotionAnalytics();
  render();window.scrollTo(0,0);
 }
 function aaReturnToSuperUserDashboard(){aaOpenSuperUserDashboard()}
@@ -11812,7 +12011,7 @@ function aaAllPostsHTML(){
  const foods=(state.foodBusinesses||[]).map(f=>({type:"food_business",id:f.id,title:f.business_name,ownerId:f.user_id||""}));
  const all=[...vehicles,...properties,...foods];
  if(!all.length)return `<p class="notice">No posts to review yet.</p>`;
- return all.map(item=>`<div class="aa-boost-summary-row"><span>${esc(item.title||"Untitled")} <span class="meta">(${esc(item.type)})</span></span><button class="small-btn" onclick='aaOpenModeration(${JSON.stringify(item.type)},${JSON.stringify(String(item.id))},${JSON.stringify(item.ownerId||"")})'>Report / Moderate</button></div>`).join("");
+ return all.map(item=>`<div class="aa-boost-summary-row"><span>${esc(item.title||"Untitled")} <span class="meta">(${esc(item.type)}) · ID ${esc(String(item.id))}</span></span><button class="small-btn" onclick='aaOpenModeration(${JSON.stringify(item.type)},${JSON.stringify(String(item.id))},${JSON.stringify(item.ownerId||"")})'>Report / Moderate</button>${aaIsSuperUser()?`<button class="small-btn" style="margin-left:6px" onclick='aaOpenPromotionForm(${JSON.stringify(item.type)},${JSON.stringify(String(item.id))})'>Promote</button>`:""}</div>`).join("");
 }
 function aaOpenModeration(targetType,targetId,ownerId){
  if(!state.isLoggedIn){openAuth("login");return}
@@ -12757,8 +12956,15 @@ function aaSuperUserDashboardHTML(){
   </div>
   <div class="boost-summary" style="margin-top:14px">
    <b>All Posts</b>
-   <p class="notice" style="margin-top:0">Every vehicle, property/stay and food business currently loaded. Report or moderate any of them from here.</p>
+   <p class="notice" style="margin-top:0">Every vehicle, property/stay and food business currently loaded. Report, moderate, or promote any of them from here.</p>
    ${aaAllPostsHTML()}
+  </div>
+  <div class="boost-summary" style="margin-top:14px">
+   <b>Promotion &amp; Analytics</b>
+   <p class="notice" style="margin-top:0">Admin-controlled distribution by objective and geography, time-boxed and always labeled — never shown as organic Trending. Copy a post ID from All Posts above, or tap Promote next to a listing there.</p>
+   ${state.promotionDraft?aaPromotionFormHTML():`<button class="btn" onclick="aaOpenPromotionForm('vehicle','')">New Promotion</button>`}
+   <div style="margin-top:10px"><b style="font-size:12px">Active &amp; Past Promotions</b>${aaPromotionListHTML()}</div>
+   <div style="margin-top:10px"><b style="font-size:12px">Impressions, Clicks &amp; CTR</b>${aaPromotionAnalyticsHTML()}</div>
   </div>
   ${aaAdManagerHTML()}
   <div class="boost-summary" style="margin-top:14px">
@@ -13989,17 +14195,19 @@ function aaCloseTopOverlay(){
        Promise.allSettled([
         persistProfile(),
         aaSyncBoostNotifications(),
-        aaLoadVehicles()
+        aaLoadVehicles(),
+        aaLoadActivePromotions()
        ]).then(()=>render());
        aaMaybeServeAd("home");
       }else{
-       aaLoadVehicles().then(()=>render()).catch(()=>{});
+       Promise.allSettled([aaLoadVehicles(),aaLoadActivePromotions()]).then(()=>render());
        aaMaybeServeAd("home");
       }
-     }).catch(()=>{aaLoadVehicles().then(()=>render()).catch(()=>{})});
+     }).catch(()=>{Promise.allSettled([aaLoadVehicles(),aaLoadActivePromotions()]).then(()=>render())});
     },0);
    } else {
     window.setTimeout(()=>aaLoadVehicles().then(()=>render()).catch(()=>{}),0);
+    window.setTimeout(()=>aaLoadActivePromotions().then(()=>render()).catch(()=>{}),0);
    }
   }catch(err){
    console.error("Bingo initialization failed",err);
