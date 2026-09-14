@@ -16932,6 +16932,168 @@ window.bingoGuestGate={
 })();
 </script>
 
+<style id="bingo-all-buttons-neon-v1">
+/*
+BINGO GLOBAL NEON BUTTON UPDATE
+
+Apply neon styling and reactive under-light to every functional button.
+Preserve all existing onclick actions, routes, forms and button wording.
+*/
+
+#auto-arcade-widget button,
+#auto-arcade-widget .btn,
+#auto-arcade-widget a.btn,
+#auto-arcade-widget [role="button"]{
+  --tab-light:var(--bingo-gold,#f3be2b);
+  --tab-rgb:243,190,43;
+
+  position:relative!important;
+  isolation:isolate;
+  overflow:visible!important;
+
+  border:1px solid rgba(var(--tab-rgb),.62)!important;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(var(--tab-rgb),.22),
+      rgba(7,12,25,.96)
+    )!important;
+
+  color:#fff!important;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.10),
+    0 0 8px rgba(var(--tab-rgb),.22),
+    0 7px 15px rgba(0,0,0,.28)!important;
+
+  text-shadow:
+    0 0 6px rgba(255,255,255,.20);
+
+  transition:
+    transform .14s ease,
+    border-color .16s ease,
+    box-shadow .16s ease,
+    filter .16s ease!important;
+}
+
+/* Bright light underneath every button base */
+#auto-arcade-widget button::after,
+#auto-arcade-widget .btn::after,
+#auto-arcade-widget a.btn::after,
+#auto-arcade-widget [role="button"]::after{
+  content:"";
+  position:absolute;
+  z-index:-1;
+
+  left:17%;
+  right:17%;
+  bottom:-7px;
+  height:10px;
+
+  border-radius:50%;
+  background:var(--tab-light);
+
+  opacity:.30;
+  filter:blur(8px);
+  transform:scaleX(.78);
+
+  pointer-events:none;
+
+  transition:
+    opacity .16s ease,
+    filter .16s ease,
+    transform .16s ease;
+}
+
+/* Mouse hover */
+@media (hover:hover){
+  #auto-arcade-widget button:hover,
+  #auto-arcade-widget .btn:hover,
+  #auto-arcade-widget a.btn:hover,
+  #auto-arcade-widget [role="button"]:hover{
+    transform:translateY(-2px);
+
+    border-color:var(--tab-light)!important;
+
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.14),
+      0 0 15px rgba(var(--tab-rgb),.48),
+      0 9px 20px rgba(0,0,0,.34)!important;
+  }
+
+  #auto-arcade-widget button:hover::after,
+  #auto-arcade-widget .btn:hover::after,
+  #auto-arcade-widget a.btn:hover::after,
+  #auto-arcade-widget [role="button"]:hover::after{
+    opacity:.85;
+    filter:blur(6px);
+    transform:scaleX(1.08);
+  }
+}
+
+/* Mouse click or mobile touch */
+#auto-arcade-widget button:active,
+#auto-arcade-widget .btn:active,
+#auto-arcade-widget a.btn:active,
+#auto-arcade-widget [role="button"]:active{
+  transform:translateY(2px) scale(.98)!important;
+
+  box-shadow:
+    inset 0 2px 5px rgba(0,0,0,.34),
+    0 0 21px rgba(var(--tab-rgb),.72)!important;
+}
+
+/* Existing red buttons retain their red identity */
+#auto-arcade-widget .btn-red,
+#auto-arcade-widget button.btn-red{
+  --tab-light:var(--bingo-red,#ef2638);
+  --tab-rgb:239,38,56;
+}
+
+/* Existing gold buttons retain their gold identity */
+#auto-arcade-widget .btn-gold,
+#auto-arcade-widget button.btn-gold{
+  --tab-light:var(--bingo-gold,#f3be2b);
+  --tab-rgb:243,190,43;
+}
+
+/* Disabled buttons must remain visibly disabled */
+#auto-arcade-widget button:disabled,
+#auto-arcade-widget .btn:disabled,
+#auto-arcade-widget [aria-disabled="true"]{
+  opacity:.45!important;
+  filter:grayscale(.65);
+  cursor:not-allowed!important;
+  box-shadow:none!important;
+  transform:none!important;
+}
+
+#auto-arcade-widget button:disabled::after,
+#auto-arcade-widget .btn:disabled::after,
+#auto-arcade-widget [aria-disabled="true"]::after{
+  display:none!important;
+}
+
+/* Accessible keyboard focus */
+#auto-arcade-widget button:focus-visible,
+#auto-arcade-widget .btn:focus-visible,
+#auto-arcade-widget a.btn:focus-visible,
+#auto-arcade-widget [role="button"]:focus-visible{
+  outline:2px solid var(--tab-light)!important;
+  outline-offset:4px;
+}
+
+/* Keep animations lightweight */
+@media (prefers-reduced-motion:reduce){
+  #auto-arcade-widget button,
+  #auto-arcade-widget .btn,
+  #auto-arcade-widget a.btn,
+  #auto-arcade-widget [role="button"]{
+    transition:none!important;
+  }
+}
+</style>
 
 
 <style id="bgc-generic-categories-style">
