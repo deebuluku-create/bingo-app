@@ -4826,6 +4826,7 @@ var state = {
  pendingMemberIntent:null, memberEntranceOpen:false,
  moderationCases:[], moderationPanelTarget:null,
  adCampaigns:[], adDraft:null, adDraftId:null,
+ agentSalarySummary:null, agentManagedBusinesses:[], agentInvitations:[], agentPermissionCache:{}, agentInviteTarget:null, agentSalaryDirectory:[],
  selected:null, seller:null, shareTarget:null, boostTarget:null,
  authOpen:false, authStep:1, authMode:"register", method:"phone", code:"",
  successOpen:false, callTarget:null, isLoggedIn:false, authBusy:false, authError:"", lastOtpTouch:0, resendUntil:0, resendTimer:null, visits:Number(aaStorage.get("aa_visits")||0), shareCount:Number(aaStorage.get("aa_share_count")||0),
@@ -5019,6 +5020,7 @@ function aaOwnerProfileSeller(){
   bio:u.bio||"Bingo member.",
   location:u.location||"",
   showPhone:u.showPhone!==false,
+  memberSince:u.memberSince||"",
   gold:gold()
  };
 }
@@ -5524,6 +5526,7 @@ async function aaLoadAuthenticatedProfile(authUser){
  if(!authUser)return;
  state.user.id=authUser.id||state.user.id||"";
  state.user.email=authUser.email||state.user.email||"";
+ state.user.memberSince=authUser.created_at||state.user.memberSince||"";
  const md=authUser.user_metadata||{};
  if(md.first_name&&!state.user.firstName)state.user.firstName=md.first_name;
  if(md.last_name&&!state.user.lastName)state.user.lastName=md.last_name;
@@ -5547,6 +5550,7 @@ async function aaLoadAuthenticatedProfile(authUser){
     state.user.location=data.town||data.location||state.user.location||"";
     state.user.bio=data.bio||state.user.bio||"";
     state.user.photo_url=data.photo_url||data.avatar_url||state.user.photo_url||"";
+    state.user.memberSince=state.user.memberSince||data.created_at||"";
     if(typeof data.show_phone==="boolean")state.user.showPhone=data.show_phone;
    }
   }catch(e){console.warn("Profile fetch fallback used.",e)}
@@ -7882,7 +7886,7 @@ function aaPauseAllFeedVideos(){
  document.querySelectorAll("#auto-arcade-widget .aa360-video").forEach(v=>{try{v.pause()}catch(e){}});
 }
 function aaHomeOverlayOpen(){
- return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||state.adOpen||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
+ return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||state.adOpen||state.agentInviteTarget||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
 }
 function aaInit360Feed(){
  if(aaFeedObserver){try{aaFeedObserver.disconnect()}catch(e){}}
@@ -8858,7 +8862,7 @@ async function aaUpdatePropertyListing(id,payload){
  let body={...payload};
  let lastError=null;
  for(let attempt=0;attempt<20;attempt++){
-  const result=await sb.from('property_listings').update(body).eq('id',id).eq('user_id',state.user.id).select().single();
+  const result=await sb.from('property_listings').update(body).eq('id',id).select().single();
   if(!result.error)return result;
   lastError=result.error;
   const missing=aaMissingPropertyColumn(result.error);
@@ -9136,7 +9140,7 @@ async function aaInsertFoodBusiness(payload){
 }
 async function aaUpdateFoodBusiness(id,payload){
  if(!sb||!state.user?.id)return {data:null,error:new Error('No database session')};
- return await sb.from('food_businesses').update(payload).eq('id',id).eq('user_id',state.user.id).select().single();
+ return await sb.from('food_businesses').update(payload).eq('id',id).select().single();
 }
 async function aaVerifyFoodBusiness(id){
  if(!sb||!id)return {data:null,error:new Error('Cannot verify saved business without database connection.')};
@@ -9871,7 +9875,7 @@ function aaPropertyListHTML(a,mine){if(!a.length)return `<div class="aa-v69-card
  const actions=isStay
   ?`<div class="details-actions"><button class="btn" onclick='aaStayCall(${JSON.stringify(p.contactPhone||"")})'>Call</button><button class="btn" onclick='aaStayInbox(${JSON.stringify({id:p.id,title:p.title,contactPhone:p.contactPhone,nightlyRate:p.price,hostName:p.sellerName||"Host"})})'>Inbox</button><button class="btn" onclick='aaStayRequestViewing(${JSON.stringify({id:p.id,title:p.title,contactPhone:p.contactPhone,nightlyRate:p.price,hostName:p.sellerName||"Host"})})'>Request Viewing</button><button class="btn btn-gold" onclick='aaStayNegotiate(${JSON.stringify({id:p.id,title:p.title,nightlyRate:p.price})})'>Negotiate</button></div>`
   :`<div class="details-actions"><button class="btn" onclick="toast('Viewing request messaging will use the connected backend.')">Request Viewing</button><button class="btn btn-red" onclick="toast('Price negotiation will open Bingo Chat once the property backend is connected.')">Negotiate Price</button></div>`;
- return `<article class="aa-v69-card"><span class="badge badge-red">${esc(isStay?(p.duration||'Short-term'):(p.purpose||'PROPERTY'))}</span>${aaPropertyMediaGalleryHTML(p.media)}<h3>${esc(p.title)}</h3>${p._localOnly?`<div class="notice" style="margin:2px 0">Local only — not visible on other devices</div>`:''}<div class="price">${priceLine}</div><div class="meta">${esc(p.type||'Property')} · ${esc(p.town||'')}, ${esc(p.county||'')}</div><p>${esc(p.description||'')}</p>${actions}${mine?`<button class="btn" style="margin-top:8px" onclick="${isStay?'aaEditStay':'aaEditProperty'}('${esc(p.id)}')">Edit</button><button class="btn" style="margin-top:8px" onclick="aaDeleteProperty('${esc(p.id)}')">Delete</button>`:''}${aaAdminControlsHTML(isStay?"stay":"property",p.id,p.user_id||p.userId||"")}</article>`;
+ return `<article class="aa-v69-card"><span class="badge badge-red">${esc(isStay?(p.duration||'Short-term'):(p.purpose||'PROPERTY'))}</span>${aaPropertyMediaGalleryHTML(p.media)}<h3>${esc(p.title)}</h3>${p._localOnly?`<div class="notice" style="margin:2px 0">Local only — not visible on other devices</div>`:''}<div class="price">${priceLine}</div><div class="meta">${esc(p.type||'Property')} · ${esc(p.town||'')}, ${esc(p.county||'')}</div><p>${esc(p.description||'')}</p>${actions}${mine?`<button class="btn" style="margin-top:8px" onclick="${isStay?'aaEditStay':'aaEditProperty'}('${esc(p.id)}')">Edit</button><button class="btn" style="margin-top:8px" onclick="aaDeleteProperty('${esc(p.id)}')">Delete</button><button class="btn" style="margin-top:8px" onclick="aaOpenInviteAgentModal('${isStay?'stay':'property'}','${esc(p.id)}')">Invite Agent</button>`:''}${aaAdminControlsHTML(isStay?"stay":"property",p.id,p.user_id||p.userId||"")}</article>`;
 }).join('')}</div>`}
 async function aaDeleteProperty(id){
  const item=aaProperties().find(x=>String(x.id)===String(id));
@@ -9910,11 +9914,12 @@ function aaFoodPostHTML(){
  const busy=!!state.foodPublishBusy;
  return `<div class="aa-v69-card"><h3>${editItem?'Edit Food Business':'Create Food Business Listing'}</h3><form onsubmit="aaSubmitFood(event)"><div class="form-grid"><label>Business Name<input required name="business_name" value="${esc(d.business_name||'')}"></label><label>Category<select name="category">${AA_FOOD_TYPES.map(x=>`<option ${d.category===x?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label>County<input required name="county" value="${esc(d.county||'')}"></label><label>Town / Area<input required name="town" value="${esc(d.town||'')}"></label><label>Delivery Area<input required name="delivery_area" placeholder="Nyali, Bamburi, Mombasa CBD" value="${esc(d.delivery_area||'')}"></label><label>Phone<input required name="phone" type="tel" value="${esc(d.phone||'')}"></label><label>WhatsApp<input name="whatsapp" type="tel" value="${esc(d.whatsapp||'')}"></label><label>Opening Hours<input name="opening_hours" placeholder="8:00 AM - 11:00 PM" value="${esc(d.opening_hours||'')}"></label><label>Price Range<input name="price_range" placeholder="KES 300 - 2,500" value="${esc(d.price_range||'')}"></label><label>Home Delivery<select name="delivery_available"><option value="yes" ${d.delivery_available?'selected':''}>Yes</option><option value="no" ${d.delivery_available===false?'selected':''}>No</option></select></label><label class="full">Description<textarea required name="description" rows="4">${esc(d.description||'')}</textarea></label><label class="full">Food Photos / Videos<input type="file" accept="image/*,video/*" multiple ${busy?'disabled':''} onchange="aaMediaDraftAddFiles('food',this.files);this.value=''"></label></div><p class="notice" style="margin-top:8px">Tap ★ to set the cover, ◀▶ to reorder, ✕ to remove. Tap a thumbnail to preview it full-screen.</p>${aaMediaGalleryHTML(aaMediaDraftGet('food').items,{editable:true,draftKey:'food',emptyText:'No photos or videos added yet.'})}<div class="details-actions" style="margin-top:10px"><button class="btn" type="button" ${busy?'disabled':''} onclick="aaOpenDualCamera('food')">Record Video</button>${editItem?`<button class="btn" type="button" ${busy?'disabled':''} onclick="aaCancelFoodEdit()">Cancel</button>`:''}<button class="btn btn-red" type="submit" ${busy?'disabled':''}>${busy?(state.foodPublishProgress||'Publishing…'):(editItem?'Save Changes':'Save Business')}</button></div></form></div>`;
 }
-function aaEditFoodBusiness(id){
+async function aaEditFoodBusiness(id){
  const item=aaFoods().find(x=>String(x.id)===String(id));
  if(!item)return;
  if(item._localOnly){toast("This business is stored locally only and can't be edited online yet. Delete and re-post it to make changes.");return}
- if(!state.user?.id||String(item.user_id||'')!==String(state.user.id)){toast('You can only edit your own Food business.');return}
+ const allowed=await aaCanManageBusinessAction({businessType:"food_business",businessId:id,ownerId:item.user_id,permission:"edit_business"});
+ if(!allowed){toast('You do not have permission to edit this business.');return}
  state.foodEditId=id;
  state.foodTab='post';
  state.view='food';
@@ -9962,11 +9967,16 @@ async function aaSubmitFood(e){
    const original=aaFoods().find(x=>String(x.id)===String(editId));
    if(!original){toast('This business could not be found.');state.foodEditId=null;return}
    if(original._localOnly){toast("This business is stored locally only and can't be edited online yet. Delete and re-post it to make changes.");return}
-   if(String(original.user_id||'')!==String(state.user.id)){toast('You can only edit your own Food business.');return}
+   const canEdit=await aaCanManageBusinessAction({businessType:"food_business",businessId:editId,ownerId:original.user_id,permission:"edit_business"});
+   if(!canEdit){toast('You do not have permission to edit this business.');return}
    const keptMedia=aaMediaDraftKeptExisting('food');
    const removedPaths=aaMediaDraftRemovedPaths('food');
    const newFiles=aaMediaDraftFilesForUpload('food');
-   const upload=newFiles.length?await aaUploadFoodMedia(newFiles,state.user.id,editId,(n,total)=>{state.foodPublishProgress=`Uploading file ${n} of ${total}…`;render()}):{media:[],paths:[],error:null};
+   if(newFiles.length&&String(original.user_id||'')!==String(state.user.id)){
+    const canUploadMedia=await aaCanManageBusinessAction({businessType:"food_business",businessId:editId,ownerId:original.user_id,permission:"manage_media"});
+    if(!canUploadMedia){toast('The business owner has not permitted media management.');return}
+   }
+   const upload=newFiles.length?await aaUploadFoodMedia(newFiles,original.user_id,editId,(n,total)=>{state.foodPublishProgress=`Uploading file ${n} of ${total}…`;render()}):{media:[],paths:[],error:null};
    if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error));return}
    const payload={...basePayload,media:[...keptMedia,...upload.media]};
    state.foodPublishProgress='Saving listing…';render();
@@ -10135,7 +10145,7 @@ async function aaInsertFoodMenuItem(payload){
 }
 async function aaUpdateFoodMenuItem(id,payload){
  if(!sb||!state.user?.id)return {data:null,error:new Error('No database session')};
- return await sb.from('food_menu_items').update(payload).eq('id',id).eq('user_id',state.user.id).select().single();
+ return await sb.from('food_menu_items').update(payload).eq('id',id).select().single();
 }
 async function aaVerifyFoodMenuItem(id){
  if(!sb||!id)return {data:null,error:new Error('Cannot verify saved item without database connection.')};
@@ -10445,6 +10455,7 @@ function aaFoodMineHTML(a){
    <div class="details-actions" style="margin-top:8px">
     <button class="btn btn-gold" onclick="aaOpenFoodMenu('${esc(f.id)}')">Manage Menu</button>
     <button class="btn" onclick="aaEditFoodBusiness('${esc(f.id)}')">Edit</button>
+    <button class="btn" onclick="aaOpenInviteAgentModal('food_business','${esc(f.id)}')">Invite Agent</button>
    </div>
    <button class="btn btn-red" style="width:100%;margin-top:8px" onclick="aaDeleteFoodBusiness('${esc(f.id)}')">Delete</button>
   </div>`;
@@ -10677,7 +10688,7 @@ ${state.view==="home"?`<div class="aa-assistant-nav-wrap" id="aaAssistantNavWrap
     </div>
   </nav>
  </div>`:""}
- ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   aaDynamicAdAfterRender();
@@ -11025,7 +11036,7 @@ function sellerHTML(s,cars){
   return `<div class="aa-review"><div><span class="aa-rating-stars">${starsHTML(r.rating)}</span>${r.rating?` <span style="font-size:9px;color:#7f8ba0">${r.rating}/5</span>`:""}${ownerEntry?` <span class="meta">(owner comment — not counted)</span>`:""}</div>${r.text?`<div style="font-size:11px;line-height:1.5;margin-top:4px">${esc(r.text)}</div>`:""}<div style="font-size:9px;color:#7f8ba0;margin-top:4px">${esc(r.author||"Bingo Member")}</div>${r.reply?`<div class="notice" style="margin-top:8px"><b>${esc(r.replyAuthor||s.name)} replied:</b><br>${esc(r.reply)}</div>`:""}${canReply?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><textarea id="reviewReply_${esc(String(r.id))}" class="field" rows="2" placeholder="Reply to this review..."></textarea><button class="btn" style="width:100%;margin-top:6px" onclick='replyToProfileReview(${JSON.stringify(String(r.id))})'>Reply</button></div>`:""}</div>`;
  }).join(""):`<div class="notice">No reviews yet. Be the first logged-in member to review this profile.</div>`;
 
- return `<section style="padding:20px 0 100px"><button class="btn" onclick="goHome()">Back</button><div class="modal ${s.gold?"aa-gold-qualified":""}" style="max-height:none;margin-top:12px"><div class="profile-head"><div style="position:relative"><img class="profile-photo" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)"><div style="position:absolute;right:0;bottom:4px;background:#071020;border-radius:99px;padding:3px 5px">${aaPresenceBadge(s)}</div></div><div>${aaFollowTopControlHTML(s)}<h2>${esc(s.name)}</h2>${aaFollowStatsHTML(sellerKey,true)}${s.location?`<p>${esc(s.location)}</p>`:""}<p>${esc(s.bio)}</p><small style="color:#f5b91e;font-weight:900">${s.gold?"Gold Member":"Bingo Member"}</small></div></div><div class="boost-summary" style="margin-top:12px"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div><div class="notice">${rs.count} review${rs.count===1?"":"s"}</div></div><div class="details-actions" style="margin-top:14px"><button class="btn" type="button" data-aa-call="seller">Call</button><button class="btn btn-green" onclick="contact('whatsapp',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}'})">WhatsApp</button><button class="btn btn-red" onclick="contact('chat',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}',sellerGold:${s.gold?"true":"false"},title:'Profile conversation'})">Bingo Chat</button></div>${own?`${aaPostTodayHTML()}${aaMyTopicsHTML()}${aaAgentProfilePanelHTML()}<div class="aa-room-reward"><b>${gold()?"★ GOLD MEMBER":"Community Gold Progress"}</b><br>Accepted Solution Room answers: ${aaAcceptedSolutionsFor(state.user?.id)}/${aaGoldAcceptedTarget()}. Outstanding Gold Members may qualify for annual Bingo recognition and rewards.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+ return `<section style="padding:20px 0 100px"><button class="btn" onclick="goHome()">Back</button><div class="modal ${s.gold?"aa-gold-qualified":""}" style="max-height:none;margin-top:12px"><div class="profile-head"><div style="position:relative"><img class="profile-photo" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)"><div style="position:absolute;right:0;bottom:4px;background:#071020;border-radius:99px;padding:3px 5px">${aaPresenceBadge(s)}</div></div><div>${aaFollowTopControlHTML(s)}<h2>${esc(s.name)}</h2>${aaFollowStatsHTML(sellerKey,true)}${s.location?`<p>${esc(s.location)}</p>`:""}${aaMemberSinceHTML(s)}<p>${esc(s.bio)}</p><small style="color:#f5b91e;font-weight:900">${s.gold?"Gold Member":"Bingo Member"}</small></div></div><div class="boost-summary" style="margin-top:12px"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div><div class="notice">${rs.count} review${rs.count===1?"":"s"}</div></div><div class="details-actions" style="margin-top:14px"><button class="btn" type="button" data-aa-call="seller">Call</button><button class="btn btn-green" onclick="contact('whatsapp',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}'})">WhatsApp</button><button class="btn btn-red" onclick="contact('chat',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}',sellerGold:${s.gold?"true":"false"},title:'Profile conversation'})">Bingo Chat</button></div>${own?`${aaPostTodayHTML()}${aaMyTopicsHTML()}${aaAgentProfilePanelHTML()}<div class="aa-room-reward"><b>${gold()?"★ GOLD MEMBER":"Community Gold Progress"}</b><br>Accepted Solution Room answers: ${aaAcceptedSolutionsFor(state.user?.id)}/${aaGoldAcceptedTarget()}. Outstanding Gold Members may qualify for annual Bingo recognition and rewards.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
 <button class="btn btn-gold" style="width:100%" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">Edit My Profile</button>
 <button class="btn" style="width:100%" onclick="openInbox()">✉ Messages${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button>
 </div><div class="aa-owner-posts-panel"><div class="aa-owner-posts-head"><h3>My Vehicle Posts</h3><span class="aa-owner-posts-count">${aaOwnActiveListings().length}/15 Active</span></div><div class="aa-owner-posts-note">Your published videos and photos are arranged below. Tap a post to open it, or use × to delete it.</div>${cars.length?`<div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,true)).join("")}</div>`:`<div class="notice">No active vehicle posts.</div>`}</div><div class="boost-summary"><b>Deleted Items · 30-day recovery</b>${aaTrashHTML()}</div>`:""}<div class="boost-summary"><b>Reviews</b>${reviewList}${state.isLoggedIn?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><label class="form-label">Your rating (optional)</label><select id="profileRating" class="field"><option value="0">No star rating</option><option value="5">★★★★★ 5</option><option value="4">★★★★☆ 4</option><option value="3">★★★☆☆ 3</option><option value="2">★★☆☆☆ 2</option><option value="1">★☆☆☆☆ 1</option></select><label class="form-label" style="margin-top:8px">Your review (optional)</label><textarea id="profileReview" class="field" rows="3" placeholder="${own?"Owner comments are allowed but do not count toward your profile rating.":"Write a review about this profile..."}"></textarea><button class="btn btn-red" style="width:100%;margin-top:8px" onclick='submitProfileReview(${JSON.stringify(sellerKey)})'>Submit Review</button></div>`:`<div class="notice">Sign up / log in to submit a rating or review.</div>`}</div>${own?"":`<div class="section-title" style="margin-top:18px"><h2>More vehicles by ${esc(s.name)}</h2></div><div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,false)).join("")||"<p>No other listings yet.</p>"}</div>`}</div></section>`
@@ -11211,16 +11222,27 @@ function aaAnnounceAgentIntroEligibility(item){
    and save() never persists it, so a forged local flag grants nothing. */
 function aaIsSuperUser(){return state.userRole?.role==="super_user"}
 function aaIsAgentRole(){return state.userRole?.role==="agent"}
+function aaCanUseAgentDashboard(){
+ return Boolean(state.user?.id&&state.userRole?.role==="agent"&&state.userRole?.agent_status!=="suspended"&&state.userRole?.agent_status!=="revoked");
+}
+function aaMemberSinceHTML(profile){
+ const createdAt=profile?.memberSince||profile?.created_at||null;
+ if(!createdAt)return "";
+ const date=new Date(createdAt);
+ if(Number.isNaN(date.getTime()))return "";
+ const label=new Intl.DateTimeFormat("en-KE",{month:"long",year:"numeric"}).format(date);
+ return `<div class="aa-member-since">Member since ${esc(label)}</div>`;
+}
 function aaAgentTerritory(){return state.userRole?.territory||""}
 async function aaLoadUserRole(){
- if(!sb||!state.user?.id){state.userRole={role:"member",territory:""};return}
+ if(!sb||!state.user?.id){state.userRole={role:"member",territory:"",agent_since:null,agent_status:"inactive"};return}
  try{
-  const {data,error}=await sb.from("bingo_user_roles").select("role,territory").eq("user_id",state.user.id).maybeSingle();
+  const {data,error}=await sb.from("bingo_user_roles").select("role,territory,agent_since,agent_status").eq("user_id",state.user.id).maybeSingle();
   if(error)throw error;
-  state.userRole={role:data?.role||"member",territory:data?.territory||""};
+  state.userRole={role:data?.role||"member",territory:data?.territory||"",agent_since:data?.agent_since||null,agent_status:data?.agent_status||"inactive"};
  }catch(e){
   console.warn("Bingo: could not verify account role — defaulting to member.",String(e?.message||e));
-  state.userRole={role:"member",territory:""};
+  state.userRole={role:"member",territory:"",agent_since:null,agent_status:"inactive"};
  }
  await aaDeliverRoleNotifications();
  await aaDeliverModerationNotifications();
@@ -11333,6 +11355,7 @@ function aaOpenSuperUserDashboard(){
  aaLoadRoleAuditLog();
  aaLoadModerationCases();
  aaLoadAdCampaigns();
+ aaLoadAgentSalaryDirectory();
  render();window.scrollTo(0,0);
 }
 function aaReturnToSuperUserDashboard(){aaOpenSuperUserDashboard()}
@@ -11826,6 +11849,249 @@ function aaAdManagerHTML(){
   <div style="margin-top:12px">${!list.length?'<p class="notice">No campaigns yet.</p>':list.map(c=>aaAdCampaignRowHTML(c)).join("")}</div>
  </div>`;
 }
+
+/* ---- Agent client target, salary and business management ----
+   Additive on top of the existing verified Agent role (Change 03) and the
+   existing Agent Dashboard / Switch-to-Agent toggle (state.agentModeActive)
+   — this module never duplicates either, it only adds the salary cycle and
+   the owner-granted business-management-access layer behind them. The
+   client-side checks below are interface control only; every one of them
+   is re-verified server-side by bingo_agent_can_manage_business and the
+   RLS policies in bingo_change_agent_salary_and_business_access.sql. */
+async function aaLoadAgentSalarySummary(){
+ if(!aaCanUseAgentDashboard()){state.agentSalarySummary=null;return null}
+ if(!sb){toast("The Agent salary service is not connected.");return null}
+ const result=await sb.rpc("bingo_agent_salary_summary");
+ if(result.error){console.error("Agent salary summary failed",result.error);toast("Your Agent salary information could not be loaded.");return null}
+ state.agentSalarySummary=result.data||null;
+ return state.agentSalarySummary;
+}
+function aaAgentSalaryStatusHTML(summary){
+ if(!summary)return `<section class="aa-v69-card aa-agent-salary-card"><p class="notice">Salary information is not available yet.</p></section>`;
+ const qualifiedClients=Math.max(0,Number(summary.qualified_clients||0));
+ const requiredClients=Number(summary.required_clients||2);
+ const progress=Math.min(100,qualifiedClients/requiredClients*100);
+ const salaryStatus=String(summary.salary_status||"locked");
+ const salaryUnlocked=["unlocked","approved","paid"].includes(salaryStatus);
+ const statusLabel=salaryUnlocked?salaryStatus.toUpperCase():"SALARY LOCKED";
+ const startLabel=summary.cycle_start?new Date(summary.cycle_start).toLocaleDateString("en-KE",{day:"numeric",month:"short",year:"numeric"}):"";
+ const endLabel=summary.cycle_end?new Date(summary.cycle_end).toLocaleDateString("en-KE",{day:"numeric",month:"short",year:"numeric"}):"";
+ return `<section class="aa-v69-card aa-agent-salary-card">
+  <div class="aa-agent-salary-heading">
+   <div><h3>Monthly Agent Salary</h3><div class="meta">${esc(startLabel)} – ${esc(endLabel)}</div></div>
+   <span class="aa-sub-pill ${salaryUnlocked?"active":"expired"}">${esc(statusLabel)}</span>
+  </div>
+  <div class="aa-agent-salary-amount">KSh 35,000</div>
+  <div class="aa-agent-client-progress"><div class="aa-agent-client-progress-fill" style="width:${progress}%"></div></div>
+  <div class="aa-agent-client-count"><strong>${Math.min(qualifiedClients,requiredClients)} of ${requiredClients} qualified clients</strong></div>
+  ${salaryUnlocked?`<p>You have reached your client target for this salary cycle.</p>`:`<p>Obtain ${Math.max(0,requiredClients-qualifiedClients)} more qualified client${requiredClients-qualifiedClients===1?"":"s"} to unlock this month's salary.</p>`}
+  ${summary.payment_reference?`<div class="notice">Payment reference: ${esc(summary.payment_reference)}</div>`:""}
+ </section>`;
+}
+async function aaLoadAgentManagedBusinesses(){
+ if(!aaCanUseAgentDashboard()||!sb){state.agentManagedBusinesses=[];return}
+ try{
+  const {data,error}=await sb.from("bingo_business_agent_access").select("*").eq("agent_id",state.user.id).eq("invitation_status","accepted").order("accepted_at",{ascending:false});
+  if(error)throw error;
+  state.agentManagedBusinesses=Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load managed businesses.",String(e?.message||e));state.agentManagedBusinesses=[]}
+}
+async function aaLoadAgentInvitations(){
+ if(!aaCanUseAgentDashboard()||!sb){state.agentInvitations=[];return}
+ try{
+  const {data,error}=await sb.from("bingo_business_agent_access").select("*").eq("agent_id",state.user.id).eq("invitation_status","pending").order("invited_at",{ascending:false});
+  if(error)throw error;
+  state.agentInvitations=Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load Agent invitations.",String(e?.message||e));state.agentInvitations=[]}
+}
+async function aaLoadAgentDashboardExtras(){
+ if(!aaCanUseAgentDashboard())return;
+ await Promise.all([aaLoadAgentSalarySummary(),aaLoadAgentManagedBusinesses(),aaLoadAgentInvitations()]);
+}
+async function aaCanManageBusinessAsAgent(businessType,businessId,permission){
+ if(!aaCanUseAgentDashboard()||!sb)return false;
+ const cacheKey=[businessType,businessId,permission].join(":");
+ const cached=state.agentPermissionCache?.[cacheKey];
+ if(cached&&Date.now()-cached.checkedAt<30000)return cached.allowed===true;
+ const result=await sb.rpc("bingo_agent_can_manage_business",{p_business_type:businessType,p_business_id:businessId,p_permission:permission});
+ if(result.error){console.error("Agent permission check failed",result.error);return false}
+ const allowed=result.data===true;
+ state.agentPermissionCache=state.agentPermissionCache||{};
+ state.agentPermissionCache[cacheKey]={allowed,checkedAt:Date.now()};
+ return allowed;
+}
+async function aaCanManageBusinessAction({businessType,businessId,ownerId,permission}){
+ const currentUserId=String(state.user?.id||"");
+ if(!currentUserId)return false;
+ if(ownerId&&String(ownerId)===currentUserId)return true;
+ return await aaCanManageBusinessAsAgent(businessType,businessId,permission);
+}
+async function aaFindAgentByEmail(email){
+ if(!sb)return {data:null,error:new Error("No database connection.")};
+ const clean=String(email||"").trim();
+ if(!clean)return {data:null,error:new Error("Enter an email address to search.")};
+ try{
+  const {data,error}=await sb.rpc("bingo_find_agent_by_email",{p_email:clean});
+  if(error)throw error;
+  const row=Array.isArray(data)?data[0]:data;
+  if(!row)return {data:null,error:new Error("No active Bingo Agent is registered with that email.")};
+  return {data:row,error:null};
+ }catch(e){return {data:null,error:new Error(String(e?.message||e))}}
+}
+function aaOpenInviteAgentModal(businessType,businessId){
+ if(!state.isLoggedIn){openAuth("login");return}
+ state.agentInviteTarget={businessType,businessId,foundAgent:null,searchEmail:""};
+ render();
+}
+function aaCloseInviteAgentModal(){state.agentInviteTarget=null;render()}
+async function aaSearchInviteAgent(){
+ const t=state.agentInviteTarget;if(!t)return;
+ const email=document.getElementById("aaInviteAgentEmail")?.value||"";
+ t.searchEmail=email;
+ const {data,error}=await aaFindAgentByEmail(email);
+ if(error){toast(String(error.message||error));t.foundAgent=null;render();return}
+ t.foundAgent=data;
+ render();
+}
+function aaInviteAgentModalHTML(){
+ const t=state.agentInviteTarget;if(!t)return "";
+ const perms=["edit_business","manage_listings","manage_media","manage_menu","publish","manage_boost","view_enquiries"];
+ const labels={edit_business:"Edit business profile",manage_listings:"Create and edit listings",manage_media:"Upload photos and videos",manage_menu:"Manage Food Menu",publish:"Publish posts",manage_boost:"Initiate boosts",view_enquiries:"View business enquiries"};
+ return `<div class="overlay"><div class="modal">
+  <button class="close" onclick="aaCloseInviteAgentModal()">×</button>
+  <h2>Invite a Bingo Agent</h2>
+  <p class="notice" style="margin-top:0">The Agent gains access only after they accept, and only for the permissions you select below. You can revoke access at any time.</p>
+  <label class="form-label">Agent's registered email</label>
+  <input class="field" id="aaInviteAgentEmail" value="${esc(t.searchEmail)}" placeholder="agent@example.com">
+  <button class="btn" style="width:100%;margin-top:8px" onclick="aaSearchInviteAgent()">Search</button>
+  ${t.foundAgent?`<div class="boost-summary" style="margin-top:10px;border-color:var(--gold)"><b>${esc(t.foundAgent.full_name||"Bingo Agent")}</b><div class="meta">Territory: ${esc(t.foundAgent.territory||"—")}</div></div>
+   <label class="form-label" style="margin-top:8px">Permissions</label>
+   ${perms.map(p=>`<label style="font-size:11px;display:flex;gap:6px;align-items:center;margin-top:4px"><input type="checkbox" id="aaInvitePerm_${p}"> ${esc(labels[p])}</label>`).join("")}
+   <button class="btn btn-red" style="width:100%;margin-top:10px" onclick="aaSubmitAgentInvite()">Send Invitation</button>
+  `:""}
+ </div></div>`;
+}
+async function aaSubmitAgentInvite(){
+ const t=state.agentInviteTarget;if(!t||!t.foundAgent)return;
+ const perms=["edit_business","manage_listings","manage_media","manage_menu","publish","manage_boost","view_enquiries"];
+ const payload={};
+ perms.forEach(p=>{payload[p]=!!document.getElementById("aaInvitePerm_"+p)?.checked});
+ await aaOwnerInviteAgent(t.businessType,t.businessId,t.foundAgent.user_id,payload);
+ aaCloseInviteAgentModal();
+}
+async function aaReloadBusinessAgentAccess(businessType,businessId){
+ /* Interface-only refresh hook the invite flow calls after a successful
+    invite; the owner's own view of a business's Agent access currently
+    lives inline wherever it was opened, so this just re-renders. */
+ render();
+}
+async function aaOwnerInviteAgent(businessType,businessId,agentAccountId,permissions){
+ if(!state.isLoggedIn||!sb){openAuth("login");return}
+ const result=await sb.rpc("bingo_owner_invite_agent",{p_business_type:businessType,p_business_id:businessId,p_agent_id:agentAccountId,p_permissions:permissions});
+ if(result.error){toast("Agent invitation failed: "+String(result.error.message||result.error));return}
+ toast("Agent invitation sent. Access begins only after acceptance.");
+ await aaReloadBusinessAgentAccess(businessType,businessId);
+ render();
+}
+async function aaAgentAcceptInvitation(accessId){
+ if(!aaCanUseAgentDashboard()||!sb)return;
+ const result=await sb.rpc("bingo_agent_accept_business_invitation",{p_access_id:accessId});
+ if(result.error){toast("The invitation could not be accepted.");return}
+ state.agentPermissionCache={};
+ toast("Business management access activated.");
+ await aaLoadAgentDashboardExtras();
+ render();
+}
+async function aaAgentRejectInvitation(accessId){
+ if(!aaCanUseAgentDashboard()||!sb)return;
+ const result=await sb.rpc("bingo_agent_reject_business_invitation",{p_access_id:accessId});
+ if(result.error){toast("The invitation could not be rejected.");return}
+ state.agentPermissionCache={};
+ await aaLoadAgentDashboardExtras();
+ render();
+}
+async function aaOwnerRevokeAgentAccess(accessId){
+ if(!state.isLoggedIn||!sb)return;
+ if(!confirm("Remove this Agent from the business?"))return;
+ const result=await sb.rpc("bingo_owner_revoke_agent_access",{p_access_id:accessId});
+ if(result.error){toast("Agent access could not be removed.");return}
+ toast("Agent access removed.");
+ render();
+}
+function aaAgentInvitationsHTML(){
+ const list=Array.isArray(state.agentInvitations)?state.agentInvitations:[];
+ if(!list.length)return `<p class="notice">No pending invitations.</p>`;
+ return list.map(a=>`<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
+  <b style="font-size:12px">${esc(a.business_type)} · ${esc(String(a.business_id).slice(0,8))}…</b>
+  <div class="meta">Invited ${new Date(a.invited_at).toLocaleString()}</div>
+  <div class="details-actions" style="margin-top:6px">
+   <button class="small-btn" onclick='aaAgentAcceptInvitation(${JSON.stringify(a.id)})'>Accept</button>
+   <button class="small-btn" onclick='aaAgentRejectInvitation(${JSON.stringify(a.id)})'>Reject</button>
+  </div>
+ </div>`).join("");
+}
+function aaAgentManagedBusinessesHTML(){
+ const list=Array.isArray(state.agentManagedBusinesses)?state.agentManagedBusinesses:[];
+ if(!list.length)return `<p class="notice">No businesses have been granted to you yet. An owner invites you from their own business.</p>`;
+ const permLabels={can_edit_business:"Edit",can_manage_listings:"Listings",can_manage_media:"Media",can_manage_menu:"Menu",can_publish:"Publish",can_manage_boost:"Boost",can_view_enquiries:"Enquiries"};
+ return list.map(a=>`<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
+  <b style="font-size:12px">${esc(a.business_type)} · ${esc(String(a.business_id).slice(0,8))}…</b>
+  <div class="meta">Accepted ${a.accepted_at?new Date(a.accepted_at).toLocaleDateString():""}</div>
+  <div class="meta">${Object.keys(permLabels).filter(k=>a[k]).map(k=>permLabels[k]).join(", ")||"No permissions granted"}</div>
+ </div>`).join("");
+}
+async function aaOpenAuthorizedBoost({businessType,businessId,listingId,ownerId}){
+ if(!state.isLoggedIn){openAuth("login");return}
+ const currentUserId=String(state.user?.id||"");
+ const isOwner=ownerId&&String(ownerId)===currentUserId;
+ const isAuthorizedAgent=!isOwner&&await aaCanManageBusinessAsAgent(businessType,businessId,"manage_boost");
+ if(!isOwner&&!isAuthorizedAgent){toast("Only the owner or an approved Agent can manage this boost.");return}
+ state.boostContext={businessType,businessId,listingId,ownerId,initiatedBy:currentUserId,initiatedByAgent:isAuthorizedAgent};
+ const target=(state.listings||[]).find(x=>String(x.id)===String(listingId))||aaProperties().find(x=>String(x.id)===String(listingId));
+ if(target)openBoost(target);
+}
+async function aaLoadAgentSalaryDirectory(){
+ if(!aaIsSuperUser()||!sb)return;
+ try{
+  const {data,error}=await sb.rpc("bingo_admin_agent_salary_directory");
+  if(error)throw error;
+  state.agentSalaryDirectory=Array.isArray(data)?data:[];
+ }catch(e){console.warn("Bingo: could not load Agent salary directory.",String(e?.message||e));state.agentSalaryDirectory=[]}
+}
+async function aaAdminApproveAgentSalary(cycleId){
+ if(!aaIsSuperUser()||!sb)return;
+ const result=await sb.rpc("bingo_admin_approve_agent_salary",{p_cycle_id:cycleId});
+ if(result.error){toast("Salary approval failed: "+result.error.message);return}
+ toast("Agent salary approved.");
+ await aaLoadAgentSalaryDirectory();
+ render();
+}
+async function aaAdminMarkAgentSalaryPaid(cycleId){
+ if(!aaIsSuperUser()||!sb)return;
+ const reference=prompt("Enter the salary payment reference:");
+ if(!reference||!reference.trim()){toast("Enter the salary payment reference.");return}
+ const result=await sb.rpc("bingo_admin_mark_agent_salary_paid",{p_cycle_id:cycleId,p_payment_reference:reference.trim()});
+ if(result.error){toast("Salary payment could not be recorded.");return}
+ toast("Agent salary marked as paid.");
+ await aaLoadAgentSalaryDirectory();
+ render();
+}
+function aaAgentSalaryDirectoryHTML(){
+ const list=Array.isArray(state.agentSalaryDirectory)?state.agentSalaryDirectory:[];
+ if(!list.length)return `<p class="notice">No approved Agents yet.</p>`;
+ return list.map(a=>`<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
+  <b style="font-size:12px">${esc(a.full_name||a.email)}</b> <span class="meta">· ${esc(a.territory||"No territory")}</span>
+  <div class="meta">Appointed ${a.agent_since?new Date(a.agent_since).toLocaleString():"—"} · Status: ${esc(a.agent_status||"inactive")}</div>
+  ${a.cycle_id?`<div class="meta">Cycle ${a.cycle_number}: ${new Date(a.cycle_start).toLocaleDateString()} – ${new Date(a.cycle_end).toLocaleDateString()} · ${a.qualified_clients}/2 clients</div>
+   <span class="aa-sub-pill ${["unlocked","approved","paid"].includes(a.salary_status)?"active":"expired"}">${esc(String(a.salary_status||"locked").toUpperCase())}</span>
+   ${a.payment_reference?`<div class="meta">Reference: ${esc(a.payment_reference)}</div>`:""}
+   <div class="details-actions" style="margin-top:6px">
+    ${a.salary_status==="unlocked"?`<button class="small-btn" onclick='aaAdminApproveAgentSalary(${JSON.stringify(a.cycle_id)})'>Approve Salary</button>`:""}
+    ${a.salary_status==="approved"?`<button class="small-btn" onclick='aaAdminMarkAgentSalaryPaid(${JSON.stringify(a.cycle_id)})'>Mark as Paid</button>`:""}
+   </div>`:`<div class="meta">No salary cycle yet.</div>`}
+ </div>`).join("");
+}
+
 async function aaSuperUserSearchEmail(){
  if(!aaIsSuperUser())return;
  const email=document.getElementById("aaSuperUserEmailInput")?.value||"";
@@ -11839,10 +12105,11 @@ async function aaSuperUserSearchEmail(){
 
 /* ---- Switch to Agent / Back to My Profile ---- */
 function aaSwitchToAgent(){
- if(!aaIsAgentRole()){toast("This account does not have Agent status.");return}
+ if(!aaCanUseAgentDashboard()){toast("Your account does not have an active Agent role.");return}
  state.agentModeActive=true;
  render();window.scrollTo(0,0);
  aaLoadModerationCases().then(render);
+ aaLoadAgentDashboardExtras().then(render);
 }
 function aaBackToMyProfile(){
  state.agentModeActive=false;
@@ -11885,10 +12152,13 @@ function aaAgentDashboardHTML(){
   <button class="btn" onclick="aaBackToMyProfile()">← Back to My Profile</button>
   <h2 style="margin-top:12px">Agent Dashboard</h2>
   <p class="notice" style="margin-top:0">Territory: <b style="color:var(--gold)">${esc(aaAgentTerritory()||"Not set")}</b> · This is the same Bingo account — switching modes never logs you out.</p>
+  ${aaAgentSalaryStatusHTML(state.agentSalarySummary)}
   ${aaAgentPerformanceHTML()}
   <div class="dashboard-actions" style="margin-top:12px">
    <button class="btn btn-red" onclick="aaOpenAgentAddBusiness()">+ Add Business</button>
    <button class="btn" onclick="state.agentDashView='mine';render()">My Businesses</button>
+   <button class="btn" onclick="state.agentDashView='managed';render()">Managed Businesses</button>
+   <button class="btn" onclick="state.agentDashView='invitations';render()">Invitations${state.agentInvitations?.length?` (${state.agentInvitations.length})`:""}</button>
    <button class="btn" onclick="state.agentDashView='commission';render()">Commission</button>
    <button class="btn" onclick="state.agentDashView='withdrawals';render()">Withdrawals</button>
    <button class="btn" onclick="state.agentDashView='moderation';render()">Moderation</button>
@@ -11897,6 +12167,8 @@ function aaAgentDashboardHTML(){
   ${state.agentDashView==="commission"?`<div class="boost-summary" style="margin-top:12px"><b>Commission (${aaCommissionRate()}% of eligible Bingo revenue)</b>${!aaAgentLedger(uid).length?'<p class="notice">No commission recorded yet — commission accrues automatically when a business you onboarded is successfully boosted.</p>':aaAgentLedger(uid).map(l=>`<div class="aa-boost-summary-row"><span>${esc(l.businessName)} · ${new Date(l.createdAt).toLocaleDateString()}</span><b style="color:#f5b91e">+KES ${money(l.commission)}</b></div>`).join("")}<div class="aa-boost-summary-row" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span>Total eligible commission</span><b style="color:#f5b91e;font-size:15px">KES ${money(totals.earned)}</b></div></div>`:""}
   ${state.agentDashView==="withdrawals"?aaAgentWithdrawalsHTML():""}
   ${state.agentDashView==="moderation"?`<div class="boost-summary" style="margin-top:12px"><b>Assigned Moderation Cases</b><p class="notice" style="margin-top:0">Only cases the Super User has assigned to you appear here, and only Dismiss / Request Edit are available to Agents.</p>${aaAgentModerationQueueHTML()}</div>`:""}
+  ${state.agentDashView==="managed"?`<div class="boost-summary" style="margin-top:12px"><b>Businesses You Manage</b><p class="notice" style="margin-top:0">Only the permissions the owner granted you are usable — you can never change ownership, payment records or your own permissions.</p>${aaAgentManagedBusinessesHTML()}</div>`:""}
+  ${state.agentDashView==="invitations"?`<div class="boost-summary" style="margin-top:12px"><b>Pending Invitations</b>${aaAgentInvitationsHTML()}</div>`:""}
  </div></section>`;
 }
 function aaAgentWithdrawalsHTML(){
@@ -11990,8 +12262,10 @@ function aaRecordAgentCommissionIfApplicable(item,paidAmount){
 
 function aaAgentProfilePanelHTML(){
  let out="";
- if(aaIsAgentRole()){
+ if(aaCanUseAgentDashboard()){
   out+=`<div class="boost-summary" style="margin-top:12px;border-color:var(--gold)"><b style="color:var(--gold)">Bingo Agent — ${esc(aaAgentTerritory())}</b><p class="notice" style="margin-top:4px">You have Agent status on this same Bingo account.</p><button class="btn btn-gold" style="width:100%;margin-top:6px" onclick="aaSwitchToAgent()">Switch to Agent</button></div>`;
+ }else if(aaIsAgentRole()){
+  out+=`<div class="boost-summary" style="margin-top:12px"><b>Bingo Agent — ${esc(aaAgentTerritory())}</b><p class="notice" style="margin-top:4px">Your Agent access is currently ${esc(state.userRole?.agent_status||"inactive")}. Contact Bingo support if you believe this is incorrect.</p></div>`;
  }
  if(aaIsSuperUser()){
   out+=`<div class="boost-summary" style="margin-top:12px;border-color:var(--gold)"><b style="color:var(--gold)">Super User</b><p class="notice" style="margin-top:4px">This account is verified as a platform administrator against your Supabase account role.</p><button class="btn btn-gold" style="width:100%;margin-top:6px" onclick="aaOpenSuperUserDashboard()">Open Super User Dashboard</button></div>`;
@@ -12056,6 +12330,11 @@ function aaSuperUserDashboardHTML(){
    ${aaAllPostsHTML()}
   </div>
   ${aaAdManagerHTML()}
+  <div class="boost-summary" style="margin-top:14px">
+   <b>Agent Salaries</b>
+   <p class="notice" style="margin-top:0">Each Agent's current monthly salary cycle. Approve only an unlocked cycle, then record payment with a reference.</p>
+   ${aaAgentSalaryDirectoryHTML()}
+  </div>
   <div class="boost-summary" style="margin-top:14px">
    <b>Audit Log</b>
    ${!audit.length?'<p class="notice">No admin actions recorded yet.</p>':audit.map(l=>`<div class="aa-boost-summary-row" style="display:block"><b style="font-size:11px">${esc(l.action)}</b><div class="meta">${new Date(l.created_at).toLocaleString()} · target ${esc(String(l.target_id||"").slice(0,8))}…</div></div>`).join("")}
@@ -13167,6 +13446,7 @@ function aaCloseTopOverlay(){
  if(state.reportTarget){state.reportTarget=null;render();return true}
  if(state.moderationPanelTarget){state.moderationPanelTarget=null;render();return true}
  if(state.adOpen){aaCloseAd();return true}
+ if(state.agentInviteTarget){state.agentInviteTarget=null;render();return true}
  if(state.privacyTarget){state.privacyTarget=null;render();return true}
  if(state.authOpen){state.authOpen=false;state.authError="";render();return true}
  return false;
@@ -18861,6 +19141,16 @@ Preserve all existing onclick actions, routes, forms and button wording.
 
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label{grid-column:1/-1;color:var(--aa-future-gold,#f3be2b);font-size:9.5px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;margin:8px 0 -2px;opacity:.85}
 #auto-arcade-widget #aaAssistantDrawer .aa-drawer-group-label:first-child{margin-top:0}
+</style>
+
+<style id="bingo-agent-salary-style">
+#auto-arcade-widget .aa-agent-salary-card{display:grid;gap:14px;border:1px solid rgba(246,189,25,0.5);background:linear-gradient(145deg,rgba(15,28,48,0.98),rgba(7,14,27,0.98));box-shadow:0 12px 30px rgba(0,0,0,0.28),0 0 22px rgba(246,189,25,0.12)}
+#auto-arcade-widget .aa-agent-salary-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#auto-arcade-widget .aa-agent-salary-amount{color:#ffd348;font-size:clamp(25px,5vw,38px);font-weight:1000;text-shadow:0 0 14px rgba(255,202,40,0.35)}
+#auto-arcade-widget .aa-agent-client-progress{width:100%;height:16px;overflow:hidden;border:1px solid rgba(246,189,25,0.48);border-radius:999px;background:#06101f}
+#auto-arcade-widget .aa-agent-client-progress-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,#f5ae00,#ffe36a);box-shadow:0 0 18px rgba(255,204,45,0.58);transition:width 0.3s ease}
+#auto-arcade-widget .aa-agent-client-count{color:#f4f7ff}
+#auto-arcade-widget .aa-member-since{margin-top:5px;color:#9db0c9;font-size:12px;font-weight:700}
 </style>
 
 <style id="bingo-change07-advertising-style">
