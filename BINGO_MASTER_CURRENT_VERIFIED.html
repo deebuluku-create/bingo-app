@@ -11053,6 +11053,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
           <div class="bcp-grid">
             <button class="bcp-btn" type="button" onclick="aaAssistantCloseDrawer();aa92OpenLiveStudio();"><span class="bcp-ico">&#9673;</span><b>Live Studio</b></button>
             <button class="bcp-btn" onclick="aaAssistantNavigate(openInbox)"><span class="bcp-ico">&#9993;</span><b>Inbox</b>${aaUnreadMessageCount()?`<em class="bcp-badge">${aaUnreadMessageCount()}</em>`:""}</button>
+            <button class="bcp-btn ${state.view==="topics"?"active":""}" onclick="aaAssistantNavigate(aaOpenBingoTopicsFeed)"><span class="bcp-ico">&#9636;</span><b>Public Wall</b><small style="display:block;font-weight:400;font-size:9px;opacity:.75">Topics and community posts</small></button>
           </div>
         </div>
 
@@ -11072,7 +11073,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
     </div>
   </nav>
  </div>`}
- ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   aaDynamicAdAfterRender();
@@ -11503,15 +11504,131 @@ function aaPostTodayRoute(key){
 }
 
 const AA_TOPIC_STYLES=["Standard","Bold","Italic","Gold Premium","Colour Block","Neon","Celebration","Kenyan Theme","Handwritten","Minimal"];
-function aaTopics(){return aaV69Read("aa_bingo_topics",[])}
+const AA_TOPIC_CATEGORIES=["General","Community News","Marketplace Chat","Advice & Help","Events","Automotive","Property","Food & Business","Jobs & Careers","Off-Topic"];
+const AA_TOPIC_MEDIA_BUCKET='topic-media';
+/* ===== Bingo Wall Supabase persistence =====
+   Mirrors the aaProperties()/aaLoadProperties() pattern: state.wallTopics/
+   wallComments/wallReactions/wallSaves are populated from Supabase by
+   aaLoadBingoWall() (called when the Wall is opened, same as properties/
+   food). aa_bingo_topics/aa_topic_saves/aa_topic_reports localStorage
+   remain the state.testMode===true preview-only path and never mix into
+   the cloud lists — same non-mixing rule as aa_v69_properties. */
+function aaTopics(){
+ if(state.testMode)return aaV69Read("aa_bingo_topics",[]);
+ if(!Array.isArray(state.wallTopics)&&!aaWallLoading)aaLoadBingoWall();
+ return Array.isArray(state.wallTopics)?state.wallTopics:[];
+}
+function aaMapBingoTopicRow(row){
+ return {
+  id:row.id,authorId:row.user_id||'',authorName:'',title:row.title||'',body:row.body||'',
+  category:row.category||'General',style:'Standard',
+  media:Array.isArray(row.media)?row.media:[],
+  hiddenFromPublic:row.moderation_status==='hidden',
+  createdAt:row.created_at,_fromDb:true
+ };
+}
+let aaWallLoading=false;
+async function aaLoadBingoWall(){
+ if(state.testMode)return;
+ if(!sb||aaWallLoading)return;
+ aaWallLoading=true;
+ try{
+  const uid=state.user?.id||null;
+  const [topicsRes,commentsRes,reactionsRes,savesRes]=await Promise.all([
+   sb.from('bingo_topics').select('*').order('created_at',{ascending:false}),
+   sb.from('bingo_topic_comments').select('*').eq('moderation_status','visible').order('created_at',{ascending:true}),
+   sb.from('bingo_topic_reactions').select('*'),
+   uid?sb.from('bingo_topic_saves').select('topic_id').eq('user_id',uid):Promise.resolve({data:[],error:null})
+  ]);
+  if(topicsRes.error)throw topicsRes.error;
+  state.wallTopics=(topicsRes.data||[]).map(aaMapBingoTopicRow);
+  state.wallComments=commentsRes.error?[]:(commentsRes.data||[]);
+  state.wallReactions=reactionsRes.error?[]:(reactionsRes.data||[]);
+  state.wallSaves=savesRes.error?[]:(savesRes.data||[]).map(x=>String(x.topic_id));
+ }catch(e){
+  console.warn('Bingo: Public Wall unavailable. Using local cache only.',String(e?.message||e));
+  if(!Array.isArray(state.wallTopics))state.wallTopics=[];
+  if(!Array.isArray(state.wallComments))state.wallComments=[];
+  if(!Array.isArray(state.wallReactions))state.wallReactions=[];
+  if(!Array.isArray(state.wallSaves))state.wallSaves=[];
+ }
+ aaWallLoading=false;
+ render();
+}
+function aaTopicLoveCount(t){
+ if(t._fromDb)return (state.wallReactions||[]).filter(r=>String(r.topic_id)===String(t.id)).length;
+ return t.loves||0;
+}
+function aaTopicHasMyLove(t){
+ if(!t._fromDb)return false;
+ const uid=String(state.user?.id||'');
+ if(!uid)return false;
+ return (state.wallReactions||[]).some(r=>String(r.topic_id)===String(t.id)&&String(r.user_id)===uid);
+}
+function aaTopicCommentsFor(t){
+ if(t._fromDb)return (state.wallComments||[]).filter(c=>String(c.topic_id)===String(t.id)).map(c=>({authorName:aaTopicAuthorMeta({authorId:c.user_id,authorName:''}).name,text:c.body,createdAt:c.created_at}));
+ return t.comments||[];
+}
+let aaTopicMediaCache={};
+let aaTopicMediaFetching={};
+function aaTopicMediaUrl(path){
+ if(!path)return '';
+ if(aaTopicMediaCache[path])return aaTopicMediaCache[path];
+ if(sb&&!aaTopicMediaFetching[path]){
+  aaTopicMediaFetching[path]=true;
+  sb.storage.from(AA_TOPIC_MEDIA_BUCKET).createSignedUrl(path,3600).then(({data,error})=>{
+   if(!error&&data?.signedUrl){aaTopicMediaCache[path]=data.signedUrl;render()}
+  }).catch(()=>{});
+ }
+ return '';
+}
+function aaTopicMediaSrc(item){
+ if(!item)return '';
+ if(item.url)return item.url;
+ if(item.path)return aaTopicMediaUrl(item.path);
+ return '';
+}
+async function aaUploadTopicMedia(files,userId,topicId,onProgress){
+ if(!sb)return {media:[],paths:[],error:new Error('No database connection. Bingo could not reach Supabase.')};
+ if(!files||!files.length)return {media:[],paths:[],error:null};
+ const media=[];const paths=[];
+ try{
+  if(!userId)throw new Error('You must be logged in before uploading media.');
+  if(!topicId)throw new Error('A topic ID is required before media can be stored.');
+  for(let i=0;i<files.length;i++){
+   const file=files[i];
+   if(typeof onProgress==='function')try{onProgress(i+1,files.length)}catch(e){}
+   const isVideo=/^video\//.test(String(file.type||''));
+   const safe=(file.name||`topic-${i}`).replace(/[^a-zA-Z0-9._-]/g,'-');
+   const path=`${userId}/${topicId}/${Date.now()}-${i+1}-${safe}`;
+   let up;
+   try{
+    up=await sb.storage.from(AA_TOPIC_MEDIA_BUCKET).upload(path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
+   }catch(networkError){
+    throw new Error(aaFriendlyStorageError(networkError));
+   }
+   if(up.error)throw new Error(aaFriendlyStorageError(up.error));
+   paths.push(path);
+   media.push({type:isVideo?'video':'image',path,name:file.name||safe});
+  }
+  return {media,paths,error:null};
+ }catch(error){
+  return {media,paths,error:new Error(aaFriendlyStorageError(error))};
+ }
+}
+async function aaDeleteUploadedTopicMedia(paths){
+ if(!sb||!Array.isArray(paths)||!paths.length)return;
+ try{await sb.storage.from(AA_TOPIC_MEDIA_BUCKET).remove(paths)}catch(e){console.warn('Could not clean up failed topic media upload',e)}
+}
 function aaBingoTopicComposerHTML(){
  return `<div class="aa-v69-card" style="margin-top:10px">
-  <h3 style="margin:0 0 10px">Bingo Topics</h3>
+  <h3 style="margin:0 0 10px">Post a Topic</h3>
   <div class="form-grid">
    <input class="field full" id="topicTitle" placeholder="Give your topic a title">
    <textarea class="field full" id="topicBody" rows="3" placeholder="What's on your mind?"></textarea>
+   <select class="field" id="topicCategory">${AA_TOPIC_CATEGORIES.map(s=>`<option>${esc(s)}</option>`).join("")}</select>
    <select class="field" id="topicStyle">${AA_TOPIC_STYLES.map(s=>`<option>${esc(s)}</option>`).join("")}</select>
-   <input class="field" id="topicMedia" type="file" accept="image/*,video/*">
+   <input class="field full" id="topicMedia" type="file" accept="image/*,video/*">
   </div>
   <div class="details-actions" style="margin-top:8px">
    <button class="btn" type="button" onclick="state.postTodayTopicOpen=false;render()">Cancel</button>
@@ -11520,19 +11637,62 @@ function aaBingoTopicComposerHTML(){
  </div>`;
 }
 async function aaPublishBingoTopic(){
+ if(!state.isLoggedIn&&!state.testMode){openAuth("login");return}
  const title=document.getElementById("topicTitle")?.value.trim()||"";
  const body=document.getElementById("topicBody")?.value.trim()||"";
  if(!title&&!body){toast("Add a title or some text before publishing.");return}
+ const category=document.getElementById("topicCategory")?.value||"General";
  const style=document.getElementById("topicStyle")?.value||"Standard";
  const files=document.getElementById("topicMedia")?.files;
- const media=files&&files.length?await aaFileToLocalMedia(files,1):[];
  const hiddenFromPublic=aaContainsProtectedName(title)||aaContainsProtectedName(body);
- const t={id:"topic_"+Date.now(),authorId:state.user?.id||"",authorName:aaOwnProfileName(),title,body,style,media,
-  views:0,loves:0,comments:[],echoes:0,hiddenFromPublic,createdAt:new Date().toISOString()};
- const list=aaTopics();list.unshift(t);aaV69Write("aa_bingo_topics",list);
- state.postTodayTopicOpen=false;
- toast(hiddenFromPublic?"Topic saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Topic published to your profile.");
- render();
+ if(state.testMode){
+  const media=files&&files.length?await aaFileToLocalMedia(files,1):[];
+  const t={id:"topic_"+Date.now(),authorId:state.user?.id||"",authorName:aaOwnProfileName(),title,body,category,style,media,
+   views:0,loves:0,comments:[],echoes:0,hiddenFromPublic,createdAt:new Date().toISOString()};
+  const list=aaTopics();list.unshift(t);aaV69Write("aa_bingo_topics",list);
+  state.postTodayTopicOpen=false;
+  toast(hiddenFromPublic?"Topic saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Topic published to the Public Wall and your profile.");
+  render();
+  return;
+ }
+ if(!sb||!state.user?.id){toast('You must be logged in to publish a topic.');return}
+ if(state.wallPublishBusy)return;
+ state.wallPublishBusy=true;render();
+ try{
+  const userId=state.user.id;
+  const id=(window.crypto&&typeof window.crypto.randomUUID==='function')?window.crypto.randomUUID():aaNewPropertyListingId();
+  // Insert the topic row BEFORE uploading media: the topic-media Storage
+  // policies require a real, already-owned bingo_topics row to exist for
+  // the id in the upload path's second segment (see
+  // supabase/bingo_change_public_wall_topics.sql, section 6).
+  const insertRow={id,user_id:userId,title,body,category,media:[],moderation_status:hiddenFromPublic?'hidden':'visible'};
+  const {data:inserted,error:insErr}=await sb.from('bingo_topics').insert(insertRow).select().maybeSingle();
+  if(insErr){toast('Could not publish topic: '+String(insErr.message||insErr));return}
+  let media=[];
+  if(files&&files.length){
+   const upload=await aaUploadTopicMedia(files,userId,id);
+   if(upload.error){
+    toast('Topic published, but media upload failed: '+String(upload.error.message||upload.error));
+   }else{
+    media=upload.media;
+    const {error:updErr}=await sb.from('bingo_topics').update({media}).eq('id',id);
+    if(updErr)toast('Topic published, but media could not be attached: '+String(updErr.message||updErr));
+   }
+  }
+  const row=inserted||insertRow;
+  const mapped=aaMapBingoTopicRow({...row,media});
+  // De-dupe against a concurrent aaLoadBingoWall() reload (e.g. the one
+  // fired by opening the Wall just before this publish finishes) that
+  // may have already pulled this same freshly-inserted row in.
+  const others=(Array.isArray(state.wallTopics)?state.wallTopics:[]).filter(x=>String(x.id)!==String(id));
+  state.wallTopics=[mapped,...others];
+  state.postTodayTopicOpen=false;
+  const titleEl=document.getElementById('topicTitle');if(titleEl)titleEl.value='';
+  const bodyEl=document.getElementById('topicBody');if(bodyEl)bodyEl.value='';
+  toast(hiddenFromPublic?"Topic saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Topic published to the Public Wall and your profile.");
+ }finally{
+  state.wallPublishBusy=false;render();
+ }
 }
 /* ===== AGENT ROLE, DASHBOARD & COMMISSION (client-side prototype) =====
    Built on the SAME localStorage-based demo pattern already used
@@ -12849,7 +13009,7 @@ function aaMarkAgentWithdrawalPaid(id){
 function aaMyTopicsHTML(){
  const mine=aaTopics().filter(t=>String(t.authorId||"")===String(state.user?.id||""));
  if(!mine.length)return "";
- return `<div class="boost-summary" style="margin-top:12px"><b>My Bingo Topics</b>${mine.map(t=>`<div class="aa360-item" style="position:relative;height:auto;min-height:0;padding:10px;margin-top:8px;border:1px solid var(--line);border-radius:10px"><b style="font-size:13px">${esc(t.title||"Untitled")}</b>${t.hiddenFromPublic?'<span class="badge badge-red" style="margin-left:6px">Hidden from public</span>':''}<div class="meta">${esc(t.body||"")}</div><div class="meta">❤ ${t.loves||0} · 💬 ${(t.comments||[]).length} · ${esc(t.style||"Standard")}</div></div>`).join("")}</div>`;
+ return `<div class="boost-summary" style="margin-top:12px"><b>My Bingo Topics</b>${mine.map(t=>`<div class="aa360-item" style="position:relative;height:auto;min-height:0;padding:10px;margin-top:8px;border:1px solid var(--line);border-radius:10px"><b style="font-size:13px">${esc(t.title||"Untitled")}</b>${t.hiddenFromPublic?'<span class="badge badge-red" style="margin-left:6px">Hidden from public</span>':''}<div class="meta">${esc(t.body||"")}</div><div class="meta">❤ ${aaTopicLoveCount(t)} · 💬 ${aaTopicCommentsFor(t).length} · ${esc(t.style||"Standard")}</div></div>`).join("")}</div>`;
 }
 /* Public Bingo Topics feed — reads the SAME aaTopics() records used on
    the author's own profile, so a topic is one record everywhere: a
@@ -12858,19 +13018,36 @@ function aaMyTopicsHTML(){
 function aaOpenBingoTopicsFeed(){
  aaRememberPage?.();
  state.view="topics";
+ aaLoadBingoWall();
  render();
  window.scrollTo(0,0);
 }
-function aaTopicLove(id){
- const list=aaTopics();
- const t=list.find(x=>String(x.id)===String(id));
- if(!t)return;
+async function aaTopicLove(id){
  if(!state.isLoggedIn&&!state.testMode){openAuth("login");return}
- t.loves=(t.loves||0)+1;
- aaV69Write("aa_bingo_topics",list);
+ if(state.testMode){
+  const list=aaTopics();
+  const t=list.find(x=>String(x.id)===String(id));
+  if(!t)return;
+  t.loves=(t.loves||0)+1;
+  aaV69Write("aa_bingo_topics",list);
+  render();
+  return;
+ }
+ if(!sb||!state.user?.id)return;
+ const uid=state.user.id;
+ const already=(state.wallReactions||[]).find(r=>String(r.topic_id)===String(id)&&String(r.user_id)===String(uid));
+ if(already){
+  const {error}=await sb.from('bingo_topic_reactions').delete().eq('id',already.id);
+  if(!error)state.wallReactions=(state.wallReactions||[]).filter(r=>r.id!==already.id);
+  else{toast('Could not update your reaction: '+String(error.message||error));return}
+ }else{
+  const {data,error}=await sb.from('bingo_topic_reactions').insert({topic_id:id,user_id:uid,reaction_type:'love'}).select().maybeSingle();
+  if(!error)state.wallReactions=[...(state.wallReactions||[]),data||{topic_id:id,user_id:uid,reaction_type:'love'}];
+  else{toast('Could not save your reaction: '+String(error.message||error));return}
+ }
  render();
 }
-function aaTopicComment(id){
+async function aaTopicComment(id){
  const text=document.getElementById("topicComment_"+id)?.value.trim()||"";
  if(!text)return;
  if(aaContainsProtectedName(text)){
@@ -12878,30 +13055,153 @@ function aaTopicComment(id){
   return;
  }
  if(!state.isLoggedIn&&!state.testMode){openAuth("login");return}
- const list=aaTopics();
- const t=list.find(x=>String(x.id)===String(id));
- if(!t)return;
- t.comments=t.comments||[];
- t.comments.push({authorName:aaOwnProfileName(),text,createdAt:new Date().toISOString()});
- aaV69Write("aa_bingo_topics",list);
+ if(state.testMode){
+  const list=aaTopics();
+  const t=list.find(x=>String(x.id)===String(id));
+  if(!t)return;
+  t.comments=t.comments||[];
+  t.comments.push({authorName:aaOwnProfileName(),text,createdAt:new Date().toISOString()});
+  aaV69Write("aa_bingo_topics",list);
+  const el=document.getElementById("topicComment_"+id);if(el)el.value="";
+  render();
+  return;
+ }
+ if(!sb||!state.user?.id)return;
+ const {data,error}=await sb.from('bingo_topic_comments').insert({topic_id:id,user_id:state.user.id,body:text}).select().maybeSingle();
+ if(error){toast('Could not post comment: '+String(error.message||error));return}
+ state.wallComments=[...(state.wallComments||[]),data||{topic_id:id,user_id:state.user.id,body:text,created_at:new Date().toISOString()}];
  const el=document.getElementById("topicComment_"+id);if(el)el.value="";
  render();
 }
+function aaTopicSaves(){
+ if(state.testMode)return aaV69Read("aa_topic_saves",[]);
+ return Array.isArray(state.wallSaves)?state.wallSaves:[];
+}
+function aaTopicIsSaved(id){return aaTopicSaves().some(x=>String(x)===String(id))}
+async function aaTopicToggleSave(id){
+ if(!state.isLoggedIn&&!state.testMode){openAuth("login");return}
+ if(state.testMode){
+  const list=aaTopicSaves();
+  const next=aaTopicIsSaved(id)?list.filter(x=>String(x)!==String(id)):[...list,String(id)];
+  aaV69Write("aa_topic_saves",next);
+  render();
+  return;
+ }
+ if(!sb||!state.user?.id)return;
+ const uid=state.user.id;
+ if(aaTopicIsSaved(id)){
+  const {error}=await sb.from('bingo_topic_saves').delete().eq('topic_id',id).eq('user_id',uid);
+  if(error){toast('Could not update your saved topics: '+String(error.message||error));return}
+  state.wallSaves=(state.wallSaves||[]).filter(x=>String(x)!==String(id));
+ }else{
+  const {error}=await sb.from('bingo_topic_saves').insert({topic_id:id,user_id:uid});
+  if(error){toast('Could not save this topic: '+String(error.message||error));return}
+  state.wallSaves=[...(state.wallSaves||[]),String(id)];
+ }
+ render();
+}
+function aaTopicShare(id){
+ const t=aaTopics().find(x=>String(x.id)===String(id));
+ if(!t)return;
+ const url=DOMAIN+"/#topic-"+t.id;
+ const text=`${t.title||"A Bingo Public Wall topic"} — ${url}`;
+ if(navigator.share)navigator.share({title:t.title||"Bingo Public Wall",text,url}).catch(()=>{});
+ else if(navigator.clipboard?.writeText){navigator.clipboard.writeText(url).catch(()=>{});toast("Topic link copied.")}
+ else window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");
+}
+function aaTopicReport(id){
+ if(!state.isLoggedIn&&!state.testMode){openAuth("login");return}
+ state.topicReportTarget=id;render();
+}
+async function aaSubmitTopicReport(){
+ const id=state.topicReportTarget;
+ const reason=document.getElementById("topicReportReason")?.value||"Other";
+ const details=document.getElementById("topicReportDetails")?.value||"";
+ if(state.testMode){
+  const list=aaV69Read("aa_topic_reports",[]);
+  list.push({id:"treport_"+Date.now(),topicId:id,reason,details,reporterId:state.user?.id||"",createdAt:new Date().toISOString()});
+  aaV69Write("aa_topic_reports",list);
+  state.topicReportTarget=null;
+  toast("Thank you — this topic has been reported to Bingo.");
+  render();
+  return;
+ }
+ if(!sb||!state.user?.id){state.topicReportTarget=null;render();return}
+ const {error}=await sb.from('bingo_topic_reports').insert({topic_id:id,reporter_id:state.user.id,reason,details});
+ state.topicReportTarget=null;
+ if(error){
+  toast(String(error.code)==='23505'?'You have already reported this topic.':'Could not submit report: '+String(error.message||error));
+ }else{
+  toast("Thank you — this topic has been reported to Bingo.");
+ }
+ render();
+}
+function topicReportHTML(id){
+ const t=aaTopics().find(x=>String(x.id)===String(id));
+ return `<div class="overlay"><div class="modal"><button class="close" onclick="state.topicReportTarget=null;render()">×</button><h2>Report Topic</h2><p>Help us keep the Bingo Public Wall safe. Report "${esc(t?.title||"this topic")}" if it appears suspicious, misleading or inappropriate.</p><div class="report-box"><select id="topicReportReason" class="field"><option>Spam or scam</option><option>Harassment or abuse</option><option>Inappropriate content</option><option>False information</option><option>Other</option></select><textarea class="field" style="margin-top:8px" id="topicReportDetails" placeholder="Optional details"></textarea></div><button class="btn btn-red" style="width:100%;margin-top:12px" onclick="aaSubmitTopicReport()">Submit Report</button></div></div>`;
+}
+let aaTopicAuthorCache={};
+let aaTopicAuthorFetching={};
+function aaTopicAuthorMeta(t){
+ const id=String(t?.authorId||"");
+ if(id&&id===String(state.user?.id||"")){
+  return {name:aaOwnProfileName(),photo:state.user?.photo_url||"",memberSince:state.user?.memberSince||""};
+ }
+ if(id&&aaTopicAuthorCache[id])return aaTopicAuthorCache[id];
+ if(id&&sb&&!aaTopicAuthorFetching[id]){
+  aaTopicAuthorFetching[id]=true;
+  sb.from("profiles").select("*").eq("id",id).maybeSingle().then(({data,error})=>{
+   if(!error&&data){
+    const p=aaProfileFromRow(data,id,{name:t.authorName});
+    aaTopicAuthorCache[id]={name:p.name,photo:p.photo_url||p.photo||"",memberSince:data.created_at||""};
+    render();
+   }
+  }).catch(()=>{});
+ }
+ return {name:t?.authorName||"Bingo Member",photo:"",memberSince:""};
+}
 function aaPublicTopicsFeedHTML(){
- const all=aaTopics().filter(t=>!t.hiddenFromPublic);
+ const cat=state.topicCategoryFilter||"All";
+ const all=aaTopics().filter(t=>!t.hiddenFromPublic).filter(t=>cat==="All"||String(t.category||"General")===cat);
  return `<section style="padding:18px 0 105px">
   <button class="btn" onclick="goBack()">← Back</button>
-  <h2 style="margin-top:12px">Bingo Topics</h2>
-  <p class="notice">What Bingo members are talking about — public conversations from across Kenya.</p>
-  ${!all.length?`<div class="empty">No Bingo Topics yet. Be the first — go to My Profile → Post today... → Bingo Topics.</div>`:all.map(t=>`<div class="aa-v69-card" style="margin-bottom:10px">
-   <b style="font-size:14px">${esc(t.title||"Untitled")}</b>
-   <div class="meta" style="margin:4px 0">by ${esc(t.authorName||"Bingo Member")} · ${esc(t.style||"Standard")}</div>
+  <div style="margin-top:12px">
+   <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)">Bingo Wall</div>
+   <h2 style="margin:2px 0 0;font-style:italic;color:#f5b91e">Mbea wa Mtaa</h2>
+   <p style="margin:2px 0 0;font-style:italic;font-size:12px;color:var(--muted)">Kenya inazungumza nini leo?</p>
+  </div>
+  <p class="notice">Topics and community posts — written conversations from Bingo members across Kenya. This is separate from the Home video feed.</p>
+  ${state.isLoggedIn?aaBingoTopicComposerHTML():`<div class="aa-v69-card" style="margin-top:10px;text-align:center"><p>Sign up or log in to post a topic, comment, like, save or follow.</p><button class="btn btn-red" onclick="openAuth('login')">Sign Up / Log In</button></div>`}
+  <div class="tabs" style="margin-top:12px;flex-wrap:wrap">${["All",...AA_TOPIC_CATEGORIES].map(c=>`<button class="btn ${cat===c?"btn-red":""}" onclick='state.topicCategoryFilter=${JSON.stringify(c)};render()'>${esc(c)}</button>`).join("")}</div>
+  ${!all.length?`<div class="empty">No Bingo Wall topics yet. Be the first to post above.</div>`:all.map(t=>{
+   const author=aaTopicAuthorMeta(t);
+   const saved=aaTopicIsSaved(t.id);
+   const loveCount=aaTopicLoveCount(t);
+   const loved=aaTopicHasMyLove(t);
+   const comments=aaTopicCommentsFor(t);
+   const mediaSrc=aaTopicMediaSrc(t.media?.[0]);
+   return `<div class="aa-v69-card" style="margin-bottom:10px">
+   <div style="display:flex;align-items:center;gap:8px">
+    <img src="${bingoSafeMediaAttr(aaProfilePhoto(author.photo))}" alt="" style="width:36px;height:36px;border-radius:50%;object-fit:cover" onerror="aaProfileImgFallback(this)">
+    <div style="flex:1;min-width:0">
+     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b style="font-size:12px">${esc(author.name)}</b>${aaFollowTopControlHTML({id:t.authorId,name:author.name})}</div>
+     <div class="meta">${aaMemberSinceHTML(author)}${t.createdAt?` · ${esc(new Date(t.createdAt).toLocaleString("en-KE",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}))}`:""}</div>
+    </div>
+    <span class="badge">${esc(t.category||"General")}</span>
+   </div>
+   <b style="font-size:14px;display:block;margin-top:8px">${esc(t.title||"Untitled")}</b>
    <div style="margin:6px 0">${esc(t.body||"")}</div>
-   ${t.media?.[0]?.url?(t.media[0].type==="video"?`<video src="${bingoSafeMediaAttr(t.media[0].url)}" controls playsinline style="width:100%;border-radius:10px;max-height:260px;object-fit:cover"></video>`:`<img src="${bingoSafeMediaAttr(t.media[0].url)}" style="width:100%;border-radius:10px;max-height:260px;object-fit:cover">`):""}
-   <div class="details-actions" style="margin-top:8px"><button class="btn" onclick='aaTopicLove(${JSON.stringify(String(t.id))})'>❤ ${t.loves||0}</button><button class="btn">💬 ${(t.comments||[]).length}</button></div>
-   ${(t.comments||[]).map(c=>`<div class="meta" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--line)"><b>${esc(c.authorName)}</b>: ${esc(c.text)}</div>`).join("")}
+   ${mediaSrc?(t.media[0].type==="video"?`<video src="${bingoSafeMediaAttr(mediaSrc)}" controls playsinline style="width:100%;border-radius:10px;max-height:260px;object-fit:cover"></video>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}" style="width:100%;border-radius:10px;max-height:260px;object-fit:cover">`):""}
+   <div class="details-actions" style="margin-top:8px">
+    <button class="btn ${loved?"btn-gold":""}" onclick='aaTopicLove(${JSON.stringify(String(t.id))})'>${loved?"❤ Loved":"♡ Love"} ${loveCount}</button>
+    <button class="btn">💬 ${comments.length}</button>
+    <button class="btn" onclick='aaTopicShare(${JSON.stringify(String(t.id))})'>Share</button>
+    <button class="btn ${saved?"btn-gold":""}" onclick='aaTopicToggleSave(${JSON.stringify(String(t.id))})'>${saved?"★ Saved":"☆ Save"}</button>
+    <button class="btn" onclick='aaTopicReport(${JSON.stringify(String(t.id))})'>Report</button>
+   </div>
+   ${comments.map(c=>`<div class="meta" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--line)"><b>${esc(c.authorName)}</b>: ${esc(c.text)}</div>`).join("")}
    <div style="display:flex;gap:6px;margin-top:8px"><input class="field" id="topicComment_${esc(t.id)}" placeholder="Write a comment..."><button class="btn" onclick='aaTopicComment(${JSON.stringify(String(t.id))})'>Send</button></div>
-  </div>`).join("")}
+  </div>`}).join("")}
  </section>`;
 }
 function profileHTML(){const mine=state.listings.filter(x=>x.sellerName===((state.user.firstName+" "+state.user.lastName).trim()||"Bingo Member"));const favs=state.listings.filter(x=>isFav(x.id));return `<section style="padding:20px 0 100px"><div class="modal ${gold()?"aa-gold-qualified":""}" style="max-height:none"><h2>My Bingo Dashboard</h2><p>Manage your account, saved vehicles and your marketplace activity from one place.</p>
