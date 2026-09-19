@@ -578,6 +578,33 @@ color:#fff!important;-webkit-text-fill-color:#fff!important;outline:2px solid #7
   background:none!important;padding:0!important;border:0!important;box-shadow:none!important;
   display:flex;align-items:center;gap:0;
 }
+/* Gold crown resting over the top of the Bingo wordmark, per the approved
+   brand reference. Absolutely positioned so it never affects the logo's
+   flex layout or the header's box size - purely decorative, aria-hidden,
+   and excluded from the logo's own transform animation (see isolation
+   note below) so it never rocks/shakes with the wordmark.
+   top is intentionally >=0 (never negative): the small persistent
+   floating logo can sit only a few px from the very top of the page on
+   first load (no scroll/positioning applied yet), so a negative offset
+   pushed the crown above y=0 of the document - genuinely off-page, not
+   just visually cramped. Resting it just inside the logo's own box
+   instead guarantees it is always fully on-page, at any scroll/position
+   the floating logo takes, without touching the logo's own layout. */
+#auto-arcade-widget .bingo-crown{
+  position:absolute!important;
+  top:1px;left:50%;
+  transform:translateX(-50%);
+  font-size:18px;
+  line-height:1;
+  filter:drop-shadow(0 0 5px rgba(255,205,60,.75)) drop-shadow(0 1px 2px rgba(0,0,0,.5));
+  pointer-events:none;
+  z-index:2;
+  animation:bingoGlowOnly 3.3s ease-in-out 1s infinite;
+}
+#auto-arcade-widget .bingo-crown-sm{font-size:12px;top:1px}
+#auto-arcade-widget.bingo-form-open .bingo-crown,
+#auto-arcade-widget.bingo-modal-open .bingo-crown{animation:none!important}
+@media(prefers-reduced-motion:reduce){#auto-arcade-widget .bingo-crown{animation:none!important}}
 #auto-arcade-widget .brand.bingo-brand-logo:before{content:none!important;display:none!important}
 #auto-arcade-widget .brand.bingo-brand-logo img{
   height:62px;width:auto;max-width:187px;display:block;object-fit:contain;
@@ -3282,12 +3309,66 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .aa-mbea-header{background:linear-gradient(135deg,#0c1a2e 0%,#131b12 55%,#1a0c0c 100%);border:1px solid #3a4a63;border-radius:16px;padding:14px 16px;margin-bottom:12px;position:relative;overflow:hidden}
 #auto-arcade-widget .aa-mbea-header::after{content:"";position:absolute;left:0;right:0;top:0;height:4px;background:linear-gradient(90deg,#000 0 33%,#b32424 33% 66%,#0a7a3a 66% 100%)}
 #auto-arcade-widget .aa-mbea-header-top{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-#auto-arcade-widget .aa-mbea-brand{display:flex;align-items:center;gap:8px}
+#auto-arcade-widget .aa-mbea-brand{display:flex;align-items:center;gap:8px;position:relative}
 #auto-arcade-widget .aa-mbea-brand img{height:26px}
 #auto-arcade-widget .aa-mbea-brand b{font-size:16px;color:#fff}
-#auto-arcade-widget .aa-mbea-nav{display:flex;gap:4px;flex-wrap:wrap;margin-top:10px}
-#auto-arcade-widget .aa-mbea-nav button{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#cbd5e1;border-radius:10px;padding:7px 12px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
-#auto-arcade-widget .aa-mbea-nav button.active{background:var(--gold,#f5b91e);color:#1a1200;border-color:var(--gold,#f5b91e)}
+#auto-arcade-widget .aa-mbea-nav{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+/* Clean icon-and-label treatment for inactive nav controls - a quiet
+   glass surface, not a loud bordered button. Needs !important to beat
+   the generic button rule (#auto-arcade-widget button), same reason
+   every other component-specific override in this file does. */
+#auto-arcade-widget .aa-mbea-nav button{
+  background:rgba(255,255,255,.05)!important;
+  border:1px solid rgba(255,255,255,.14)!important;
+  box-shadow:none!important;
+  color:#cbd5e1!important;
+  border-radius:999px!important;
+  padding:7px 14px!important;
+  font-size:11px;
+  font-weight:700;
+  cursor:pointer;
+  white-space:nowrap;
+  text-shadow:none!important;
+}
+#auto-arcade-widget .aa-mbea-nav button::after{display:none!important}
+@media(hover:hover){
+  #auto-arcade-widget .aa-mbea-nav button:hover{
+    transform:none!important;
+    border-color:rgba(245,185,30,.55)!important;
+    color:#fff!important;
+  }
+}
+/* Create is a primary action, not a plain nav link - it keeps its solid
+   filled .btn-publish identity even inside the otherwise-glass nav row
+   (per the button-acceptance rule: Create must not remain a thin
+   outlined control). Matches the same #id+class-on-button specificity
+   pattern as .active immediately below, so it reliably wins over the
+   glass default. */
+#auto-arcade-widget .aa-mbea-nav button.btn-publish{
+  background:linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 34%), linear-gradient(155deg, rgba(255,47,176,.85), rgba(255,47,176,.35) 45%, rgba(6,11,22,.97) 78%)!important;
+  border:1.5px solid rgba(255,47,176,.75)!important;
+  color:#fff!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.3),
+    0 0 14px rgba(255,47,176,.5),
+    0 6px 14px rgba(0,0,0,.32)!important;
+  font-weight:900;
+}
+@media(hover:hover){
+  #auto-arcade-widget .aa-mbea-nav button.btn-publish:hover{border-color:#ff8adf!important}
+}
+/* Illuminated gold pill for the active nav item, per the approved
+   desktop reference. */
+#auto-arcade-widget .aa-mbea-nav button.active{
+  background:linear-gradient(180deg, rgba(255,255,255,.35), rgba(0,0,0,0) 40%), linear-gradient(135deg,#ffd257,#f5b91e)!important;
+  color:#231600!important;
+  border-color:#ffe08a!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.6),
+    0 0 18px rgba(245,185,30,.75),
+    0 6px 14px rgba(0,0,0,.3)!important;
+  font-weight:900;
+}
 #auto-arcade-widget .aa-mbea-account{display:flex;align-items:center;gap:8px}
 #auto-arcade-widget .aa-mbea-account img{width:32px;height:32px;border-radius:50%;object-fit:cover;border:2px solid var(--gold,#f5b91e)}
 #auto-arcade-widget .aa-mbea-account b{font-size:11px;color:#fff}
@@ -3307,16 +3388,111 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .aa-post-cat-pill{background:linear-gradient(135deg,#8a2be2,#e91e8c);color:#fff;font-size:10px;font-weight:800;padding:5px 10px;border-radius:99px;white-space:nowrap}
 #auto-arcade-widget .aa-post-media{position:relative;border-radius:12px;overflow:hidden;margin-top:10px}
 #auto-arcade-widget .aa-post-media img,#auto-arcade-widget .aa-post-media video{width:100%;max-height:340px;object-fit:cover;display:block}
-#auto-arcade-widget .aa-post-media-counter{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px}
+#auto-arcade-widget .aa-post-media-counter{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;z-index:2}
+#auto-arcade-widget .aa-post-media-nav{
+  position:absolute!important;top:50%;transform:translateY(-50%)!important;
+  width:32px;height:32px;min-width:32px;
+  border-radius:50%!important;
+  background:rgba(0,0,0,.45)!important;
+  border:1px solid rgba(255,255,255,.35)!important;
+  box-shadow:0 2px 8px rgba(0,0,0,.4)!important;
+  color:#fff!important;
+  font-size:18px;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  z-index:2;
+}
+#auto-arcade-widget .aa-post-media-nav::after{display:none!important}
+#auto-arcade-widget .aa-post-media-nav.prev{left:8px}
+#auto-arcade-widget .aa-post-media-nav.next{right:8px}
+@media(hover:hover){#auto-arcade-widget .aa-post-media-nav:hover{background:rgba(0,0,0,.65)!important;transform:translateY(-50%) scale(1.06)!important}}
 #auto-arcade-widget .aa-post-stats{display:flex;gap:14px;flex-wrap:wrap;padding:8px 2px;margin-top:8px;border-top:1px solid rgba(255,255,255,.08);border-bottom:1px solid rgba(255,255,255,.08);font-size:11px;color:#94a3b8}
-#auto-arcade-widget .aa-neon-reactions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-#auto-arcade-widget .aa-neon-reactions button{border:none;border-radius:14px;padding:10px 14px;font-size:12px;font-weight:900;color:#fff;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35);display:flex;flex-direction:column;align-items:center;gap:2px;min-width:78px}
-#auto-arcade-widget .aa-neon-reactions button:nth-child(1){background:linear-gradient(135deg,#d900ff,#ff00aa)}
-#auto-arcade-widget .aa-neon-reactions button:nth-child(2){background:linear-gradient(135deg,#ff9900,#ffcc00);color:#221600}
-#auto-arcade-widget .aa-neon-reactions button:nth-child(3){background:linear-gradient(135deg,#ff2d6b,#ff6b9d)}
-#auto-arcade-widget .aa-neon-reactions button:nth-child(4){background:linear-gradient(135deg,#0099ff,#0066ff)}
-#auto-arcade-widget .aa-neon-reactions button:nth-child(5){background:linear-gradient(135deg,#12c96b,#0a9a4f)}
-#auto-arcade-widget .aa-neon-reactions button.pressed{outline:2px solid #fff}
+/* ===== Smart Reaction buttons - premium dimensional, per approved
+   reference (ChatGPT Image Sep 15 2026 references). Five fixed
+   buttons, each a stable two-colour gradient, neon edge glow, inner
+   highlight, raised shadow and a darker translucent count capsule
+   along the lower section. Overrides win over the generic
+   #auto-arcade-widget button rule via #id+class specificity, same
+   pattern already used for .aa92-capture-main/.aa-trend-link. ===== */
+#auto-arcade-widget .aa-neon-reactions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+#auto-arcade-widget .aa-reaction-btn{
+  --rx1:255,47,176; --rx2:180,0,255;
+  border:none!important;
+  border-radius:18px!important;
+  padding:0!important;
+  min-width:118px;
+  min-height:44px;
+  flex:1 1 118px;
+  cursor:pointer;
+  color:#fff!important;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  background:linear-gradient(145deg, rgba(var(--rx1),1), rgba(var(--rx2),1))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.35),
+    inset 0 -14px 18px -12px rgba(0,0,0,.45),
+    0 0 0 1px rgba(255,255,255,.10),
+    0 0 16px rgba(var(--rx1),.55),
+    0 8px 16px rgba(0,0,0,.32)!important;
+  transition:transform .14s ease, box-shadow .16s ease, filter .16s ease;
+}
+#auto-arcade-widget .aa-reaction-top{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 10px 7px;flex:1}
+#auto-arcade-widget .aa-reaction-face{font-size:16px;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+#auto-arcade-widget .aa-reaction-label{font-size:12px;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4);white-space:nowrap}
+#auto-arcade-widget .aa-reaction-count{
+  display:block;
+  text-align:center;
+  font-size:12px;
+  font-weight:900;
+  color:#fff;
+  padding:4px 6px;
+  min-height:20px;
+  background:rgba(0,0,0,.30);
+  border-top:1px solid rgba(255,255,255,.14);
+  font-variant-numeric:tabular-nums;
+}
+#auto-arcade-widget .aa-reaction-umependeza{--rx1:214,0,255; --rx2:255,0,170}
+#auto-arcade-widget .aa-reaction-sketikali{--rx1:255,153,0; --rx2:255,204,0}
+#auto-arcade-widget .aa-reaction-nimeipenda{--rx1:255,45,107; --rx2:255,107,157}
+#auto-arcade-widget .aa-reaction-classysana{--rx1:0,153,255; --rx2:0,102,255}
+#auto-arcade-widget .aa-reaction-hiifashion{--rx1:18,201,107; --rx2:10,154,79}
+@media(hover:hover){
+  #auto-arcade-widget .aa-reaction-btn:hover{
+    transform:translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.4),
+      inset 0 -14px 18px -12px rgba(0,0,0,.45),
+      0 0 0 1px rgba(255,255,255,.16),
+      0 0 24px rgba(var(--rx1),.75),
+      0 10px 20px rgba(0,0,0,.36)!important;
+  }
+}
+#auto-arcade-widget .aa-reaction-btn:active{transform:translateY(1px) scale(.98)!important}
+#auto-arcade-widget .aa-reaction-btn:focus-visible{outline:2px solid #fff!important;outline-offset:3px}
+#auto-arcade-widget .aa-reaction-btn:disabled,
+#auto-arcade-widget .aa-reaction-btn[aria-disabled="true"]{opacity:.45!important;filter:grayscale(.5);cursor:not-allowed}
+#auto-arcade-widget .aa-reaction-btn.is-selected{
+  /* Selected + disabled (a reaction already sent) must still read as
+     "selected", not as a greyed-out unavailable control - cancel the
+     generic :disabled dimming explicitly. */
+  opacity:1!important;
+  filter:none!important;
+  cursor:default!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.5),
+    inset 0 -14px 18px -12px rgba(0,0,0,.4),
+    0 0 0 2px #fff,
+    0 0 22px rgba(var(--rx1),.85),
+    0 8px 16px rgba(0,0,0,.32)!important;
+  animation:aaReactionPop .32s ease;
+}
+@keyframes aaReactionPop{0%{transform:scale(1)}45%{transform:scale(1.1)}100%{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){#auto-arcade-widget .aa-reaction-btn.is-selected{animation:none}}
+@media(max-width:430px){
+  #auto-arcade-widget .aa-reaction-btn{min-width:104px;flex:0 0 auto}
+  #auto-arcade-widget .aa-reaction-label{font-size:11px}
+}
 #auto-arcade-widget .aa-top-comments-hd{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;font-weight:800;color:#cbd5e1}
 #auto-arcade-widget .aa-top-comments-hd a{color:#4da3ff;font-weight:700;cursor:pointer;font-size:11px}
 #auto-arcade-widget .aa-comment-row{display:flex;gap:8px;margin-top:10px}
@@ -3334,6 +3510,56 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .aa-font-cat-grid button.active{background:var(--gold,#f5b91e);color:#1a1200;border-color:var(--gold,#f5b91e)}
 #auto-arcade-widget .aa-font-example-row{padding:6px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 #auto-arcade-widget .aa-font-example-row small{display:block;color:#7c8aa0;font-size:9px;margin-top:1px}
+/* ===== Compact text-formatting toolbar — secondary controls, deliberately
+   smaller than main navigation (48-56px) or Publish (44-50px): 36-40px
+   visual height, matching the same "Section tab" sizing rule used
+   elsewhere in Bingo's own button hierarchy, not a made-up number. */
+#auto-arcade-widget .aa-style-tools-toggle{padding:5px 10px!important;font-size:11px!important;min-height:36px}
+#auto-arcade-widget .aa-fmt-tools-body{display:none}
+#auto-arcade-widget .aa-fmt-tools-body.open{display:block}
+@media(min-width:860px){#auto-arcade-widget .aa-style-tools-toggle{display:none}#auto-arcade-widget .aa-fmt-tools-body{display:block!important}}
+#auto-arcade-widget .aa-fmt-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px}
+#auto-arcade-widget .aa-fmt-select{
+  height:36px;min-width:0;max-width:132px;
+  background:#101c2f!important;border:1px solid #2f405d!important;color:#e6edf7;
+  border-radius:8px;font-size:11px;padding:0 6px;
+}
+#auto-arcade-widget .aa-fmt-select-sm{max-width:56px}
+#auto-arcade-widget .aa-fmt-btn{
+  position:relative!important;
+  min-width:36px;min-height:36px;padding:0 8px;
+  background:#101c2f!important;border:1px solid #2f405d!important;color:#cbd5e1;
+  border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+/* 36px visual box, 44px touch target - an invisible hit-slop rather than
+   inflating the visible control, so it stays genuinely compact next to
+   the 44-56px navigation/publish buttons while still meeting the
+   accessible minimum tap size on mobile. */
+#auto-arcade-widget .aa-fmt-btn::before{
+  content:"";position:absolute!important;
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  width:44px;height:44px;
+  background:none!important;
+}
+#auto-arcade-widget .aa-fmt-btn::after{display:none!important}
+#auto-arcade-widget .aa-fmt-btn.active{background:var(--gold,#f5b91e)!important;color:#1a1200;border-color:var(--gold,#f5b91e)!important}
+#auto-arcade-widget .aa-fmt-align-group{display:inline-flex;gap:4px}
+#auto-arcade-widget .aa-fmt-colour-btn{min-height:36px!important;padding:0 10px!important;font-size:11px!important}
+#auto-arcade-widget .aa-fmt-clear{font-size:15px;color:#9fb0c7}
+/* Vertical neon quick-style list: each row is a plain selectable text
+   sample, not a large boxed button - only the sample text carries the
+   preset's colour/glow, per the approved compact design. */
+#auto-arcade-widget .aa-style-vlist{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+#auto-arcade-widget .aa-style-vitem{
+  background:none!important;border:none!important;box-shadow:none!important;
+  text-align:left;padding:7px 8px!important;min-height:36px;
+  border-radius:6px;cursor:pointer;border-left:2px solid transparent!important;
+}
+#auto-arcade-widget .aa-style-vitem::after{display:none!important}
+#auto-arcade-widget .aa-style-vitem:hover{background:rgba(255,255,255,.05)!important}
+#auto-arcade-widget .aa-style-vitem:focus-visible{outline:2px solid #f5b91e!important;outline-offset:1px}
+#auto-arcade-widget .aa-style-vitem.active{border-left-color:#f5b91e!important;background:rgba(245,185,30,.08)!important}
 #auto-arcade-widget .aa-deco-grid{display:flex;gap:10px;margin-top:8px;flex-wrap:wrap}
 #auto-arcade-widget .aa-deco-choice{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;border:2px solid #33455f;background:#101c2f}
 #auto-arcade-widget .aa-deco-choice.active{border-color:var(--gold,#f5b91e)}
@@ -4006,11 +4232,18 @@ function aaSyncOwnProfileToListings(){
  if(!ownId)return;
  (state.listings||[]).forEach(c=>aaBindListingToAuthenticatedOwner(c));
 }
+/* Self-contained default avatar (an inline SVG data: URI, not a hotlinked
+   third-party photo). A remote stock-photo fallback depends on that CDN
+   being reachable - this environment's own network policy blocks
+   images.unsplash.com, which is exactly the class of failure a "default
+   avatar" must survive by construction, not by hoping the CDN is up.
+   It is also a genuinely branded placeholder (Bingo navy/gold), not an
+   unrelated stranger's stock photo standing in as "no photo yet". */
+const AA_DEFAULT_AVATAR="data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a3c5c"/><stop offset="1" stop-color="#0c1626"/></linearGradient></defs><circle cx="50" cy="50" r="50" fill="url(#g)"/><circle cx="50" cy="40" r="17" fill="#f5b91e"/><path d="M16 92c0-21 15-36 34-36s34 15 34 36" fill="#f5b91e"/></svg>');
 function aaProfilePhoto(value){
- const fallback="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&q=80";
  const raw=String(value||"").trim();
  if(raw && (raw.startsWith("data:image/") || raw.startsWith("blob:") || raw.startsWith("http://") || raw.startsWith("https://")))return raw;
- return fallback;
+ return AA_DEFAULT_AVATAR;
 }
 function aaProfileImgFallback(img){
  if(!img)return;
@@ -4368,7 +4601,7 @@ async function openSeller(id){
   userId:sellerId,
   name:listing?.sellerName||"Bingo Member",
   phone:listing?.sellerPhone||"",
-  photo:listing?.sellerPhoto||"https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&q=80",
+  photo:aaProfilePhoto(listing?.sellerPhoto),
   bio:"Bingo member.",
   location:listing?.location||"",
   gold:!!listing?.sellerGold
@@ -4840,29 +5073,29 @@ function aaOpenMemberCentral(){
 function aaMemberCentralHTML(){
  const first=esc(state.user?.firstName||"there");
  const tiles=[
-  {label:"Home",icon:"⌂",action:"goHome()"},
-  {label:"Search",icon:"⌕",action:"aaOpenSearch('videos')"},
-  {label:"Post",icon:"＋",action:"if(typeof aaDU1OpenCreate==='function')aaDU1OpenCreate();else openPostVehicle();"},
-  {label:"Marketplace",icon:"▱",action:"aaOpenMarket()"},
-  {label:"Bingo Stays",icon:"▥",action:"aaOpenProperties('stays')"},
-  {label:"Jobs & CV",icon:"▣",action:"openJobs('jobs')"},
-  {label:"Community",icon:"◆",action:"aaOpenSolutionRooms()"},
-  {label:"My Bingo",icon:"◉",action:"goAccount()"}
+  {label:"Home",icon:"⌂",action:"goHome()",color:"btn-blue"},
+  {label:"Search",icon:"⌕",action:"aaOpenSearch('videos')",color:"btn-glass"},
+  {label:"Post",icon:"＋",action:"if(typeof aaDU1OpenCreate==='function')aaDU1OpenCreate();else openPostVehicle();",color:"btn-publish"},
+  {label:"Marketplace",icon:"▱",action:"aaOpenMarket()",color:"btn-boost"},
+  {label:"Bingo Stays",icon:"▥",action:"aaOpenProperties('stays')",color:"btn-cyan"},
+  {label:"Jobs & CV",icon:"▣",action:"openJobs('jobs')",color:"btn-success"},
+  {label:"Community",icon:"◆",action:"aaOpenSolutionRooms()",color:"btn-purple"},
+  {label:"My Bingo",icon:"◉",action:"goAccount()",color:"btn-glass"}
  ];
  return `<section class="aa-member-central">
   <div class="aa-member-central-head">
-   <button class="btn" onclick="goBack()">← Back</button>
+   <button class="btn btn-glass" onclick="goBack()">← Back</button>
    <div class="aa-member-central-kicker">WELCOME BACK</div>
    <h2>Hi ${first}, what would you like to do?</h2>
   </div>
-  <button type="button" class="aa-member-central-topics" onclick="aaOpenBingoTopicsFeed()">
+  <button type="button" class="aa-member-central-topics btn-boost" onclick="aaOpenBingoTopicsFeed()">
    <span>💬</span>
    <div><b>Bingo Topics</b><small>See what Kenyans are talking about right now</small></div>
   </button>
   <div class="aa-member-central-grid">
-   ${tiles.map(t=>`<button type="button" class="aa-member-central-tile" onclick="${t.action}"><span class="aa-member-central-ico">${t.icon}</span><b>${esc(t.label)}</b></button>`).join("")}
+   ${tiles.map(t=>`<button type="button" class="aa-member-central-tile ${t.color}" onclick="${t.action}"><span class="aa-member-central-ico">${t.icon}</span><b>${esc(t.label)}</b></button>`).join("")}
   </div>
-  <button type="button" class="aa-member-central-more" onclick="if(typeof aaAssistantOpenDrawer==='function')aaAssistantOpenDrawer()">More · Open full menu</button>
+  <button type="button" class="aa-member-central-more btn-glass" onclick="if(typeof aaAssistantOpenDrawer==='function')aaAssistantOpenDrawer()">More · Open full menu</button>
  </section>`;
 }
 
@@ -5074,7 +5307,7 @@ function aaUnifiedProfileFields(mode){
  const email=register?(d.email??u.email??""):(u.email||"");
  const location=register?(d.location??u.location??""):(u.location||"");
  const bio=register?(d.bio??u.bio??""):(u.bio||"");
- const photo=register?(state.pendingProfilePhoto||u.photo_url||'https://via.placeholder.com/90?text=Photo'):(u.photo_url||'https://via.placeholder.com/90?text=Photo');
+ const photo=aaProfilePhoto(register?(state.pendingProfilePhoto||u.photo_url):u.photo_url);
  return `<div class="aa-unified-profile"><div style="text-align:center;margin:15px 0 20px"><div style="width:90px;height:90px;border-radius:50%;margin:0 auto 10px;overflow:hidden;background:#2a2d3d;border:2px solid #0073aa;display:flex;align-items:center;justify-content:center"><img id="${register?'aaSignupPhotoPreview':'profile-photo-preview'}" src="${photo}" style="width:100%;height:100%;object-fit:cover"></div><label for="${register?'aProfilePhoto':'profilePhotoInput'}" class="btn" style="display:inline-block">Choose Profile Photo</label><input type="file" id="${register?'aProfilePhoto':'profilePhotoInput'}" accept="image/jpeg,image/png" style="display:none" onchange="${register?'handleSignupPhoto(event)':'handleProfilePhotoUpload(event)'}"></div><div class="form-grid"><select id="${p}AccountType" class="field full"><option value="individual" ${accountType==='individual'?'selected':''}>Individual Account</option><option value="company" ${accountType==='company'?'selected':''}>Company / Business Account</option></select><input id="${p}First" class="field" placeholder="First name" value="${esc(first)}"><input id="${p}Last" class="field" placeholder="Last name" value="${esc(last)}"><input id="${p}Company" class="field full" placeholder="Company / Business name" value="${esc(company)}"><input id="${p}Username" class="field full" placeholder="Username e.g. @dawoodcars" value="${esc(username)}"><div class="aa-password-note full">Your @username is shown on downloaded media and can be used to search your public profile.</div><input id="${p}Phone" class="field full" type="tel" placeholder="Phone / WhatsApp number" value="${esc(phone)}"><label class="full" style="display:flex;align-items:center;gap:8px;font-size:11px"><input id="${p}ShowPhone" type="checkbox" ${(register?(d.showPhone??u.showPhone):u.showPhone)!==false?'checked':''}> Display my phone number publicly</label><input id="${p}Email" class="field full" type="email" placeholder="Email address" value="${esc(email)}"><select id="${p}Location" class="field full"><option value="">Location / County</option>${kenyaCounties.map(c=>`<option ${location===c?'selected':''}>${esc(c)}</option>`).join('')}</select><textarea id="${p}Bio" class="field full" rows="4" placeholder="My Bio">${esc(bio)}</textarea>${register?`<input id="aPassword" class="field full aa-password-field" type="password" autocomplete="new-password" placeholder="Create password"><input id="aConfirmPassword" class="field full aa-password-field" type="password" autocomplete="new-password" placeholder="Confirm password"><div class="aa-password-note full">Password: at least 6 characters, including uppercase, lowercase and a number.</div><label class="full" style="display:flex;align-items:flex-start;gap:8px;font-size:11px"><input id="aAgreePolicies" type="checkbox"> <span>I agree to the Bingo Terms & Conditions, Privacy Policy and Marketplace Rules.</span></label>`:''}</div></div>`;
 }
 async function aaSendPasswordReset(){
@@ -10528,10 +10761,10 @@ function render(){
  // Broader than aa-vehicle-form-open above (kept for its own existing CSS
  // rule): also greatly reduces the header logo's continuous animation
  // while ANY other posting form is open, not only the vehicle form.
- if(root)root.classList.toggle("bingo-form-open",["add","spare-add","edit-profile"].includes(state.view)||(state.view==="properties"&&state.propertyTab==="post")||(state.view==="food"&&state.foodTab==="post")||(state.view==="jobs"&&["cv","mycv"].includes(state.jobsTab)));
+ if(root)root.classList.toggle("bingo-form-open",["add","spare-add","edit-profile"].includes(state.view)||(state.view==="properties"&&state.propertyTab==="post")||(state.view==="food"&&state.foodTab==="post")||(state.view==="jobs"&&["cv","mycv"].includes(state.jobsTab))||!!state.postTodayTopicOpen);
  app.innerHTML=`
  <header class="header"><div class="container header-inner">
-  <div class="bingo-header-stack" id="bingoHeaderStack"><button class="brand bingo-brand-logo" id="bingoMainLogo" onclick="openBingoCockpit()" role="button" tabindex="0" aria-label="Open Bingo menu" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBingoCockpit()}"><img src="${BINGO_LOGO_SRC}" alt="Bingo — All Kenyans, One Market"></button><button type="button" id="bingoLogoCloseBtn" aria-label="Move the Bingo logo out of the way"><span class="bingo-logo-close-dot">&times;</span></button></div>
+  <div class="bingo-header-stack" id="bingoHeaderStack"><button class="brand bingo-brand-logo" id="bingoMainLogo" onclick="openBingoCockpit()" role="button" tabindex="0" aria-label="Open Bingo menu" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBingoCockpit()}"><span class="bingo-crown" aria-hidden="true">👑</span><img src="${BINGO_LOGO_SRC}" alt="Bingo — All Kenyans, One Market"></button><button type="button" id="bingoLogoCloseBtn" aria-label="Move the Bingo logo out of the way"><span class="bingo-logo-close-dot">&times;</span></button></div>
   <div class="top-actions aa-auth-actions"><button class="btn aa-v69-top" onclick="aaOpenProperties('browse')">Properties</button><button class="btn aa-v69-top" onclick="aaOpenFood('browse')">Food</button><button class="btn aa-jobs-top-btn" onclick="openJobs('jobs')">Jobs/CVs</button>${state.isLoggedIn?`<button class="btn" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button><button class="btn" onclick="goAccount()">Profile</button><button class="btn btn-red" onclick="logoutAutoArcade()">Log Out</button>`:`<button class="btn" onclick="openAuth('login')">Log In</button><button class="btn btn-red" onclick="openAuth('register')">Sign Up</button>`}</div>
  </div></header>
  <main class="${feedHome?"":"container"}">
@@ -10666,7 +10899,7 @@ function cardHTML(c){
  <div class="card-body"><div style="margin-bottom:5px">${listingBadge(c)}</div><div class="card-title">${esc(c.title)}</div>
  <div class="meta">${c.year} · ${money(c.mileage)} km · ${esc(c.location)}</div><div class="price">${listingType(c)==="hire"?hirePrice(c):`KES ${money(c.price)}`}</div>
  <div class="expiry">${listingExpiry(c)}</div>
- <button class="seller" style="width:100%;text-align:left" onclick='openSeller(${JSON.stringify(String(c.sellerId||c.userId||""))})'><img src="${bingoSafeMediaAttr(c.sellerPhoto)}" alt="" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&q=80'"><span class="seller-name">${aaFollowTopControlHTML({id:c.sellerId||c.userId,name:c.sellerName})}${esc(c.sellerName)}${aaFollowStatsHTML(c.sellerId||c.userId)}<br>${aaPresenceBadge({id:c.sellerId,sellerId:c.sellerId,phone:c.sellerPhone})}</span></button>
+ <button class="seller" style="width:100%;text-align:left" onclick='openSeller(${JSON.stringify(String(c.sellerId||c.userId||""))})'><img src="${bingoSafeMediaAttr(c.sellerPhoto)}" alt="" onerror="aaProfileImgFallback(this)"><span class="seller-name">${aaFollowTopControlHTML({id:c.sellerId||c.userId,name:c.sellerName})}${esc(c.sellerName)}${aaFollowStatsHTML(c.sellerId||c.userId)}<br>${aaPresenceBadge({id:c.sellerId,sellerId:c.sellerId,phone:c.sellerPhone})}</span></button>
  <div class="card-actions"><button class="small-btn ${isFav(c.id)?'fav-on':''}" onclick='toggleFav(${id})'>${isFav(c.id)?'♥ Saved':'♡ Save'}</button><button class="small-btn share-count" onclick='state.shareTarget=state.listings.find(x=>String(x.id)===${id});render()'>Share</button><button class="small-btn" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'>Details</button></div>
  <div class="details-actions"><button class="small-btn" onclick='callSeller(state.listings.find(x=>String(x.id)===${id}))'>Call</button>${state.isLoggedIn&&aaListingOwnerId(c)===String(state.user?.id||"")?`<button class="small-btn" onclick='openBoost(state.listings.find(x=>String(x.id)===${id}))'>Boost</button>`:""}</div>
  ${aaHelpSellBlockHTML("vehicle",c.id,aaListingOwnerId(c))}
@@ -10773,7 +11006,7 @@ function detailsHTML(c){
  const imgs=(Array.isArray(c.images)&&c.images.length?c.images:[c.image]).filter(Boolean).slice(0,6);
  const main=imgs[0]||c.image||""; const isVideo=aaMediaType(c)==="video"&&aaVideoUrl(c);
  const ownId=String(state.user?.id||state.user?.user_id||""); const vehicleOwnerId=String(c.userId||c.user_id||c.ownerId||c.sellerId||"");
- return `<section style="padding:18px 0 100px"><button class="btn" onclick="goBack()">← Back</button><div class="detail-grid" style="margin-top:12px"><div>${isVideo?`<div class="aa-media-wrap"><video class="detail-img" style="display:block" src="${bingoSafeMediaAttr(aaVideoUrl(c))}" poster="${bingoSafeMediaAttr(main)}" controls playsinline></video></div><button class="btn" style="width:100%;margin-top:8px" onclick='aaDownloadListingVideo(state.selected)'>⬇ Download Video</button>`:`<div class="aa-media-wrap"><img id="aaDetailMainImage" class="detail-img" src="${bingoSafeMediaAttr(main)}" alt="${esc(c.title)}" onclick="aaOpenListingGallery(state.selected,Math.max(0,aaListingImages(state.selected).indexOf(this.src)))" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900&q=85'"></div>${imgs.length?`<div class="aa-gallery-thumbs">${imgs.map((src,i)=>`<button class="aa-gallery-thumb ${i===0?'active':''}" onclick='aaSetDetailImage(${JSON.stringify(src)},${i})'><img src="${bingoSafeMediaAttr(src)}" alt="${esc(c.title)} ${i+1}"></button>`).join('')}</div><button class="btn" style="width:100%;margin-top:8px" onclick="aaOpenListingGallery(state.selected,0)">▦ View All Photos Larger</button>`:''}<button class="btn" style="width:100%;margin-top:8px" onclick='aaDownloadCurrentPhoto(state.selected)'>⬇ Download Current Photo</button>`}<div class="mobile-cta"><button class="btn" type="button" data-aa-call="selected">Call</button><button class="btn btn-green" onclick="contact('whatsapp',state.selected)">WhatsApp</button><button class="btn btn-red" onclick="contact('chat',state.selected)">Message</button></div></div><div class="modal" style="max-height:none"><div style="display:flex;justify-content:space-between;gap:8px"><h2>${esc(c.title)}</h2>${c.isBoosted?'<span class="boost-label">BOOSTED</span>':''}</div><div class="boost-price">${listingType(c)==="hire"?hirePrice(c):`KES ${money(c.price)}`}</div><div class="expiry">${listingExpiry(c)}</div><div class="specs"><div class="spec"><span>Listing</span><b>${listingType(c)==="hire"?'FOR HIRE':'FOR SALE'}</b></div><div class="spec"><span>Year</span><b>${c.year}</b></div><div class="spec"><span>Mileage</span><b>${money(c.mileage)} km</b></div><div class="spec"><span>Location</span><b>${esc(aaSearchLocationText(c)||c.location)}</b></div><div class="spec"><span>Condition</span><b>${esc(c.condition)}</b></div><div class="spec"><span>Fuel</span><b>${esc(c.fuel)}</b></div><div class="spec"><span>Transmission</span><b>${esc(c.transmission)}</b></div></div><div class="desc">${esc(c.description)}</div><button class="seller" style="width:100%;text-align:left;margin-top:14px" onclick='openSeller(${JSON.stringify(String(c.sellerId||c.userId||""))})'><img src="${bingoSafeMediaAttr(c.sellerPhoto)}" alt=""><span>${aaFollowTopControlHTML({id:c.sellerId||c.userId,name:c.sellerName})}<b style="font-size:12px">${esc(c.sellerName)}</b>${aaFollowStatsHTML(c.sellerId||c.userId)}<br><small style="color:#ffd700;font-size:10.7px;font-weight:800;text-decoration:underline">View the Profile</small></span></button><div class="details-actions"><button class="btn" onclick="state.shareTarget=state.selected;render()">Share (${c.shares||0})</button><button class="btn ${isFav(c.id)?'fav-on':''}" onclick='toggleFav(${JSON.stringify(String(c.id))})'>${isFav(c.id)?'♥ Saved':'♡ Favourite'}</button></div><div class="details-actions"><button class="btn" type="button" data-aa-call="selected">Call Seller</button>${state.isLoggedIn&&aaListingOwnerId(c)===String(state.user?.id||"")?`<button class="btn" onclick='openBoost(state.listings.find(x=>String(x.id)===${JSON.stringify(String(c.id))}))'>Boost</button>`:''}<button class="btn btn-red" onclick="contact('chat',state.selected)">Message Seller</button></div><button class="btn btn-green" style="width:100%;margin-top:7px" onclick="contact('whatsapp',state.selected)">WhatsApp Seller</button>${state.isLoggedIn&&vehicleOwnerId===ownId?`<div class="aa-manage-row" style="margin-top:10px"><button class="btn" onclick='aaEditVehicle(${JSON.stringify(String(c.id))})'>✎ Edit My Post</button><button class="btn btn-red" onclick='aaSoftDeleteListing(${JSON.stringify(String(c.id))})'>Delete My Post</button></div>`:""}${aaHelpSellBlockHTML("vehicle",c.id,vehicleOwnerId)}<button class="btn" style="width:100%;margin-top:7px" onclick="reportListing(state.selected.id)">Report Listing</button></div></div></section>`
+ return `<section style="padding:18px 0 100px"><button class="btn" onclick="goBack()">← Back</button><div class="detail-grid" style="margin-top:12px"><div>${isVideo?`<div class="aa-media-wrap"><video class="detail-img" style="display:block" src="${bingoSafeMediaAttr(aaVideoUrl(c))}" poster="${bingoSafeMediaAttr(main)}" controls playsinline></video></div><button class="btn" style="width:100%;margin-top:8px" onclick='aaDownloadListingVideo(state.selected)'>⬇ Download Video</button>`:`<div class="aa-media-wrap"><img id="aaDetailMainImage" class="detail-img" src="${bingoSafeMediaAttr(main)}" alt="${esc(c.title)}" onclick="aaOpenListingGallery(state.selected,Math.max(0,aaListingImages(state.selected).indexOf(this.src)))" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900&q=85'"></div>${imgs.length?`<div class="aa-gallery-thumbs">${imgs.map((src,i)=>`<button class="aa-gallery-thumb ${i===0?'active':''}" onclick='aaSetDetailImage(${JSON.stringify(src)},${i})'><img src="${bingoSafeMediaAttr(src)}" alt="${esc(c.title)} ${i+1}"></button>`).join('')}</div><button class="btn" style="width:100%;margin-top:8px" onclick="aaOpenListingGallery(state.selected,0)">▦ View All Photos Larger</button>`:''}<button class="btn" style="width:100%;margin-top:8px" onclick='aaDownloadCurrentPhoto(state.selected)'>⬇ Download Current Photo</button>`}<div class="mobile-cta"><button class="btn" type="button" data-aa-call="selected">Call</button><button class="btn btn-green" onclick="contact('whatsapp',state.selected)">WhatsApp</button><button class="btn btn-red" onclick="contact('chat',state.selected)">Message</button></div></div><div class="modal" style="max-height:none"><div style="display:flex;justify-content:space-between;gap:8px"><h2>${esc(c.title)}</h2>${c.isBoosted?'<span class="boost-label">BOOSTED</span>':''}</div><div class="boost-price">${listingType(c)==="hire"?hirePrice(c):`KES ${money(c.price)}`}</div><div class="expiry">${listingExpiry(c)}</div><div class="specs"><div class="spec"><span>Listing</span><b>${listingType(c)==="hire"?'FOR HIRE':'FOR SALE'}</b></div><div class="spec"><span>Year</span><b>${c.year}</b></div><div class="spec"><span>Mileage</span><b>${money(c.mileage)} km</b></div><div class="spec"><span>Location</span><b>${esc(aaSearchLocationText(c)||c.location)}</b></div><div class="spec"><span>Condition</span><b>${esc(c.condition)}</b></div><div class="spec"><span>Fuel</span><b>${esc(c.fuel)}</b></div><div class="spec"><span>Transmission</span><b>${esc(c.transmission)}</b></div></div><div class="desc">${esc(c.description)}</div><button class="seller" style="width:100%;text-align:left;margin-top:14px" onclick='openSeller(${JSON.stringify(String(c.sellerId||c.userId||""))})'><img src="${bingoSafeMediaAttr(c.sellerPhoto)}" alt="" onerror="aaProfileImgFallback(this)"><span>${aaFollowTopControlHTML({id:c.sellerId||c.userId,name:c.sellerName})}<b style="font-size:12px">${esc(c.sellerName)}</b>${aaFollowStatsHTML(c.sellerId||c.userId)}<br><small style="color:#ffd700;font-size:10.7px;font-weight:800;text-decoration:underline">View the Profile</small></span></button><div class="details-actions"><button class="btn" onclick="state.shareTarget=state.selected;render()">Share (${c.shares||0})</button><button class="btn ${isFav(c.id)?'fav-on':''}" onclick='toggleFav(${JSON.stringify(String(c.id))})'>${isFav(c.id)?'♥ Saved':'♡ Favourite'}</button></div><div class="details-actions"><button class="btn" type="button" data-aa-call="selected">Call Seller</button>${state.isLoggedIn&&aaListingOwnerId(c)===String(state.user?.id||"")?`<button class="btn" onclick='openBoost(state.listings.find(x=>String(x.id)===${JSON.stringify(String(c.id))}))'>Boost</button>`:''}<button class="btn btn-red" onclick="contact('chat',state.selected)">Message Seller</button></div><button class="btn btn-green" style="width:100%;margin-top:7px" onclick="contact('whatsapp',state.selected)">WhatsApp Seller</button>${state.isLoggedIn&&vehicleOwnerId===ownId?`<div class="aa-manage-row" style="margin-top:10px"><button class="btn" onclick='aaEditVehicle(${JSON.stringify(String(c.id))})'>✎ Edit My Post</button><button class="btn btn-red" onclick='aaSoftDeleteListing(${JSON.stringify(String(c.id))})'>Delete My Post</button></div>`:""}${aaHelpSellBlockHTML("vehicle",c.id,vehicleOwnerId)}<button class="btn" style="width:100%;margin-top:7px" onclick="reportListing(state.selected.id)">Report Listing</button></div></div></section>`
 }
 /* ---------- CHAT VENDOR ONLINE / OFFLINE PRESENCE ---------- */
 var aaPresenceChannel=null;var aaPresenceState={};
@@ -11085,43 +11318,93 @@ function bingoStyledTextClass(style){return BINGO_TEXT_PRESET_CLASS[style]||"bt-
    Pressing one posts a real comment through the same aaTopicComment
    insert path (testMode localStorage or bingo_topic_comments), so counts
    are always server/story-confirmed, never client-only. */
-const BINGO_SMART_WORD_POOL={
- "General":["Poa sana!","True talk","Makes sense","I feel this","Well said"],
- "Community News":["Kenya inaongea!","Big news","Stay informed","Sharing this","Good update"],
- "Marketplace Chat":["Fair deal","Good price","Worth it","Bei poa!","Solid offer"],
- "Advice & Help":["Very helpful","Thank you!","Good advice","Noted, asante","Saved me"],
- "Events":["Count me in","Can't wait!","See you there","Nice one","Sherehe tu"],
- "Automotive":["Clean ride","Solid motor","Nice specs","Bei poa!","Well maintained"],
- "Property":["Nice spot","Good location","Fair rent","Would view this","Well kept"],
- "Food & Business":["Looks tasty!","Support local","Mouth-watering","Order noted","Yummy"],
- "Jobs & Careers":["Good opportunity","Applying now","Shared with a friend","Great role","All the best"],
- "Off-Topic":["Haha true","Relatable","Made my day","So real","Love this"]
-};
-function aaSmartWordsFor(t){
- const pool=BINGO_SMART_WORD_POOL[t?.category]||BINGO_SMART_WORD_POOL["General"];
- return pool.slice(0,5);
+/* Five fixed Smart Reaction buttons - same five on every post, per the
+   approved reference design (not category-varying phrases anymore).
+   Each is a genuine, independently-toggleable, server-backed reaction:
+   pressing one inserts/deletes a row in bingo_topic_smart_reactions
+   (topic_id,user_id,reaction_type) - a real per-user vote, not a posted
+   comment, so it can be switched on/off with no comment-count inflation.
+   In testMode it is the same shape kept in localStorage
+   (t.smartReactions[key] = array of user ids) so the toggle/count logic
+   is identical in both paths. If bingo_topic_smart_reactions is not yet
+   deployed, the insert/delete call fails gracefully (toast + no local
+   state change) rather than pretending the press succeeded. */
+const AA_SMART_REACTION_TYPES=[
+ {key:"umependeza",emoji:"✨",label:"Umependeza!"},
+ {key:"sketikali",emoji:"👗",label:"Sketi kali!"},
+ {key:"nimeipenda",emoji:"💕",label:"Nimeipenda!"},
+ {key:"classysana",emoji:"👑",label:"Classy sana!"},
+ {key:"hiifashion",emoji:"🔥",label:"Hii ni fashion!"}
+];
+function aaSmartReactionCount(t,key){
+ if(t._fromDb)return (state.wallSmartReactions||[]).filter(r=>String(r.topic_id)===String(t.id)&&r.reaction_type===key).length;
+ return (t.smartReactions&&Array.isArray(t.smartReactions[key]))?t.smartReactions[key].length:0;
 }
-let aaSmartWordPressed={};
-async function aaSmartWordPress(topicId,slot,phrase){
- const key=String(topicId)+"::"+slot;
- if(aaSmartWordPressed[key])return;
- if(!state.isLoggedIn&&!state.testMode){openAuth("login");return}
- aaSmartWordPressed[key]=true;
- if(state.testMode){
-  const list=aaTopics();
-  const t=list.find(x=>String(x.id)===String(topicId));
-  if(!t){delete aaSmartWordPressed[key];return}
-  t.comments=t.comments||[];
-  t.comments.push({authorName:aaOwnProfileName(),text:phrase,style:"Gold Premium",createdAt:new Date().toISOString()});
-  aaV69Write("aa_bingo_topics",list);
-  render();
-  return;
+function aaHasMySmartReaction(t,key){
+ if(t._fromDb){
+  const uid=String(state.user?.id||'');
+  if(!uid)return false;
+  return (state.wallSmartReactions||[]).some(r=>String(r.topic_id)===String(t.id)&&r.reaction_type===key&&String(r.user_id)===uid);
  }
- if(!sb||!state.user?.id){delete aaSmartWordPressed[key];return}
- const {data,error}=await sb.from('bingo_topic_comments').insert({topic_id:topicId,user_id:state.user.id,body:phrase}).select().maybeSingle();
- if(error){delete aaSmartWordPressed[key];toast('Could not save your reaction: '+String(error.message||error));return}
- state.wallComments=[...(state.wallComments||[]),data||{topic_id:topicId,user_id:state.user.id,body:phrase,created_at:new Date().toISOString()}];
- render();
+ const uid=String(state.user?.id||(state.testMode?"test_user":""));
+ if(!uid)return false;
+ return !!(t.smartReactions&&Array.isArray(t.smartReactions[key])&&t.smartReactions[key].includes(uid));
+}
+let aaSmartReactionBusy={};
+/* Pressing a reaction is a one-time action per user per reaction type
+   (the "one-user reaction rule"): it increments that reaction's real,
+   server-backed count AND appends the reaction's phrase into the
+   comments feed as a genuine styled comment - both effects happen
+   together, through the same insert paths aaTopicComment/aaTopicLove
+   already use (testMode localStorage or the real bingo_topic_* tables),
+   never simulated. It cannot be pressed again once used - the button
+   moves to its disabled, selected state instead of toggling off, since
+   the comment it posted cannot be un-posted by a plain reaction press. */
+async function aaPressSmartReaction(topicId,key,label){
+ if(!state.isLoggedIn&&!state.testMode){openAuth("login");return}
+ if(aaHasMySmartReaction({id:topicId,_fromDb:!state.testMode},key))return;
+ const busyKey=String(topicId)+"::"+key;
+ if(aaSmartReactionBusy[busyKey])return;
+ aaSmartReactionBusy[busyKey]=true;
+ try{
+  if(state.testMode){
+   const list=aaTopics();
+   const t=list.find(x=>String(x.id)===String(topicId));
+   if(!t)return;
+   const uid=String(state.user?.id||"test_user");
+   t.smartReactions=t.smartReactions||{};
+   const arr=Array.isArray(t.smartReactions[key])?t.smartReactions[key].slice():[];
+   if(arr.includes(uid))return;
+   arr.push(uid);
+   t.smartReactions[key]=arr;
+   t.comments=t.comments||[];
+   t.comments.push({id:"c_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),authorId:state.user?.id||"",authorName:aaOwnProfileName(),authorPhoto:state.user?.photo_url||"",style:"Gold Premium",text:label,likes:0,likedBy:[],createdAt:new Date().toISOString()});
+   aaV69Write("aa_bingo_topics",list);
+   render();
+   return;
+  }
+  if(!sb||!state.user?.id)return;
+  const uid=state.user.id;
+  const {data,error}=await sb.from('bingo_topic_smart_reactions').insert({topic_id:topicId,user_id:uid,reaction_type:key}).select().maybeSingle();
+  if(error){
+   if(error.code==='23505'){/* already reacted (unique constraint) - not a failure, just re-render to reflect it */render();return}
+   toast('Could not save your reaction: '+String(error.message||error));return;
+  }
+  state.wallSmartReactions=[...(state.wallSmartReactions||[]),data||{topic_id:topicId,user_id:uid,reaction_type:key}];
+  const {data:cData,error:cError}=await sb.from('bingo_topic_comments').insert({topic_id:topicId,user_id:uid,body:label}).select().maybeSingle();
+  if(!cError)state.wallComments=[...(state.wallComments||[]),cData||{topic_id:topicId,user_id:uid,body:label,created_at:new Date().toISOString()}];
+  render();
+ }finally{delete aaSmartReactionBusy[busyKey]}
+}
+function aaSmartReactionsBarHTML(t){
+ return `<div class="aa-neon-reactions" role="group" aria-label="React to this post">${AA_SMART_REACTION_TYPES.map(r=>{
+  const count=aaSmartReactionCount(t,r.key);
+  const active=aaHasMySmartReaction(t,r.key);
+  return `<button type="button" class="aa-reaction-btn aa-reaction-${r.key}${active?" is-selected":""}" ${active?"disabled":""} aria-pressed="${active?"true":"false"}" aria-label="${esc(r.label)} — ${count} reaction${count===1?"":"s"}${active?", already sent":""}" onclick='aaPressSmartReaction(${JSON.stringify(String(t.id))},${JSON.stringify(r.key)},${JSON.stringify(r.label)})'>
+   <span class="aa-reaction-top"><span class="aa-reaction-face" aria-hidden="true">${r.emoji}</span><span class="aa-reaction-label">${esc(r.label)}</span></span>
+   <span class="aa-reaction-count">${count}</span>
+  </button>`;
+ }).join("")}</div>`;
 }
 const AA_TOPIC_CATEGORIES=["General","Community News","Marketplace Chat","Advice & Help","Events","Automotive","Property","Food & Business","Jobs & Careers","Off-Topic"];
 const AA_TOPIC_MEDIA_BUCKET='topic-media';
@@ -11141,6 +11424,7 @@ function aaMapBingoTopicRow(row){
  return {
   id:row.id,authorId:row.user_id||'',authorName:'',title:row.title||'',body:row.body||'',
   category:row.category||'General',style:'Standard',
+  titleFmt:row.title_format||null,bodyFmt:row.body_format||null,
   media:Array.isArray(row.media)?row.media:[],
   hiddenFromPublic:row.moderation_status==='hidden',
   createdAt:row.created_at,_fromDb:true
@@ -11153,23 +11437,31 @@ async function aaLoadBingoWall(){
  aaWallLoading=true;
  try{
   const uid=state.user?.id||null;
-  const [topicsRes,commentsRes,reactionsRes,savesRes]=await Promise.all([
+  const [topicsRes,commentsRes,reactionsRes,savesRes,smartReactionsRes]=await Promise.all([
    sb.from('bingo_topics').select('*').order('created_at',{ascending:false}),
    sb.from('bingo_topic_comments').select('*').eq('moderation_status','visible').order('created_at',{ascending:true}),
    sb.from('bingo_topic_reactions').select('*'),
-   uid?sb.from('bingo_topic_saves').select('topic_id').eq('user_id',uid):Promise.resolve({data:[],error:null})
+   uid?sb.from('bingo_topic_saves').select('topic_id').eq('user_id',uid):Promise.resolve({data:[],error:null}),
+   /* bingo_topic_smart_reactions is a NEW draft table (see
+      supabase/bingo_change_smart_reactions.sql) that may not be deployed
+      yet - tolerated exactly like every other wall query here, so the
+      five reaction buttons degrade to an honest "0, not toggleable
+      until deployed" rather than pretending to work. */
+   sb.from('bingo_topic_smart_reactions').select('*')
   ]);
   if(topicsRes.error)throw topicsRes.error;
   state.wallTopics=(topicsRes.data||[]).map(aaMapBingoTopicRow);
   state.wallComments=commentsRes.error?[]:(commentsRes.data||[]);
   state.wallReactions=reactionsRes.error?[]:(reactionsRes.data||[]);
   state.wallSaves=savesRes.error?[]:(savesRes.data||[]).map(x=>String(x.topic_id));
+  state.wallSmartReactions=smartReactionsRes.error?[]:(smartReactionsRes.data||[]);
  }catch(e){
   console.warn('Bingo: Public Wall unavailable. Using local cache only.',String(e?.message||e));
   if(!Array.isArray(state.wallTopics))state.wallTopics=[];
   if(!Array.isArray(state.wallComments))state.wallComments=[];
   if(!Array.isArray(state.wallReactions))state.wallReactions=[];
   if(!Array.isArray(state.wallSaves))state.wallSaves=[];
+  if(!Array.isArray(state.wallSmartReactions))state.wallSmartReactions=[];
  }
  aaWallLoading=false;
  render();
@@ -11206,6 +11498,23 @@ function aaTopicMediaSrc(item){
  if(item.url)return item.url;
  if(item.path)return aaTopicMediaUrl(item.path);
  return '';
+}
+/* Real, working media carousel state per post (not a static "1/3" label -
+   the arrow buttons genuinely swap the displayed slide). Kept in-memory
+   only (not persisted) since it is just "which photo am I looking at",
+   the same way a viewer's scroll position isn't persisted either. */
+let aaTopicMediaIdx={};
+function aaTopicMediaIndex(topicId,count){
+ const idx=aaTopicMediaIdx[topicId]||0;
+ return count>0?Math.min(idx,count-1):0;
+}
+function aaTopicMediaNav(topicId,dir,count){
+ if(!count)return;
+ let idx=(aaTopicMediaIdx[topicId]||0)+dir;
+ if(idx<0)idx=count-1;
+ if(idx>=count)idx=0;
+ aaTopicMediaIdx[topicId]=idx;
+ render();
 }
 async function aaUploadTopicMedia(files,userId,topicId,onProgress){
  if(!sb)return {media:[],paths:[],error:new Error('No database connection. Bingo could not reach Supabase.')};
@@ -11246,6 +11555,7 @@ function aaSyncTopicDraft(e){
  else if(t.id==="topicBody")state.topicDraft.body=t.value;
 }
 function aaBingoTopicComposerHTML(){
+ aaEnsureTopicDraftFmt();
  const d=state.topicDraft||{title:"",body:""};
  return `<div class="aa-v69-card" style="margin-top:10px">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
@@ -11254,15 +11564,14 @@ function aaBingoTopicComposerHTML(){
   </div>
   <div class="notice" style="margin-top:8px;border-color:var(--gold,#f5c542);color:var(--gold,#f5c542)">🏆 <b>Bingo Impact Awards</b> — Create original posts, inspire the community and grow your impact. The most meaningfully shared posts may qualify for our end-of-year awards and a KSh 1,000,000 Grand Prize.</div>
   <div class="form-grid" style="margin-top:8px">
-   <input class="field full" id="topicTitle" placeholder="Give your topic a title" value="${esc(d.title||"")}" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow()">
-   <textarea class="field full" id="topicBody" rows="3" placeholder="What's on your mind?" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow()">${esc(d.body||"")}</textarea>
+   <input class="field full" id="topicTitle" style="${aaTextFormatCSS(d.titleFmt)}" placeholder="Give your topic a title" value="${esc(d.title||"")}" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow()">
+   <textarea class="field full" id="topicBody" style="${aaTextFormatCSS(d.bodyFmt)}" rows="3" placeholder="What's on your mind?" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow()">${esc(d.body||"")}</textarea>
    <select class="field" id="topicCategory">${AA_TOPIC_CATEGORIES.map(s=>`<option>${esc(s)}</option>`).join("")}</select>
-   <select class="field" id="topicStyle">${AA_TOPIC_STYLES.map(s=>`<option>${esc(s)}</option>`).join("")}</select>
    <input class="field full" id="topicMedia" type="file" accept="image/*,video/*">
   </div>
   <div class="details-actions" style="margin-top:8px">
-   <button class="btn" type="button" onclick="state.postTodayTopicOpen=false;state.topicDraft={title:'',body:''};render()">Cancel</button>
-   <button class="btn btn-red" type="button" onclick="aaPublishBingoTopic()">Publish Topic</button>
+   <button class="btn btn-glass" type="button" onclick="state.postTodayTopicOpen=false;state.topicDraft={title:'',body:''};render()">Cancel</button>
+   <button class="btn btn-publish" type="button" onclick="aaPublishBingoTopic()">Publish Topic</button>
   </div>
  </div>${state.impactAwardsPopupOpen?aaImpactAwardsPopupHTML():""}${state.impactAwardsRulesOpen?aaImpactAwardsRulesHTML():""}`;
 }
@@ -11272,11 +11581,28 @@ function aaBingoTopicComposerHTML(){
    via the persistent Awards link); never re-renders the composer fields
    blank, since aaSyncTopicDraft() keeps typed text in state.topicDraft and
    the template above reads it back on every render. */
+function aaRenderPreserveFocus(){
+ const active=document.activeElement;
+ const id=active&&active.id;
+ const isField=id==="topicTitle"||id==="topicBody";
+ const start=isField&&typeof active.selectionStart==="number"?active.selectionStart:null;
+ const end=isField&&typeof active.selectionEnd==="number"?active.selectionEnd:null;
+ render();
+ if(isField){
+  const el=document.getElementById(id);
+  if(el){
+   el.focus();
+   if(start!==null&&typeof el.setSelectionRange==="function"){
+    try{el.setSelectionRange(start,end)}catch(e){}
+   }
+  }
+ }
+}
 function aaImpactAwardsMaybeShow(){
  if(state.impactAwardsSeen)return;
  state.impactAwardsSeen=true;
  state.impactAwardsPopupOpen=true;
- render();
+ aaRenderPreserveFocus();
 }
 function aaOpenImpactAwardsPopup(force){
  if(force)state.impactAwardsSeen=true;
@@ -11352,12 +11678,14 @@ async function aaPublishBingoTopic(){
  const body=document.getElementById("topicBody")?.value.trim()||"";
  if(!title&&!body){toast("Add a title or some text before publishing.");return}
  const category=document.getElementById("topicCategory")?.value||"General";
- const style=document.getElementById("topicStyle")?.value||"Standard";
+ aaEnsureTopicDraftFmt();
+ const titleFmt=state.topicDraft.titleFmt;
+ const bodyFmt=state.topicDraft.bodyFmt;
  const files=document.getElementById("topicMedia")?.files;
  const hiddenFromPublic=aaContainsProtectedName(title)||aaContainsProtectedName(body);
  if(state.testMode){
   const media=files&&files.length?await aaFileToLocalMedia(files,1):[];
-  const t={id:"topic_"+Date.now(),authorId:state.user?.id||"",authorName:aaOwnProfileName(),title,body,category,style,media,
+  const t={id:"topic_"+Date.now(),authorId:state.user?.id||"",authorName:aaOwnProfileName(),title,body,category,style:"Standard",titleFmt,bodyFmt,media,
    views:0,loves:0,comments:[],echoes:0,hiddenFromPublic,createdAt:new Date().toISOString()};
   const list=aaTopics();list.unshift(t);aaV69Write("aa_bingo_topics",list);
   state.postTodayTopicOpen=false;
@@ -11376,8 +11704,24 @@ async function aaPublishBingoTopic(){
   // policies require a real, already-owned bingo_topics row to exist for
   // the id in the upload path's second segment (see
   // supabase/bingo_change_public_wall_topics.sql, section 6).
-  const insertRow={id,user_id:userId,title,body,category,media:[],moderation_status:hiddenFromPublic?'hidden':'visible'};
-  const {data:inserted,error:insErr}=await sb.from('bingo_topics').insert(insertRow).select().maybeSingle();
+  let insertRow={id,user_id:userId,title,body,category,media:[],moderation_status:hiddenFromPublic?'hidden':'visible',title_format:titleFmt,body_format:bodyFmt};
+  const AA_TOPIC_CORE_FIELDS=['id','user_id','title','body','category','media','moderation_status'];
+  let inserted=null,insErr=null;
+  // title_format/body_format are a NEW, not-yet-applied column pair (see
+  // supabase/bingo_change_topic_text_formatting.sql) - degrade gracefully
+  // exactly like aaInsertPropertyListing does for optional fields, rather
+  // than breaking topic publishing entirely on a database that hasn't had
+  // that migration applied yet.
+  for(let attempt=0;attempt<5;attempt++){
+   const result=await sb.from('bingo_topics').insert(insertRow).select().maybeSingle();
+   if(!result.error){inserted=result.data;insErr=null;break}
+   insErr=result.error;
+   const missing=aaMissingPropertyColumn(result.error);
+   if(missing&&!AA_TOPIC_CORE_FIELDS.includes(missing)&&Object.prototype.hasOwnProperty.call(insertRow,missing)){
+    insertRow={...insertRow};delete insertRow[missing];continue;
+   }
+   break;
+  }
   if(insErr){toast('Could not publish topic: '+String(insErr.message||insErr));return}
   let media=[];
   if(files&&files.length){
@@ -13097,6 +13441,7 @@ function aaMbeaHeaderHTML(){
  return `<div class="aa-mbea-header">
   <div class="aa-mbea-header-top">
    <div class="aa-mbea-brand" onclick="goHome()" style="cursor:pointer">
+    <span class="bingo-crown bingo-crown-sm" aria-hidden="true">👑</span>
     <img src="${BINGO_LOGO_SRC}" alt="Bingo">
     <b>Bingo</b>
    </div>
@@ -13109,7 +13454,7 @@ function aaMbeaHeaderHTML(){
   <div class="aa-mbea-nav">
    <button onclick="goHome()">🏠 Home</button>
    <button class="active">💬 Mbea wa Mtaa</button>
-   <button onclick="${state.isLoggedIn?"aaTogglePostToday()":"openAuth('login')"}">➕ Create</button>
+   <button class="btn-publish" onclick="${state.isLoggedIn?"aaTogglePostToday()":"openAuth('login')"}">➕ Create</button>
    <button onclick="aaOpenBingoBox()">🧭 Explore</button>
    <button onclick="openInbox()">✉ Messages${unread?` (${unread})`:""}</button>
    <button onclick="${state.isLoggedIn?"goAccount()":"openAuth('login')"}">☰ More</button>
@@ -13122,20 +13467,201 @@ function aaMbeaHeaderHTML(){
 }
 const AA_FONT_STYLE_CATEGORIES=["All","Elegant","Bold","Fun","Cultural"];
 const AA_FONT_STYLE_CATEGORY_MAP={"Standard":"All","Bold":"Bold","Italic":"Elegant","Gold Premium":"Elegant","Colour Block":"Fun","Neon":"Fun","Celebration":"Fun","Kenyan Theme":"Cultural","Handwritten":"Elegant","Minimal":"All"};
-function aaWriteWithStylePanelHTML(){
- const fcat=state.fontStyleCategory||"All";
- const draft=state.topicDraft||{};
- const visible=AA_TOPIC_STYLES.filter(s=>fcat==="All"||AA_FONT_STYLE_CATEGORY_MAP[s]===fcat);
- return `<div class="boost-summary">
-  <b>✒ Write with Your Style</b>
-  <p class="notice" style="margin-top:4px">Tap a style, then post or comment — it applies to your text automatically.</p>
-  <div class="aa-style-panel-preview"><span class="${bingoStyledTextClass(draft.style||"Standard")}" style="flex:1">Aa ${esc(draft.style||"Standard")}</span></div>
-  <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:8px">${AA_FONT_STYLE_CATEGORIES.map(c=>`<button type="button" class="btn ${fcat===c?"btn-gold":""}" style="padding:3px 8px;font-size:10px" onclick="state.fontStyleCategory='${c}';render()">${c}</button>`).join("")}</div>
-  <div class="aa-font-cat-grid">${visible.map(s=>`<button type="button" class="${draft.style===s?"active":""}" onclick="state.topicDraft=state.topicDraft||{};state.topicDraft.style='${s}';render()"><span class="${bingoStyledTextClass(s)}">${esc(s)}</span></button>`).join("")}</div>
-  <div style="margin-top:10px"><b style="font-size:11px;color:#cbd5e1">Font Style Examples (used in comments)</b>
-   ${AA_TOPIC_STYLES.map(s=>`<div class="aa-font-example-row"><span class="${bingoStyledTextClass(s)}">${esc(s==="Kenyan Theme"?"Poa sana!":s==="Handwritten"?"Nakupenda":s==="Neon"?"WUEH!":s==="Celebration"?"GOOOAL!":s==="Colour Block"?"Umependeza!":s)}</span><small>(${esc(s)})</small></div>`).join("")}
+/* ===== Full text-formatting engine for the topic title/body composer =====
+   Every value the renderer touches comes from a fixed, hardcoded lookup
+   table (font family, size step, palette colour) or a strictly
+   regex-validated hex string (custom colour, via a native <input
+   type="color"> which itself only ever yields #rrggbb). Nothing a user
+   types is ever concatenated into a style string - this is what makes
+   "sanitize all formatting; users must not inject HTML, CSS or scripts"
+   true by construction rather than by best effort. Title and body carry
+   completely independent format objects (state.topicDraft.titleFmt /
+   .bodyFmt); the old single-preset AA_TOPIC_STYLES/bingoStyledTextClass
+   system stays exactly as it is and keeps rendering existing posts and
+   all comments unchanged - this engine only applies to the composer's
+   title/body going forward, layered on top as titleFmt/bodyFmt when
+   present, never replacing the legacy class-based renderer other screens
+   still rely on. */
+const AA_FONT_FAMILY_GROUPS=[
+ {group:"Standard",fonts:[
+  {key:"system",label:"Bingo Sans",css:"-apple-system,'Segoe UI',Roboto,sans-serif"},
+  {key:"serif",label:"Serif",css:"Georgia,'Times New Roman',serif"}
+ ]},
+ {group:"Elegant",fonts:[
+  {key:"cinzel",label:"Cinzel",css:"'Cinzel',serif",google:"Cinzel"},
+  {key:"playfair",label:"Playfair Display",css:"'Playfair Display',serif",google:"Playfair Display"}
+ ]},
+ {group:"Modern",fonts:[
+  {key:"poppins",label:"Poppins",css:"'Poppins',sans-serif",google:"Poppins"},
+  {key:"montserrat",label:"Montserrat",css:"'Montserrat',sans-serif",google:"Montserrat"}
+ ]},
+ {group:"Handwritten",fonts:[
+  {key:"dancing",label:"Dancing Script",css:"'Dancing Script',cursive",google:"Dancing Script"},
+  {key:"caveat",label:"Caveat",css:"'Caveat',cursive",google:"Caveat"}
+ ]},
+ {group:"Display",fonts:[
+  {key:"bangers",label:"Bangers",css:"'Bangers',cursive",google:"Bangers"},
+  {key:"rocksalt",label:"Rock Salt",css:"'Rock Salt',cursive",google:"Rock Salt"}
+ ]},
+ /* No verified, properly-licensed traditional Kenyan typeface is bundled
+    in this build, so this group is honestly labelled around openly
+    (SIL Open Font License) licensed Google Fonts with a East-African
+    community/display character, not presented as an authentic
+    traditional script. */
+ {group:"Kenyan/Cultural",fonts:[
+  {key:"ubuntu",label:"Ubuntu",css:"'Ubuntu',sans-serif",google:"Ubuntu"}
+ ]}
+];
+const AA_FONT_FAMILY_MAP=(()=>{const m={};AA_FONT_FAMILY_GROUPS.forEach(g=>g.fonts.forEach(f=>m[f.key]=f));return m})();
+const AA_TEXT_SIZES=[{key:"s",label:"S",px:12},{key:"m",label:"M",px:14},{key:"l",label:"L",px:18},{key:"xl",label:"XL",px:22}];
+const AA_TEXT_COLORS=[
+ {key:"default",label:"Default",css:"#f2ede1"},
+ {key:"gold",label:"Gold",css:"#f5b91e"},
+ {key:"cyan",label:"Cyan",css:"#22c9ff"},
+ {key:"blue",label:"Blue",css:"#2979ff"},
+ {key:"magenta",label:"Magenta",css:"#ff2fb0"},
+ {key:"green",label:"Green",css:"#1fd67a"},
+ {key:"red",label:"Red",css:"#ef2638"},
+ {key:"custom",label:"Custom"}
+];
+function aaSafeHexColor(v){return /^#[0-9a-fA-F]{6}$/.test(String(v||""))?v:null}
+function aaDefaultTextFmt(){return {font:"system",bold:false,italic:false,size:"m",color:"default",customColor:"",neon:false,align:"left"}}
+function aaEnsureTopicDraftFmt(){
+ state.topicDraft=state.topicDraft||{title:"",body:""};
+ if(!state.topicDraft.titleFmt)state.topicDraft.titleFmt=aaDefaultTextFmt();
+ if(!state.topicDraft.bodyFmt)state.topicDraft.bodyFmt=aaDefaultTextFmt();
+ if(!state.topicDraft.activeFmtField)state.topicDraft.activeFmtField="title";
+}
+function aaTextFormatCSS(fmt){
+ fmt=fmt||{};
+ const fam=AA_FONT_FAMILY_MAP[fmt.font]||AA_FONT_FAMILY_MAP.system;
+ const size=(AA_TEXT_SIZES.find(s=>s.key===fmt.size)||AA_TEXT_SIZES[1]).px;
+ const colorDef=AA_TEXT_COLORS.find(c=>c.key===fmt.color)||AA_TEXT_COLORS[0];
+ const colorHex=colorDef.key==="custom"?(aaSafeHexColor(fmt.customColor)||AA_TEXT_COLORS[0].css):colorDef.css;
+ const align=["left","center","right"].includes(fmt.align)?fmt.align:"left";
+ let css=`font-family:${fam.css};font-size:${size}px;font-weight:${fmt.bold?800:400};font-style:${fmt.italic?"italic":"normal"};color:${colorHex};text-align:${align};`;
+ if(fmt.neon)css+=`text-shadow:0 0 4px ${colorHex},0 0 10px ${colorHex},0 0 18px ${colorHex};`;
+ return css;
+}
+function aaLoadFontsForGroup(groupName){
+ const g=AA_FONT_FAMILY_GROUPS.find(x=>x.group===groupName);
+ if(!g||typeof loadGoogleFont!=="function")return;
+ g.fonts.forEach(f=>{if(f.google)loadGoogleFont(f.google)});
+}
+function aaSetFmtField(which,key,value){
+ aaEnsureTopicDraftFmt();
+ const target=which==="title"?state.topicDraft.titleFmt:state.topicDraft.bodyFmt;
+ target[key]=value;
+ render();
+}
+function aaApplyPresetToActive(presetName){
+ aaEnsureTopicDraftFmt();
+ const which=state.topicDraft.activeFmtField||"title";
+ const target=which==="title"?state.topicDraft.titleFmt:state.topicDraft.bodyFmt;
+ const map={
+  "Standard":{color:"default",bold:false,italic:false,neon:false},
+  "Bold":{color:"default",bold:true,italic:false,neon:false},
+  "Italic":{color:"gold",bold:false,italic:true,neon:false},
+  "Gold Premium":{color:"gold",bold:true,italic:false,neon:true},
+  "Umependeza!":{color:"cyan",bold:true,italic:false,neon:true},
+  "WUEH!":{color:"blue",bold:true,italic:false,neon:true},
+  "GOOOAL!":{color:"red",bold:true,italic:false,neon:true},
+  "Poa sana!":{color:"green",bold:true,italic:false,neon:true},
+  "Nakupenda":{font:"dancing",color:"default",bold:false,italic:true,neon:true},
+  "Minimal":{color:"default",bold:false,italic:false,neon:false,size:"s"}
+ };
+ Object.assign(target,map[presetName]||{});
+ target.__preset=presetName;
+ render();
+}
+function aaClearActiveFormatting(){
+ aaEnsureTopicDraftFmt();
+ const which=state.topicDraft.activeFmtField||"title";
+ state.topicDraft[which==="title"?"titleFmt":"bodyFmt"]=aaDefaultTextFmt();
+ render();
+}
+function aaOpenTextColorPanel(){aaEnsureTopicDraftFmt();state.textColorPanelOpen=true;render()}
+function aaCloseTextColorPanel(){state.textColorPanelOpen=false;render()}
+function aaTextColorPanelHTML(){
+ aaEnsureTopicDraftFmt();
+ const which=state.topicDraft.activeFmtField||"title";
+ const fmt=which==="title"?state.topicDraft.titleFmt:state.topicDraft.bodyFmt;
+ const custom=aaSafeHexColor(fmt.customColor)||"#f2ede1";
+ return `<div class="overlay" onclick="if(event.target===this)aaCloseTextColorPanel()"><div class="modal" style="width:min(340px,100%)">
+  <button class="close" onclick="aaCloseTextColorPanel()">×</button>
+  <h2 style="font-size:15px">Text Colour — ${which==="title"?"Title":"Message"}</h2>
+  <div style="display:flex;align-items:center;gap:8px;margin:8px 0">
+   <span style="font-size:11px;color:#cbd5e1">Current:</span>
+   <span style="${aaTextFormatCSS(fmt)}">Aa Sample</span>
   </div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px">
+   ${AA_TEXT_COLORS.filter(c=>c.key!=="custom").map(c=>`<button type="button" class="btn ${fmt.color===c.key?"btn-gold":"btn-glass"}" style="padding:6px 4px;font-size:10px" onclick="aaSetFmtField('${which}','color','${c.key}')"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c.css};margin-right:4px;vertical-align:middle"></span>${c.label}</button>`).join("")}
+  </div>
+  <div style="margin-top:10px;display:flex;align-items:center;gap:8px">
+   <input type="color" id="aaCustomColorInput" value="${esc(custom)}" style="width:40px;height:32px;border:none;background:none;cursor:pointer" oninput="aaSetFmtField('${which}','customColor',this.value);aaSetFmtField('${which}','color','custom')">
+   <span style="font-size:11px;color:#cbd5e1">Custom colour</span>
+  </div>
+  <div class="details-actions" style="margin-top:12px">
+   <button class="btn btn-glass" type="button" onclick="aaSetFmtField('${which}','color','default');aaSetFmtField('${which}','customColor','')">Reset to default</button>
+   <button class="btn btn-publish" type="button" onclick="aaCloseTextColorPanel()">Apply</button>
+  </div>
+  <button class="btn btn-glass" style="width:100%;margin-top:6px" type="button" onclick="aaCloseTextColorPanel()">Cancel</button>
+ </div></div>`;
+}
+function aaToggleStyleTools(){state.styleToolsOpen=!state.styleToolsOpen;render()}
+function aaFmtFieldToolbarHTML(which){
+ aaEnsureTopicDraftFmt();
+ const fmt=which==="title"?state.topicDraft.titleFmt:state.topicDraft.bodyFmt;
+ return `<div class="aa-fmt-toolbar">
+  <select class="aa-fmt-select" onchange="aaLoadFontsForGroup(this.options[this.selectedIndex].dataset.group);aaSetFmtField('${which}','font',this.value)">
+   ${AA_FONT_FAMILY_GROUPS.map(g=>`<optgroup label="${esc(g.group)}">${g.fonts.map(f=>`<option value="${f.key}" data-group="${esc(g.group)}" ${fmt.font===f.key?"selected":""}>${esc(f.label)}</option>`).join("")}</optgroup>`).join("")}
+  </select>
+  <button type="button" class="aa-fmt-btn ${fmt.bold?"active":""}" title="Bold" aria-pressed="${fmt.bold?"true":"false"}" onclick="aaSetFmtField('${which}','bold',${!fmt.bold})"><b>B</b></button>
+  <button type="button" class="aa-fmt-btn ${fmt.italic?"active":""}" title="Italic" aria-pressed="${fmt.italic?"true":"false"}" onclick="aaSetFmtField('${which}','italic',${!fmt.italic})"><i>I</i></button>
+  <select class="aa-fmt-select aa-fmt-select-sm" title="Font size" onchange="aaSetFmtField('${which}','size',this.value)">
+   ${AA_TEXT_SIZES.map(s=>`<option value="${s.key}" ${fmt.size===s.key?"selected":""}>${s.label}</option>`).join("")}
+  </select>
+  ${which==="body"?`<span class="aa-fmt-align-group">${["left","center","right"].map(a=>`<button type="button" class="aa-fmt-btn ${fmt.align===a?"active":""}" title="Align ${a}" aria-pressed="${fmt.align===a?"true":"false"}" onclick="aaSetFmtField('${which}','align','${a}')">${a==="left"?"⟸":a==="center"?"≡":"⟹"}</button>`).join("")}</span>`:""}
+  <button type="button" class="aa-fmt-btn ${fmt.neon?"active":""}" title="Neon glow" aria-pressed="${fmt.neon?"true":"false"}" onclick="aaSetFmtField('${which}','neon',${!fmt.neon})">✨</button>
+  <button type="button" class="btn btn-glass aa-fmt-colour-btn" onclick="aaOpenTextColorPanel()">🎨 Colour</button>
+  <button type="button" class="aa-fmt-btn aa-fmt-clear" title="Clear formatting" onclick="aaClearActiveFormatting()">⟲</button>
  </div>`;
+}
+function aaWriteWithStylePanelHTML(){
+ aaEnsureTopicDraftFmt();
+ const active=state.topicDraft.activeFmtField||"title";
+ const activeFmt=active==="title"?state.topicDraft.titleFmt:state.topicDraft.bodyFmt;
+ const quickList=[
+  {name:"Standard",sample:"Standard"},
+  {name:"Bold",sample:"Bold"},
+  {name:"Italic",sample:"Italic"},
+  {name:"Gold Premium",sample:"Gold Premium"},
+  {name:"Umependeza!",sample:"Umependeza!"},
+  {name:"WUEH!",sample:"WUEH!"},
+  {name:"GOOOAL!",sample:"GOOOAL!"},
+  {name:"Poa sana!",sample:"P⭕a sana!"},
+  {name:"Nakupenda",sample:"Nakupenda"},
+  {name:"Minimal",sample:"Minimal"}
+ ];
+ const presetClassFor={"Standard":"bt-standard","Bold":"bt-bold","Italic":"bt-italic","Gold Premium":"bt-gold","Umependeza!":"bt-colourblock","WUEH!":"bt-neon","GOOOAL!":"bt-celebration","Poa sana!":"bt-kenyan","Nakupenda":"bt-handwritten","Minimal":"bt-minimal"};
+ return `<div class="boost-summary">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:6px">
+   <b>✒ Write with Your Style</b>
+   <button type="button" class="btn btn-glass aa-style-tools-toggle" onclick="aaToggleStyleTools()" aria-expanded="${state.styleToolsOpen?"true":"false"}">${state.styleToolsOpen?"Hide Style ▲":"Style ▼"}</button>
+  </div>
+  <p class="notice" style="margin-top:4px">Format your title and message independently. Changes apply live and are kept when you publish.</p>
+  <div class="aa-fmt-tools-body ${state.styleToolsOpen?"open":""}">
+   <div class="tabs" style="margin-top:6px">
+    <button type="button" class="btn ${active==="title"?"btn-gold":""}" style="padding:4px 10px;font-size:11px" onclick="aaEnsureTopicDraftFmt();state.topicDraft.activeFmtField='title';render()">Title</button>
+    <button type="button" class="btn ${active==="body"?"btn-gold":""}" style="padding:4px 10px;font-size:11px" onclick="aaEnsureTopicDraftFmt();state.topicDraft.activeFmtField='body';render()">Message</button>
+   </div>
+   <div class="aa-style-panel-preview" style="margin-top:6px"><span style="${aaTextFormatCSS(activeFmt)}">Aa ${esc(active==="title"?(state.topicDraft.title||"Your title"):(state.topicDraft.body||"Your message"))}</span></div>
+   ${aaFmtFieldToolbarHTML(active)}
+   <div style="margin-top:10px"><b style="font-size:11px;color:#cbd5e1">Quick Styles</b>
+    <div class="aa-style-vlist" role="listbox" aria-label="Quick text styles">${quickList.map(q=>`<button type="button" class="aa-style-vitem${activeFmt.__preset===q.name?" active":""}" role="option" aria-selected="${activeFmt.__preset===q.name?"true":"false"}" onclick="aaApplyPresetToActive('${q.name.replace(/'/g,"\\'")}')">${activeFmt.__preset===q.name?"✓ ":""}<span class="${presetClassFor[q.name]}">${esc(q.sample)}</span></button>`).join("")}</div>
+   </div>
+  </div>
+ </div>${state.textColorPanelOpen?aaTextColorPanelHTML():""}`;
 }
 function aaProfileDecorationsPanelHTML(){
  const cur=state.user?.decoration||"";
@@ -13188,10 +13714,10 @@ function aaPublicTopicsFeedHTML(){
      const loved=aaTopicHasMyLove(t);
      const comments=aaTopicCommentsFor(t);
      const mediaList=Array.isArray(t.media)?t.media:[];
-     const mediaSrc=aaTopicMediaSrc(mediaList[0]);
+     const mediaIdx=aaTopicMediaIndex(t.id,mediaList.length);
+     const mediaSrc=aaTopicMediaSrc(mediaList[mediaIdx]);
      const isOwner=String(t.authorId||"")===String(state.user?.id||"");
      if(typeof aaRecordFeedView==="function")aaRecordFeedView("topic_"+t.id,"topic",t.id);
-     const smart=aaSmartWordsFor(t);
      return `<div class="aa-post-card" id="topic-card-${esc(t.id)}" style="margin-top:12px">
      <div class="aa-post-head">
       <img class="aa-post-avatar ${aaDecorationClassFor(t.authorId)}" src="${bingoSafeMediaAttr(aaProfilePhoto(author.photo))}" alt="" onerror="aaProfileImgFallback(this)" onclick='openSeller(${JSON.stringify(String(t.authorId||""))})'>
@@ -13201,8 +13727,8 @@ function aaPublicTopicsFeedHTML(){
       </div>
       <span class="aa-post-cat-pill"># ${esc(t.category||"General")}</span>
      </div>
-     <div class="${bingoStyledTextClass(t.style)}" style="margin-top:10px;font-size:13px">${esc(t.title||"")}${t.title&&t.body?" — ":""}${esc(t.body||"")}</div>
-     ${mediaSrc?`<div class="aa-post-media">${mediaList[0].type==="video"?`<video src="${bingoSafeMediaAttr(mediaSrc)}" controls playsinline></video>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}">`}${mediaList.length>1?`<span class="aa-post-media-counter">1/${mediaList.length}</span>`:""}</div>`:""}
+     <div style="margin-top:10px">${t.title?`<div class="${t.titleFmt?"":bingoStyledTextClass(t.style)}" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):"font-size:14px;font-weight:800"}">${esc(t.title)}</div>`:""}${t.body?`<div class="${t.bodyFmt?"":bingoStyledTextClass(t.style)}" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):"font-size:13px"}${t.title?"margin-top:2px":""}">${esc(t.body)}</div>`:""}</div>
+     ${mediaSrc?`<div class="aa-post-media">${mediaList[mediaIdx].type==="video"?`<video src="${bingoSafeMediaAttr(mediaSrc)}" controls playsinline></video>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}">`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
      <div class="aa-post-stats">
       <span>❤ ${loveCount}</span>
       <span>💬 ${comments.length}</span>
@@ -13213,14 +13739,14 @@ function aaPublicTopicsFeedHTML(){
      <div style="display:flex;gap:6px;margin-top:10px;align-items:center">
       <img src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" style="width:28px;height:28px;border-radius:50%;object-fit:cover" onerror="aaProfileImgFallback(this)">
       <input class="field" id="topicComment_${esc(t.id)}" placeholder="Write a comment..." style="flex:1">
-      <button class="btn" onclick='aaTopicComment(${JSON.stringify(String(t.id))})'>➤</button>
+      <button class="btn btn-blue" style="border-radius:999px;padding:9px 20px" onclick='aaTopicComment(${JSON.stringify(String(t.id))})'>SEND</button>
      </div>
-     <div class="aa-neon-reactions">${smart.map((phrase,i)=>{const pressed=!!aaSmartWordPressed[String(t.id)+"::"+i];return `<button type="button" class="${pressed?"pressed":""}" onclick='aaSmartWordPress(${JSON.stringify(String(t.id))},${i},${JSON.stringify(phrase)})'><span>${esc(phrase)}</span><span>${pressed?1:0}</span></button>`}).join("")}</div>
+     ${aaSmartReactionsBarHTML(t)}
      <div class="details-actions" style="margin-top:8px">
-      <button class="btn ${loved?"btn-gold":""}" onclick='aaTopicLove(${JSON.stringify(String(t.id))})'>${loved?"❤ Loved":"♡ Love"}</button>
-      <button class="btn" onclick='aaTopicShare(${JSON.stringify(String(t.id))})'>Share</button>
-      <button class="btn ${saved?"btn-gold":""}" onclick='aaTopicToggleSave(${JSON.stringify(String(t.id))})'>${saved?"★ Saved":"☆ Save / Download"}</button>
-      <button class="btn" onclick='aaTopicReport(${JSON.stringify(String(t.id))})'>Report</button>
+      <button class="btn ${loved?"btn-red":"btn-glass"}" onclick='aaTopicLove(${JSON.stringify(String(t.id))})'>${loved?"❤ Loved":"♡ Love"}</button>
+      <button class="btn btn-glass" onclick='aaTopicShare(${JSON.stringify(String(t.id))})'>Share</button>
+      <button class="btn btn-gold" onclick='aaTopicToggleSave(${JSON.stringify(String(t.id))})'>${saved?"★ Saved":"☆ Save / Download"}</button>
+      <button class="btn btn-glass" onclick='aaTopicReport(${JSON.stringify(String(t.id))})'>Report</button>
      </div>
      <div class="aa-top-comments-hd"><span>Top Comments</span>${comments.length>3?`<a onclick='aaOpenExactTopic(${JSON.stringify(String(t.id))})'>View all comments (${comments.length}) ›</a>`:""}</div>
      ${comments.slice(0,3).map(c=>{
@@ -13280,7 +13806,7 @@ ${aaPostTodayHTML()}
 ${aaMyTopicsHTML()}
 <div class="stat-grid"><div class="stat"><b>${state.listings.length}</b><span>Vehicles</span></div><div class="stat"><b>${favs.length}</b><span>Saved</span></div><div class="stat"><b>${state.inbox.length}</b><span>Messages</span></div><div class="stat"><b>${state.visits}</b><span>Visits</span></div></div><div class="dashboard-actions"><button class="btn" onclick="openInbox()">Open Inbox</button><button class="btn" onclick="openJobs('jobs')">Jobs/CVs</button><button class="btn btn-red" onclick="aaOpenCameraDestination()">📷 Camera</button><button class="btn" onclick="openPostVehicle()">Post Vehicle</button><button class="btn" onclick="openJobs('mycv')">My CV</button><button class="btn" onclick="openJobs('jobs')">Jobs & Vacancies</button></div><div class="boost-summary"><b>My Listings</b><p style="font-size:10px;color:var(--muted);line-height:1.6">Boosting is available only from your own profile. No other user can boost your listing.</p>${myBoostListHTML(mine)}</div><div class="boost-summary"><b>Membership</b><p>Account status: <strong style="color:${gold()?"#f5b91e":"#cbd5e1"}">${gold()?"Gold Member":"Silver Member"}</strong></p><p>Recorded visits: <b style="color:#e52329">${state.visits}</b></p><p>Successful listing shares: <b style="color:#f5b91e">${state.shareCount||0}</b></p><div class="notice">Gold can be earned through genuine Bingo participation, including qualifying shares or accepted Solution Room answers.</div><div class="aa-room-reward"><b>Annual Gold Member Rewards</b><br>Outstanding Gold Members may be recognized through Bingo's yearly rewards programme. Annual reward categories, eligibility and verification are set by Bingo each year.</div></div><div class="form-grid" style="margin-top:12px"><div style="text-align:center; margin:15px 0 20px; grid-column: 1 / -1;">
   <div style="width:90px; height:90px; border-radius:50%; margin:0 auto 10px; overflow:hidden; background:#2a2d3d; border:2px solid #0073aa; display:flex; align-items:center; justify-content:center;">
-    <img id="profile-photo-preview" src="${bingoSafeMediaAttr(state.user?.photo_url)||'https://via.placeholder.com/90?text=Photo'}" style="width:100%; height:100%; object-fit:cover;" />
+    <img id="profile-photo-preview" src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" style="width:100%; height:100%; object-fit:cover;" onerror="aaProfileImgFallback(this)" />
   </div>
   <label for="profilePhotoInput" style="background:#0073aa; color:#fff; padding:6px 12px; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600; display:inline-block;">
     📸 Choose Profile Photo
@@ -13467,7 +13993,7 @@ function aaCandidateIsOwn(c){
 function candidateCardHTML(c){
  const own=aaCandidateIsOwn(c);
  const phone=c.showContact?(normalizeKenyanPhone(c.phone||"")||""):"";
- return `<article class="aa-cv-card">${c.isBoosted?`<div class="badge badge-gold" style="position:absolute;z-index:2;margin:7px">★ BOOSTED CV</div>`:""}<img class="aa-cv-passport" src="${bingoSafeMediaAttr(c.photo)||"https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&q=80"}" alt="${esc(c.name)}"><div><div class="aa-cv-name">${esc(c.name)}</div><div class="aa-cv-meta">${esc(c.county)}<br>${esc(c.experience)}<br>${esc((c.bio||"").slice(0,90))}${String(c.bio||"").length>90?"…":""}</div><div class="aa-cv-phone">${phone?esc(phone):"Phone hidden · Internal chat available"}</div></div><div class="aa-cv-actions"><button class="btn" onclick='openCandidate(${JSON.stringify(c.id)})'>View CV</button><button class="btn btn-red" onclick='state.candidateDraft=state.candidates.find(x=>String(x.id)===${JSON.stringify(String(c.id))});state.selectedCandidate=state.candidateDraft;state.view="candidateChat";render()'>Internal Chat</button>${own?`<button class="btn btn-gold" style="grid-column:1/-1" onclick='openContentBoost(state.candidates.find(x=>String(x.id)===${JSON.stringify(String(c.id))}),"cv")'>Boost CV</button>`:""}</div></article>`
+ return `<article class="aa-cv-card">${c.isBoosted?`<div class="badge badge-gold" style="position:absolute;z-index:2;margin:7px">★ BOOSTED CV</div>`:""}<img class="aa-cv-passport" src="${bingoSafeMediaAttr(aaProfilePhoto(c.photo))}" alt="${esc(c.name)}" onerror="aaProfileImgFallback(this)"><div><div class="aa-cv-name">${esc(c.name)}</div><div class="aa-cv-meta">${esc(c.county)}<br>${esc(c.experience)}<br>${esc((c.bio||"").slice(0,90))}${String(c.bio||"").length>90?"…":""}</div><div class="aa-cv-phone">${phone?esc(phone):"Phone hidden · Internal chat available"}</div></div><div class="aa-cv-actions"><button class="btn" onclick='openCandidate(${JSON.stringify(c.id)})'>View CV</button><button class="btn btn-red" onclick='state.candidateDraft=state.candidates.find(x=>String(x.id)===${JSON.stringify(String(c.id))});state.selectedCandidate=state.candidateDraft;state.view="candidateChat";render()'>Internal Chat</button>${own?`<button class="btn btn-gold" style="grid-column:1/-1" onclick='openContentBoost(state.candidates.find(x=>String(x.id)===${JSON.stringify(String(c.id))}),"cv")'>Boost CV</button>`:""}</div></article>`
 }
 function candidateHTML(c){
  const canContact=c.showContact;
@@ -13475,7 +14001,7 @@ function candidateHTML(c){
  return `<section style="padding:20px 0 105px">
   <button class="btn" onclick="state.view='jobs';state.jobsTab='candidates';render()">Back to Candidates / CVs</button>
   <div class="modal" style="max-height:none;margin-top:12px">
-   <div class="profile-head"><img class="profile-photo" src="${bingoSafeMediaAttr(c.photo)}" alt=""><div><h2>${esc(c.name)}</h2><p>${esc(c.county)} · ${esc(c.experience)}</p><span class="seller-link">${canContact?"Contact details enabled":"Contact details hidden"}</span></div></div>
+   <div class="profile-head"><img class="profile-photo" src="${bingoSafeMediaAttr(aaProfilePhoto(c.photo))}" alt="" onerror="aaProfileImgFallback(this)"><div><h2>${esc(c.name)}</h2><p>${esc(c.county)} · ${esc(c.experience)}</p><span class="seller-link">${canContact?"Contact details enabled":"Contact details hidden"}</span></div></div>
    ${c.photos?.length?`<div class="seller-listings">${c.photos.slice(0,5).map(p=>`<div class="mini"><img src="${bingoSafeMediaAttr(p)}" alt=""><div>Profile photo</div></div>`).join("")}</div>`:""}
    <div class="boost-summary"><b>Professional Summary</b><p class="desc">${esc(c.bio||"No professional summary provided.")}</p></div>
    <div class="boost-summary"><b>CV</b><p class="notice">${c.cvName?esc(c.cvName):"CV document not attached yet."}</p>${c.cvName?`<button class="btn" onclick="toast('CV viewer/download will use the secure backend file URL in production.')">View CV</button>`:""}</div>
@@ -15665,11 +16191,11 @@ function bingoSafeMediaAttr(value){
       </div>
      </div>
     <div class="aa92-capture-row">
-     <button class="aa92-capture-side" onclick="aaLiveAddTextOverlay()"><span>Aa</span>Text</button>
-     <button class="aa92-capture-side" onclick="aaLiveShowFilterPicker()"><span>✨</span>Effects</button>
+     <button class="aa92-capture-side" onclick="aaLiveAddTextOverlay()"><span class="aa92-cap-icon aa92-badge-gold">Aa</span><span class="aa92-cap-label">Text</span></button>
+     <button class="aa92-capture-side" onclick="aaLiveShowFilterPicker()"><span class="aa92-cap-icon aa92-badge-purple">✨</span><span class="aa92-cap-label">Effects</span></button>
      <button class="aa92-capture-main" id="aa92RecordBtn" onclick="aaLiveToggleRecord()"></button>
-     <button class="aa92-capture-side" onclick="aaLiveOpenGuests()"><span>👥</span>Guests</button>
-     <button class="aa92-capture-side" onclick="aaLiveOpenTools()"><span>⋯</span>Tools</button>
+     <button class="aa92-capture-side" onclick="aaLiveOpenGuests()"><span class="aa92-cap-icon aa92-badge-cyan">👥</span><span class="aa92-cap-label">Guests</span></button>
+     <button class="aa92-capture-side" onclick="aaLiveOpenTools()"><span class="aa92-cap-icon aa92-badge-magenta">⋯</span><span class="aa92-cap-label">Tools</span></button>
     </div>
     <div id="aa92LiveToolsSheet" class="aa92-tools-sheet" aria-hidden="true"></div>
   </div>
@@ -16262,10 +16788,24 @@ function bingoSafeMediaAttr(value){
 #auto-arcade-widget .aa92-rail-btn.on{border-color:#f5b91e;color:#f5b91e}
 @media(max-width:560px){#auto-arcade-widget .aa92-live-studio-panel{right:66px}#auto-arcade-widget .aa92-rail-btn{width:48px;font-size:8px;padding:6px 2px}#auto-arcade-widget .aa92-rail-btn span{font-size:15px}}
 #auto-arcade-widget .aa92-capture-row{display:flex;align-items:center;justify-content:center;gap:18px;padding:10px 16px calc(14px + env(safe-area-inset-bottom));pointer-events:auto}
-#auto-arcade-widget .aa92-capture-side{background:none!important;background-image:none!important;border:none!important;box-shadow:none!important;color:#fff;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;font-weight:800}
+#auto-arcade-widget .aa92-capture-side{background:none!important;background-image:none!important;border:none!important;box-shadow:none!important;color:#fff;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:9px;font-weight:800}
 #auto-arcade-widget .aa92-capture-side::after,#auto-arcade-widget .aa92-capture-side::before{content:none!important}
-#auto-arcade-widget .aa92-capture-side span{font-size:18px}
-#auto-arcade-widget .aa92-capture-main{width:64px;height:64px;border-radius:50%;background:#fff!important;background-image:none!important;border:4px solid rgba(255,255,255,.35)!important;box-shadow:none!important}
+#auto-arcade-widget .aa92-cap-label{font-size:9px;font-weight:800;text-shadow:0 1px 3px rgba(0,0,0,.6)}
+/* Colour-badged icon circles for the capture-row side buttons, matching
+   the approved reference (gold=Text, purple=Effects, cyan=Guests,
+   magenta=Tools) - a real coloured, glowing circle behind the icon, not
+   plain text on a transparent button. */
+#auto-arcade-widget .aa92-cap-icon{
+  display:flex;align-items:center;justify-content:center;
+  width:44px;height:44px;border-radius:50%;font-size:18px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 0 14px var(--bg2), 0 4px 10px rgba(0,0,0,.35);
+  border:1px solid rgba(255,255,255,.28);
+}
+#auto-arcade-widget .aa92-badge-gold{--bg1:255,176,32;--bg2:rgba(255,176,32,.6);background:linear-gradient(145deg,#ffcf5c,#ff9d00)}
+#auto-arcade-widget .aa92-badge-purple{--bg1:171,71,255;--bg2:rgba(171,71,255,.6);background:linear-gradient(145deg,#c084fc,#7c2df0)}
+#auto-arcade-widget .aa92-badge-cyan{--bg1:34,201,255;--bg2:rgba(34,201,255,.6);background:linear-gradient(145deg,#67e8f9,#0891b2)}
+#auto-arcade-widget .aa92-badge-magenta{--bg1:255,45,176;--bg2:rgba(255,45,176,.6);background:linear-gradient(145deg,#ff6ad5,#c8007e)}
+#auto-arcade-widget .aa92-capture-main{width:64px;height:64px;border-radius:50%;background:#fff!important;background-image:none!important;border:4px solid rgba(255,255,255,.35)!important;box-shadow:0 0 22px rgba(255,45,107,.65)!important}
 #auto-arcade-widget .aa92-capture-main::after,#auto-arcade-widget .aa92-capture-main::before{content:none!important}
 #auto-arcade-widget .aa92-capture-main.recording{background:#ef233c!important;border-color:rgba(239,35,60,.4)!important}
 #auto-arcade-widget .aa92-live-title-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
@@ -16347,8 +16887,15 @@ function bingoSafeMediaAttr(value){
 #auto-arcade-widget .aa92-tools-sheet{position:fixed;left:0;right:0;bottom:0;z-index:60;background:linear-gradient(180deg,#0e1b2d,#071020);border-top:1px solid #2f405d;border-radius:16px 16px 0 0;padding:14px;max-height:60vh;overflow:auto;transform:translateY(100%);transition:transform .18s ease}
 #auto-arcade-widget .aa92-tools-sheet.open{transform:translateY(0)}
 #auto-arcade-widget .aa92-tools-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
-#auto-arcade-widget .aa92-tool-btn{display:flex;flex-direction:column;align-items:center;gap:4px;background:#101c2f;border:1px solid #2f405d;border-radius:12px;padding:10px 4px;color:#fff;font-size:10px}
-#auto-arcade-widget .aa92-tool-btn span{font-size:20px}
+#auto-arcade-widget .aa92-tool-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:linear-gradient(180deg,#16243b,#0c1626)!important;border:1px solid #2f405d!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 4px 10px rgba(0,0,0,.3)!important;border-radius:14px!important;padding:12px 4px!important;color:#fff;font-size:10px;min-height:44px}
+#auto-arcade-widget .aa92-tool-btn::after{display:none!important}
+#auto-arcade-widget .aa92-tool-label{font-size:10px;font-weight:700}
+#auto-arcade-widget .aa92-tool-icon{
+  display:flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:12px;font-size:18px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 0 10px var(--bg2);
+}
+#auto-arcade-widget .aa92-tool-icon.aa92-badge-navy{background:linear-gradient(145deg,#2a3c5c,#16243b);--bg2:rgba(120,150,200,.25);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 0 6px rgba(120,150,200,.2)}
 #auto-arcade-widget .aa82-camera-glass video.aa-live-filter-grayscale{filter:grayscale(1)}
 #auto-arcade-widget .aa82-camera-glass video.aa-live-filter-warm{filter:sepia(.35) saturate(1.3)}
 #auto-arcade-widget .aa82-camera-glass video.aa-live-filter-cool{filter:hue-rotate(180deg) saturate(1.1)}
@@ -16637,19 +17184,19 @@ function bingoSafeMediaAttr(value){
   const sheet=$("#aa92LiveToolsSheet");if(!sheet)return;
   sheet.innerHTML=`<h3 style="color:#fff;margin:0">Creator Tools</h3>
    <div class="aa92-tools-grid">
-    <button class="aa92-tool-btn" onclick="aaLiveAddTextOverlay()"><span>Aa</span>Text Style</button>
-    <button class="aa92-tool-btn" onclick="aaLiveAddSticker('🔥')"><span>😊</span>Stickers</button>
-    <button class="aa92-tool-btn" onclick="aaLiveShowFilterPicker()"><span>✨</span>Effects</button>
-    <button class="aa92-tool-btn" onclick="aaLivePickMusic()"><span>🎵</span>Music</button>
-    <button class="aa92-tool-btn" onclick="aaLiveShowBackgroundPicker()"><span>🖼</span>Background</button>
-    <button class="aa92-tool-btn" onclick="aaLiveShowFilterPicker()"><span>🎨</span>Filters</button>
-    <button class="aa92-tool-btn" onclick="aaLiveTakePhoto()"><span>📷</span>Take Photo</button>
-    <button class="aa92-tool-btn" onclick="aaLiveEditPhoto()"><span>🖌</span>Edit Photo</button>
-    <button class="aa92-tool-btn" onclick="aaLiveToggleScreenShare()"><span>🖥</span>Screen Share</button>
-    <button class="aa92-tool-btn" onclick="aaLiveCreatePoll()"><span>📊</span>Poll / Q&amp;A</button>
-    <button class="aa92-tool-btn" onclick="aaLiveOpenProducts()"><span>🛍</span>Products</button>
-    <button class="aa92-tool-btn" onclick="aaLiveOpenGuests()"><span>👥</span>Guests</button>
-    <button class="aa92-tool-btn" onclick="aaLiveOpenSettings()"><span>⚙</span>Settings</button>
+    <button class="aa92-tool-btn" onclick="aaLiveAddTextOverlay()"><span class="aa92-tool-icon aa92-badge-gold">Aa</span><span class="aa92-tool-label">Text Style</span></button>
+    <button class="aa92-tool-btn" onclick="aaLiveAddSticker('🔥')"><span class="aa92-tool-icon aa92-badge-purple">😊</span><span class="aa92-tool-label">Stickers</span></button>
+    <button class="aa92-tool-btn" onclick="aaLiveShowFilterPicker()"><span class="aa92-tool-icon aa92-badge-magenta">✨</span><span class="aa92-tool-label">Effects</span></button>
+    <button class="aa92-tool-btn" onclick="aaLivePickMusic()"><span class="aa92-tool-icon aa92-badge-cyan">🎵</span><span class="aa92-tool-label">Music</span></button>
+    <button class="aa92-tool-btn" onclick="aaLiveShowBackgroundPicker()"><span class="aa92-tool-icon aa92-badge-navy">🖼</span><span class="aa92-tool-label">Background</span></button>
+    <button class="aa92-tool-btn" onclick="aaLiveShowFilterPicker()"><span class="aa92-tool-icon aa92-badge-navy">🎨</span><span class="aa92-tool-label">Filters</span></button>
+    <button class="aa92-tool-btn" onclick="aaLiveTakePhoto()"><span class="aa92-tool-icon aa92-badge-navy">📷</span><span class="aa92-tool-label">Take Photo</span></button>
+    <button class="aa92-tool-btn" onclick="aaLiveEditPhoto()"><span class="aa92-tool-icon aa92-badge-purple">🖌</span><span class="aa92-tool-label">Edit Photo</span></button>
+    <button class="aa92-tool-btn" onclick="aaLiveToggleScreenShare()"><span class="aa92-tool-icon aa92-badge-navy">🖥</span><span class="aa92-tool-label">Screen Share</span></button>
+    <button class="aa92-tool-btn" onclick="aaLiveCreatePoll()"><span class="aa92-tool-icon aa92-badge-cyan">📊</span><span class="aa92-tool-label">Poll / Q&amp;A</span></button>
+    <button class="aa92-tool-btn" onclick="aaLiveOpenProducts()"><span class="aa92-tool-icon aa92-badge-gold">🛍</span><span class="aa92-tool-label">Products</span></button>
+    <button class="aa92-tool-btn" onclick="aaLiveOpenGuests()"><span class="aa92-tool-icon aa92-badge-cyan">👥</span><span class="aa92-tool-label">Guests</span></button>
+    <button class="aa92-tool-btn" onclick="aaLiveOpenSettings()"><span class="aa92-tool-icon aa92-badge-navy">⚙</span><span class="aa92-tool-label">Settings</span></button>
    </div>
    <button class="btn" style="width:100%;margin-top:10px" onclick="aaLiveCloseTools()">Close</button>`;
   sheet.classList.add("open");sheet.setAttribute("aria-hidden","false");
@@ -17725,14 +18272,14 @@ Source specification: Complete Platform Changes & Feature Specification.
    the existing system font stack so no external font loading is
    required; still visually distinct per the approved style categories. */
 #auto-arcade-widget .bt-standard{font-weight:600}
-#auto-arcade-widget .bt-bold{font-weight:900;letter-spacing:.01em}
-#auto-arcade-widget .bt-italic{font-style:italic;font-weight:700;color:#f2ede1}
+#auto-arcade-widget .bt-bold{font-weight:900;letter-spacing:.01em;color:#fff;text-shadow:0 0 6px rgba(255,255,255,.35)}
+#auto-arcade-widget .bt-italic{font-style:italic;font-weight:700;color:#e8c887}
 #auto-arcade-widget .bt-gold{font-weight:900;color:#f5b91e;text-shadow:0 0 10px rgba(245,185,30,.45)}
 #auto-arcade-widget .bt-colourblock{font-weight:900;color:#071020;background:#22c8ff;padding:2px 8px;border-radius:6px;display:inline-block}
-#auto-arcade-widget .bt-neon{font-weight:900;color:#22c8ff;text-shadow:0 0 6px #22c8ff,0 0 14px rgba(34,200,255,.6)}
+#auto-arcade-widget .bt-neon{font-weight:900;color:#2979ff;text-shadow:0 0 6px #2979ff,0 0 14px rgba(41,121,255,.6)}
 #auto-arcade-widget .bt-celebration{font-weight:900;color:#ff294d;text-shadow:0 0 8px rgba(255,41,77,.5)}
 #auto-arcade-widget .bt-kenyan{font-weight:900;background:linear-gradient(90deg,#111 0 25%,#e52329 25% 50%,#fff 50% 75%,#0a7a3c 75% 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
-#auto-arcade-widget .bt-handwritten{font-style:italic;font-weight:500;letter-spacing:.02em;color:#f2ede1}
+#auto-arcade-widget .bt-handwritten{font-style:italic;font-weight:500;letter-spacing:.02em;color:#f2ede1;text-shadow:0 0 8px rgba(242,237,225,.35)}
 #auto-arcade-widget .bt-minimal{font-weight:400;color:#aebbd0;letter-spacing:.01em}
 #auto-arcade-widget .smart-words{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin-top:8px}
 @media(max-width:520px){#auto-arcade-widget .smart-words{grid-template-columns:repeat(3,minmax(0,1fr))}}
@@ -18239,7 +18786,7 @@ Only requested areas changed:
     const s=sellerPreviewData(id);
     document.getElementById('aaGuestProfileOverlay')?.remove();
     const layer=document.createElement('div');layer.id='aaGuestProfileOverlay';layer.className='aa-guest-profile-overlay';
-    layer.innerHTML=`<div class="aa-guest-profile-card"><button type="button" aria-label="Close" style="float:right;width:34px;height:34px;border-radius:50%;border:0;background:#ef1f2f;color:#fff;font-weight:900" id="aaGuestProfileClose">×</button><img src="${esc(aaProfilePhoto(s.photo))}" alt="${esc(s.name)}"><h2>${esc(s.name)}</h2><p>Guests can view the creator's name and profile photo from a listing. Become an Bingo member to follow, message, request number sharing and unlock more profile activity.</p><button class="aa-register-now" id="aaGuestRegisterNow">CREATE MY BINGO PROFILE</button></div>`;
+    layer.innerHTML=`<div class="aa-guest-profile-card"><button type="button" aria-label="Close" style="float:right;width:34px;height:34px;border-radius:50%;border:0;background:#ef1f2f;color:#fff;font-weight:900" id="aaGuestProfileClose">×</button><img src="${esc(aaProfilePhoto(s.photo))}" alt="${esc(s.name)}" onerror="aaProfileImgFallback(this)"><h2>${esc(s.name)}</h2><p>Guests can view the creator's name and profile photo from a listing. Become an Bingo member to follow, message, request number sharing and unlock more profile activity.</p><button class="aa-register-now" id="aaGuestRegisterNow">CREATE MY BINGO PROFILE</button></div>`;
     root.appendChild(layer);
     layer.querySelector('#aaGuestProfileClose').onclick=()=>layer.remove();
     layer.querySelector('#aaGuestRegisterNow').onclick=()=>{layer.remove();openAuth('register');};
@@ -19169,21 +19716,26 @@ Preserve all existing onclick actions, routes, forms and button wording.
   isolation:isolate;
   overflow:visible!important;
 
-  border:1px solid rgba(var(--tab-rgb),.62)!important;
+  border:1.5px solid rgba(var(--tab-rgb),.75)!important;
+  border-radius:12px!important;
 
+  /* Premium dimensional surface: a brighter top highlight sliver, a
+     saturated colour band, then a deep navy base - not a single flat
+     tint-to-black wash. This is the shared recipe every semantic
+     colour (.btn-red/.btn-gold/.btn-blue/.btn-publish/.btn-success/
+     .btn-glass) rides on by swapping --tab-light/--tab-rgb only. */
   background:
-    linear-gradient(
-      180deg,
-      rgba(var(--tab-rgb),.22),
-      rgba(7,12,25,.96)
-    )!important;
+    linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 34%),
+    linear-gradient(155deg, rgba(var(--tab-rgb),.55), rgba(var(--tab-rgb),.16) 45%, rgba(6,11,22,.97) 78%)
+    !important;
 
   color:#fff!important;
 
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.10),
-    0 0 8px rgba(var(--tab-rgb),.22),
-    0 7px 15px rgba(0,0,0,.28)!important;
+    inset 0 1px 0 rgba(255,255,255,.22),
+    inset 0 -10px 16px -10px rgba(0,0,0,.55),
+    0 0 14px rgba(var(--tab-rgb),.38),
+    0 8px 18px rgba(0,0,0,.34)!important;
 
   text-shadow:
     0 0 6px rgba(255,255,255,.20);
@@ -19274,6 +19826,78 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget button.btn-gold{
   --tab-light:var(--bingo-gold,#f3be2b);
   --tab-rgb:243,190,43;
+}
+
+/* ===== Site-wide semantic button colours (premium dimensional system) =====
+   Same base recipe as every other button (border/gradient/glow/hover/
+   active/disabled/focus already defined above) - only the colour
+   identity changes, so these stay consistent everywhere they are used
+   rather than being re-invented per screen. */
+#auto-arcade-widget .btn-blue,
+#auto-arcade-widget button.btn-blue,
+#auto-arcade-widget .aa-btn-primary{ /* primary action - blue/cyan */
+  --tab-light:#12aaff;
+  --tab-rgb:18,170,255;
+}
+#auto-arcade-widget .btn-publish,
+#auto-arcade-widget button.btn-publish,
+#auto-arcade-widget .aa-btn-publish{ /* create / publish - magenta */
+  --tab-light:#ff2fb0;
+  --tab-rgb:255,47,176;
+}
+#auto-arcade-widget .btn-success,
+#auto-arcade-widget button.btn-success,
+#auto-arcade-widget .btn-green,
+#auto-arcade-widget button.btn-green,
+#auto-arcade-widget .aa-btn-success{ /* success / confirm - green/emerald */
+  --tab-light:#1fd67a;
+  --tab-rgb:31,214,122;
+}
+#auto-arcade-widget .btn-boost,
+#auto-arcade-widget button.btn-boost,
+#auto-arcade-widget .aa-btn-boost{ /* promotion / boost - gold/orange */
+  --tab-light:#ffb020;
+  --tab-rgb:255,176,32;
+}
+#auto-arcade-widget .btn-danger,
+#auto-arcade-widget button.btn-danger,
+#auto-arcade-widget .aa-btn-danger{ /* destructive / delete / logout - red */
+  --tab-light:var(--bingo-red,#ef2638);
+  --tab-rgb:239,38,56;
+}
+/* Two extra stable identities so a menu of many buttons (Cockpit/Member
+   Central) never has to repeat the same colour on unrelated actions. */
+#auto-arcade-widget .btn-cyan,
+#auto-arcade-widget button.btn-cyan{
+  --tab-light:#22c9ff;
+  --tab-rgb:34,201,255;
+}
+#auto-arcade-widget .btn-purple,
+#auto-arcade-widget button.btn-purple{
+  --tab-light:#ab47ff;
+  --tab-rgb:171,71,255;
+}
+/* Secondary controls - deep navy glass surface with a visible neon edge,
+   not a saturated glow. Used for Cancel/Back/neutral actions. */
+#auto-arcade-widget .btn-glass,
+#auto-arcade-widget button.btn-glass,
+#auto-arcade-widget .aa-btn-glass{
+  border:1.5px solid rgba(120,170,255,.38)!important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,0) 34%),
+    linear-gradient(155deg, rgba(30,45,75,.72), rgba(8,14,26,.94) 78%)
+    !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.12),
+    0 0 10px rgba(120,170,255,.16),
+    0 6px 14px rgba(0,0,0,.30)!important;
+}
+@media (hover:hover){
+  #auto-arcade-widget .btn-glass:hover,
+  #auto-arcade-widget button.btn-glass:hover,
+  #auto-arcade-widget .aa-btn-glass:hover{
+    border-color:rgba(120,170,255,.65)!important;
+  }
 }
 
 /* Disabled buttons must remain visibly disabled */
