@@ -3379,13 +3379,18 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .aa-mbea-banner p{font-size:11px;color:#9fb0c4;font-style:italic;margin:2px 0 0}
 /* Post card matching approved post/comments reference */
 #auto-arcade-widget .aa-post-card{background:rgba(15,23,42,.85);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;backdrop-filter:blur(10px);box-shadow:0 8px 24px rgba(0,0,0,.35)}
-#auto-arcade-widget .aa-post-head{display:flex;align-items:center;gap:8px}
-#auto-arcade-widget .aa-post-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover}
+#auto-arcade-widget .aa-post-content{display:block}
+#auto-arcade-widget .aa-post-title{line-height:1.3;word-wrap:break-word}
+#auto-arcade-widget .aa-post-message{line-height:1.5;word-wrap:break-word}
+#auto-arcade-widget .aa-post-head{display:flex;align-items:center;gap:7px}
+#auto-arcade-widget .aa-post-avatar{width:30px;height:30px;border-radius:50%;object-fit:cover}
 #auto-arcade-widget .aa-post-avatar.deco-birthday{border:3px solid #ff9ec4;box-shadow:0 0 0 2px #1a0d14}
 #auto-arcade-widget .aa-post-avatar.deco-wedding{border:3px solid #d9c76b;box-shadow:0 0 0 2px #1a1608}
 #auto-arcade-widget .aa-post-avatar.deco-memorial{border:3px solid #7d8794;filter:grayscale(.35)}
 #auto-arcade-widget .aa-post-verified{width:15px;height:15px;background:#1e90ff;color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;flex:none}
 #auto-arcade-widget .aa-post-cat-pill{background:linear-gradient(135deg,#8a2be2,#e91e8c);color:#fff;font-size:10px;font-weight:800;padding:5px 10px;border-radius:99px;white-space:nowrap}
+#auto-arcade-widget .aa-public-agent-badge{display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:3px 9px;border-radius:99px;background:rgba(245,185,30,.12);border:1px solid rgba(245,185,30,.5);color:var(--gold,#f5b91e);font-size:11px;font-weight:800}
+#auto-arcade-widget .aa-public-agent-since{font-weight:600;opacity:.85;color:#e6c876}
 #auto-arcade-widget .aa-post-media{position:relative;border-radius:12px;overflow:hidden;margin-top:10px}
 #auto-arcade-widget .aa-post-media img,#auto-arcade-widget .aa-post-media video{width:100%;max-height:340px;object-fit:cover;display:block}
 #auto-arcade-widget .aa-post-media-counter{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;z-index:2}
@@ -3413,45 +3418,39 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
    along the lower section. Overrides win over the generic
    #auto-arcade-widget button rule via #id+class specificity, same
    pattern already used for .aa92-capture-main/.aa-trend-link. ===== */
-#auto-arcade-widget .aa-neon-reactions{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+#auto-arcade-widget .aa-neon-reactions{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+/* Compact selectable "tabs", not filled buttons: dark/near-transparent
+   background, wording in the reaction's own colour, a thin coloured
+   underline for identity - kept visually secondary to the topic above. */
 #auto-arcade-widget .aa-reaction-btn{
   --rx1:255,47,176; --rx2:180,0,255;
+  position:relative!important;
   border:none!important;
-  border-radius:18px!important;
-  padding:0!important;
-  min-width:118px;
-  min-height:44px;
-  flex:1 1 118px;
+  border-bottom:2px solid rgba(var(--rx1),.55)!important;
+  border-radius:5px 5px 2px 2px!important;
+  padding:0 8px!important;
+  height:23px;
+  min-height:23px;
   cursor:pointer;
-  color:#fff!important;
-  overflow:hidden;
-  display:flex;
-  flex-direction:column;
-  align-items:stretch;
-  background:linear-gradient(145deg, rgba(var(--rx1),1), rgba(var(--rx2),1))!important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.35),
-    inset 0 -14px 18px -12px rgba(0,0,0,.45),
-    0 0 0 1px rgba(255,255,255,.10),
-    0 0 16px rgba(var(--rx1),.55),
-    0 8px 16px rgba(0,0,0,.32)!important;
-  transition:transform .14s ease, box-shadow .16s ease, filter .16s ease;
+  color:rgb(var(--rx1))!important;
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  white-space:nowrap;
+  background:rgba(var(--rx1),.09)!important;
+  box-shadow:none!important;
+  transition:background .15s ease, border-color .15s ease, transform .12s ease;
 }
-#auto-arcade-widget .aa-reaction-top{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 10px 7px;flex:1}
-#auto-arcade-widget .aa-reaction-face{font-size:16px;line-height:1;text-shadow:0 1px 2px rgba(0,0,0,.35)}
-#auto-arcade-widget .aa-reaction-label{font-size:12px;font-weight:800;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.4);white-space:nowrap}
-#auto-arcade-widget .aa-reaction-count{
-  display:block;
-  text-align:center;
-  font-size:12px;
-  font-weight:900;
-  color:#fff;
-  padding:4px 6px;
-  min-height:20px;
-  background:rgba(0,0,0,.30);
-  border-top:1px solid rgba(255,255,255,.14);
-  font-variant-numeric:tabular-nums;
+/* Chip is visually 22-26px tall (compact, inline), but keeps a 44x44
+   invisible hit-slop centred on it so the touch target stays accessible. */
+#auto-arcade-widget .aa-reaction-btn::before{
+  content:"";position:absolute!important;top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:44px;height:44px;background:none!important;
 }
+#auto-arcade-widget .aa-reaction-face{font-size:11px;line-height:1}
+#auto-arcade-widget .aa-reaction-label{font-size:11px;font-weight:700;color:inherit}
+#auto-arcade-widget .aa-reaction-count{font-size:11px;font-weight:800;color:inherit;font-variant-numeric:tabular-nums;opacity:.85}
 #auto-arcade-widget .aa-reaction-umependeza{--rx1:214,0,255; --rx2:255,0,170}
 #auto-arcade-widget .aa-reaction-sketikali{--rx1:255,153,0; --rx2:255,204,0}
 #auto-arcade-widget .aa-reaction-nimeipenda{--rx1:255,45,107; --rx2:255,107,157}
@@ -3459,40 +3458,28 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .aa-reaction-hiifashion{--rx1:18,201,107; --rx2:10,154,79}
 @media(hover:hover){
   #auto-arcade-widget .aa-reaction-btn:hover{
-    transform:translateY(-2px);
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,.4),
-      inset 0 -14px 18px -12px rgba(0,0,0,.45),
-      0 0 0 1px rgba(255,255,255,.16),
-      0 0 24px rgba(var(--rx1),.75),
-      0 10px 20px rgba(0,0,0,.36)!important;
+    background:rgba(var(--rx1),.17)!important;
+    border-bottom-color:rgba(var(--rx1),.85)!important;
   }
 }
-#auto-arcade-widget .aa-reaction-btn:active{transform:translateY(1px) scale(.98)!important}
-#auto-arcade-widget .aa-reaction-btn:focus-visible{outline:2px solid #fff!important;outline-offset:3px}
+#auto-arcade-widget .aa-reaction-btn:active{transform:translateY(1px)!important}
+#auto-arcade-widget .aa-reaction-btn:focus-visible{outline:2px solid rgb(var(--rx1))!important;outline-offset:2px}
 #auto-arcade-widget .aa-reaction-btn:disabled,
-#auto-arcade-widget .aa-reaction-btn[aria-disabled="true"]{opacity:.45!important;filter:grayscale(.5);cursor:not-allowed}
+#auto-arcade-widget .aa-reaction-btn[aria-disabled="true"]{opacity:.5!important;cursor:not-allowed}
 #auto-arcade-widget .aa-reaction-btn.is-selected{
   /* Selected + disabled (a reaction already sent) must still read as
      "selected", not as a greyed-out unavailable control - cancel the
-     generic :disabled dimming explicitly. */
+     generic :disabled dimming explicitly. Selection is shown by a bolder
+     label and a solid underline, not colour alone. */
   opacity:1!important;
-  filter:none!important;
   cursor:default!important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.5),
-    inset 0 -14px 18px -12px rgba(0,0,0,.4),
-    0 0 0 2px #fff,
-    0 0 22px rgba(var(--rx1),.85),
-    0 8px 16px rgba(0,0,0,.32)!important;
-  animation:aaReactionPop .32s ease;
+  background:rgba(var(--rx1),.22)!important;
+  border-bottom:3px solid rgb(var(--rx1))!important;
+  animation:aaReactionPop .28s ease;
 }
-@keyframes aaReactionPop{0%{transform:scale(1)}45%{transform:scale(1.1)}100%{transform:scale(1)}}
+#auto-arcade-widget .aa-reaction-btn.is-selected .aa-reaction-label{font-weight:900}
+@keyframes aaReactionPop{0%{transform:scale(1)}45%{transform:scale(1.06)}100%{transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){#auto-arcade-widget .aa-reaction-btn.is-selected{animation:none}}
-@media(max-width:430px){
-  #auto-arcade-widget .aa-reaction-btn{min-width:104px;flex:0 0 auto}
-  #auto-arcade-widget .aa-reaction-label{font-size:11px}
-}
 #auto-arcade-widget .aa-top-comments-hd{display:flex;justify-content:space-between;align-items:center;margin-top:12px;font-size:12px;font-weight:800;color:#cbd5e1}
 #auto-arcade-widget .aa-top-comments-hd a{color:#4da3ff;font-weight:700;cursor:pointer;font-size:11px}
 #auto-arcade-widget .aa-comment-row{display:flex;gap:8px;margin-top:10px}
@@ -4623,6 +4610,33 @@ async function openSeller(id){
    console.warn("Public seller profile fetch fallback used:",e);
   }
  }
+ aaLoadPublicAgentBadge(sellerId);
+}
+/* ---- Public Agent badge (visible to any visitor, not just the Agent
+   themself) ---- reads only role/territory/agent_since via the
+   bingo_user_roles_public_agent_read policy (draft SQL,
+   bingo_change_agent_public_badge_and_commission_settings.sql), which
+   only ever exposes a row when role='agent' and agent_status='active' -
+   never salary/commission/withdrawal data, which stay in separate,
+   still-restricted tables. Mirrors the existing aaCrownLoad() pattern:
+   fire-and-forget fetch, cache, re-render when it resolves. */
+async function aaLoadPublicAgentBadge(userId){
+ if(!sb||!userId)return;
+ try{
+  const {data,error}=await sb.from("bingo_user_roles").select("territory,agent_since").eq("user_id",userId).eq("role","agent").eq("agent_status","active").maybeSingle();
+  if(error)throw error;
+  state.publicAgentBadgeCache=state.publicAgentBadgeCache||{};
+  state.publicAgentBadgeCache[String(userId)]=data||null;
+  render();
+ }catch(e){
+  console.warn("Public Agent badge unavailable:",String(e?.message||e));
+ }
+}
+function aaPublicAgentBadgeHTML(userId){
+ const b=(state.publicAgentBadgeCache||{})[String(userId||"")];
+ if(!b)return "";
+ const since=b.agent_since?new Date(b.agent_since).toLocaleDateString("en-KE",{month:"short",year:"numeric"}):"";
+ return `<div class="aa-public-agent-badge">🎖 Bingo Agent${b.territory?" — "+esc(b.territory):""}${since?` <span class="aa-public-agent-since">· Agent since ${esc(since)}</span>`:""}</div>`;
 }
 function reviewData(sellerId){return (state.reviews||[]).filter(r=>String(r.sellerId)===String(sellerId))}
 function aaReviewIsOwnerEntry(r,sellerId,sellerName){
@@ -5080,6 +5094,7 @@ function aaMemberCentralHTML(){
   {label:"Bingo Stays",icon:"▥",action:"aaOpenProperties('stays')",color:"btn-cyan"},
   {label:"Jobs & CV",icon:"▣",action:"openJobs('jobs')",color:"btn-success"},
   {label:"Community",icon:"◆",action:"aaOpenSolutionRooms()",color:"btn-purple"},
+  {label:"Go Live",icon:"⏺",action:"if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio('live');",color:"btn-red"},
   {label:"My Bingo",icon:"◉",action:"goAccount()",color:"btn-glass"}
  ];
  return `<section class="aa-member-central">
@@ -11222,9 +11237,10 @@ function sellerHTML(s,cars){
   return `<div class="aa-review"><div><span class="aa-rating-stars">${starsHTML(r.rating)}</span>${r.rating?` <span style="font-size:9px;color:#7f8ba0">${r.rating}/5</span>`:""}${ownerEntry?` <span class="meta">(owner comment — not counted)</span>`:""}</div>${r.text?`<div style="font-size:11px;line-height:1.5;margin-top:4px">${esc(r.text)}</div>`:""}<div style="font-size:9px;color:#7f8ba0;margin-top:4px">${esc(r.author||"Bingo Member")}</div>${r.reply?`<div class="notice" style="margin-top:8px"><b>${esc(r.replyAuthor||s.name)} replied:</b><br>${esc(r.reply)}</div>`:""}${canReply?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><textarea id="reviewReply_${esc(String(r.id))}" class="field" rows="2" placeholder="Reply to this review..."></textarea><button class="btn" style="width:100%;margin-top:6px" onclick='replyToProfileReview(${JSON.stringify(String(r.id))})'>Reply</button></div>`:""}</div>`;
  }).join(""):`<div class="notice">No reviews yet. Be the first logged-in member to review this profile.</div>`;
 
- return `<section style="padding:20px 0 100px"><button class="btn" onclick="goBack()">Back</button><div class="modal ${s.gold?"aa-gold-qualified":""}" style="max-height:none;margin-top:12px"><div class="profile-head"><div style="position:relative"><img class="profile-photo" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)"><div style="position:absolute;right:0;bottom:4px;background:#071020;border-radius:99px;padding:3px 5px">${aaPresenceBadge(s)}</div></div><div>${aaFollowTopControlHTML(s)}<h2>${esc(s.name)}</h2>${aaFollowStatsHTML(sellerKey,true)}${s.location?`<p>${esc(s.location)}</p>`:""}${aaMemberSinceHTML(s)}<p>${esc(s.bio)}</p><small style="color:#f5b91e;font-weight:900">${s.gold?"Gold Member":"Bingo Member"}</small></div></div><div class="boost-summary" style="margin-top:12px"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div><div class="notice">${rs.count} review${rs.count===1?"":"s"}</div></div><div class="details-actions" style="margin-top:14px"><button class="btn" type="button" data-aa-call="seller">Call</button><button class="btn btn-green" onclick="contact('whatsapp',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}'})">WhatsApp</button><button class="btn btn-red" onclick="contact('chat',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}',sellerGold:${s.gold?"true":"false"},title:'Profile conversation'})">Bingo Chat</button></div>${own?`${aaPostTodayHTML()}${aaMyTopicsHTML()}${aaAgentProfilePanelHTML()}${aaHelpSellPendingRequestsHTML()}${aaMyHelpSellListingsHTML()}<div class="aa-room-reward"><b>${gold()?"★ GOLD MEMBER":"Community Gold Progress"}</b><br>Accepted Solution Room answers: ${aaAcceptedSolutionsFor(state.user?.id)}/${aaGoldAcceptedTarget()}. Outstanding Gold Members may qualify for annual Bingo recognition and rewards.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+ return `<section style="padding:20px 0 100px"><button class="btn" onclick="goBack()">Back</button><div class="modal ${s.gold?"aa-gold-qualified":""}" style="max-height:none;margin-top:12px"><div class="profile-head"><div style="position:relative"><img class="profile-photo" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)"><div style="position:absolute;right:0;bottom:4px;background:#071020;border-radius:99px;padding:3px 5px">${aaPresenceBadge(s)}</div></div><div>${aaFollowTopControlHTML(s)}<h2>${esc(s.name)}</h2>${own&&aaIsAgentRole()?`<div class="aa-public-agent-badge">🎖 Bingo Agent${state.userRole?.territory?" — "+esc(state.userRole.territory):""}${state.userRole?.agent_since?` <span class="aa-public-agent-since">· Agent since ${esc(new Date(state.userRole.agent_since).toLocaleDateString("en-KE",{month:"short",year:"numeric"}))}</span>`:""}</div>`:!own?aaPublicAgentBadgeHTML(sellerKey):""}${aaFollowStatsHTML(sellerKey,true)}${s.location?`<p>${esc(s.location)}</p>`:""}${aaMemberSinceHTML(s)}<p>${esc(s.bio)}</p><small style="color:#f5b91e;font-weight:900">${s.gold?"Gold Member":"Bingo Member"}</small></div></div><div class="boost-summary" style="margin-top:12px"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div><div class="notice">${rs.count} review${rs.count===1?"":"s"}</div></div><div class="details-actions" style="margin-top:14px"><button class="btn" type="button" data-aa-call="seller">Call</button><button class="btn btn-green" onclick="contact('whatsapp',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}'})">WhatsApp</button><button class="btn btn-red" onclick="contact('chat',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}',sellerGold:${s.gold?"true":"false"},title:'Profile conversation'})">Bingo Chat</button></div>${own?`${aaPostTodayHTML()}${aaMyTopicsHTML()}${aaAgentProfilePanelHTML()}${aaHelpSellPendingRequestsHTML()}${aaMyHelpSellListingsHTML()}<div class="aa-room-reward"><b>${gold()?"★ GOLD MEMBER":"Community Gold Progress"}</b><br>Accepted Solution Room answers: ${aaAcceptedSolutionsFor(state.user?.id)}/${aaGoldAcceptedTarget()}. Outstanding Gold Members may qualify for annual Bingo recognition and rewards.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
 <button class="btn btn-gold" style="width:100%" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">Edit My Profile</button>
 <button class="btn" style="width:100%" onclick="openInbox()">✉ Messages${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button>
+<button class="btn btn-glass" style="width:100%;grid-column:1/-1" type="button" onclick="if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio();">🎥 Record Video</button>
 </div><div class="aa-owner-posts-panel"><div class="aa-owner-posts-head"><h3>My Vehicle Posts</h3><span class="aa-owner-posts-count">${aaOwnActiveListings().length}/15 Active</span></div><div class="aa-owner-posts-note">Your published videos and photos are arranged below. Tap a post to open it, or use × to delete it.</div>${cars.length?`<div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,true)).join("")}</div>`:`<div class="notice">No active vehicle posts.</div>`}</div><div class="boost-summary"><b>Deleted Items · 30-day recovery</b>${aaTrashHTML()}</div>`:""}<div class="boost-summary"><b>Reviews</b>${reviewList}${state.isLoggedIn?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><label class="form-label">Your rating (optional)</label><select id="profileRating" class="field"><option value="0">No star rating</option><option value="5">★★★★★ 5</option><option value="4">★★★★☆ 4</option><option value="3">★★★☆☆ 3</option><option value="2">★★☆☆☆ 2</option><option value="1">★☆☆☆☆ 1</option></select><label class="form-label" style="margin-top:8px">Your review (optional)</label><textarea id="profileReview" class="field" rows="3" placeholder="${own?"Owner comments are allowed but do not count toward your profile rating.":"Write a review about this profile..."}"></textarea><button class="btn btn-red" style="width:100%;margin-top:8px" onclick='submitProfileReview(${JSON.stringify(sellerKey)})'>Submit Review</button></div>`:`<div class="notice">Sign up / log in to submit a rating or review.</div>`}</div>${own?"":`<div class="section-title" style="margin-top:18px"><h2>More vehicles by ${esc(s.name)}</h2></div><div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,false)).join("")||"<p>No other listings yet.</p>"}</div>`}</div></section>`
 }
 function myBoostListHTML(mine){return mine.length?`<div class="seller-listings" style="margin-top:10px">${mine.map(c=>`<div class="mini"><img src="${(Array.isArray(c.images)&&c.images[0])||c.image||""}" alt="" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900&q=85'"><div>${esc(c.title)}<br><span style="color:#a46b00">${listingType(c)==="hire"?hirePrice(c):`KES ${money(c.price)}`}</span><button class="btn btn-gold" style="width:100%;margin-top:7px;font-size:10px;padding:7px"onclick="openBoost(state.listings.find(x=>x.id===${c.id}))">Boost</button></div></div>`).join("")}</div>`:`<div class="notice">You have no vehicle listings yet. Post a vehicle first.</div>`}
@@ -11401,8 +11417,7 @@ function aaSmartReactionsBarHTML(t){
   const count=aaSmartReactionCount(t,r.key);
   const active=aaHasMySmartReaction(t,r.key);
   return `<button type="button" class="aa-reaction-btn aa-reaction-${r.key}${active?" is-selected":""}" ${active?"disabled":""} aria-pressed="${active?"true":"false"}" aria-label="${esc(r.label)} — ${count} reaction${count===1?"":"s"}${active?", already sent":""}" onclick='aaPressSmartReaction(${JSON.stringify(String(t.id))},${JSON.stringify(r.key)},${JSON.stringify(r.label)})'>
-   <span class="aa-reaction-top"><span class="aa-reaction-face" aria-hidden="true">${r.emoji}</span><span class="aa-reaction-label">${esc(r.label)}</span></span>
-   <span class="aa-reaction-count">${count}</span>
+   <span class="aa-reaction-face" aria-hidden="true">${r.emoji}</span><span class="aa-reaction-label">${esc(r.label)}</span><span class="aa-reaction-count">${count}</span>
   </button>`;
  }).join("")}</div>`;
 }
@@ -11567,7 +11582,10 @@ function aaBingoTopicComposerHTML(){
    <input class="field full" id="topicTitle" style="${aaTextFormatCSS(d.titleFmt)}" placeholder="Give your topic a title" value="${esc(d.title||"")}" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow()">
    <textarea class="field full" id="topicBody" style="${aaTextFormatCSS(d.bodyFmt)}" rows="3" placeholder="What's on your mind?" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow()">${esc(d.body||"")}</textarea>
    <select class="field" id="topicCategory">${AA_TOPIC_CATEGORIES.map(s=>`<option>${esc(s)}</option>`).join("")}</select>
-   <input class="field full" id="topicMedia" type="file" accept="image/*,video/*">
+   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <input class="field full" id="topicMedia" type="file" accept="image/*,video/*" style="flex:1;min-width:160px">
+    <button type="button" class="btn btn-glass" style="padding:6px 12px;font-size:12px" onclick="if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio();">📷 Add Photo/Video</button>
+   </div>
   </div>
   <div class="details-actions" style="margin-top:8px">
    <button class="btn btn-glass" type="button" onclick="state.postTodayTopicOpen=false;state.topicDraft={title:'',body:''};render()">Cancel</button>
@@ -11750,16 +11768,17 @@ async function aaPublishBingoTopic(){
   state.wallPublishBusy=false;render();
  }
 }
-/* ===== AGENT ROLE, DASHBOARD & COMMISSION (client-side prototype) =====
-   Built on the SAME localStorage-based demo pattern already used
-   throughout this file for Jobs/Properties/Furnished Stays/Topics.
-   Real money movement (M-Pesa payouts to Agents) and tamper-proof
-   Corporate/commission enforcement genuinely require a backend —
-   this layer gives a complete, clickable UX that a backend can be
-   wired behind later; it does not itself move real money to Agents. */
+/* ===== AGENT ROLE, DASHBOARD & COMMISSION =====
+   Role membership itself (agent/super_user), the commission ledger and
+   withdrawal history are all read from Supabase (bingo_user_roles,
+   bingo_agent_commission_ledger, bingo_agent_withdrawals — see
+   aaLoadUserRole/aaLoadMyCommissionLedger/aaLoadMyWithdrawals) and every
+   write happens through a SECURITY DEFINER RPC, never a direct client
+   write or localStorage. Business onboarding itself (aaAgentBusinesses,
+   below) still tags listings client-side with createdByAgentId, since
+   there is no dedicated backend table yet for that specific link. */
 
 const AA_COMMISSION_RATE_DEFAULT=40;
-const AA_AGENT_WITHDRAW_MIN=10000;
 const AA_AGENT_INTRO_PLAN={amount:200,days:30,clicks:13};
 const AA_CORPORATE_BUDGETS=[
  {amount:25000,days:30,clicks:1666},
@@ -11779,17 +11798,47 @@ function aaContainsProtectedName(text){
  return aaProtectedNames().some(n=>n&&t.includes(String(n).toLowerCase()));
 }
 
-function aaAgentLedger(agentId){return aaV69Read("aa_agent_ledger_"+agentId,[])}
-function aaAgentLedgerTotals(agentId){
- const ledger=aaAgentLedger(agentId);
- const withdrawals=aaAgentWithdrawals().filter(w=>String(w.agentId)===String(agentId));
- const earned=ledger.reduce((s,x)=>s+Number(x.commission||0),0);
- const paidOut=withdrawals.filter(w=>w.status==="paid").reduce((s,x)=>s+Number(x.amount||0),0);
- const pending=withdrawals.filter(w=>w.status==="pending").reduce((s,x)=>s+Number(x.amount||0),0);
- return {earned,paidOut,pending,available:Math.max(0,earned-paidOut-pending)};
+/* ---- Real, Supabase-backed commission ledger and withdrawal history ----
+   Replaces the earlier localStorage-only aa_agent_ledger_*/aa_agent_withdrawals
+   arrays, which were never connected to the authoritative server-side
+   commission system (bingo_agent_commission_ledger / bingo_agent_withdrawals,
+   both RLS-scoped to agent_id=auth.uid(), added by
+   bingo_change_agent_1000_target_salary_commission.sql). There is now only
+   one ledger: this one. aaAgentLedgerTotals() below reads the same
+   server-computed "available" figure already used by the real
+   aaRequestCommissionWithdrawal() flow (state.agentProgressBulletin), so the
+   number shown here can never diverge from what a withdrawal request
+   actually checks against. */
+async function aaLoadMyCommissionLedger(){
+ const uid=String(state.user?.id||"");
+ if(!sb||!uid){state.agentCommissionLedger=[];return []}
+ try{
+  const {data,error}=await sb.from("bingo_agent_commission_ledger").select("*").eq("agent_id",uid).order("created_at",{ascending:false});
+  if(error)throw error;
+  state.agentCommissionLedger=data||[];
+ }catch(e){
+  console.warn("Commission ledger unavailable:",String(e?.message||e));
+  state.agentCommissionLedger=[];
+ }
+ return state.agentCommissionLedger;
 }
-function aaAgentWithdrawals(){return aaV69Read("aa_agent_withdrawals",[])}
-function aaSaveAgentWithdrawals(list){aaV69Write("aa_agent_withdrawals",list)}
+async function aaLoadMyWithdrawals(){
+ const uid=String(state.user?.id||"");
+ if(!sb||!uid){state.agentWithdrawalsMine=[];return []}
+ try{
+  const {data,error}=await sb.from("bingo_agent_withdrawals").select("*").eq("agent_id",uid).order("requested_at",{ascending:false});
+  if(error)throw error;
+  state.agentWithdrawalsMine=data||[];
+ }catch(e){
+  console.warn("Withdrawal history unavailable:",String(e?.message||e));
+  state.agentWithdrawalsMine=[];
+ }
+ return state.agentWithdrawalsMine;
+}
+function aaAgentLedgerTotals(){
+ const b=state.agentProgressBulletin;
+ return {available:Number(b?.commission_available||0)};
+}
 
 function aaConsumePendingAgentBusinessTag(){
  const pend=state.pendingAgentBusiness;
@@ -12813,7 +12862,7 @@ function aaAgentPerformanceHTML(){
  const counts={"Bingo Stays":0,Restaurant:0,Vehicle:0,Property:0,Other:0};
  biz.forEach(b=>{counts[b._cat]=(counts[b._cat]||0)+1});
  const boosts=biz.filter(b=>b.isBoosted);
- const totals=aaAgentLedgerTotals(uid);
+ const totals=aaAgentLedgerTotals();
  return `<div class="boost-summary">
   <b>Performance — ${esc(aaAgentTerritory()||"Territory not set")}</b>
   <div class="stat-grid" style="margin-top:10px">
@@ -12822,14 +12871,13 @@ function aaAgentPerformanceHTML(){
    <div class="stat"><b>${counts.Vehicle||0}</b><span>Vehicles</span></div>
    <div class="stat"><b>${counts.Property||0}</b><span>Properties</span></div>
    <div class="stat"><b>${boosts.length}</b><span>Active Boosts</span></div>
-   <div class="stat"><b>KES ${money(totals.earned)}</b><span>Eligible Revenue Commission</span></div>
+   <div class="stat"><b>KES ${money(totals.available)}</b><span>Available Commission</span></div>
   </div>
  </div>`;
 }
 function aaAgentDashboardHTML(){
  const uid=String(state.user?.id||"");
  const biz=aaAgentBusinesses(uid);
- const totals=aaAgentLedgerTotals(uid);
  return `<section style="padding:20px 0 105px"><div class="modal" style="max-height:none">
   <button class="btn" onclick="aaBackToMyProfile()">← Back to My Profile</button>
   <h2 style="margin-top:12px">Agent Dashboard</h2>
@@ -12842,48 +12890,34 @@ function aaAgentDashboardHTML(){
    <button class="btn" onclick="state.agentDashView='mine';render()">My Businesses</button>
    <button class="btn" onclick="state.agentDashView='managed';render()">Managed Businesses</button>
    <button class="btn" onclick="state.agentDashView='invitations';render()">Invitations${state.agentInvitations?.length?` (${state.agentInvitations.length})`:""}</button>
-   <button class="btn" onclick="state.agentDashView='commission';render()">Commission</button>
-   <button class="btn" onclick="state.agentDashView='withdrawals';render()">Withdrawals</button>
+   <button class="btn" onclick="state.agentDashView='commission';aaLoadMyCommissionLedger().then(render);render()">Commission</button>
+   <button class="btn" onclick="state.agentDashView='withdrawals';aaLoadMyWithdrawals().then(render);render()">Withdrawals</button>
    <button class="btn" onclick="state.agentDashView='moderation';render()">Moderation</button>
   </div>
   ${state.agentDashView==="mine"?`<div class="boost-summary" style="margin-top:12px"><b>My Businesses</b>${!biz.length?'<p class="notice">No businesses onboarded yet. Tap + Add Business to start.</p>':biz.map(b=>`<div class="aa360-item" style="position:relative;height:auto;min-height:0;padding:10px;margin-top:8px;border:1px solid var(--line);border-radius:10px"><b style="font-size:13px">${esc(b.title||b.name||"Business")}</b><div class="meta">${esc(b._cat)} · ${esc(b.businessClass||"Small")} · ${b.isBoosted?"Boosted":"Not boosted"}</div></div>`).join("")}</div>`:""}
-  ${state.agentDashView==="commission"?`<div class="boost-summary" style="margin-top:12px"><b>Commission (${aaCommissionRate()}% of eligible Bingo revenue)</b>${!aaAgentLedger(uid).length?'<p class="notice">No commission recorded yet — commission accrues automatically when a business you onboarded is successfully boosted.</p>':aaAgentLedger(uid).map(l=>`<div class="aa-boost-summary-row"><span>${esc(l.businessName)} · ${new Date(l.createdAt).toLocaleDateString()}</span><b style="color:#f5b91e">+KES ${money(l.commission)}</b></div>`).join("")}<div class="aa-boost-summary-row" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span>Total eligible commission</span><b style="color:#f5b91e;font-size:15px">KES ${money(totals.earned)}</b></div></div>`:""}
+  ${state.agentDashView==="commission"?aaAgentCommissionTabHTML():""}
   ${state.agentDashView==="withdrawals"?aaAgentWithdrawalsHTML():""}
   ${state.agentDashView==="moderation"?`<div class="boost-summary" style="margin-top:12px"><b>Assigned Moderation Cases</b><p class="notice" style="margin-top:0">Only cases the Super User has assigned to you appear here, and only Dismiss / Request Edit are available to Agents.</p>${aaAgentModerationQueueHTML()}</div>`:""}
   ${state.agentDashView==="managed"?`<div class="boost-summary" style="margin-top:12px"><b>Businesses You Manage</b><p class="notice" style="margin-top:0">Only the permissions the owner granted you are usable — you can never change ownership, payment records or your own permissions.</p>${aaAgentManagedBusinessesHTML()}</div>`:""}
   ${state.agentDashView==="invitations"?`<div class="boost-summary" style="margin-top:12px"><b>Pending Invitations</b>${aaAgentInvitationsHTML()}</div>`:""}
  </div></section>`;
 }
+function aaAgentCommissionTabHTML(){
+ const ledger=Array.isArray(state.agentCommissionLedger)?state.agentCommissionLedger:[];
+ const totals=aaAgentLedgerTotals();
+ return `<div class="boost-summary" style="margin-top:12px"><b>Commission</b><p class="notice" style="margin-top:0">Server-verified ledger — the same balance your withdrawal requests are checked against. No browser-side figures are used here.</p>${!ledger.length?'<p class="notice">No commission entries recorded yet.</p>':ledger.map(l=>`<div class="aa-boost-summary-row"><span>${esc(l.entry_type)}${l.reference?" · "+esc(l.reference):""} · ${new Date(l.created_at).toLocaleDateString()}</span><b style="color:#f5b91e">${l.entry_type==="reserve"?"-":"+"}KES ${money(l.amount)}</b></div>`).join("")}<div class="aa-boost-summary-row" style="margin-top:8px;border-top:1px solid var(--line);padding-top:8px"><span>Available commission</span><b style="color:#f5b91e;font-size:15px">KES ${money(totals.available)}</b></div></div>`;
+}
 function aaAgentWithdrawalsHTML(){
- const uid=String(state.user?.id||"");
- const totals=aaAgentLedgerTotals(uid);
- const mine=aaAgentWithdrawals().filter(w=>String(w.agentId)===uid);
+ const totals=aaAgentLedgerTotals();
+ const mine=Array.isArray(state.agentWithdrawalsMine)?state.agentWithdrawalsMine:[];
  return `<div class="boost-summary" style="margin-top:12px">
   <b>Withdrawals</b>
+  <p class="notice" style="margin-top:0">Server-verified balance — requesting more than this figure is rejected by the backend, not just hidden here.</p>
   <div class="aa-boost-summary-row"><span>Available commission</span><b style="color:#f5b91e;font-size:15px">KES ${money(totals.available)}</b></div>
-  <div class="notice">Minimum withdrawal is KES ${money(AA_AGENT_WITHDRAW_MIN)}. Paid manually by the Super User to your registered M-Pesa number after review — typically within 6 hours of approval.</div>
-  <label class="form-label" style="margin-top:8px">Registered M-Pesa Payout Number</label>
-  <input class="field" id="aaAgentPayoutPhone" value="${esc(state.user?.agentPayoutPhone||"")}" placeholder="07XXXXXXXX">
-  <button class="btn btn-gold" style="width:100%;margin-top:10px" onclick="aaRequestAgentWithdrawal()" ${totals.available<AA_AGENT_WITHDRAW_MIN?"disabled":""}>Request Withdrawal</button>
-  ${mine.length?`<div style="margin-top:12px"><b>Your requests</b>${mine.map(w=>`<div class="aa-boost-summary-row"><span>KES ${money(w.amount)} · ${new Date(w.createdAt).toLocaleDateString()}</span><b style="color:${w.status==='paid'?'#7ee787':'#f5b91e'}">${w.status.toUpperCase()}</b></div>`).join("")}</div>`:""}
+  <div class="notice">Minimum withdrawal is KES ${money(AA_AGENT_WITHDRAWAL_MINIMUM)}. Reviewed and paid manually by the Super User after approval.</div>
+  <button class="btn btn-gold" style="width:100%;margin-top:10px" onclick="aaRequestCommissionWithdrawal()" ${totals.available<AA_AGENT_WITHDRAWAL_MINIMUM?"disabled":""}>Request Withdrawal</button>
+  ${mine.length?`<div style="margin-top:12px"><b>Your requests</b>${mine.map(w=>`<div class="aa-boost-summary-row"><span>KES ${money(w.amount)} · ${new Date(w.requested_at).toLocaleDateString()}</span><b style="color:${w.status==='paid'?'#7ee787':'#f5b91e'}">${esc(String(w.status||"").toUpperCase())}</b></div>`).join("")}</div>`:""}
  </div>`;
-}
-function aaRequestAgentWithdrawal(){
- const uid=String(state.user?.id||"");
- const totals=aaAgentLedgerTotals(uid);
- const phone=normalizeKenyanPhone(document.getElementById("aaAgentPayoutPhone")?.value||"");
- if(!phone){toast("Enter a valid registered M-Pesa payout number.");return}
- if(totals.available<AA_AGENT_WITHDRAW_MIN){toast(`Minimum withdrawal is KES ${money(AA_AGENT_WITHDRAW_MIN)}.`);return}
- state.user.agentPayoutPhone=phone;
- const list=aaAgentWithdrawals();
- list.unshift({id:"wd_"+Date.now(),agentId:uid,agentName:aaOwnProfileName(),agentCounty:aaAgentTerritory(),
-  amount:totals.available,phone,status:"pending",createdAt:new Date().toISOString()});
- aaSaveAgentWithdrawals(list);
- state.inbox=state.inbox||[];
- state.inbox.unshift({id:Date.now(),type:"agent_withdrawal",text:`Your withdrawal request for KES ${money(totals.available)} has been submitted to the Super User for review. Approved payouts are typically sent within 6 hours.`,from:"Bingo",createdAt:new Date().toISOString(),archived:false,blocked:false});
- save();
- toast("Withdrawal request submitted to the Super User.");
- render();
 }
 
 /* ---- Agent Add Business: employee count, then route into the CURRENT existing forms ---- */
@@ -13001,7 +13035,6 @@ function aaSuperUserDashboardHTML(){
    <b>Agent Directory</b>
    ${!dir.length?'<p class="notice">No approved Agents yet.</p>':dir.map(a=>`<div class="aa-boost-summary-row"><span>${esc(a.full_name||a.email)} · ${esc(a.territory||"")}</span><b class="meta">${a.approved_at?new Date(a.approved_at).toLocaleDateString():""}</b></div>`).join("")}
   </div>
-  <div class="boost-summary" style="margin-top:14px">${aaSuperUserWithdrawalQueueHTML()}</div>
   <div class="boost-summary" style="margin-top:14px">
    <b>Moderation Queue</b>
    <p class="notice" style="margin-top:0">Reports lead to review, not automatic punishment. Every action here requires a reason and is recorded in the audit log.</p>
@@ -13062,32 +13095,6 @@ function aaImpactAwardsAdminPanelHTML(){
    <b style="font-size:12px">#${i+1} · ${esc(t.title||"Untitled")}</b>
    <div class="meta">by ${esc(t.authorName||"Bingo Member")} · ❤ ${aaTopicLoveCount(t)} · 💬 ${aaTopicCommentsFor(t).length} · category ${esc(t.category||"General")}</div>
   </div>`).join("")}`;
-}
-function aaSuperUserWithdrawalQueueHTML(){
- const pending=aaAgentWithdrawals().filter(w=>w.status==="pending");
- if(!pending.length)return `<div class="notice" style="margin-top:10px">No pending Agent withdrawal requests.</div>`;
- return `<div style="margin-top:10px"><b>Agent Payout Requests</b>${pending.map(w=>`<div class="aa360-item" style="position:relative;height:auto;min-height:0;padding:10px;margin-top:8px;border:1px solid var(--gold);border-radius:10px">
-  <b style="font-size:13px">${esc(w.agentName)} · ${esc(w.agentCounty)}</b>
-  <div class="meta">Requested KES ${money(w.amount)} · M-Pesa: ${esc(w.phone)}</div>
-  <input class="field" id="aaPayRef_${esc(w.id)}" placeholder="M-Pesa transaction reference" style="margin-top:6px">
-  <button class="btn btn-gold" style="width:100%;margin-top:6px" onclick='aaMarkAgentWithdrawalPaid(${JSON.stringify(w.id)})'>Mark Paid</button>
- </div>`).join("")}</div>`;
-}
-function aaMarkAgentWithdrawalPaid(id){
- const list=aaAgentWithdrawals();
- const w=list.find(x=>String(x.id)===String(id));
- if(!w)return;
- const ref=document.getElementById("aaPayRef_"+id)?.value.trim();
- if(!ref){toast("Enter the M-Pesa transaction reference before marking this Paid.");return}
- w.status="paid";w.paidReference=ref;w.paidAt=new Date().toISOString();
- aaSaveAgentWithdrawals(list);
- if(String(w.agentId)===String(state.user?.id||"")){
-  state.inbox=state.inbox||[];
-  state.inbox.unshift({id:Date.now(),type:"agent_withdrawal_paid",text:`Your withdrawal of KES ${money(w.amount)} has been paid to ${esc(w.phone)}. M-Pesa reference: ${esc(ref)}.`,from:"Bingo",createdAt:new Date().toISOString(),archived:false,blocked:false});
-  save();
- }
- toast("Withdrawal marked Paid. The Agent will see a confirmation in their Inbox.");
- render();
 }
 function aaMyTopicsHTML(){
  const mine=aaTopics().filter(t=>String(t.authorId||"")===String(state.user?.id||""));
@@ -13719,16 +13726,16 @@ function aaPublicTopicsFeedHTML(){
      const isOwner=String(t.authorId||"")===String(state.user?.id||"");
      if(typeof aaRecordFeedView==="function")aaRecordFeedView("topic_"+t.id,"topic",t.id);
      return `<div class="aa-post-card" id="topic-card-${esc(t.id)}" style="margin-top:12px">
-     <div class="aa-post-head">
+     <div class="aa-post-content">${t.title?`<div class="aa-post-title ${t.titleFmt?"":bingoStyledTextClass(t.style)}" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):"font-size:20px;font-weight:900;color:#f5b91e;text-shadow:0 0 10px rgba(245,185,30,.45)"}">${esc(t.title)}</div>`:""}${t.body?`<div class="aa-post-message ${t.bodyFmt?"":bingoStyledTextClass(t.style)}" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):"font-size:14.5px;color:#dfe6f0;line-height:1.5"}${t.title?"margin-top:8px":""}">${esc(t.body)}</div>`:""}</div>
+     ${mediaSrc?`<div class="aa-post-media">${mediaList[mediaIdx].type==="video"?`<video src="${bingoSafeMediaAttr(mediaSrc)}" controls playsinline></video>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}">`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
+     <div class="aa-post-head" style="margin-top:12px">
       <img class="aa-post-avatar ${aaDecorationClassFor(t.authorId)}" src="${bingoSafeMediaAttr(aaProfilePhoto(author.photo))}" alt="" onerror="aaProfileImgFallback(this)" onclick='openSeller(${JSON.stringify(String(t.authorId||""))})'>
       <div style="flex:1;min-width:0">
-       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b style="font-size:13px">${esc(author.name)}</b>${author.verified?`<span class="aa-post-verified">✓</span>`:""}${aaFollowTopControlHTML({id:t.authorId,name:author.name})}</div>
+       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b style="font-size:12px;color:#a9b6c9">${esc(author.name)}</b>${author.verified?`<span class="aa-post-verified">✓</span>`:""}${aaFollowTopControlHTML({id:t.authorId,name:author.name})}</div>
        <div class="meta">${t.createdAt?esc(new Date(t.createdAt).toLocaleString("en-KE",{hour:"2-digit",minute:"2-digit"}))+" ago":""}${t.location?` · 📍 ${esc(t.location)}`:""}</div>
       </div>
       <span class="aa-post-cat-pill"># ${esc(t.category||"General")}</span>
      </div>
-     <div style="margin-top:10px">${t.title?`<div class="${t.titleFmt?"":bingoStyledTextClass(t.style)}" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):"font-size:14px;font-weight:800"}">${esc(t.title)}</div>`:""}${t.body?`<div class="${t.bodyFmt?"":bingoStyledTextClass(t.style)}" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):"font-size:13px"}${t.title?"margin-top:2px":""}">${esc(t.body)}</div>`:""}</div>
-     ${mediaSrc?`<div class="aa-post-media">${mediaList[mediaIdx].type==="video"?`<video src="${bingoSafeMediaAttr(mediaSrc)}" controls playsinline></video>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}">`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
      <div class="aa-post-stats">
       <span>❤ ${loveCount}</span>
       <span>💬 ${comments.length}</span>
@@ -16878,7 +16885,12 @@ function bingoSafeMediaAttr(value){
   $("#aa92BackendNote").className="aa92-backend-note";$("#aa92BackendNote").textContent="Live stopped.";
  }
  $("#aa92ShareLive")?.addEventListener("click",start);$("#aa92StopLive")?.addEventListener("click",stop);
- window.aa92OpenLiveStudio=async function(){if(!window.aaRequireMember({action:"live",mode:"register"}))return;$("#aaAssistantDrawer")?.classList.remove("open");await openCamera()};
+ window.aa92OpenLiveStudio=async function(mode){
+  if(!window.aaRequireMember({action:"live",mode:"register"}))return;
+  $("#aaAssistantDrawer")?.classList.remove("open");
+  const opened=await openCamera();
+  if(mode==="live"&&opened!==false){const sw=$("#aa82LiveSwitch");if(sw&&!sw.classList.contains("on"))sw.click()}
+ };
  refresh();
 })();
 </script>
