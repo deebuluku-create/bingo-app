@@ -3388,7 +3388,6 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .aa-post-avatar.deco-wedding{border:3px solid #d9c76b;box-shadow:0 0 0 2px #1a1608}
 #auto-arcade-widget .aa-post-avatar.deco-memorial{border:3px solid #7d8794;filter:grayscale(.35)}
 #auto-arcade-widget .aa-post-verified{width:15px;height:15px;background:#1e90ff;color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9px;flex:none}
-#auto-arcade-widget .aa-post-cat-pill{background:linear-gradient(135deg,#8a2be2,#e91e8c);color:#fff;font-size:10px;font-weight:800;padding:5px 10px;border-radius:99px;white-space:nowrap}
 #auto-arcade-widget .aa-public-agent-badge{display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:3px 9px;border-radius:99px;background:rgba(245,185,30,.12);border:1px solid rgba(245,185,30,.5);color:var(--gold,#f5b91e);font-size:11px;font-weight:800}
 #auto-arcade-widget .aa-public-agent-since{font-weight:600;opacity:.85;color:#e6c876}
 #auto-arcade-widget .aa-post-media{position:relative;border-radius:12px;overflow:hidden;margin-top:10px}
@@ -5105,7 +5104,7 @@ function aaMemberCentralHTML(){
   </div>
   <button type="button" class="aa-member-central-topics btn-boost" onclick="aaOpenBingoTopicsFeed()">
    <span>💬</span>
-   <div><b>Bingo Topics</b><small>See what Kenyans are talking about right now</small></div>
+   <div><b>Bingo Posts</b><small>See what Kenyans are talking about right now</small></div>
   </button>
   <div class="aa-member-central-grid">
    ${tiles.map(t=>`<button type="button" class="aa-member-central-tile ${t.color}" onclick="${t.action}"><span class="aa-member-central-ico">${t.icon}</span><b>${esc(t.label)}</b></button>`).join("")}
@@ -10860,7 +10859,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
           <div class="bcp-grid">
             <button class="bcp-btn" type="button" onclick="aaAssistantCloseDrawer();aa92OpenLiveStudio();"><span class="bcp-ico">&#9673;</span><b>Live Studio</b></button>
             <button class="bcp-btn" onclick="aaAssistantNavigate(openInbox)"><span class="bcp-ico">&#9993;</span><b>Inbox</b>${aaUnreadMessageCount()?`<em class="bcp-badge">${aaUnreadMessageCount()}</em>`:""}</button>
-            <button class="bcp-btn ${state.view==="topics"?"active":""}" onclick="aaAssistantNavigate(aaOpenBingoTopicsFeed)"><span class="bcp-ico">&#9636;</span><b>Public Wall</b><small style="display:block;font-weight:400;font-size:9px;opacity:.75">Topics and community posts</small></button>
+            <button class="bcp-btn ${state.view==="topics"?"active":""}" onclick="aaAssistantNavigate(aaOpenBingoTopicsFeed)"><span class="bcp-ico">&#9636;</span><b>Public Wall</b><small style="display:block;font-weight:400;font-size:9px;opacity:.75">Posts and community discussion</small></button>
           </div>
         </div>
 
@@ -11574,14 +11573,13 @@ function aaBingoTopicComposerHTML(){
  const d=state.topicDraft||{title:"",body:""};
  return `<div class="aa-v69-card" style="margin-top:10px">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-   <h3 style="margin:0">Post a Topic</h3>
+   <h3 style="margin:0">Create Post</h3>
    <button type="button" class="btn" style="padding:4px 10px;font-size:12px" onclick="aaOpenImpactAwardsPopup(true)">🏆 Awards</button>
   </div>
   <div class="notice" style="margin-top:8px;border-color:var(--gold,#f5c542);color:var(--gold,#f5c542)">🏆 <b>Bingo Impact Awards</b> — Create original posts, inspire the community and grow your impact. The most meaningfully shared posts may qualify for our end-of-year awards and a KSh 1,000,000 Grand Prize.</div>
   <div class="form-grid" style="margin-top:8px">
-   <input class="field full" id="topicTitle" style="${aaTextFormatCSS(d.titleFmt)}" placeholder="Give your topic a title" value="${esc(d.title||"")}" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow()">
+   <input class="field full" id="topicTitle" style="${aaTextFormatCSS(d.titleFmt)}" placeholder="Give your post a title" value="${esc(d.title||"")}" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow()">
    <textarea class="field full" id="topicBody" style="${aaTextFormatCSS(d.bodyFmt)}" rows="3" placeholder="What's on your mind?" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow()">${esc(d.body||"")}</textarea>
-   <select class="field" id="topicCategory">${AA_TOPIC_CATEGORIES.map(s=>`<option>${esc(s)}</option>`).join("")}</select>
    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <input class="field full" id="topicMedia" type="file" accept="image/*,video/*" style="flex:1;min-width:160px">
     <button type="button" class="btn btn-glass" style="padding:6px 12px;font-size:12px" onclick="if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio();">📷 Add Photo/Video</button>
@@ -11589,7 +11587,7 @@ function aaBingoTopicComposerHTML(){
   </div>
   <div class="details-actions" style="margin-top:8px">
    <button class="btn btn-glass" type="button" onclick="state.postTodayTopicOpen=false;state.topicDraft={title:'',body:''};render()">Cancel</button>
-   <button class="btn btn-publish" type="button" onclick="aaPublishBingoTopic()">Publish Topic</button>
+   <button class="btn btn-publish" type="button" onclick="aaPublishBingoTopic()">POST</button>
   </div>
  </div>${state.impactAwardsPopupOpen?aaImpactAwardsPopupHTML():""}${state.impactAwardsRulesOpen?aaImpactAwardsRulesHTML():""}`;
 }
@@ -11708,11 +11706,11 @@ async function aaPublishBingoTopic(){
   const list=aaTopics();list.unshift(t);aaV69Write("aa_bingo_topics",list);
   state.postTodayTopicOpen=false;
   state.topicDraft={title:"",body:""};
-  toast(hiddenFromPublic?"Topic saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Topic published to the Public Wall and your profile.");
+  toast(hiddenFromPublic?"Post saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Post published to the Public Wall and your profile.");
   render();
   return;
  }
- if(!sb||!state.user?.id){toast('You must be logged in to publish a topic.');return}
+ if(!sb||!state.user?.id){toast('You must be logged in to publish a post.');return}
  if(state.wallPublishBusy)return;
  state.wallPublishBusy=true;render();
  try{
@@ -11740,16 +11738,16 @@ async function aaPublishBingoTopic(){
    }
    break;
   }
-  if(insErr){toast('Could not publish topic: '+String(insErr.message||insErr));return}
+  if(insErr){toast('Could not publish post: '+String(insErr.message||insErr));return}
   let media=[];
   if(files&&files.length){
    const upload=await aaUploadTopicMedia(files,userId,id);
    if(upload.error){
-    toast('Topic published, but media upload failed: '+String(upload.error.message||upload.error));
+    toast('Post published, but media upload failed: '+String(upload.error.message||upload.error));
    }else{
     media=upload.media;
     const {error:updErr}=await sb.from('bingo_topics').update({media}).eq('id',id);
-    if(updErr)toast('Topic published, but media could not be attached: '+String(updErr.message||updErr));
+    if(updErr)toast('Post published, but media could not be attached: '+String(updErr.message||updErr));
    }
   }
   const row=inserted||insertRow;
@@ -11763,7 +11761,7 @@ async function aaPublishBingoTopic(){
   state.topicDraft={title:"",body:""};
   const titleEl=document.getElementById('topicTitle');if(titleEl)titleEl.value='';
   const bodyEl=document.getElementById('topicBody');if(bodyEl)bodyEl.value='';
-  toast(hiddenFromPublic?"Topic saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Topic published to the Public Wall and your profile.");
+  toast(hiddenFromPublic?"Post saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Post published to the Public Wall and your profile.");
  }finally{
   state.wallPublishBusy=false;render();
  }
@@ -11799,8 +11797,9 @@ function aaContainsProtectedName(text){
 }
 
 /* ---- Real, Supabase-backed commission ledger and withdrawal history ----
-   Replaces the earlier localStorage-only aa_agent_ledger_*/aa_agent_withdrawals
-   arrays, which were never connected to the authoritative server-side
+   Replaces the earlier localStorage-only aa_agent_ledger_ and
+   aa_agent_withdrawals arrays, which were never connected to the
+   authoritative server-side
    commission system (bingo_agent_commission_ledger / bingo_agent_withdrawals,
    both RLS-scoped to agent_id=auth.uid(), added by
    bingo_change_agent_1000_target_salary_commission.sql). There is now only
@@ -13099,7 +13098,7 @@ function aaImpactAwardsAdminPanelHTML(){
 function aaMyTopicsHTML(){
  const mine=aaTopics().filter(t=>String(t.authorId||"")===String(state.user?.id||""));
  if(!mine.length)return "";
- return `<div class="boost-summary" style="margin-top:12px"><b>My Bingo Topics</b>${mine.map(t=>`<div class="aa360-item" style="position:relative;height:auto;min-height:0;padding:10px;margin-top:8px;border:1px solid var(--line);border-radius:10px"><b style="font-size:13px">${esc(t.title||"Untitled")}</b>${t.hiddenFromPublic?'<span class="badge badge-red" style="margin-left:6px">Hidden from public</span>':''}<div class="meta">${esc(t.body||"")}</div><div class="meta">❤ ${aaTopicLoveCount(t)} · 💬 ${aaTopicCommentsFor(t).length} · ${esc(t.style||"Standard")}</div></div>`).join("")}</div>`;
+ return `<div class="boost-summary" style="margin-top:12px"><b>My Bingo Posts</b>${mine.map(t=>`<div class="aa360-item" style="position:relative;height:auto;min-height:0;padding:10px;margin-top:8px;border:1px solid var(--line);border-radius:10px"><b style="font-size:13px">${esc(t.title||"Untitled")}</b>${t.hiddenFromPublic?'<span class="badge badge-red" style="margin-left:6px">Hidden from public</span>':''}<div class="meta">${esc(t.body||"")}</div><div class="meta">❤ ${aaTopicLoveCount(t)} · 💬 ${aaTopicCommentsFor(t).length} · ${esc(t.style||"Standard")}</div></div>`).join("")}</div>`;
 }
 /* Public Bingo Topics feed — reads the SAME aaTopics() records used on
    the author's own profile, so a topic is one record everywhere: a
@@ -13185,7 +13184,7 @@ async function aaTopicToggleSave(id){
   state.wallSaves=(state.wallSaves||[]).filter(x=>String(x)!==String(id));
  }else{
   const {error}=await sb.from('bingo_topic_saves').insert({topic_id:id,user_id:uid});
-  if(error){toast('Could not save this topic: '+String(error.message||error));return}
+  if(error){toast('Could not save this post: '+String(error.message||error));return}
   state.wallSaves=[...(state.wallSaves||[]),String(id)];
  }
  render();
@@ -13196,7 +13195,7 @@ function aaTopicShare(id){
  const url=DOMAIN+"/#topic-"+t.id;
  const text=`${t.title||"A Bingo Public Wall topic"} — ${url}`;
  if(navigator.share)navigator.share({title:t.title||"Bingo Public Wall",text,url}).catch(()=>{});
- else if(navigator.clipboard?.writeText){navigator.clipboard.writeText(url).catch(()=>{});toast("Topic link copied.")}
+ else if(navigator.clipboard?.writeText){navigator.clipboard.writeText(url).catch(()=>{});toast("Post link copied.")}
  else window.open("https://wa.me/?text="+encodeURIComponent(text),"_blank");
 }
 function aaTopicReport(id){
@@ -13212,7 +13211,7 @@ async function aaSubmitTopicReport(){
   list.push({id:"treport_"+Date.now(),topicId:id,reason,details,reporterId:state.user?.id||"",createdAt:new Date().toISOString()});
   aaV69Write("aa_topic_reports",list);
   state.topicReportTarget=null;
-  toast("Thank you — this topic has been reported to Bingo.");
+  toast("Thank you — this post has been reported to Bingo.");
   render();
   return;
  }
@@ -13220,15 +13219,15 @@ async function aaSubmitTopicReport(){
  const {error}=await sb.from('bingo_topic_reports').insert({topic_id:id,reporter_id:state.user.id,reason,details});
  state.topicReportTarget=null;
  if(error){
-  toast(String(error.code)==='23505'?'You have already reported this topic.':'Could not submit report: '+String(error.message||error));
+  toast(String(error.code)==='23505'?'You have already reported this post.':'Could not submit report: '+String(error.message||error));
  }else{
-  toast("Thank you — this topic has been reported to Bingo.");
+  toast("Thank you — this post has been reported to Bingo.");
  }
  render();
 }
 function topicReportHTML(id){
  const t=aaTopics().find(x=>String(x.id)===String(id));
- return `<div class="overlay"><div class="modal"><button class="close" onclick="state.topicReportTarget=null;render()">×</button><h2>Report Topic</h2><p>Help us keep the Bingo Public Wall safe. Report "${esc(t?.title||"this topic")}" if it appears suspicious, misleading or inappropriate.</p><div class="report-box"><select id="topicReportReason" class="field"><option>Spam or scam</option><option>Harassment or abuse</option><option>Inappropriate content</option><option>False information</option><option>Other</option></select><textarea class="field" style="margin-top:8px" id="topicReportDetails" placeholder="Optional details"></textarea></div><button class="btn btn-red" style="width:100%;margin-top:12px" onclick="aaSubmitTopicReport()">Submit Report</button></div></div>`;
+ return `<div class="overlay"><div class="modal"><button class="close" onclick="state.topicReportTarget=null;render()">×</button><h2>Report Post</h2><p>Help us keep the Bingo Public Wall safe. Report "${esc(t?.title||"this post")}" if it appears suspicious, misleading or inappropriate.</p><div class="report-box"><select id="topicReportReason" class="field"><option>Spam or scam</option><option>Harassment or abuse</option><option>Inappropriate content</option><option>False information</option><option>Other</option></select><textarea class="field" style="margin-top:8px" id="topicReportDetails" placeholder="Optional details"></textarea></div><button class="btn btn-red" style="width:100%;margin-top:12px" onclick="aaSubmitTopicReport()">Submit Report</button></div></div>`;
 }
 let aaTopicAuthorCache={};
 let aaTopicAuthorFetching={};
@@ -13372,9 +13371,9 @@ function aaTrendingTopicsSidebarHTML(){
  const ranked=aaTrendingTopicsRanked();
  const top=ranked.slice(0,10);
  return `<div class="boost-summary" style="border-color:var(--gold)">
-  <b>🔥 Trending Topics (${ranked.length} Today)</b>
+  <b>🔥 Trending Posts (${ranked.length} Today)</b>
   ${!top.length?'<p class="notice" style="margin-top:6px">Nothing trending yet. Be the first to post.</p>':`<ol style="margin:8px 0 0;padding-left:20px">${top.map(r=>`<li style="margin-bottom:6px"><button type="button" class="aa-trend-link ${state.trendingTagFilter===r.tag?'active':''}" onclick='aaFilterByTrendingTag(${JSON.stringify(r.tag)})' style="background:none;border:none;color:inherit;text-align:left;padding:0;cursor:pointer;font:inherit">${esc(r.tag)}</button></li>`).join("")}</ol>`}
-  ${ranked.length>10?`<button type="button" class="btn" style="width:100%;margin-top:8px" onclick="aaOpenAllTrendingTopics()">View All ${Math.min(50,ranked.length)} Topics →</button>`:""}
+  ${ranked.length>10?`<button type="button" class="btn" style="width:100%;margin-top:8px" onclick="aaOpenAllTrendingTopics()">View All ${Math.min(50,ranked.length)} Posts →</button>`:""}
   ${state.trendingTagFilter?`<button type="button" class="btn" style="width:100%;margin-top:6px" onclick="state.trendingTagFilter='';render()">Clear tag filter (${esc(state.trendingTagFilter)})</button>`:""}
  </div>`;
 }
@@ -13382,7 +13381,7 @@ function aaAllTrendingTopicsHTML(){
  const ranked=aaTrendingTopicsRanked().slice(0,50);
  return `<div class="overlay" onclick="if(event.target===this)aaCloseAllTrendingTopics()"><div class="modal">
   <button class="close" onclick="aaCloseAllTrendingTopics()">×</button>
-  <h2 style="color:#f5b91e">All Trending Topics</h2>
+  <h2 style="color:#f5b91e">All Trending Posts</h2>
   <p class="notice">Ranked by posts using each tag, weighted by real loves and comments.</p>
   <ol style="margin:8px 0 0;padding-left:20px">${ranked.map((r,i)=>`<li style="margin-bottom:6px"><button type="button" class="aa-trend-link" style="border:none;color:inherit;text-align:left;padding:0;cursor:pointer;font:inherit" onclick='aaFilterByTrendingTag(${JSON.stringify(r.tag)})'>${esc(r.tag)} <span class="meta">(${r.score})</span></button></li>`).join("")||'<li>Nothing trending yet.</li>'}</ol>
  </div></div>`;
@@ -13699,9 +13698,8 @@ function aaMbeaFooterHTML(){
  </div>`;
 }
 function aaPublicTopicsFeedHTML(){
- const cat=state.topicCategoryFilter||"All";
  const tagFilter=state.trendingTagFilter||"";
- let all=aaTopics().filter(t=>!t.hiddenFromPublic).filter(t=>cat==="All"||String(t.category||"General")===cat);
+ let all=aaTopics().filter(t=>!t.hiddenFromPublic);
  if(tagFilter)all=all.filter(t=>aaExtractTopicTags(t).includes(tagFilter));
  return `<section style="padding:12px 0 105px">
   <button class="btn" onclick="goBack()">← Back</button>
@@ -13712,9 +13710,8 @@ function aaPublicTopicsFeedHTML(){
     ${aaKenyanCalendarSidebarHTML()}
    </div>
    <div class="aa-mbea-main" style="min-width:0">
-    ${state.isLoggedIn?aaBingoTopicComposerHTML():`<div class="aa-v69-card" style="margin-top:10px;text-align:center"><p>Sign up or log in to post a topic, comment, like, save or follow.</p><button class="btn btn-red" onclick="openAuth('login')">Sign Up / Log In</button></div>`}
-    <div class="tabs wall-category-tabs" style="margin-top:12px;flex-wrap:wrap">${["All",...AA_TOPIC_CATEGORIES].map(c=>`<button class="btn ${cat===c?"btn-red":""}" onclick='state.topicCategoryFilter=${JSON.stringify(c)};render()'>${esc(c)}</button>`).join("")}</div>
-    ${!all.length?`<div class="empty" style="margin-top:12px">No Bingo Wall topics yet. Be the first to post above.</div>`:all.map(t=>{
+    ${state.isLoggedIn?aaBingoTopicComposerHTML():`<div class="aa-v69-card" style="margin-top:10px;text-align:center"><p>Sign up or log in to post, comment, like, save or follow.</p><button class="btn btn-red" onclick="openAuth('login')">Sign Up / Log In</button></div>`}
+    ${!all.length?`<div class="empty" style="margin-top:12px">No posts yet. Be the first to post.</div>`:all.map(t=>{
      const author=aaTopicAuthorMeta(t);
      const saved=aaTopicIsSaved(t.id);
      const loveCount=aaTopicLoveCount(t);
@@ -13734,7 +13731,6 @@ function aaPublicTopicsFeedHTML(){
        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b style="font-size:12px;color:#a9b6c9">${esc(author.name)}</b>${author.verified?`<span class="aa-post-verified">✓</span>`:""}${aaFollowTopControlHTML({id:t.authorId,name:author.name})}</div>
        <div class="meta">${t.createdAt?esc(new Date(t.createdAt).toLocaleString("en-KE",{hour:"2-digit",minute:"2-digit"}))+" ago":""}${t.location?` · 📍 ${esc(t.location)}`:""}</div>
       </div>
-      <span class="aa-post-cat-pill"># ${esc(t.category||"General")}</span>
      </div>
      <div class="aa-post-stats">
       <span>❤ ${loveCount}</span>
@@ -18297,14 +18293,6 @@ Source specification: Complete Platform Changes & Feature Specification.
 @media(max-width:520px){#auto-arcade-widget .smart-words{grid-template-columns:repeat(3,minmax(0,1fr))}}
 #auto-arcade-widget .smart-words button{min-height:40px;padding:4px 6px;font-size:10px;line-height:1.2;font-weight:800;background:#0b2136;border:1px solid rgba(34,200,255,.4);border-radius:9px;color:#f2ede1;white-space:normal}
 #auto-arcade-widget .smart-words button.pressed{background:#f5b91e;border-color:#f5b91e;color:#171100}
-/* The shared .tabs button{flex:1} rule (base CSS) is tuned for a small,
-   fixed tab count (2-4 items elsewhere in the app) — dividing the row
-   equally among all 11 Wall category buttons squeezed every one of them
-   to an unreadable ~29px sliver and caused horizontal overflow (a real
-   regression from this session's own Phase 1 work, not present before
-   the Wall category filter was added). Natural content-sized, wrapping
-   buttons instead. */
-#auto-arcade-widget .wall-category-tabs button{flex:0 0 auto!important;white-space:nowrap}
 /* ===== Mushene Corner + Bingo Box (Phase 4) ===== */
 /* !important required: the shared button glow rule
    (#auto-arcade-widget button,.btn,...) forces position:relative!important
