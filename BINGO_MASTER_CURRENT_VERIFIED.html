@@ -3728,6 +3728,432 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
   #auto-arcade-widget .aa-food-grid-2{grid-template-columns:1fr}
   #auto-arcade-widget .aa-food-field-full{grid-column:auto}
 }
+/* =========================================================
+   BINGO FOOD MENU ITEM EDITOR
+   Scoped to the existing application root.
+   ========================================================= */
+
+#auto-arcade-widget .bingo-food-menu-editor {
+  --food-gold: #eab308;
+  --food-cyan: #22d3ee;
+  --food-green: #22c55e;
+  --food-red: #fb3058;
+  --food-text: #f8fafc;
+  --food-muted: #91a4c2;
+  --food-panel: #0b162a;
+  --food-input: #071225;
+
+  width: 100%;
+  color: var(--food-text);
+  background:
+    radial-gradient(
+      circle at 12% 0%,
+      rgba(234, 179, 8, 0.09),
+      transparent 35%
+    ),
+    linear-gradient(145deg, #0c1830, #050b18);
+  border: 1px solid rgba(234, 179, 8, 0.72);
+  border-radius: 18px;
+  box-shadow:
+    0 0 20px rgba(234, 179, 8, 0.13),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+#auto-arcade-widget .bingo-food-menu-editor *,
+#auto-arcade-widget .bingo-food-menu-editor *::before,
+#auto-arcade-widget .bingo-food-menu-editor *::after {
+  box-sizing: border-box;
+}
+
+#auto-arcade-widget .bfme-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px;
+  border-bottom: 1px solid rgba(234, 179, 8, 0.25);
+}
+
+#auto-arcade-widget .bfme-header-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  color: var(--food-gold);
+  font-size: 22px;
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.55);
+  border-radius: 12px;
+  box-shadow: 0 0 13px rgba(234, 179, 8, 0.2);
+}
+
+#auto-arcade-widget .bfme-header-copy {
+  min-width: 0;
+}
+
+#auto-arcade-widget .bfme-header-copy h3 {
+  margin: 0;
+  color: var(--food-gold);
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+#auto-arcade-widget .bfme-header-copy p {
+  margin: 4px 0 0;
+  color: var(--food-muted);
+  font-size: 12px;
+}
+
+#auto-arcade-widget .bfme-remove-item {
+  width: max-content;
+  flex: 0 0 auto;
+  min-height: 38px;
+  margin-left: auto;
+  padding: 8px 12px;
+  color: #fff;
+  font-weight: 750;
+  background: linear-gradient(145deg, #5f1024, #090b14);
+  border: 1px solid var(--food-red);
+  border-radius: 11px;
+  box-shadow: 0 0 12px rgba(251, 48, 88, 0.2);
+  cursor: pointer;
+}
+
+#auto-arcade-widget .bfme-body {
+  display: grid;
+  grid-template-columns: minmax(180px, 230px) minmax(0, 1fr);
+  gap: 18px;
+  padding: 18px;
+}
+
+#auto-arcade-widget .bfme-media-column {
+  min-width: 0;
+}
+
+#auto-arcade-widget .bfme-media-preview {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: #040a15;
+  border: 1px dashed rgba(34, 211, 238, 0.58);
+  border-radius: 16px;
+}
+
+#auto-arcade-widget .bfme-media-preview img,
+#auto-arcade-widget .bfme-media-preview video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+#auto-arcade-widget .bfme-media-empty {
+  padding: 18px;
+  color: var(--food-muted);
+  text-align: center;
+}
+
+#auto-arcade-widget .bfme-media-empty strong {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--food-text);
+}
+
+#auto-arcade-widget .bfme-media-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+#auto-arcade-widget .bfme-media-button,
+#auto-arcade-widget .bfme-clear-media {
+  width: max-content;
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 8px 11px;
+  color: var(--food-text);
+  font-weight: 750;
+  background: linear-gradient(145deg, #12213c, #050b17);
+  border: 1px solid var(--food-cyan);
+  border-radius: 11px;
+  cursor: pointer;
+}
+
+#auto-arcade-widget .bfme-clear-media {
+  color: #fff;
+  border-color: var(--food-red);
+}
+
+#auto-arcade-widget .bfme-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#auto-arcade-widget .bfme-media-help {
+  margin: 8px 0 0;
+  color: var(--food-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+#auto-arcade-widget .bfme-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  min-width: 0;
+}
+
+#auto-arcade-widget .bfme-field {
+  min-width: 0;
+}
+
+#auto-arcade-widget .bfme-field--wide {
+  grid-column: 1 / -1;
+}
+
+#auto-arcade-widget .bfme-label {
+  display: block;
+  margin: 0 0 6px;
+  color: var(--food-text);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+#auto-arcade-widget .bfme-required {
+  color: #fb7185;
+}
+
+#auto-arcade-widget .bfme-input,
+#auto-arcade-widget .bfme-select,
+#auto-arcade-widget .bfme-textarea {
+  width: 100%;
+  min-width: 0;
+  color: var(--food-text);
+  background: var(--food-input);
+  border: 1px solid #344766;
+  border-radius: 11px;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+#auto-arcade-widget .bfme-input,
+#auto-arcade-widget .bfme-select {
+  min-height: 43px;
+  padding: 9px 11px;
+}
+
+#auto-arcade-widget .bfme-textarea {
+  min-height: 88px;
+  padding: 10px 11px;
+  resize: vertical;
+}
+
+#auto-arcade-widget .bfme-input:focus,
+#auto-arcade-widget .bfme-select:focus,
+#auto-arcade-widget .bfme-textarea:focus {
+  border-color: var(--food-cyan);
+  box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.13);
+}
+
+#auto-arcade-widget .bfme-counter {
+  display: block;
+  margin-top: 4px;
+  color: var(--food-muted);
+  font-size: 10px;
+  text-align: right;
+}
+
+#auto-arcade-widget .bfme-toggle-row {
+  display: flex;
+  align-items: center;
+  min-height: 43px;
+  gap: 10px;
+}
+
+#auto-arcade-widget .bfme-toggle {
+  position: relative;
+  width: 46px;
+  height: 25px;
+  flex: 0 0 46px;
+}
+
+#auto-arcade-widget .bfme-toggle input {
+  position: absolute;
+  opacity: 0;
+}
+
+#auto-arcade-widget .bfme-toggle-track {
+  position: absolute;
+  inset: 0;
+  background: #26344b;
+  border: 1px solid #52617a;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+#auto-arcade-widget .bfme-toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 17px;
+  height: 17px;
+  background: #dbe6f7;
+  border-radius: 50%;
+  transition: 160ms ease;
+}
+
+#auto-arcade-widget .bfme-toggle input:checked + .bfme-toggle-track {
+  background: rgba(234, 179, 8, 0.34);
+  border-color: var(--food-gold);
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.23);
+}
+
+#auto-arcade-widget
+  .bfme-toggle
+  input:checked
+  + .bfme-toggle-track::after {
+  transform: translateX(21px);
+  background: var(--food-gold);
+}
+
+#auto-arcade-widget .bfme-toggle-copy {
+  color: var(--food-muted);
+  font-size: 12px;
+}
+
+#auto-arcade-widget .bfme-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-height: 43px;
+  padding: 7px;
+  background: var(--food-input);
+  border: 1px solid #344766;
+  border-radius: 11px;
+}
+
+#auto-arcade-widget .bfme-tag {
+  width: max-content;
+  min-height: 28px;
+  padding: 5px 9px;
+  color: #bfe8ff;
+  background: #0b294a;
+  border: 1px solid #25689b;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+#auto-arcade-widget .bfme-tag.is-selected {
+  color: #05111d;
+  background: var(--food-cyan);
+  border-color: var(--food-cyan);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.25);
+}
+
+#auto-arcade-widget .bfme-error {
+  display: none;
+  margin: 12px 18px 0;
+  padding: 10px 12px;
+  color: #ffd8df;
+  background: rgba(251, 48, 88, 0.12);
+  border: 1px solid rgba(251, 48, 88, 0.62);
+  border-radius: 10px;
+}
+
+#auto-arcade-widget .bfme-error.is-visible {
+  display: block;
+}
+
+#auto-arcade-widget .bfme-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding: 15px 18px 18px;
+  border-top: 1px solid rgba(234, 179, 8, 0.18);
+}
+
+#auto-arcade-widget .bfme-cancel,
+#auto-arcade-widget .bfme-save {
+  width: max-content;
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 9px 15px;
+  color: var(--food-text);
+  font-weight: 800;
+  border-radius: 11px;
+  cursor: pointer;
+}
+
+#auto-arcade-widget .bfme-cancel {
+  background: linear-gradient(145deg, #17243a, #050b17);
+  border: 1px solid #4b6385;
+}
+
+#auto-arcade-widget .bfme-save {
+  background:
+    linear-gradient(
+      145deg,
+      rgba(234, 179, 8, 0.42),
+      #050b17 72%
+    );
+  border: 1px solid var(--food-gold);
+  box-shadow: 0 0 14px rgba(234, 179, 8, 0.28);
+}
+
+#auto-arcade-widget .bfme-save:disabled,
+#auto-arcade-widget .bfme-cancel:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+@media (max-width: 760px) {
+  #auto-arcade-widget .bfme-body {
+    grid-template-columns: 1fr;
+  }
+
+  #auto-arcade-widget .bfme-media-preview {
+    width: min(100%, 330px);
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 520px) {
+  #auto-arcade-widget .bfme-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  #auto-arcade-widget .bfme-remove-item {
+    margin-left: 0;
+  }
+
+  #auto-arcade-widget .bfme-fields {
+    grid-template-columns: 1fr;
+  }
+
+  #auto-arcade-widget .bfme-field--wide {
+    grid-column: auto;
+  }
+
+  #auto-arcade-widget .bfme-footer {
+    justify-content: flex-end;
+    overflow-x: auto;
+  }
+}
+
 /* Scoped to the composer specifically - NOT a change to the shared
    .details-actions class, which is used across the whole app (including
    rows that must stay untouched, like a listing's Call button) and would
@@ -4096,8 +4522,7 @@ var state = {
  view:"home", location:"All Kenya", perPage:6, page:1, listings:demoListings,
  userRole:null, agentDirectory:[], roleAuditLog:[], superUserSearch:"", superUserResult:null, superUserTerritoryInput:"",
  foodMediaViewer:null, foodBusinesses:[], foodEditId:null, foodPublishBusy:false, foodPublishProgress:"",
- foodMenuItemsByBusiness:{}, foodMenuBusinessId:"", foodItemEditId:null, foodItemPublishBusy:false, foodItemPublishProgress:"",
- foodItemPrepType:"ready_made", foodItemAvailable:true, foodItemPreviewOpen:false, foodItemDetailId:"", foodItemDraftFields:null,
+ foodMenuItemsByBusiness:{}, foodMenuBusinessId:"", foodItemEditId:null, foodItemDetailId:"",
  pendingMemberIntent:null, memberEntranceOpen:false,
  moderationCases:[], moderationPanelTarget:null,
  adCampaigns:[], adDraft:null, adDraftId:null, adQueue:[], adSlotState:{},
@@ -10934,6 +11359,8 @@ function aaMapFoodMenuItemRow(row){
   preparation_type:row.preparation_type==='made_to_order'?'made_to_order':'ready_made',
   available:row.available!==false,media:Array.isArray(row.media)?row.media:[],
   status:row.status==='published'?'published':'draft',
+  category:row.category||'',delivery_option:row.delivery_option||'',
+  dietary_tags:Array.isArray(row.dietary_tags)?row.dietary_tags:[],
   created_at:row.created_at,createdAt:row.created_at
  };
 }
@@ -11040,9 +11467,8 @@ function aaOpenFoodItemForm(businessId,itemId){
  window.scrollTo(0,0);
 }
 function aaCancelFoodItemForm(){
- aaMediaDraftReset('foodmenu',[]);
- state.foodItemDraftMediaFor='';
- state.foodItemDraftFields=null;
+ aaFoodMenuEditorInstance=null;
+ aaFoodMenuEditorContextKey='';
  state.foodItemEditId=null;
  aaOpenFoodMenu(state.foodMenuBusinessId);
 }
@@ -11053,203 +11479,506 @@ function aaOpenFoodItemDetail(itemId){
  render();
  window.scrollTo(0,0);
 }
-function aaReplaceFoodItemMedia(){aaMediaDraftRemove('foodmenu',0)}
-function aaPreviewFoodMenuItem(){state.foodItemPreviewOpen=true;render()}
-function aaCloseFoodItemPreview(){state.foodItemPreviewOpen=false;render()}
-async function aaSaveFoodMenuItem(publish){
- if(!state.isLoggedIn&&!state.testMode){openAuth('login');return}
- if(state.foodItemPublishBusy)return;
- const businessId=state.foodMenuBusinessId;
- const biz=aaFoods().find(x=>String(x.id)===String(businessId));
- if(!biz){toast('This restaurant could not be found.');return}
- const name=document.getElementById('aaFoodItemName')?.value.trim()||'';
- const description=document.getElementById('aaFoodItemDescription')?.value.trim()||'';
- const price=Number(document.getElementById('aaFoodItemPrice')?.value||0);
- const editId=state.foodItemEditId;
- const contextKey=editId?('edit:'+editId):('new:'+businessId);
- // Keep whatever the owner typed visible across a failed save/publish —
- // re-render must never blank a completed form (only aaMediaDraftGet still
- // holds the selected file; this mirrors that for the text fields).
- state.foodItemDraftFields={contextKey,name,description,price_kes:price};
- if(!name){toast('Enter the food name before saving.');return}
- if(!description){toast('Enter a description before saving.');return}
- if(!(price>0)){toast('Enter a valid price before saving.');return}
- state.foodItemPublishBusy=true;
- state.foodItemPublishProgress=publish?'Publishing…':'Saving draft…';
- render();
- try{
-  const preparation_type=state.foodItemPrepType==='made_to_order'?'made_to_order':'ready_made';
-  const available=!!state.foodItemAvailable;
-  if(state.testMode){
-   const draftItems=aaMediaDraftGet('foodmenu').items;
-   const p={id:editId||aaNewFoodMenuItemId(),business_id:businessId,user_id:state.user?.id||'',
-    name,description,price_kes:price,preparation_type,available,
-    media:draftItems.map(({type,url,name})=>({type,url,name})).slice(0,1),
-    status:publish?'published':'draft',created_at:new Date().toISOString()};
-   state.foodMenuItemsByBusiness=state.foodMenuItemsByBusiness||{};
-   const list=state.foodMenuItemsByBusiness[businessId]||[];
-   const idx=list.findIndex(x=>String(x.id)===String(p.id));
-   if(idx>=0)list[idx]=p;else list.unshift(p);
-   state.foodMenuItemsByBusiness[businessId]=list;
-   aaMediaDraftReset('foodmenu',[]);
-   state.foodItemDraftMediaFor='';
-   state.foodItemDraftFields=null;
-   state.foodItemEditId=null;
-   toast(publish?'Food item published (preview mode).':'Food item saved as a draft (preview mode).');
-   aaOpenFoodMenu(businessId);
-   return;
-  }
-  if(!sb||!state.user?.id){toast('You must be logged in to save a food item.');return}
-  if(editId){
-   const original=aaFoodMenuItems(businessId).find(x=>String(x.id)===String(editId));
-   if(!original){toast('This food item could not be found.');state.foodItemEditId=null;return}
-   if(String(original.user_id||'')!==String(state.user.id)){toast('You can only edit your own food items.');return}
-  }
-  const itemId=editId||aaNewFoodMenuItemId();
-  const keptMedia=aaMediaDraftKeptExisting('foodmenu');
-  const removedPaths=aaMediaDraftRemovedPaths('foodmenu');
-  const newFiles=aaMediaDraftFilesForUpload('foodmenu');
-  if(publish&&!keptMedia.length&&!newFiles.length){toast('Add one photo or one video before publishing.');return}
-  const upload=newFiles.length?await aaUploadFoodMenuItemMedia(newFiles,state.user.id,businessId,itemId,()=>{state.foodItemPublishProgress='Uploading media…';render()}):{media:[],paths:[],error:null};
-  if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error));return}
-  const payload={business_id:businessId,user_id:state.user.id,name,description,price_kes:price,preparation_type,available,media:[...keptMedia,...upload.media],status:publish?'published':'draft'};
-  state.foodItemPublishProgress='Saving item…';render();
-  const result=editId?await aaUpdateFoodMenuItem(editId,payload):await aaInsertFoodMenuItem({id:itemId,...payload});
-  if(result.error){
-   await aaDeleteUploadedFoodMedia(upload.paths);
-   toast('Could not save food item: '+String(result.error.message||result.error));
-   return;
-  }
-  const verify=await aaVerifyFoodMenuItem(itemId);
-  if(verify.error){
-   toast('Food item could not be verified after saving: '+String(verify.error.message||verify.error));
-   return;
-  }
-  const mapped=aaMapFoodMenuItemRow(verify.data);
-  state.foodMenuItemsByBusiness=state.foodMenuItemsByBusiness||{};
-  const list=state.foodMenuItemsByBusiness[businessId]||[];
-  const idx=list.findIndex(x=>String(x.id)===String(itemId));
-  if(idx>=0)list[idx]=mapped;else list.unshift(mapped);
-  state.foodMenuItemsByBusiness[businessId]=list;
-  if(removedPaths.length)await aaDeleteUploadedFoodMedia(removedPaths);
-  aaMediaDraftReset('foodmenu',[]);
-  state.foodItemDraftMediaFor='';
-  state.foodItemDraftFields=null;
-  state.foodItemEditId=null;
-  toast(publish?'Food item published.':'Food item saved as a draft.');
-  aaOpenFoodMenu(businessId);
- }finally{
-  state.foodItemPublishBusy=false;
-  state.foodItemPublishProgress='';
-  render();
- }
-}
 async function aaDeleteFoodMenuItem(id){
+ if(!confirm('Delete this food item? This cannot be undone.'))return;
+ const result=await aaDeleteFoodMenuItemNow(id);
+ if(!result.ok)toast(result.message);
+}
+/* No-confirm variant, reused by the Food Menu Item editor's own onRemove
+   callback - that component already shows its own confirm() dialog, so
+   calling the confirming aaDeleteFoodMenuItem() here would stack a
+   second, redundant confirmation on top of it. */
+async function aaDeleteFoodMenuItemNow(id){
  const businessId=state.foodMenuBusinessId;
  const item=aaFoodMenuItems(businessId).find(x=>String(x.id)===String(id));
- if(!item)return;
- if(!confirm('Delete this food item? This cannot be undone.'))return;
- if(!sb||!state.user?.id||String(item.user_id||'')!==String(state.user.id)){toast('You can only delete your own food items.');return}
+ if(!item)return {ok:false,message:'This food item could not be found.'};
+ if(state.testMode){
+  const list=(state.foodMenuItemsByBusiness||{})[businessId]||[];
+  state.foodMenuItemsByBusiness[businessId]=list.filter(x=>String(x.id)!==String(id));
+  toast('Food item deleted (preview mode).');
+  aaOpenFoodMenu(businessId);
+  return {ok:true};
+ }
+ if(!sb||!state.user?.id||String(item.user_id||'')!==String(state.user.id))return {ok:false,message:'You can only delete your own food items.'};
  const del=await sb.from('food_menu_items').delete().eq('id',id).eq('user_id',state.user.id);
- if(del.error){toast('Could not delete food item: '+String(del.error.message||del.error));return}
+ if(del.error)return {ok:false,message:'Could not delete food item: '+String(del.error.message||del.error)};
  const list=(state.foodMenuItemsByBusiness||{})[businessId]||[];
  state.foodMenuItemsByBusiness[businessId]=list.filter(x=>String(x.id)!==String(id));
  const paths=(Array.isArray(item.media)?item.media:[]).map(m=>m.storagePath).filter(Boolean);
  if(paths.length){
   try{
    const rm=await sb.storage.from(AA_FOOD_MEDIA_BUCKET).remove(paths);
-   if(rm.error)toast('Food item deleted. Some media files could not be removed from storage.');
-   else toast('Food item deleted.');
+   toast(rm.error?'Food item deleted. Some media files could not be removed from storage.':'Food item deleted.');
   }catch(e){toast('Food item deleted. Some media files could not be removed from storage.')}
  }else{
   toast('Food item deleted.');
  }
  aaOpenFoodMenu(businessId);
+ return {ok:true};
 }
-function aaFoodItemMediaPanelHTML(current,busy){
- const hasMedia=!!current;
- return `<div style="margin-top:14px">
-  <div class="aa-bright-upload" role="group" aria-label="Add one photo or one video">
-   <b style="display:block;text-align:center;color:#12203a;font-size:14px;font-weight:900">ADD ONE PHOTO OR ONE VIDEO</b>
-   <div style="text-align:center;color:#4c5a72;font-size:11px;margin:4px 0 12px">Tap to choose from your phone or record a video. Only one photo or one video is accepted for this item.</div>
-   <div class="aa-bright-upload-row">
-    <div class="aa-bright-upload-choice"><div class="aa-bright-upload-icon">🖼</div><button type="button" class="btn btn-gold" ${busy||hasMedia?'disabled':''} onclick="document.getElementById('aaFoodItemPhotoInput').click()">Upload Photo</button></div>
-    <div class="aa-bright-upload-or">OR</div>
-    <div class="aa-bright-upload-choice"><div class="aa-bright-upload-icon">🎥</div><button type="button" class="btn btn-red" ${busy||hasMedia?'disabled':''} onclick="document.getElementById('aaFoodItemVideoInput').click()">Upload Video</button></div>
-   </div>
-   <input id="aaFoodItemPhotoInput" type="file" accept="image/*" hidden onchange="aaMediaDraftAddFiles('foodmenu',this.files);this.value=''">
-   <input id="aaFoodItemVideoInput" type="file" accept="video/*" hidden onchange="aaMediaDraftAddFiles('foodmenu',this.files);this.value=''">
-  </div>
-  ${hasMedia?`<div class="aa-food-item-media-current"><div class="aa-food-item-media-preview">${current.type==='video'?`<video src="${bingoSafeMediaAttr(current.url)}" controls playsinline muted preload="metadata"></video>`:`<img src="${bingoSafeMediaAttr(current.url)}" alt="">`}</div><div><b style="display:block;font-size:12px">Current Media</b><div class="meta">${current.type==='video'?'Video uploaded':'Photo uploaded'}</div><div class="details-actions aa-content-fit-row" style="margin-top:8px"><button type="button" class="btn" ${busy?'disabled':''} onclick="aaReplaceFoodItemMedia()">↻ Replace</button><button type="button" class="btn btn-red" ${busy?'disabled':''} onclick="aaMediaDraftRemove('foodmenu',0)">🗑 Remove</button></div></div></div>`:''}
- </div>`;
+/* ===== Bingo Food Menu Item Editor (standalone component, adapted) =====
+   Framework-free component owning its own DOM subtree once mounted -
+   deliberately NOT rebuilt by the app's normal render()/innerHTML cycle,
+   since a global re-render (e.g. an unrelated unread-count update while
+   this form is open) would otherwise wipe whatever the owner is mid-way
+   through typing. aaEnsureFoodMenuEditorMounted() below keeps exactly one
+   instance alive across renders and just re-attaches it to the fresh
+   mount node (remount()), never re-constructing it (which would reset
+   its state back to the original item). */
+const AA_FOOD_MENU_ITEM_DIETARY_OPTIONS = [
+ "Halal","Vegetarian","Vegan","Gluten Free","High Protein","Dairy Free","Popular","Traditional","Spicy"
+];
+const AA_FOOD_MENU_ITEM_CATEGORIES = ["Main Meals","Snacks","Drinks","Breakfast","Desserts"];
+/* Bingo's real food_menu_items.preparation_type is a two-value enum
+   (ready_made / made_to_order), not a free-text duration range - these
+   labels map 1:1 onto that existing column, they do not add a new one. */
+const AA_FOOD_MENU_ITEM_PREP_TYPES = ["Ready Made","Made to Order"];
+const AA_FOOD_MENU_ITEM_DELIVERY_OPTIONS = ["Delivery Only","Pickup Only","Both Pickup & Delivery"];
+
+function aaFoodMenuEditorMakeElement(tag,className,text){
+ const element=document.createElement(tag);
+ if(className)element.className=className;
+ if(typeof text==="string")element.textContent=text;
+ return element;
+}
+function aaFoodMenuEditorMakeOption(value,label){
+ const option=document.createElement("option");
+ option.value=value;option.textContent=label||value;
+ return option;
+}
+function aaFoodMenuEditorNormalizeTags(tags){
+ return Array.isArray(tags)?tags.filter(tag=>AA_FOOD_MENU_ITEM_DIETARY_OPTIONS.includes(tag)):[];
+}
+class BingoFoodMenuEditor{
+ constructor(mount,options={}){
+  this.mount=typeof mount==="string"?document.querySelector(mount):mount;
+  if(!this.mount)throw new Error("Food menu editor mount was not found.");
+  this.options={item:{},categories:AA_FOOD_MENU_ITEM_CATEGORIES,validateMedia:null,onSave:null,onRemove:null,onCancel:null,...options};
+  const item=this.options.item||{};
+  this.state={
+   id:item.id||null,
+   name:item.name||"",
+   category:item.category||this.options.categories[0],
+   description:item.description||"",
+   price:item.price??"",
+   available:item.available!==false,
+   preparationTime:item.preparationTime||AA_FOOD_MENU_ITEM_PREP_TYPES[0],
+   deliveryOption:item.deliveryOption||AA_FOOD_MENU_ITEM_DELIVERY_OPTIONS[2],
+   dietaryTags:aaFoodMenuEditorNormalizeTags(item.dietaryTags),
+   existingMediaUrl:item.mediaUrl||"",
+   existingMediaType:item.mediaType||"",
+   selectedFile:null,
+   previewUrl:"",
+   removeExistingMedia:false,
+   saving:false
+  };
+  this.render();this.bind();this.renderTags();this.renderMedia();this.updateCounter();
+ }
+ remount(newMountEl){
+  this.mount=newMountEl;
+  this.render();this.bind();this.renderTags();this.renderMedia();this.updateCounter();
+ }
+ render(){
+  this.mount.innerHTML=`
+   <section class="bingo-food-menu-editor">
+    <header class="bfme-header">
+     <div class="bfme-header-icon" aria-hidden="true">🍴</div>
+     <div class="bfme-header-copy">
+      <h3>Menu Item</h3>
+      <p>Add the food details customers will see publicly.</p>
+     </div>
+     ${this.state.id?`<button type="button" class="bfme-remove-item" data-action="remove-item">Delete Item</button>`:""}
+    </header>
+    <div class="bfme-error" role="alert"></div>
+    <div class="bfme-body">
+     <aside class="bfme-media-column">
+      <div class="bfme-media-preview" data-role="media-preview"></div>
+      <div class="bfme-media-actions">
+       <label class="bfme-media-button">Add Photo/Video
+        <input class="bfme-file-input" data-field="media" type="file" accept="image/*,video/*">
+       </label>
+       <button type="button" class="bfme-clear-media" data-action="clear-media">Remove Media</button>
+      </div>
+      <p class="bfme-media-help">One food photo or video. Photos: maximum 15 MB. Videos: maximum 120 MB.</p>
+     </aside>
+     <div class="bfme-fields">
+      <div class="bfme-field">
+       <label class="bfme-label">Item Name <span class="bfme-required">*</span></label>
+       <input class="bfme-input" data-field="name" type="text" maxlength="100" placeholder="Example: Chicken Pilau">
+      </div>
+      <div class="bfme-field">
+       <label class="bfme-label">Category <span class="bfme-required">*</span></label>
+       <select class="bfme-select" data-field="category"></select>
+      </div>
+      <div class="bfme-field bfme-field--wide">
+       <label class="bfme-label">Description <span class="bfme-required">*</span></label>
+       <textarea class="bfme-textarea" data-field="description" maxlength="300" placeholder="Describe the meal and what is included."></textarea>
+       <small class="bfme-counter" data-role="description-counter">0/300</small>
+      </div>
+      <div class="bfme-field">
+       <label class="bfme-label">Price (KSh) <span class="bfme-required">*</span></label>
+       <input class="bfme-input" data-field="price" type="number" min="1" step="1" inputmode="numeric" placeholder="450">
+      </div>
+      <div class="bfme-field">
+       <label class="bfme-label">Availability <span class="bfme-required">*</span></label>
+       <div class="bfme-toggle-row">
+        <label class="bfme-toggle">
+         <input data-field="available" type="checkbox">
+         <span class="bfme-toggle-track"></span>
+        </label>
+        <span class="bfme-toggle-copy" data-role="availability-copy">Available</span>
+       </div>
+      </div>
+      <div class="bfme-field">
+       <label class="bfme-label">Preparation Type</label>
+       <select class="bfme-select" data-field="preparationTime"></select>
+      </div>
+      <div class="bfme-field">
+       <label class="bfme-label">Delivery Option <span class="bfme-required">*</span></label>
+       <select class="bfme-select" data-field="deliveryOption"></select>
+      </div>
+      <div class="bfme-field bfme-field--wide">
+       <label class="bfme-label">Dietary Tags</label>
+       <div class="bfme-tags" data-role="tags" aria-label="Dietary tags"></div>
+      </div>
+     </div>
+    </div>
+    <footer class="bfme-footer">
+     <button type="button" class="bfme-cancel" data-action="cancel">Cancel</button>
+     <button type="button" class="bfme-save" data-action="save">Save Menu Item</button>
+    </footer>
+   </section>
+  `;
+  this.nameInput=this.mount.querySelector('[data-field="name"]');
+  this.categoryInput=this.mount.querySelector('[data-field="category"]');
+  this.descriptionInput=this.mount.querySelector('[data-field="description"]');
+  this.priceInput=this.mount.querySelector('[data-field="price"]');
+  this.availableInput=this.mount.querySelector('[data-field="available"]');
+  this.preparationInput=this.mount.querySelector('[data-field="preparationTime"]');
+  this.deliveryInput=this.mount.querySelector('[data-field="deliveryOption"]');
+  this.mediaInput=this.mount.querySelector('[data-field="media"]');
+  this.nameInput.value=this.state.name;
+  this.descriptionInput.value=this.state.description;
+  this.priceInput.value=this.state.price;
+  this.availableInput.checked=this.state.available;
+  this.options.categories.forEach(category=>{this.categoryInput.append(aaFoodMenuEditorMakeOption(category))});
+  AA_FOOD_MENU_ITEM_PREP_TYPES.forEach(time=>{this.preparationInput.append(aaFoodMenuEditorMakeOption(time))});
+  AA_FOOD_MENU_ITEM_DELIVERY_OPTIONS.forEach(option=>{this.deliveryInput.append(aaFoodMenuEditorMakeOption(option))});
+  this.categoryInput.value=this.state.category;
+  this.preparationInput.value=this.state.preparationTime;
+  this.deliveryInput.value=this.state.deliveryOption;
+  this.updateAvailabilityCopy();
+ }
+ bind(){
+  this.mount.addEventListener("input",event=>{
+   const field=event.target.dataset.field;if(!field)return;
+   if(field==="name")this.state.name=event.target.value;
+   if(field==="description"){this.state.description=event.target.value;this.updateCounter()}
+   if(field==="price")this.state.price=event.target.value;
+  });
+  this.mount.addEventListener("change",async event=>{
+   const field=event.target.dataset.field;if(!field)return;
+   if(field==="category")this.state.category=event.target.value;
+   if(field==="available"){this.state.available=event.target.checked;this.updateAvailabilityCopy()}
+   if(field==="preparationTime")this.state.preparationTime=event.target.value;
+   if(field==="deliveryOption")this.state.deliveryOption=event.target.value;
+   if(field==="media")await this.selectMedia(event.target.files?.[0]||null);
+  });
+  this.mount.addEventListener("click",event=>{
+   const tagButton=event.target.closest("[data-tag]");
+   if(tagButton){this.toggleTag(tagButton.dataset.tag);return}
+   const actionElement=event.target.closest("[data-action]");
+   if(!actionElement)return;
+   const action=actionElement.dataset.action;
+   if(action==="clear-media")this.clearMedia();
+   if(action==="save")this.save();
+   if(action==="cancel")this.cancel();
+   if(action==="remove-item")this.removeItem();
+  });
+ }
+ renderTags(){
+  const tagsRoot=this.mount.querySelector('[data-role="tags"]');
+  tagsRoot.replaceChildren();
+  AA_FOOD_MENU_ITEM_DIETARY_OPTIONS.forEach(tag=>{
+   const button=aaFoodMenuEditorMakeElement("button","bfme-tag",tag);
+   button.type="button";button.dataset.tag=tag;
+   if(this.state.dietaryTags.includes(tag)){button.classList.add("is-selected");button.setAttribute("aria-pressed","true")}
+   else button.setAttribute("aria-pressed","false");
+   tagsRoot.append(button);
+  });
+ }
+ toggleTag(tag){
+  if(this.state.dietaryTags.includes(tag))this.state.dietaryTags=this.state.dietaryTags.filter(current=>current!==tag);
+  else this.state.dietaryTags=[...this.state.dietaryTags,tag];
+  this.renderTags();
+ }
+ async selectMedia(file){
+  this.hideError();
+  if(!file)return;
+  const validator=typeof this.options.validateMedia==="function"?await this.options.validateMedia(file):{ok:true,mediaType:file.type.startsWith("video/")?"video":"image"};
+  if(!validator?.ok){this.mediaInput.value="";this.showError(validator?.message||"The selected media is not valid.");return}
+  this.releasePreviewUrl();
+  this.state.selectedFile=file;
+  this.state.previewUrl=URL.createObjectURL(file);
+  this.state.removeExistingMedia=false;
+  this.renderMedia();
+ }
+ renderMedia(){
+  const preview=this.mount.querySelector('[data-role="media-preview"]');
+  preview.replaceChildren();
+  const src=this.state.previewUrl||(!this.state.removeExistingMedia?this.state.existingMediaUrl:"");
+  if(!src){
+   const empty=aaFoodMenuEditorMakeElement("div","bfme-media-empty");
+   const title=aaFoodMenuEditorMakeElement("strong","","Add a food photo or video");
+   const copy=aaFoodMenuEditorMakeElement("span","","Customers will see this media on the public menu.");
+   empty.append(title,copy);preview.append(empty);return;
+  }
+  const type=this.state.selectedFile?.type.startsWith("video/")?"video":this.state.existingMediaType;
+  if(type==="video"){
+   const video=document.createElement("video");
+   video.src=src;video.controls=true;video.preload="metadata";video.playsInline=true;
+   preview.append(video);return;
+  }
+  const image=document.createElement("img");
+  image.src=src;image.alt="Menu item preview";
+  preview.append(image);
+ }
+ clearMedia(){
+  this.releasePreviewUrl();
+  this.state.selectedFile=null;
+  this.state.previewUrl="";
+  this.state.removeExistingMedia=true;
+  this.mediaInput.value="";
+  this.renderMedia();
+ }
+ collect(){
+  return {
+   id:this.state.id,name:this.state.name.trim(),category:this.state.category,
+   description:this.state.description.trim(),price:Number(this.state.price),
+   available:this.state.available,preparationTime:this.state.preparationTime,
+   deliveryOption:this.state.deliveryOption,dietaryTags:[...this.state.dietaryTags],
+   selectedFile:this.state.selectedFile,removeExistingMedia:this.state.removeExistingMedia,
+   existingMediaUrl:this.state.existingMediaUrl,existingMediaType:this.state.existingMediaType
+  };
+ }
+ validate(){
+  const item=this.collect();
+  if(!item.name)return "Enter the menu item name.";
+  if(!item.category)return "Select a menu category.";
+  if(!item.description)return "Enter a menu item description.";
+  if(!Number.isFinite(item.price)||item.price<=0)return "Enter a valid price greater than zero.";
+  if(!item.deliveryOption)return "Select a delivery option.";
+  return "";
+ }
+ async save(){
+  this.hideError();
+  const error=this.validate();
+  if(error){this.showError(error);return}
+  if(typeof this.options.onSave!=="function"){this.showError("The menu save handler has not been connected.");return}
+  this.setSaving(true);
+  try{
+   const result=await this.options.onSave(this.collect());
+   if(result?.ok===false)throw new Error(result.message||"Menu item could not be saved.");
+  }catch(error){this.showError(error?.message||"Menu item could not be saved.")}
+  finally{this.setSaving(false)}
+ }
+ async removeItem(){
+  if(!this.state.id){this.clear();return}
+  const confirmed=window.confirm("Delete this menu item? This action cannot be undone.");
+  if(!confirmed)return;
+  if(typeof this.options.onRemove!=="function"){this.showError("The menu delete handler has not been connected.");return}
+  this.setSaving(true);
+  try{
+   const result=await this.options.onRemove({id:this.state.id,existingMediaUrl:this.state.existingMediaUrl,existingMediaType:this.state.existingMediaType});
+   if(result?.ok===false)throw new Error(result.message||"Menu item could not be deleted.");
+  }catch(error){this.showError(error?.message||"Menu item could not be deleted.")}
+  finally{this.setSaving(false)}
+ }
+ cancel(){if(typeof this.options.onCancel==="function")this.options.onCancel()}
+ clear(){this.releasePreviewUrl();this.mount.replaceChildren()}
+ updateCounter(){
+  const counter=this.mount.querySelector('[data-role="description-counter"]');
+  if(counter)counter.textContent=`${this.state.description.length}/300`;
+ }
+ updateAvailabilityCopy(){
+  const copy=this.mount.querySelector('[data-role="availability-copy"]');
+  if(copy)copy.textContent=this.state.available?"Available":"Unavailable";
+ }
+ setSaving(saving){
+  this.state.saving=saving;
+  const saveButton=this.mount.querySelector('[data-action="save"]');
+  const cancelButton=this.mount.querySelector('[data-action="cancel"]');
+  const deleteButton=this.mount.querySelector('[data-action="remove-item"]');
+  saveButton.disabled=saving;cancelButton.disabled=saving;
+  if(deleteButton)deleteButton.disabled=saving;
+  saveButton.textContent=saving?"Saving…":"Save Menu Item";
+ }
+ showError(message){
+  const root=this.mount.querySelector(".bfme-error");
+  root.textContent=message;root.classList.add("is-visible");
+ }
+ hideError(){
+  const root=this.mount.querySelector(".bfme-error");
+  root.textContent="";root.classList.remove("is-visible");
+ }
+ releasePreviewUrl(){
+  if(this.state.previewUrl&&this.state.previewUrl.startsWith("blob:"))URL.revokeObjectURL(this.state.previewUrl);
+ }
+}
+window.BingoFoodMenuEditor=BingoFoodMenuEditor;
+
+
+/* ---- Integration adapter: connects the component above to Bingo's real
+   food_menu_items table, Storage bucket and existing save/delete
+   functions - see aaSaveFoodMenuItem/aaDeleteFoodMenuItemNow above and
+   aaUploadFoodMenuItemMedia/aaDeleteUploadedFoodMedia. category/
+   delivery_option/dietary_tags are NOT yet real columns (see the
+   companion DRAFT ONLY - NOT APPLIED migration); writes to them degrade
+   gracefully via the same aaMissingPropertyColumn pattern already used
+   for bingo_topics' title_format/body_format, so the form keeps working
+   today and starts persisting those three fields automatically the
+   moment that migration is reviewed and applied - no code change needed
+   then. ---- */
+let aaFoodMenuEditorInstance=null;
+let aaFoodMenuEditorContextKey="";
+async function aaFoodMenuEditorValidateMedia(file){
+ const err=aaValidatePropertyMediaFile(file);
+ if(err)return {ok:false,message:err};
+ return {ok:true,mediaType:/^video\//.test(file.type||"")?"video":"image"};
+}
+function aaEnsureFoodMenuEditorMounted(){
+ const mount=document.getElementById("bingo-food-menu-editor-mount");
+ if(!mount)return;
+ const businessId=state.foodMenuBusinessId;
+ const editItem=state.foodItemEditId?aaFoodMenuItems(businessId).find(x=>String(x.id)===String(state.foodItemEditId)):null;
+ const contextKey=editItem?("edit:"+editItem.id):("new:"+businessId);
+ if(aaFoodMenuEditorInstance&&aaFoodMenuEditorContextKey===contextKey){
+  aaFoodMenuEditorInstance.remount(mount);
+  return;
+ }
+ aaFoodMenuEditorContextKey=contextKey;
+ const media=Array.isArray(editItem?.media)&&editItem.media[0]?editItem.media[0]:null;
+ aaFoodMenuEditorInstance=new BingoFoodMenuEditor(mount,{
+  item:{
+   id:editItem?editItem.id:null,
+   name:editItem?.name||"",
+   category:editItem?.category||AA_FOOD_MENU_ITEM_CATEGORIES[0],
+   description:editItem?.description||"",
+   price:editItem?.price_kes||"",
+   available:editItem?editItem.available!==false:true,
+   preparationTime:editItem?.preparation_type==="made_to_order"?"Made to Order":"Ready Made",
+   deliveryOption:editItem?.delivery_option||AA_FOOD_MENU_ITEM_DELIVERY_OPTIONS[2],
+   dietaryTags:Array.isArray(editItem?.dietary_tags)?editItem.dietary_tags:[],
+   mediaUrl:media?media.url:"",
+   mediaType:media?media.type:""
+  },
+  categories:AA_FOOD_MENU_ITEM_CATEGORIES,
+  validateMedia:aaFoodMenuEditorValidateMedia,
+  onSave:aaHandleFoodMenuItemEditorSave,
+  onRemove:aaHandleFoodMenuItemEditorRemove,
+  onCancel:aaCancelFoodItemForm
+ });
+}
+async function aaHandleFoodMenuItemEditorSave(item){
+ if(!state.isLoggedIn&&!state.testMode){openAuth("login");return {ok:false,message:"Please log in to save this item."}}
+ const businessId=state.foodMenuBusinessId;
+ const biz=aaFoods().find(x=>String(x.id)===String(businessId));
+ if(!biz)return {ok:false,message:"This restaurant could not be found."};
+ const editId=item.id;
+ const preparation_type=item.preparationTime==="Made to Order"?"made_to_order":"ready_made";
+ const available=!!item.available;
+ const category=item.category||"";
+ const delivery_option=item.deliveryOption||"";
+ const dietary_tags=Array.isArray(item.dietaryTags)?item.dietaryTags:[];
+ if(state.testMode){
+  const list=state.foodMenuItemsByBusiness?.[businessId]||[];
+  const existing=list.find(x=>String(x.id)===String(editId));
+  let media=existing&&Array.isArray(existing.media)?existing.media:[];
+  if(item.selectedFile)media=[{type:item.selectedFile.type.startsWith("video/")?"video":"image",url:URL.createObjectURL(item.selectedFile),name:item.selectedFile.name}];
+  else if(item.removeExistingMedia)media=[];
+  const p={
+   id:editId||aaNewFoodMenuItemId(),business_id:businessId,user_id:state.user?.id||"",
+   name:item.name,description:item.description,price_kes:item.price,preparation_type,available,
+   category,delivery_option,dietary_tags,media,
+   status:"published",created_at:existing?.created_at||new Date().toISOString()
+  };
+  state.foodMenuItemsByBusiness=state.foodMenuItemsByBusiness||{};
+  const idx=list.findIndex(x=>String(x.id)===String(p.id));
+  if(idx>=0)list[idx]=p;else list.unshift(p);
+  state.foodMenuItemsByBusiness[businessId]=list;
+  aaFoodMenuEditorInstance=null;aaFoodMenuEditorContextKey="";
+  toast("Food item published (preview mode).");
+  aaOpenFoodMenu(businessId);
+  return {ok:true};
+ }
+ if(!sb||!state.user?.id)return {ok:false,message:"You must be logged in to save a food item."};
+ let existingRow=null;
+ if(editId){
+  existingRow=aaFoodMenuItems(businessId).find(x=>String(x.id)===String(editId));
+  if(!existingRow)return {ok:false,message:"This food item could not be found."};
+  if(String(existingRow.user_id||"")!==String(state.user.id))return {ok:false,message:"You can only edit your own food items."};
+ }
+ const itemId=editId||aaNewFoodMenuItemId();
+ const newFiles=item.selectedFile?[item.selectedFile]:[];
+ const removingExisting=item.removeExistingMedia&&!item.selectedFile;
+ const upload=newFiles.length?await aaUploadFoodMenuItemMedia(newFiles,state.user.id,businessId,itemId,()=>{}):{media:[],paths:[],error:null};
+ if(upload.error)return {ok:false,message:"Media upload failed: "+String(upload.error.message||upload.error)};
+ const existingMedia=Array.isArray(existingRow?.media)?existingRow.media:[];
+ const media=newFiles.length?upload.media:(removingExisting?[]:existingMedia);
+ const basePayload={business_id:businessId,user_id:state.user.id,name:item.name,description:item.description,price_kes:item.price,preparation_type,available,media,status:"published"};
+ const AA_FOOD_ITEM_CORE_FIELDS=["business_id","user_id","name","description","price_kes","preparation_type","available","media","status"];
+ let extra={category,delivery_option,dietary_tags};
+ let result;
+ for(let attempt=0;attempt<5;attempt++){
+  const finalPayload={...basePayload,...extra};
+  result=editId?await aaUpdateFoodMenuItem(editId,finalPayload):await aaInsertFoodMenuItem({id:itemId,...finalPayload});
+  if(!result.error)break;
+  const missing=aaMissingPropertyColumn(result.error);
+  if(missing&&!AA_FOOD_ITEM_CORE_FIELDS.includes(missing)&&Object.prototype.hasOwnProperty.call(extra,missing)){
+   const rest={...extra};delete rest[missing];extra=rest;continue;
+  }
+  break;
+ }
+ if(result.error){
+  if(upload.paths&&upload.paths.length)await aaDeleteUploadedFoodMedia(upload.paths);
+  return {ok:false,message:"Could not save food item: "+String(result.error.message||result.error)};
+ }
+ const verify=await aaVerifyFoodMenuItem(itemId);
+ if(verify.error)return {ok:false,message:"Food item could not be verified after saving."};
+ const mapped=aaMapFoodMenuItemRow(verify.data);
+ state.foodMenuItemsByBusiness=state.foodMenuItemsByBusiness||{};
+ const list=state.foodMenuItemsByBusiness[businessId]||[];
+ const idx=list.findIndex(x=>String(x.id)===String(itemId));
+ if(idx>=0)list[idx]=mapped;else list.unshift(mapped);
+ state.foodMenuItemsByBusiness[businessId]=list;
+ if(removingExisting||newFiles.length){
+  const oldPaths=existingMedia.map(m=>m.storagePath).filter(Boolean);
+  if(oldPaths.length&&(removingExisting||newFiles.length))await aaDeleteUploadedFoodMedia(oldPaths);
+ }
+ aaFoodMenuEditorInstance=null;aaFoodMenuEditorContextKey="";
+ toast("Food item published.");
+ aaOpenFoodMenu(businessId);
+ return {ok:true};
+}
+async function aaHandleFoodMenuItemEditorRemove(item){
+ const result=await aaDeleteFoodMenuItemNow(item.id);
+ if(result.ok){aaFoodMenuEditorInstance=null;aaFoodMenuEditorContextKey=""}
+ return result;
 }
 function aaFoodItemFormHTML(){
  const businessId=state.foodMenuBusinessId;
  const biz=aaFoods().find(x=>String(x.id)===String(businessId));
  if(!biz)return `<div class="aa-v69-card"><p>This restaurant could not be found.</p><button class="btn" onclick="aaOpenFood('mine')">Back to My Food Business</button></div>`;
  const editItem=state.foodItemEditId?aaFoodMenuItems(businessId).find(x=>String(x.id)===String(state.foodItemEditId)):null;
- const d=editItem||{};
- const contextKey=editItem?('edit:'+editItem.id):('new:'+businessId);
- if(state.foodItemDraftMediaFor!==contextKey){
-  aaMediaDraftReset('foodmenu',editItem&&Array.isArray(editItem.media)?editItem.media:[]);
-  state.foodItemDraftMediaFor=contextKey;
-  state.foodItemPrepType=d.preparation_type==='made_to_order'?'made_to_order':'ready_made';
-  state.foodItemAvailable=d.available!==false;
-  state.foodItemDraftFields=null;
- }
- // A failed save/publish leaves state.foodItemDraftFields set for this same
- // context so the completed form re-renders with what the owner typed,
- // never blank — only a successful save or Cancel clears it.
- const fields=(state.foodItemDraftFields&&state.foodItemDraftFields.contextKey===contextKey)?state.foodItemDraftFields:d;
- const busy=!!state.foodItemPublishBusy;
- const current=aaMediaDraftGet('foodmenu').items[0];
  return `<div class="aa-v69-card">
-  <button class="btn" style="margin-bottom:12px" ${busy?'disabled':''} onclick="aaCancelFoodItemForm()">← Back to Restaurant Menu</button>
-  <h3 style="margin:0 0 2px">${editItem?'Edit Food Item':'Add New Food Menu Item'}</h3>
-  <p class="notice" style="margin-top:0">${esc(biz.business_name)} · Fill in the details below to add a food item to your menu.</p>
-  <div class="form-grid">
-   <label class="full">Food Name<input id="aaFoodItemName" required placeholder="e.g. Grilled Tilapia" value="${esc(fields.name||'')}"></label>
-   <label class="full">Description<textarea id="aaFoodItemDescription" required rows="4" placeholder="e.g. Fresh tilapia served with ugali, kachumbari and a side of greens.">${esc(fields.description||'')}</textarea></label>
-   <label class="full">Price (KSh)<input id="aaFoodItemPrice" required type="number" min="0" step="1" placeholder="e.g. 650" value="${fields.price_kes?esc(String(fields.price_kes)):''}"></label>
-  </div>
-  <div class="form-grid" style="margin-top:4px">
-   <div class="full"><label class="form-label">Preparation Type</label><div class="details-actions">
-    <button type="button" class="btn ${state.foodItemPrepType==='ready_made'?'btn-gold':''}" ${busy?'disabled':''} onclick="state.foodItemPrepType='ready_made';render()">🔔 Ready Made</button>
-    <button type="button" class="btn ${state.foodItemPrepType==='made_to_order'?'btn-red':''}" ${busy?'disabled':''} onclick="state.foodItemPrepType='made_to_order';render()">🍲 Made to Order</button>
-   </div></div>
-   <div class="full"><label class="form-label">Availability</label><div class="details-actions">
-    <button type="button" class="btn ${state.foodItemAvailable?'btn-gold':''}" ${busy?'disabled':''} onclick="state.foodItemAvailable=true;render()">✓ Available</button>
-    <button type="button" class="btn ${!state.foodItemAvailable?'btn-red':''}" ${busy?'disabled':''} onclick="state.foodItemAvailable=false;render()">✕ Unavailable</button>
-   </div></div>
-  </div>
-  ${aaFoodItemMediaPanelHTML(current,busy)}
-  <div class="details-actions aa-content-fit-row" style="margin-top:14px">
-   <button type="button" class="btn" ${busy?'disabled':''} onclick="aaSaveFoodMenuItem(false)">📄 Save Draft</button>
-   <button type="button" class="btn" ${busy?'disabled':''} onclick="aaPreviewFoodMenuItem()">👁 Preview</button>
-  </div>
-  <button type="button" class="btn btn-red" style="width:100%;margin-top:8px" ${busy?'disabled':''} onclick="aaSaveFoodMenuItem(true)">${busy?(state.foodItemPublishProgress||'Publishing…'):'⬆ Publish Food'}</button>
+  <button class="btn" style="margin-bottom:12px" onclick="aaCancelFoodItemForm()">← Back to Restaurant Menu</button>
+  <p class="notice" style="margin-top:0">${esc(biz.business_name)} · ${editItem?"Update this menu item.":"Fill in the details below to add a food item to your menu."}</p>
+  <div id="bingo-food-menu-editor-mount"></div>
  </div>`;
-}
-function aaFoodItemPreviewHTML(){
- if(!state.foodItemPreviewOpen)return '';
- const name=document.getElementById('aaFoodItemName')?.value.trim()||'Untitled dish';
- const description=document.getElementById('aaFoodItemDescription')?.value.trim()||'';
- const price=Number(document.getElementById('aaFoodItemPrice')?.value||0);
- const current=aaMediaDraftGet('foodmenu').items[0];
- const biz=aaFoods().find(x=>String(x.id)===String(state.foodMenuBusinessId));
- return `<div class="overlay" onclick="if(event.target===this)aaCloseFoodItemPreview()"><div class="modal">
-  <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Preview</h2><button class="close" onclick="aaCloseFoodItemPreview()">×</button></div>
-  <div class="aa-food-item-media-preview" style="margin-top:10px">${current?(current.type==='video'?`<video src="${bingoSafeMediaAttr(current.url)}" controls playsinline muted preload="metadata"></video>`:`<img src="${bingoSafeMediaAttr(current.url)}" alt="">`):'<div class="notice" style="padding:30px 0;text-align:center">No media selected yet</div>'}</div>
-  <h3 style="margin:10px 0 2px">${esc(name)}</h3>
-  <div class="meta">${esc(biz?.business_name||'')}</div>
-  <div class="price" style="margin:8px 0">KSh ${money(price)}</div>
-  <p style="font-size:12px;line-height:1.6;color:#bdc7d6">${esc(description)}</p>
-  <div class="meta">${state.foodItemPrepType==='made_to_order'?'Made to Order':'Ready Made'} · ${state.foodItemAvailable?'Available':'Unavailable'}</div>
-  <button class="btn" style="width:100%;margin-top:12px" onclick="aaCloseFoodItemPreview()">Close Preview</button>
- </div></div>`;
 }
 function aaFoodMenuItemCardHTML(it){
  const media=it.media?.[0];
+ const tags=Array.isArray(it.dietary_tags)?it.dietary_tags:[];
  return `<button type="button" class="aa-food-menu-card" onclick="aaOpenFoodItemDetail('${esc(it.id)}')">
   <div class="aa-food-menu-card-media">
    ${media?(media.type==='video'?`<video src="${bingoSafeMediaAttr(media.url)}" muted playsinline preload="metadata"></video><span class="aa-media-play">▶</span>`:`<img src="${bingoSafeMediaAttr(media.url)}" alt="">`):''}
@@ -11258,8 +11987,10 @@ function aaFoodMenuItemCardHTML(it){
   </div>
   <div style="padding:8px">
    <b style="font-size:12px;display:block">${esc(it.name)}</b>
+   ${it.category?`<div class="meta" style="font-size:9px">${esc(it.category)}</div>`:''}
    <div class="meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.description)}</div>
    <div class="price" style="margin-top:6px;font-size:12px">KSh ${money(it.price_kes)}</div>
+   ${tags.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${tags.map(t=>`<span class="badge">${esc(t)}</span>`).join('')}</div>`:''}
   </div>
  </button>`;
 }
@@ -11293,7 +12024,9 @@ function aaFoodItemDetailHTML(){
   <div class="meta">${esc(biz?.business_name||'')}</div>
   <div class="price" style="margin:8px 0">KSh ${money(it.price_kes)}</div>
   <p style="font-size:12px;line-height:1.7;color:#bdc7d6">${esc(it.description)}</p>
-  <div class="meta">${it.preparation_type==='made_to_order'?'Made to Order':'Ready Made'} · ${it.available?'Available':'Unavailable'}${it.status==='draft'?' · Draft (not public yet)':''}</div>
+  <div class="meta">${it.category?esc(it.category)+' · ':''}${it.preparation_type==='made_to_order'?'Made to Order':'Ready Made'} · ${it.available?'Available':'Unavailable'}${it.status==='draft'?' · Draft (not public yet)':''}</div>
+  ${it.delivery_option?`<div class="meta" style="margin-top:4px">${esc(it.delivery_option)}</div>`:''}
+  ${Array.isArray(it.dietary_tags)&&it.dietary_tags.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${it.dietary_tags.map(t=>`<span class="badge">${esc(t)}</span>`).join('')}</div>`:''}
   ${own?`<div class="details-actions aa-content-fit-row" style="margin-top:12px"><button class="btn" onclick="aaOpenFoodItemForm('${esc(businessId)}','${esc(it.id)}')">Edit</button><button class="btn btn-red" onclick="aaDeleteFoodMenuItem('${esc(it.id)}')">Delete</button></div>`:''}
  </div>`;
 }
@@ -11571,12 +12304,13 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
     </div>
   </nav>
  </div>`}
- ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   if(state.msgActiveCall)aaCallReattachMediaElements();
   aaDynamicAdAfterRender();
   if(state.view==="add")aaInstallVehicleUploadEnhancer();
+  if(state.view==="food-item-form")aaEnsureFoodMenuEditorMounted();
   if(state.foodMediaViewer?.open)aaTryPlayFoodViewerVideo();
   if(state.adOpen&&state.adOpen.source_type==="html"){
    const host=document.getElementById("aaAdFrameHost_"+state.adOpen.id);
