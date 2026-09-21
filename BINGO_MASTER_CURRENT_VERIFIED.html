@@ -3865,19 +3865,24 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 
 #auto-arcade-widget .bfme-media-actions {
   display: flex;
+  flex-direction: column;
   gap: 8px;
   margin-top: 10px;
-  overflow-x: auto;
 }
 
 #auto-arcade-widget .bfme-media-button,
 #auto-arcade-widget .bfme-clear-media {
-  width: max-content;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  box-sizing: border-box;
   flex: 0 0 auto;
   min-height: 38px;
   padding: 8px 11px;
   color: var(--food-text);
   font-weight: 750;
+  text-align: center;
   background: linear-gradient(145deg, #12213c, #050b17);
   border: 1px solid var(--food-cyan);
   border-radius: 11px;
@@ -4079,6 +4084,7 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 
 #auto-arcade-widget .bfme-footer {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 9px;
   padding: 15px 18px 18px;
@@ -4086,6 +4092,8 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 }
 
 #auto-arcade-widget .bfme-cancel,
+#auto-arcade-widget .bfme-preview,
+#auto-arcade-widget .bfme-draft,
 #auto-arcade-widget .bfme-save {
   width: max-content;
   flex: 0 0 auto;
@@ -4102,6 +4110,16 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
   border: 1px solid #4b6385;
 }
 
+#auto-arcade-widget .bfme-preview {
+  background: linear-gradient(145deg, #12213c, #050b17);
+  border: 1px solid var(--food-cyan);
+}
+
+#auto-arcade-widget .bfme-draft {
+  background: linear-gradient(145deg, #17243a, #050b17);
+  border: 1px solid #4b6385;
+}
+
 #auto-arcade-widget .bfme-save {
   background:
     linear-gradient(
@@ -4114,6 +4132,8 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 }
 
 #auto-arcade-widget .bfme-save:disabled,
+#auto-arcade-widget .bfme-preview:disabled,
+#auto-arcade-widget .bfme-draft:disabled,
 #auto-arcade-widget .bfme-cancel:disabled {
   cursor: not-allowed;
   opacity: 0.58;
@@ -4149,8 +4169,15 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
   }
 
   #auto-arcade-widget .bfme-footer {
-    justify-content: flex-end;
-    overflow-x: auto;
+    justify-content: stretch;
+    flex-wrap: wrap;
+  }
+
+  #auto-arcade-widget .bfme-cancel,
+  #auto-arcade-widget .bfme-preview,
+  #auto-arcade-widget .bfme-draft,
+  #auto-arcade-widget .bfme-save {
+    flex: 1 1 calc(50% - 5px);
   }
 }
 
@@ -4523,6 +4550,7 @@ var state = {
  userRole:null, agentDirectory:[], roleAuditLog:[], superUserSearch:"", superUserResult:null, superUserTerritoryInput:"",
  foodMediaViewer:null, foodBusinesses:[], foodEditId:null, foodPublishBusy:false, foodPublishProgress:"",
  foodMenuItemsByBusiness:{}, foodMenuBusinessId:"", foodItemEditId:null, foodItemDetailId:"",
+ foodItemPreviewOpen:false, foodItemPreviewData:null,
  pendingMemberIntent:null, memberEntranceOpen:false,
  moderationCases:[], moderationPanelTarget:null,
  adCampaigns:[], adDraft:null, adDraftId:null, adQueue:[], adSlotState:{},
@@ -11553,7 +11581,7 @@ class BingoFoodMenuEditor{
  constructor(mount,options={}){
   this.mount=typeof mount==="string"?document.querySelector(mount):mount;
   if(!this.mount)throw new Error("Food menu editor mount was not found.");
-  this.options={item:{},categories:AA_FOOD_MENU_ITEM_CATEGORIES,validateMedia:null,onSave:null,onRemove:null,onCancel:null,...options};
+  this.options={item:{},categories:AA_FOOD_MENU_ITEM_CATEGORIES,validateMedia:null,onSave:null,onRemove:null,onCancel:null,onPreview:null,...options};
   const item=this.options.item||{};
   this.state={
    id:item.id||null,
@@ -11645,7 +11673,9 @@ class BingoFoodMenuEditor{
     </div>
     <footer class="bfme-footer">
      <button type="button" class="bfme-cancel" data-action="cancel">Cancel</button>
-     <button type="button" class="bfme-save" data-action="save">Save Menu Item</button>
+     <button type="button" class="bfme-preview" data-action="preview">Preview</button>
+     <button type="button" class="bfme-draft" data-action="save-draft">Save Draft</button>
+     <button type="button" class="bfme-save" data-action="publish">Publish</button>
     </footer>
    </section>
   `;
@@ -11691,7 +11721,9 @@ class BingoFoodMenuEditor{
    if(!actionElement)return;
    const action=actionElement.dataset.action;
    if(action==="clear-media")this.clearMedia();
-   if(action==="save")this.save();
+   if(action==="save-draft")this.save("draft");
+   if(action==="publish")this.save("published");
+   if(action==="preview")this.preview();
    if(action==="cancel")this.cancel();
    if(action==="remove-item")this.removeItem();
   });
@@ -11761,26 +11793,35 @@ class BingoFoodMenuEditor{
    existingMediaUrl:this.state.existingMediaUrl,existingMediaType:this.state.existingMediaType
   };
  }
- validate(){
+ validate(status){
   const item=this.collect();
   if(!item.name)return "Enter the menu item name.";
   if(!item.category)return "Select a menu category.";
   if(!item.description)return "Enter a menu item description.";
   if(!Number.isFinite(item.price)||item.price<=0)return "Enter a valid price greater than zero.";
   if(!item.deliveryOption)return "Select a delivery option.";
+  if(status==="published"){
+   const hasMedia=!!item.selectedFile||(!item.removeExistingMedia&&!!item.existingMediaUrl);
+   if(!hasMedia)return "Add one photo or one video before publishing.";
+  }
   return "";
  }
- async save(){
+ async save(status){
   this.hideError();
-  const error=this.validate();
+  const error=this.validate(status);
   if(error){this.showError(error);return}
   if(typeof this.options.onSave!=="function"){this.showError("The menu save handler has not been connected.");return}
   this.setSaving(true);
   try{
-   const result=await this.options.onSave(this.collect());
+   const result=await this.options.onSave({...this.collect(),status});
    if(result?.ok===false)throw new Error(result.message||"Menu item could not be saved.");
   }catch(error){this.showError(error?.message||"Menu item could not be saved.")}
   finally{this.setSaving(false)}
+ }
+ preview(){
+  this.hideError();
+  if(typeof this.options.onPreview!=="function"){this.showError("The menu preview has not been connected.");return}
+  this.options.onPreview(this.collect());
  }
  async removeItem(){
   if(!this.state.id){this.clear();return}
@@ -11806,12 +11847,15 @@ class BingoFoodMenuEditor{
  }
  setSaving(saving){
   this.state.saving=saving;
-  const saveButton=this.mount.querySelector('[data-action="save"]');
+  const publishButton=this.mount.querySelector('[data-action="publish"]');
+  const draftButton=this.mount.querySelector('[data-action="save-draft"]');
+  const previewButton=this.mount.querySelector('[data-action="preview"]');
   const cancelButton=this.mount.querySelector('[data-action="cancel"]');
   const deleteButton=this.mount.querySelector('[data-action="remove-item"]');
-  saveButton.disabled=saving;cancelButton.disabled=saving;
+  [publishButton,draftButton,previewButton,cancelButton].forEach(btn=>{if(btn)btn.disabled=saving});
   if(deleteButton)deleteButton.disabled=saving;
-  saveButton.textContent=saving?"Saving…":"Save Menu Item";
+  if(publishButton)publishButton.textContent=saving?"Saving…":"Publish";
+  if(draftButton)draftButton.textContent=saving?"Saving…":"Save Draft";
  }
  showError(message){
   const root=this.mount.querySelector(".bfme-error");
@@ -11876,7 +11920,8 @@ function aaEnsureFoodMenuEditorMounted(){
   validateMedia:aaFoodMenuEditorValidateMedia,
   onSave:aaHandleFoodMenuItemEditorSave,
   onRemove:aaHandleFoodMenuItemEditorRemove,
-  onCancel:aaCancelFoodItemForm
+  onCancel:aaCancelFoodItemForm,
+  onPreview:aaHandleFoodMenuItemEditorPreview
  });
 }
 async function aaHandleFoodMenuItemEditorSave(item){
@@ -11890,6 +11935,7 @@ async function aaHandleFoodMenuItemEditorSave(item){
  const category=item.category||"";
  const delivery_option=item.deliveryOption||"";
  const dietary_tags=Array.isArray(item.dietaryTags)?item.dietaryTags:[];
+ const status=item.status==="draft"?"draft":"published";
  if(state.testMode){
   const list=state.foodMenuItemsByBusiness?.[businessId]||[];
   const existing=list.find(x=>String(x.id)===String(editId));
@@ -11900,14 +11946,14 @@ async function aaHandleFoodMenuItemEditorSave(item){
    id:editId||aaNewFoodMenuItemId(),business_id:businessId,user_id:state.user?.id||"",
    name:item.name,description:item.description,price_kes:item.price,preparation_type,available,
    category,delivery_option,dietary_tags,media,
-   status:"published",created_at:existing?.created_at||new Date().toISOString()
+   status,created_at:existing?.created_at||new Date().toISOString()
   };
   state.foodMenuItemsByBusiness=state.foodMenuItemsByBusiness||{};
   const idx=list.findIndex(x=>String(x.id)===String(p.id));
   if(idx>=0)list[idx]=p;else list.unshift(p);
   state.foodMenuItemsByBusiness[businessId]=list;
   aaFoodMenuEditorInstance=null;aaFoodMenuEditorContextKey="";
-  toast("Food item published (preview mode).");
+  toast(status==="draft"?"Food item saved as a draft (preview mode).":"Food item published (preview mode).");
   aaOpenFoodMenu(businessId);
   return {ok:true};
  }
@@ -11925,7 +11971,7 @@ async function aaHandleFoodMenuItemEditorSave(item){
  if(upload.error)return {ok:false,message:"Media upload failed: "+String(upload.error.message||upload.error)};
  const existingMedia=Array.isArray(existingRow?.media)?existingRow.media:[];
  const media=newFiles.length?upload.media:(removingExisting?[]:existingMedia);
- const basePayload={business_id:businessId,user_id:state.user.id,name:item.name,description:item.description,price_kes:item.price,preparation_type,available,media,status:"published"};
+ const basePayload={business_id:businessId,user_id:state.user.id,name:item.name,description:item.description,price_kes:item.price,preparation_type,available,media,status};
  const AA_FOOD_ITEM_CORE_FIELDS=["business_id","user_id","name","description","price_kes","preparation_type","available","media","status"];
  let extra={category,delivery_option,dietary_tags};
  let result;
@@ -11956,7 +12002,7 @@ async function aaHandleFoodMenuItemEditorSave(item){
   if(oldPaths.length&&(removingExisting||newFiles.length))await aaDeleteUploadedFoodMedia(oldPaths);
  }
  aaFoodMenuEditorInstance=null;aaFoodMenuEditorContextKey="";
- toast("Food item published.");
+ toast(status==="draft"?"Food item saved as a draft.":"Food item published.");
  aaOpenFoodMenu(businessId);
  return {ok:true};
 }
@@ -11964,6 +12010,44 @@ async function aaHandleFoodMenuItemEditorRemove(item){
  const result=await aaDeleteFoodMenuItemNow(item.id);
  if(result.ok){aaFoodMenuEditorInstance=null;aaFoodMenuEditorContextKey=""}
  return result;
+}
+let aaFoodMenuEditorPreviewBlobUrl="";
+function aaHandleFoodMenuItemEditorPreview(item){
+ const businessId=state.foodMenuBusinessId;
+ if(aaFoodMenuEditorPreviewBlobUrl){URL.revokeObjectURL(aaFoodMenuEditorPreviewBlobUrl);aaFoodMenuEditorPreviewBlobUrl=""}
+ let media=[];
+ if(item.selectedFile){
+  aaFoodMenuEditorPreviewBlobUrl=URL.createObjectURL(item.selectedFile);
+  media=[{type:item.selectedFile.type.startsWith("video/")?"video":"image",url:aaFoodMenuEditorPreviewBlobUrl,name:item.selectedFile.name}];
+ }else if(!item.removeExistingMedia&&item.existingMediaUrl){
+  media=[{type:item.existingMediaType||"image",url:item.existingMediaUrl}];
+ }
+ state.foodItemPreviewData={
+  id:item.id||"preview",business_id:businessId,user_id:state.user?.id||"",
+  name:item.name,description:item.description,price_kes:item.price,
+  preparation_type:item.preparationTime==="Made to Order"?"made_to_order":"ready_made",
+  available:item.available,media,status:"draft",
+  category:item.category,delivery_option:item.deliveryOption,dietary_tags:item.dietaryTags
+ };
+ state.foodItemPreviewOpen=true;
+ render();
+}
+function aaCloseFoodItemPreview(){
+ state.foodItemPreviewOpen=false;
+ state.foodItemPreviewData=null;
+ render();
+}
+function aaFoodItemPreviewHTML(){
+ if(!state.foodItemPreviewOpen||!state.foodItemPreviewData)return "";
+ const it=state.foodItemPreviewData;
+ return `<div class="overlay" onclick="if(event.target===this)aaCloseFoodItemPreview()"><div class="modal">
+  <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Preview</h2><button class="close" onclick="aaCloseFoodItemPreview()">×</button></div>
+  <p class="notice" style="margin-top:0">This is exactly how the item will look on your public menu once published. Nothing has been saved yet.</p>
+  <div class="aa-food-menu-grid" style="max-width:240px;margin:0 auto">
+   <div style="pointer-events:none">${aaFoodMenuItemCardHTML(it)}</div>
+  </div>
+  <button class="btn" style="width:100%;margin-top:14px" onclick="aaCloseFoodItemPreview()">Close Preview</button>
+ </div></div>`;
 }
 function aaFoodItemFormHTML(){
  const businessId=state.foodMenuBusinessId;
@@ -12304,7 +12388,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
     </div>
   </nav>
  </div>`}
- ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   if(state.msgActiveCall)aaCallReattachMediaElements();
