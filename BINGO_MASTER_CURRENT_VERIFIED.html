@@ -5081,6 +5081,46 @@ function aaApplyRestoredScroll(){
  const y=__aaRestoredScrollY;__aaRestoredScrollY=0;
  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,y)));
 }
+/* aaSaveCurrentRoute()/aa_current_route above only covers view/scroll and
+   is gated to AA_SAFE_REFRESH_VIEWS - a Google sign-in is a REAL full-page
+   navigation away and back (unlike the email/password flow, which never
+   leaves the SPA), so anything held only in the in-memory state object -
+   specifically redirectAfterLogin/pendingMemberIntent, the "return here
+   after login" destination set by aaRequireMember's protected-action gate
+   - is destroyed the instant the browser navigates to Google, on every
+   view, not just the safe-refresh ones. Separate, always-on storage key
+   so a login started from a protected action still lands the user back
+   on the thing they originally tried to do once Google returns them here. */
+function aaSaveOAuthAuthIntent(){
+ try{
+  if(state.redirectAfterLogin||state.pendingMemberIntent){
+   sessionStorage.setItem("aa_oauth_intent",JSON.stringify({redirectAfterLogin:state.redirectAfterLogin||"",pendingMemberIntent:state.pendingMemberIntent||null}));
+  }else{
+   sessionStorage.removeItem("aa_oauth_intent");
+  }
+ }catch(e){}
+}
+function aaRestoreOAuthAuthIntent(){
+ try{
+  const raw=sessionStorage.getItem("aa_oauth_intent");
+  if(!raw)return;
+  sessionStorage.removeItem("aa_oauth_intent");
+  const saved=JSON.parse(raw);
+  if(saved.redirectAfterLogin&&!state.redirectAfterLogin)state.redirectAfterLogin=saved.redirectAfterLogin;
+  if(saved.pendingMemberIntent&&!state.pendingMemberIntent)state.pendingMemberIntent=saved.pendingMemberIntent;
+ }catch(e){}
+}
+/* Shared by fastAuthContinue/fastLoginContinue: if the network call never
+   settles (neither resolves nor rejects), the Save/Create button would
+   otherwise stay disabled on "Creating account…"/"Signing in…" forever -
+   this guarantees the same catch block that already resets authBusy and
+   preserves the typed form always runs. */
+function aaAuthWithTimeout(promise,ms,timeoutMessage){
+ return Promise.race([
+  promise,
+  new Promise((_,reject)=>setTimeout(()=>reject(new Error(timeoutMessage)),ms))
+ ]);
+}
 function aaRememberPage(){
  const snapshot={
   view:state.view||"home",
@@ -5960,7 +6000,7 @@ async function fastAuthContinue(){
  if(!sb){state.authError="Account service is not ready. Please refresh and try again.";render();return}
  state.authBusy=true;render();
  try{
-  const {data:result,error}=await sb.auth.signUp({
+  const {data:result,error}=await aaAuthWithTimeout(sb.auth.signUp({
    email:data.email,
    password:data.password,
    options:{data:{
@@ -5969,7 +6009,7 @@ async function fastAuthContinue(){
     account_type:data.accountType,company_name:data.companyName,username:data.username,phone:data.phone,
     location:data.location,bio:data.bio,photo_url:data.photo
    }}
-  });
+  }),20000,"This is taking too long. Please check your connection and try again.");
   if(error)throw error;
   const authUser=result?.user;
   if(!authUser)throw new Error("Bingo could not create the account.");
@@ -6055,7 +6095,7 @@ async function fastLoginContinue(){
  if(!sb){state.authError="Account service is not ready. Please refresh and try again.";render();return}
  state.authBusy=true;render();
  try{
-  const {data,error}=await sb.auth.signInWithPassword({email,password});
+  const {data,error}=await aaAuthWithTimeout(sb.auth.signInWithPassword({email,password}),20000,"This is taking too long. Please check your connection and try again.");
   if(error)throw error;
   if(!data?.user)throw new Error("Login could not be completed.");
   await aaLoadAuthenticatedProfile(data.user);
@@ -6174,6 +6214,7 @@ async function aaGoogleLogin(){
  try{
   state.authBusy=true;state.authError="";render();
   aaSaveCurrentRoute();
+  aaSaveOAuthAuthIntent();
   const redirectTo=aaOAuthRedirectTo();
   const {error}=await sb.auth.signInWithOAuth({provider:"google",options:{redirectTo}});
   if(error)throw error;
@@ -18869,6 +18910,7 @@ function aaCloseTopOverlay(){
   try{
    load();
    aaResumeSavedRouteIfSafe();
+   aaRestoreOAuthAuthIntent();
    if(!state.condition)state.condition="All conditions";
    if(!state.fuelFilter)state.fuelFilter="All fuel";
    bingoInitMsgTheme();
