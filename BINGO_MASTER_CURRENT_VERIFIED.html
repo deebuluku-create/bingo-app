@@ -3672,20 +3672,23 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
    Kept visually distinct from that same-height nav row and from the
    28px secondary-control tier through weight (gold/cyan gradient glow,
    wider horizontal padding), not extra height. */
-#auto-arcade-widget .aa-post-open-btn{
-  position:relative!important;
-  display:flex;align-items:center;justify-content:center;gap:5px;
-  margin:10px auto 0;padding:0 18px;height:29px;min-height:29px;
+/* Compact always-visible Topic Wall posting bar (replaces the old
+   permanently-expanded Create Post form). Content-fit, one row,
+   avatar+fake-input+camera+POST - clicking any part opens the real
+   composer via aaFocusWallComposer(), which re-expands an existing
+   dirty draft instead of resetting it (aaOpenWallComposer() still does
+   the full reset, but only for a genuinely fresh post). */
+#auto-arcade-widget .aa-composer-bar{
+  display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;
   background:linear-gradient(180deg,#132338,#0c1a2b);
-  border:1.5px solid rgba(245,185,30,.65);border-radius:999px;
-  color:#f7f8fb;font-weight:800;font-size:12px;cursor:pointer;
-  box-shadow:0 0 8px rgba(245,185,30,.3),0 0 14px rgba(34,201,255,.18);
-  transition:box-shadow .15s ease,transform .12s ease;
+  border:1.5px solid rgba(245,185,30,.4);border-radius:999px;
 }
-#auto-arcade-widget .aa-post-open-btn::before{content:"";position:absolute!important;top:50%;left:50%;transform:translate(-50%,-50%);width:100%;height:44px;background:none!important}
-#auto-arcade-widget .aa-post-open-btn span{font-size:14px;line-height:1}
-@media(hover:hover){#auto-arcade-widget .aa-post-open-btn:hover{box-shadow:0 0 14px rgba(245,185,30,.5),0 0 26px rgba(34,201,255,.3)}}
-#auto-arcade-widget .aa-post-open-btn:active{transform:scale(.96)}
+#auto-arcade-widget .aa-composer-bar-avatar{width:34px;height:34px;border-radius:50%;object-fit:cover;flex:0 0 34px;background:#1c2c47}
+#auto-arcade-widget .aa-composer-bar-input{all:unset;flex:1;min-width:0;color:#8da2c0;font-size:13px;cursor:text;padding:8px 12px;background:rgba(255,255,255,.04);border-radius:999px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#auto-arcade-widget .aa-composer-bar-icon{--tab-light:var(--bingo-gold,#f3be2b);--tab-rgb:243,190,43;flex:0 0 auto;width:34px;height:34px;min-width:34px;min-height:34px;border-radius:50%!important;display:flex;align-items:center;justify-content:center;font-size:16px;cursor:pointer;padding:0}
+#auto-arcade-widget .aa-composer-bar-post{flex:0 0 auto;padding:0 16px;height:34px;min-height:34px;border-radius:999px!important;font-size:12px;font-weight:900;letter-spacing:.02em}
+#auto-arcade-widget .aa-composer-collapse-btn{all:unset;cursor:pointer;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:16px;color:#cbd5e1;background:rgba(255,255,255,.06)}
+#auto-arcade-widget .aa-composer-collapse-btn:hover{background:rgba(255,255,255,.14)}
 /* Camera media upload surface: one clear neon-outlined box, replacing the
    old plain file input + text button. Named aa-media-camera-box (not
    aa-camera-box) - that name is already used, unscoped and with
@@ -3703,6 +3706,28 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .aa-media-camera-box-main span{font-size:12px;font-weight:700;min-width:0;overflow-wrap:anywhere}
 #auto-arcade-widget .aa-media-camera-box-count{color:#7c8aa0!important;font-weight:600!important;font-size:11px}
 #auto-arcade-widget .aa-media-camera-box.is-disabled{opacity:.5;cursor:not-allowed;pointer-events:none}
+/* Premium Food Business form (UI correction directive): section cards
+   with labels above inputs, dark navy/slate surfaces, gold focus rings.
+   Purely presentational - every input keeps its original name attribute
+   so aaSubmitFood's FormData read-out is completely unaffected. */
+#auto-arcade-widget .aa-food-form .field{height:42px;box-sizing:border-box}
+#auto-arcade-widget .aa-food-form textarea.field{height:auto}
+#auto-arcade-widget .aa-food-form .field:focus{border-color:var(--bingo-gold,#f3be2b);box-shadow:0 0 0 3px rgba(243,190,43,.22)}
+#auto-arcade-widget .aa-food-section{margin-top:16px;padding:14px;border-radius:14px;background:linear-gradient(160deg,#0d1b32,#081120);border:1px solid rgba(120,150,200,.18)}
+#auto-arcade-widget .aa-food-section:first-of-type{margin-top:12px}
+#auto-arcade-widget .aa-food-section-title{font-size:12px;font-weight:900;letter-spacing:.02em;color:var(--bingo-gold,#f3be2b);margin-bottom:10px}
+#auto-arcade-widget .aa-food-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+#auto-arcade-widget .aa-food-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+#auto-arcade-widget .aa-food-field>span{font-size:11px;font-weight:700;color:#cbd5e1;display:flex;align-items:center;gap:6px}
+#auto-arcade-widget .aa-food-field-full{grid-column:1/-1}
+#auto-arcade-widget .aa-food-req{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:#fb3058}
+#auto-arcade-widget .aa-food-opt{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#7c8aa0}
+#auto-arcade-widget .aa-food-record-btn{width:100%;margin-top:10px}
+#auto-arcade-widget .aa-food-section-submit{text-align:left}
+@media(max-width:640px){
+  #auto-arcade-widget .aa-food-grid-2{grid-template-columns:1fr}
+  #auto-arcade-widget .aa-food-field-full{grid-column:auto}
+}
 /* Scoped to the composer specifically - NOT a change to the shared
    .details-actions class, which is used across the whole app (including
    rows that must stay untouched, like a listing's Call button) and would
@@ -8243,7 +8268,7 @@ var aaAdTimer=null;
    are backend authoritative (RLS-scoped campaign rows; the existing
    isBoosted/boostRemaining fields already trusted everywhere else in
    this file), never a client-invented status. */
-const AA_AD_SLOTS=[{id:"home-banner",page:"home",capability:"medium"}];
+const AA_AD_SLOTS=[{id:"home-banner",page:"home",capability:"medium"},{id:"wall-sidebar",page:"topics",capability:"medium"}];
 function aaAdSlotDef(slotId){return AA_AD_SLOTS.find(s=>s.id===slotId)}
 function aaEligibleQueueItems(slot,now=Date.now()){
  return (state.adQueue||[]).filter(x=>x.status==="active"&&Date.parse(x.starts_at)<=now&&Date.parse(x.expires_at)>now&&x.eligible_slots?.includes(slot.id));
@@ -10681,7 +10706,70 @@ function aaFoodPostHTML(){
   state.foodDraftMediaFor=contextKey;
  }
  const busy=!!state.foodPublishBusy;
- return `<div class="aa-v69-card"><h3>${editItem?'Edit Food Business':'Create Food Business Listing'}</h3><form onsubmit="aaSubmitFood(event)"><div class="form-grid"><label>Business Name<input required name="business_name" value="${esc(d.business_name||'')}"></label><label>Category<select name="category">${AA_FOOD_TYPES.map(x=>`<option ${d.category===x?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label>County<input required name="county" value="${esc(d.county||'')}"></label><label>Town / Area<input required name="town" value="${esc(d.town||'')}"></label><label>Delivery Area<input required name="delivery_area" placeholder="Nyali, Bamburi, Mombasa CBD" value="${esc(d.delivery_area||'')}"></label><label>Phone<input required name="phone" type="tel" value="${esc(d.phone||'')}"></label><label>WhatsApp<input name="whatsapp" type="tel" value="${esc(d.whatsapp||'')}"></label><label>Opening Hours<input name="opening_hours" placeholder="8:00 AM - 11:00 PM" value="${esc(d.opening_hours||'')}"></label><label>Price Range<input name="price_range" placeholder="KES 300 - 2,500" value="${esc(d.price_range||'')}"></label><label>Home Delivery<select name="delivery_available"><option value="yes" ${d.delivery_available?'selected':''}>Yes</option><option value="no" ${d.delivery_available===false?'selected':''}>No</option></select></label><label class="full">Description<textarea required name="description" rows="4">${esc(d.description||'')}</textarea></label><label class="full">Food Photos / Videos<input type="file" accept="image/*,video/*" multiple ${busy?'disabled':''} onchange="aaMediaDraftAddFiles('food',this.files);this.value=''"></label></div><p class="notice" style="margin-top:8px">Tap ★ to set the cover, ◀▶ to reorder, ✕ to remove. Tap a thumbnail to preview it full-screen.</p>${aaMediaGalleryHTML(aaMediaDraftGet('food').items,{editable:true,draftKey:'food',emptyText:'No photos or videos added yet.'})}<div class="details-actions aa-content-fit-row" style="margin-top:10px"><button class="btn" type="button" ${busy?'disabled':''} onclick="aaOpenDualCamera('food')">Record Video</button>${editItem?`<button class="btn" type="button" ${busy?'disabled':''} onclick="aaCancelFoodEdit()">Cancel</button>`:''}<button class="btn btn-red" type="submit" ${busy?'disabled':''}>${busy?(state.foodPublishProgress||'Publishing…'):(editItem?'Save Changes':'Save Business')}</button></div></form></div>`;
+ const mediaCount=aaMediaDraftGet('food').items.length;
+ return `<div class="aa-v69-card aa-food-form"><h3>${editItem?'Edit Food Business':'Create Food Business Listing'}</h3><form onsubmit="aaSubmitFood(event)">
+
+  <div class="aa-food-section">
+   <div class="aa-food-section-title">1. Business Identity</div>
+   <div class="aa-food-grid-2">
+    <label class="aa-food-field"><span>Business Name <i class="aa-food-req">Required</i></span><input class="field" required name="business_name" value="${esc(d.business_name||'')}" placeholder="e.g. Mama Njeri's Kitchen"></label>
+    <label class="aa-food-field"><span>Category <i class="aa-food-opt">Optional</i></span><select class="field" name="category">${AA_FOOD_TYPES.map(x=>`<option ${d.category===x?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
+   </div>
+  </div>
+
+  <div class="aa-food-section">
+   <div class="aa-food-section-title">2. Location &amp; Delivery</div>
+   <div class="aa-food-grid-2">
+    <label class="aa-food-field"><span>County <i class="aa-food-req">Required</i></span><input class="field" required name="county" value="${esc(d.county||'')}"></label>
+    <label class="aa-food-field"><span>Town / Area <i class="aa-food-req">Required</i></span><input class="field" required name="town" value="${esc(d.town||'')}"></label>
+    <label class="aa-food-field aa-food-field-full"><span>Delivery Area <i class="aa-food-req">Required</i></span><input class="field" required name="delivery_area" placeholder="Nyali, Bamburi, Mombasa CBD" value="${esc(d.delivery_area||'')}"></label>
+    <label class="aa-food-field"><span>Home Delivery <i class="aa-food-opt">Optional</i></span><select class="field" name="delivery_available"><option value="yes" ${d.delivery_available?'selected':''}>Yes</option><option value="no" ${d.delivery_available===false?'selected':''}>No</option></select></label>
+   </div>
+  </div>
+
+  <div class="aa-food-section">
+   <div class="aa-food-section-title">3. Contact Information</div>
+   <div class="aa-food-grid-2">
+    <label class="aa-food-field"><span>Phone <i class="aa-food-req">Required</i></span><input class="field" required name="phone" type="tel" value="${esc(d.phone||'')}"></label>
+    <label class="aa-food-field"><span>WhatsApp <i class="aa-food-opt">Optional</i></span><input class="field" name="whatsapp" type="tel" value="${esc(d.whatsapp||'')}"></label>
+   </div>
+  </div>
+
+  <div class="aa-food-section">
+   <div class="aa-food-section-title">4. Hours &amp; Pricing</div>
+   <div class="aa-food-grid-2">
+    <label class="aa-food-field"><span>Opening Hours <i class="aa-food-opt">Optional</i></span><input class="field" name="opening_hours" placeholder="8:00 AM - 11:00 PM" value="${esc(d.opening_hours||'')}"></label>
+    <label class="aa-food-field"><span>Price Range <i class="aa-food-opt">Optional</i></span><input class="field" name="price_range" placeholder="KES 300 - 2,500" value="${esc(d.price_range||'')}"></label>
+   </div>
+  </div>
+
+  <div class="aa-food-section">
+   <div class="aa-food-section-title">5. Description</div>
+   <label class="aa-food-field aa-food-field-full"><span>Tell customers about this business <i class="aa-food-req">Required</i></span><textarea class="field" required name="description" rows="4" placeholder="Describe your food, specialties and what makes this business special">${esc(d.description||'')}</textarea></label>
+  </div>
+
+  <div class="aa-food-section">
+   <div class="aa-food-section-title">6. Photos &amp; Videos</div>
+   <div class="aa-media-camera-box${busy?' is-disabled':''}" role="button" tabindex="${busy?'-1':'0'}" aria-disabled="${busy?'true':'false'}" aria-label="Add food photos or a video" onclick="${busy?'':"document.getElementById('foodBusinessMedia').click()"}" onkeydown="if(!${busy}&&(event.key==='Enter'||event.key===' ')){event.preventDefault();document.getElementById('foodBusinessMedia').click()}">
+    <div class="aa-media-camera-box-main">
+     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.4"/></svg>
+     <span>${mediaCount?'Add more photos or a video':'Add photos or a video'}</span>
+    </div>
+    <span class="aa-media-camera-box-count">${mediaCount} added</span>
+   </div>
+   <input type="file" id="foodBusinessMedia" accept="image/*,video/*" multiple style="display:none" ${busy?'disabled':''} onchange="aaMediaDraftAddFiles('food',this.files);this.value=''">
+   <p class="notice" style="margin-top:8px">Tap ★ to set the cover, ◀▶ to reorder, ✕ to remove. Tap a thumbnail to preview it full-screen.</p>
+   ${aaMediaGalleryHTML(aaMediaDraftGet('food').items,{editable:true,draftKey:'food',emptyText:'No photos or videos added yet.'})}
+   <button class="btn aa-food-record-btn" type="button" ${busy?'disabled':''} onclick="aaOpenDualCamera('food')">🎥 Record Video</button>
+  </div>
+
+  <div class="aa-food-section aa-food-section-submit">
+   <div class="aa-food-section-title">7. Preview &amp; Submission</div>
+   <p class="notice">Review your details above before saving. Required fields are marked - everything else is optional but helps customers trust your business.</p>
+   <div class="details-actions aa-content-fit-row" style="margin-top:10px">${editItem?`<button class="btn" type="button" ${busy?'disabled':''} onclick="aaCancelFoodEdit()">Cancel</button>`:''}<button class="btn btn-red" type="submit" ${busy?'disabled':''} aria-busy="${busy?'true':'false'}">${busy?(state.foodPublishProgress||'Publishing…'):(editItem?'Save Changes':'Save Business')}</button></div>
+  </div>
+
+ </form></div>`;
 }
 async function aaEditFoodBusiness(id){
  const item=aaFoods().find(x=>String(x.id)===String(id));
@@ -12091,6 +12179,7 @@ async function aaPressSmartReaction(topicId,key,label){
 const AA_ICON_ACTION_SVG={
  heartOutline:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7.5-4.7-10-9.3C.5 8.4 2.6 5 6 5c2 0 3.5 1.1 4.5 2.6C11.5 6.1 13 5 15 5c3.4 0 5.5 3.4 4 6.7C19.5 16.3 12 21 12 21z"/></svg>',
  heartFilled:'<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="none"><path d="M12 21s-7.5-4.7-10-9.3C.5 8.4 2.6 5 6 5c2 0 3.5 1.1 4.5 2.6C11.5 6.1 13 5 15 5c3.4 0 5.5 3.4 4 6.7C19.5 16.3 12 21 12 21z"/></svg>',
+ comment:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
  share:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>',
  starOutline:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21l1.2-6.9-5-4.9 6.9-1L12 2z"/></svg>',
  starFilled:'<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="none"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21l1.2-6.9-5-4.9 6.9-1L12 2z"/></svg>',
@@ -12543,9 +12632,37 @@ function aaTopicEditGalleryHTML(){
 let aaTopicEditOriginalSnapshot=null;
 function aaWallComposerSectionHTML(){
  if(!state.wallComposerOpen){
-  return `<button type="button" class="aa-post-open-btn" onclick="aaOpenWallComposer()"><span aria-hidden="true">+</span> Post</button>`;
+  return aaWallComposerCollapsedBarHTML();
  }
  return aaBingoTopicComposerHTML();
+}
+function aaWallComposerCollapsedBarHTML(){
+ const myPhoto=aaProfilePhoto(state.user?.photo_url);
+ return `<div class="aa-composer-bar">
+  <img class="aa-composer-bar-avatar" src="${bingoSafeMediaAttr(myPhoto)}" alt="" onerror="aaProfileImgFallback(this)">
+  <button type="button" class="aa-composer-bar-input" onclick="aaFocusWallComposer()">Post your view today…</button>
+  <button type="button" class="aa-composer-bar-icon" aria-label="Add photo or video" title="Add photo or video" onclick="aaFocusWallComposer(true)">📷</button>
+  <button type="button" class="btn btn-publish aa-composer-bar-post" onclick="aaFocusWallComposer()">POST</button>
+ </div>`;
+}
+function aaFocusWallComposer(openMediaPicker){
+ if(state.wallComposerOpen){
+  if(openMediaPicker){const m=document.getElementById("topicMedia");if(m)m.click()}
+  return;
+ }
+ if(aaTopicDraftIsDirty()){
+  state.wallComposerOpen=true;
+  render();
+  const el=document.getElementById("topicBody");
+  if(el)el.focus();
+ }else{
+  aaOpenWallComposer();
+ }
+ if(openMediaPicker){const m=document.getElementById("topicMedia");if(m)m.click()}
+}
+function aaCollapseWallComposerTools(){
+ state.wallComposerOpen=false;
+ render();
 }
 function aaConfirmDiscardOpenEditIfDirty(){
  if(state.wallComposerOpen&&aaTopicDraftIsDirty()){
@@ -12626,7 +12743,7 @@ function aaBingoTopicComposerHTML(){
  const editing=!!state.topicEditId;
  const busy=!!state.wallPublishBusy;
  const progress=state.wallPublishProgress;
- const saveLabel=busy?(progress?`Uploading ${progress.current}/${progress.total}…`:(editing?"Saving…":"Publishing…")):(editing?"Save Changes":"Post");
+ const saveLabel=busy?(progress?`Uploading ${progress.current}/${progress.total}…`:(editing?"Saving…":"Publishing…")):(editing?"Save Changes":"POST");
  const saveAction=editing?"aaSaveEditedTopic()":"aaPublishBingoTopic()";
  let mediaSectionHTML;
  if(editing){
@@ -12654,15 +12771,21 @@ function aaBingoTopicComposerHTML(){
   <input type="file" id="topicMedia" accept="image/*,video/*" multiple style="display:none" onchange="aaHandleTopicMediaChange()" ${busy?"disabled":""}>
   ${mediaFiles.length?`<div class="aa-composer-media-row">${mediaFiles.map((f,i)=>`<div class="aa-composer-media-item">${/^video\//.test(f.type||"")?`<span class="aa-composer-media-video">🎬<br>${esc((f.name||"video").slice(0,14))}</span>`:`<img src="${aaTopicMediaObjectUrl(f)}" alt="Selected photo ${i+1}">`}<button type="button" class="aa-composer-media-remove" aria-label="Remove ${esc(f.name||"this file")}" title="Remove" onclick="aaRemoveTopicMediaAt(${i})" ${busy?"disabled":""}>×</button></div>`).join("")}</div>`:""}`;
  }
+ const myPhoto=aaProfilePhoto(state.user?.photo_url);
  return `<div class="aa-v69-card aa-composer-card" style="margin-top:10px">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
-   <h3 style="margin:0">${editing?"Edit Post":"Create Post"}</h3>
-   ${editing?"":`<button type="button" class="btn" style="padding:4px 10px;font-size:12px" onclick="aaOpenImpactAwardsPopup(true)">🏆 Awards</button>`}
+   <div style="display:flex;align-items:center;gap:8px;min-width:0">
+    <img class="aa-composer-bar-avatar" src="${bingoSafeMediaAttr(myPhoto)}" alt="" onerror="aaProfileImgFallback(this)">
+    <h3 style="margin:0">${editing?"Edit Post":"Create Post"}</h3>
+   </div>
+   <div style="display:flex;align-items:center;gap:6px">
+    ${editing?"":`<button type="button" class="btn" style="padding:4px 10px;font-size:12px" onclick="aaOpenImpactAwardsPopup(true)">🏆 Awards</button>`}
+    ${editing?"":`<button type="button" class="aa-composer-collapse-btn" aria-label="Close post tools (your draft is kept)" title="Close (keeps your draft)" onclick="aaCollapseWallComposerTools()" ${busy?"disabled":""}>×</button>`}
+   </div>
   </div>
   ${editing?"":`<div class="notice" style="margin-top:8px;border-color:var(--gold,#f5c542);color:var(--gold,#f5c542)">🏆 <b>Bingo Impact Awards</b> — Create original posts, inspire the community and grow your impact. The most meaningfully shared posts may qualify for our end-of-year awards and a KSh 1,000,000 Grand Prize.</div>`}
   <div class="form-grid" style="margin-top:8px">
-   <input class="field full" id="topicTitle" style="${aaTextFormatCSS(d.titleFmt)}" placeholder="Give your post a title" value="${esc(d.title||"")}" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow();aaEnsureTopicDraftFmt();state.topicDraft.activeFmtField='title'" ${busy?"disabled":""}>
-   <textarea class="field full" id="topicBody" style="${aaTextFormatCSS(d.bodyFmt)}" rows="3" placeholder="What's on your mind?" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow();aaEnsureTopicDraftFmt();state.topicDraft.activeFmtField='body'" ${busy?"disabled":""}>${esc(d.body||"")}</textarea>
+   <textarea class="field full" id="topicBody" style="${aaTextFormatCSS(d.bodyFmt)}" rows="3" placeholder="Post your view today…" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow();aaEnsureTopicDraftFmt();state.topicDraft.activeFmtField='body'" ${busy?"disabled":""}>${esc(d.body||"")}</textarea>
   </div>
   ${aaWriteWithStylePanelHTML()}
   ${mediaSectionHTML}
@@ -12788,11 +12911,20 @@ function aaNavigateToPublishedTopicInHome(topicId){
   },60);
  });
 }
+/* No visible title field exists on the compact composer any more (per
+   the UI correction directive) - bingo_topics.title is still populated
+   from the post body's own first meaningful line so existing rendering
+   that shows t.title stays filled, without ever showing a permanently
+   visible title input again. */
+function aaDeriveTopicTitleFromBody(body){
+ const line=String(body||"").split("\n").find(l=>l.trim())||"";
+ return line.trim().slice(0,80);
+}
 async function aaPublishBingoTopic(){
  if(!state.isLoggedIn&&!state.testMode){openAuth("login");return}
- const title=document.getElementById("topicTitle")?.value.trim()||"";
  const body=document.getElementById("topicBody")?.value.trim()||"";
- if(!title&&!body){toast("Add a title or some text before publishing.");return}
+ if(!body){toast("Add some text before publishing.");return}
+ const title=aaDeriveTopicTitleFromBody(body);
  const category=document.getElementById("topicCategory")?.value||"General";
  aaEnsureTopicDraftFmt();
  const titleFmt=state.topicDraft.titleFmt;
@@ -12904,9 +13036,9 @@ function aaTopicEditFinalMedia(newMedia){
 async function aaSaveEditedTopic(){
  const id=state.topicEditId;
  if(!id){toast('No post is currently being edited.');return}
- const title=document.getElementById("topicTitle")?.value.trim()||"";
  const body=document.getElementById("topicBody")?.value.trim()||"";
- if(!title&&!body){toast("Add a title or some text before saving.");return}
+ if(!body){toast("Add some text before saving.");return}
+ const title=aaDeriveTopicTitleFromBody(body);
  aaEnsureTopicDraftFmt();
  const titleFmt=state.topicDraft.titleFmt;
  const bodyFmt=state.topicDraft.bodyFmt;
@@ -14724,6 +14856,26 @@ function aaKenyanHolidays(year){
   {...fmt(new Date(year,11,26)),name:"Boxing Day"}
  ].sort((a,b)=>a.date-b.date);
 }
+/* Kenyan Calendar is deliberately NOT rendered permanently in the Wall
+   sidebar any more (UI correction directive): it now opens on demand
+   from a compact launcher button, and the vertical space it used to
+   reserve is used for a real ad slot instead. The holiday DATA itself
+   (aaKenyanHolidays/aaEasterSunday above) is completely unchanged. */
+function aaKenyanHolidaysLauncherHTML(){
+ return `<button type="button" class="btn aa-kenyan-holidays-btn" onclick="aaOpenKenyanHolidays()">📅 Kenyan Holidays</button>`;
+}
+function aaOpenKenyanHolidays(){state.kenyanHolidaysOpen=true;render()}
+function aaCloseKenyanHolidays(){state.kenyanHolidaysOpen=false;render()}
+function aaKenyanCalendarOverlayHTML(){
+ const year=new Date().getFullYear();
+ const holidays=aaKenyanHolidays(year);
+ return `<div class="overlay aa-kenyan-holidays-overlay" onclick="if(event.target===this)aaCloseKenyanHolidays()"><div class="modal aa-kenyan-holidays-modal">
+  <button class="close" onclick="aaCloseKenyanHolidays()" aria-label="Close Kenyan Holidays">×</button>
+  <b>📅 Kenyan Calendar ${year}</b>
+  ${holidays.map(h=>`<div class="aa-boost-summary-row"><span>${esc(h.label)}</span><b class="meta">${esc(h.name)}</b></div>`).join("")}
+  <div class="meta" style="margin-top:6px">+ Other gazetted holidays</div>
+ </div></div>`;
+}
 function aaKenyanCalendarSidebarHTML(){
  const year=new Date().getFullYear();
  const holidays=aaKenyanHolidays(year);
@@ -15030,7 +15182,7 @@ function aaTopicPostCardHTML(t){
  ${aaTopicStatsRowHTML(t)}
  <div style="display:flex;gap:6px;margin-top:10px;align-items:center">
   <img src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" style="width:28px;height:28px;border-radius:50%;object-fit:cover" onerror="aaProfileImgFallback(this)">
-  <input class="field" id="topicComment_${esc(t.id)}" placeholder="Post your view today..." style="flex:1" value="${esc(aaCommentDraftText[t.id]||"")}" oninput='aaCommentDraftInput(${JSON.stringify(String(t.id))},this.value)'>
+  <input class="field" id="topicComment_${esc(t.id)}" placeholder="Write a comment..." style="flex:1" value="${esc(aaCommentDraftText[t.id]||"")}" oninput='aaCommentDraftInput(${JSON.stringify(String(t.id))},this.value)'>
   <input type="file" id="topicCommentMedia_${esc(t.id)}" accept="image/*,video/*" style="display:none" onchange='aaHandleCommentMediaChange(${JSON.stringify(String(t.id))})'>
   <button type="button" class="btn aa-comment-camera-btn" title="Attach a photo or video" aria-label="Attach a photo or video" onclick="document.getElementById('topicCommentMedia_${esc(t.id)}').click()">📷</button>
   <button class="btn btn-blue" style="border-radius:999px;padding:9px 20px" onclick='aaTopicComment(${JSON.stringify(String(t.id))})'>SEND</button>
@@ -15039,6 +15191,7 @@ function aaTopicPostCardHTML(t){
  ${aaSmartReactionsBarHTML(t)}
  <div class="aa-icon-action-row" role="group" aria-label="Post actions">
   ${aaIconActionBtn({rgb:"255,58,110",active:loved,label:"Love",activeLabel:"Loved",svg:AA_ICON_ACTION_SVG.heartOutline,activeSvg:AA_ICON_ACTION_SVG.heartFilled,onclick:`aaTopicLove(${JSON.stringify(String(t.id))})`})}
+  ${aaIconActionBtn({rgb:"96,165,250",label:"Comments",shortLabel:comments.length?String(comments.length):"Comments",svg:AA_ICON_ACTION_SVG.comment,onclick:`aaFocusTopicComment(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"34,201,255",label:"Share",svg:AA_ICON_ACTION_SVG.share,onclick:`aaTopicShare(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"245,185,30",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"171,71,255",label:"Report",svg:AA_ICON_ACTION_SVG.flag,onclick:`aaTopicReport(${JSON.stringify(String(t.id))})`})}
@@ -15069,17 +15222,24 @@ function aaTopicPostCardHTML(t){
  }).join("")}
 </div>`;
 }
+function aaWallAdSlotAutoLoad(){
+ if(state.wallAdQueueLoaded||state.testMode)return;
+ state.wallAdQueueLoaded=true;
+ aaLoadAdQueue("topics").then(()=>{if(state.view==="topics")render()}).catch(()=>{});
+}
 function aaPublicTopicsFeedHTML(){
  const tagFilter=state.trendingTagFilter||"";
  let all=aaTopics().filter(t=>!t.hiddenFromPublic);
  if(tagFilter)all=all.filter(t=>aaExtractTopicTags(t).includes(tagFilter));
+ aaWallAdSlotAutoLoad();
  return `<section style="padding:12px 0 105px">
   <button class="btn" onclick="goBack()">← Back</button>
   ${aaMbeaHeaderHTML()}
   <div class="aa-mbea-layout" style="display:grid;grid-template-columns:1fr;gap:14px">
    <div class="aa-mbea-sidebar" style="display:grid;gap:12px;align-content:start">
     ${aaTrendingTopicsSidebarHTML()}
-    ${aaKenyanCalendarSidebarHTML()}
+    ${aaKenyanHolidaysLauncherHTML()}
+    ${aaAdSlotHTML("wall-sidebar")}
    </div>
    <div class="aa-mbea-main" style="min-width:0">
     ${state.isLoggedIn?aaWallComposerSectionHTML():`<div class="aa-v69-card" style="margin-top:10px;text-align:center"><p>Sign up or log in to post, comment, like, save or follow.</p><button class="btn btn-red" onclick="openAuth('login')">Sign Up / Log In</button></div>`}
@@ -15092,6 +15252,7 @@ function aaPublicTopicsFeedHTML(){
    </div>
   </div>
   ${state.trendingTopicsExpanded?aaAllTrendingTopicsHTML():""}
+  ${state.kenyanHolidaysOpen?aaKenyanCalendarOverlayHTML():""}
  </section>`;
 }
 /* The Reply button previously built its onclick as a double-quoted HTML
@@ -15103,6 +15264,10 @@ function aaPublicTopicsFeedHTML(){
    uses single-quoted attributes for exactly this reason; this one
    didn't. Fixed by routing through a named function instead of inlining
    the assignment, using the same single-quoted-attribute convention. */
+function aaFocusTopicComment(topicId){
+ const el=document.getElementById("topicComment_"+topicId);
+ if(el){el.focus();el.scrollIntoView({behavior:"smooth",block:"center"})}
+}
 function aaTopicReplyTo(topicId,authorName){
  const val="@"+authorName+" ";
  aaCommentDraftText[topicId]=val;
@@ -17851,6 +18016,7 @@ function chatHTML(c){
 }
 function aaCloseTopOverlay(){
  if(state.msgActiveCall){if(bingoCallPendingOffer&&!bingoCallPC)aaCallDeclineIncoming();else aaCallHangup();return true}
+ if(state.kenyanHolidaysOpen){aaCloseKenyanHolidays();return true}
  if(state.chatUnlockTarget){state.chatUnlockTarget=null;render();return true}
  if(state.connectionTarget){state.connectionTarget=null;state.connectionAction="";render();return true}
  if(state.callTarget){state.callTarget=null;render();return true}
@@ -18444,7 +18610,7 @@ function bingoSafeMediaAttr(value){
     
 <div class="aa92-watermark" id="aa92Watermark"><b>Bingo</b></div>
 <div class="aa92-live-studio-panel" id="aa92LiveStudioPanel">
-  <div class="aa92-live-title-row"><div><strong>Bingo Live Studio</strong><small>One camera · multiple destinations</small></div><span class="aa92-live-state" id="aa92LiveState">READY</span></div>
+  <div class="aa92-live-title-row"><img class="bingo-app-logo bingo-app-logo--mobile" src="assets/bingo-original-logo.png" alt="Bingo" loading="eager" decoding="async"><div><strong>Bingo Live Studio</strong><small>One camera · multiple destinations</small></div><span class="aa92-live-state" id="aa92LiveState">READY</span></div>
   <input id="aa92LiveTitle" class="aa92-live-title-input" placeholder="Live title e.g. Prado V8 viewing">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
    <select id="aa92LiveCategory" class="field" style="font-size:11px;padding:6px">
@@ -19132,7 +19298,7 @@ function bingoSafeMediaAttr(value){
 #auto-arcade-widget .aa92-backend-note{margin-top:8px;padding:8px;border:1px solid #2e415a;border-radius:9px;background:rgba(6,13,23,.7);color:#91a1b6;font-size:7.5px;line-height:1.45}
 #auto-arcade-widget .aa92-backend-note.ok{border-color:#267d5c;color:#86e4bd}#auto-arcade-widget .aa92-backend-note.warn{border-color:#8b6b28;color:#f3d78a}
 @keyframes aa92Pulse{50%{box-shadow:0 0 5px rgba(239,35,60,.2)}}@keyframes aa92GreenPulse{50%{box-shadow:0 6px 0 #03472f,0 0 24px rgba(20,199,132,.45)}}
-@media(max-width:560px){#auto-arcade-widget .aa92-live-studio-panel{left:8px;right:8px;top:calc(64px + env(safe-area-inset-top));width:auto;max-height:47dvh}}
+@media(max-width:560px){#auto-arcade-widget .aa92-live-studio-panel{left:8px;right:60px;top:calc(64px + env(safe-area-inset-top));width:auto;max-height:47dvh}}
 </style>
 
 <script id="aa-v92-live-social-studio-js">
@@ -22366,6 +22532,8 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .aa-ad-slot-medium{height:140px}
 #auto-arcade-widget .aa-ad-slot-small{height:90px}
 #auto-arcade-widget .aa-ad-slot-micro{height:56px}
+#auto-arcade-widget .aa-kenyan-holidays-btn{width:100%;justify-content:center}
+#auto-arcade-widget .aa-kenyan-holidays-modal{max-width:min(420px,92vw);max-height:82vh;overflow-y:auto;background:linear-gradient(160deg,#0d1b32,#02040b);border:1px solid rgba(243,190,43,.5);box-shadow:0 0 30px rgba(243,190,43,.2)}
 #auto-arcade-widget .aa-ad-slot-label{position:absolute;top:8px;left:8px;z-index:2;font-size:8.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#071225;background:var(--bingo-gold,#f3be2b);padding:3px 7px;border-radius:999px}
 #auto-arcade-widget .aa-ad-slot-creative{width:100%;height:100%;cursor:pointer;position:relative}
 #auto-arcade-widget .aa-ad-slot-post{display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#fff;text-align:center;padding:10px}
