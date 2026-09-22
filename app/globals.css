@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+:root {
+  --bingo-navy: #0b0e14;
+  --bingo-slate: #151c28;
+  --bingo-gold: #eab308;
+  --bingo-cyan: #06b6d4;
+  --bingo-pink: #ec4899;
+  --bingo-green: #22c55e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bingo-navy);
+  color: #ffffff;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;
+}
