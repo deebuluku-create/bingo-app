@@ -1,0 +1,33 @@
+name: Bingo Next.js Build Check
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - bingo-final-integration-2026-09-22
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Bingo
+        run: npm run build
+
+      - name: Verify static export
+        run: |
+          test -d out
+          test -f out/index.html
+          echo "Bingo static export created successfully."
