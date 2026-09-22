@@ -64,7 +64,11 @@ export default function Home() {
               className="rounded-xl border border-cyan-500/25 bg-[#151C28] p-5 transition hover:border-cyan-400 hover:bg-[#192334]"
             >
               <div className="text-2xl">{section.icon}</div>
-              <div className="mt-3 font-bold">{section.name}</div>
+
+              <div className="mt-3 font-bold">
+                {section.name}
+              </div>
+
               <div className="mt-1 text-xs text-slate-400">
                 Open {section.name}
               </div>
@@ -74,7 +78,10 @@ export default function Home() {
 
         <section className="mt-6">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-xl font-bold">Home Feed</h2>
+            <h2 className="text-xl font-bold">
+              Home Feed
+            </h2>
+
             <span className="text-xs font-bold text-cyan-400">
               BINGO 360VIEW
             </span>
@@ -82,10 +89,14 @@ export default function Home() {
 
           <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-white/10 bg-[#151C28] p-8 text-center">
             <div>
-              <div className="text-4xl">🇰🇪</div>
+              <div className="text-4xl">
+                🇰🇪
+              </div>
+
               <h3 className="mt-3 text-xl font-bold">
                 Bingo Next.js is ready
               </h3>
+
               <p className="mt-2 text-sm text-slate-400">
                 The existing Bingo Home Feed will be connected here without
                 removing the current Supabase functionality.
