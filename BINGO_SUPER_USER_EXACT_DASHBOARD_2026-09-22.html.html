@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bingo — Super User Dashboard</title>
+<style>
+:root{
+ --bg:#020914;--nav:#03101d;--panel:#06182a;--panel2:#082039;--line:#0d5f91;
+ --txt:#f7f9fd;--mut:#a8bdd3;--gold:#ffd21f;--cyan:#00dfff;--blue:#168cff;
+ --green:#12e87a;--purple:#c13cff;--red:#ff244d;--orange:#ff9d18
+}
+*{box-sizing:border-box}html,body{margin:0;background:#020914;color:var(--txt);font-family:"Segoe UI",Arial,sans-serif}
+button,input{font:inherit}.app{min-height:100vh;display:grid;grid-template-columns:244px minmax(720px,1fr) 252px}
+.sidebar{background:linear-gradient(180deg,#031323,#020a13);border-right:1px solid #0b527d;padding:10px 9px;display:flex;flex-direction:column}
+.brand{height:130px;background:url('assets/bingo-original-logo.png') center/contain no-repeat}
+.nav{display:flex;align-items:center;gap:12px;padding:12px 13px;margin:3px 0;border:1px solid transparent;border-radius:8px;cursor:pointer;font-size:15px}
+.nav .ico{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;font-size:20px;border:1px solid currentColor;box-shadow:0 0 12px currentColor}
+.nav.active{background:linear-gradient(90deg,#ffbc16,#ffe02b);color:#111;border-color:#fff06b;box-shadow:0 0 18px #ffc40066;font-weight:700}
+.logout{margin-top:auto;border:1px solid #ff234e;background:#260814;color:#fff;padding:12px;border-radius:9px;text-align:left;font-size:16px}
+.main{padding:0 15px 24px;min-width:0}.top{height:80px;display:flex;align-items:center;gap:22px}
+.search{width:430px;background:#061b30;border:1px solid #17689b;border-radius:8px;padding:12px 44px 12px 16px;color:white}
+.toplinks{margin-left:auto;display:flex;gap:25px;align-items:center}.topitem{text-align:center;font-size:12px}.topitem b{display:block;font-size:24px;color:#00ddff}
+.su{display:flex;align-items:center;gap:10px;border:1px solid #1676ff;border-radius:11px;padding:7px 15px;background:#061a32;min-width:215px}.crown{font-size:29px;color:#ffd21f}
+.welcome{border:1px solid #e0b600;border-radius:13px;padding:18px 22px;display:flex;align-items:center;gap:18px;background:linear-gradient(90deg,#091b2f,#061528);box-shadow:0 0 18px #ffcf0020}
+.welcome .big{font-size:38px;color:#ffd21f}.welcome h2{margin:0;font-size:23px}.welcome p{margin:4px 0;color:#dbe7f2}.date{margin-left:auto;text-align:right}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:16px 0}.metric,.panel{background:linear-gradient(145deg,#061a2e,#071729);border:1px solid #0b6294;border-radius:11px}
+.metric{padding:14px;display:flex;gap:13px;align-items:center}.metric .micon{width:61px;height:61px;border:1px solid currentColor;border-radius:10px;display:grid;place-items:center;font-size:31px;box-shadow:0 0 16px currentColor}.metric small{color:#c7d6e5}.metric strong{font-size:26px;display:block;margin:3px 0}.up{color:#16ee82}
+.mid{display:grid;grid-template-columns:1.12fr 1.15fr .78fr;gap:12px}.panel{padding:14px}.panel h3{margin:0 0 12px;font-size:17px}
+.tabs{display:flex;gap:8px;margin-bottom:10px}.tab{border:1px solid #086bb0;background:#061b31;color:#d9e8f6;border-radius:6px;padding:8px 26px}.tab.active{border-color:#00baff;box-shadow:0 0 12px #00aaff;background:#07366a;color:white}
+.person{display:flex;align-items:center;gap:10px;padding:7px 0}.avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#eee,#4b789b);border:2px solid white}.person .grow{flex:1}.person small{color:#9fc3e5}.tag{border:1px solid currentColor;border-radius:6px;padding:4px 9px;font-size:12px}
+.chart{height:190px;border-left:1px solid #7890a8;border-bottom:1px solid #7890a8;display:flex;align-items:flex-end;justify-content:space-around;padding:0 15px;margin:8px 28px 0 35px;background:repeating-linear-gradient(to top,transparent 0 47px,#24445d66 48px)}
+.bar{width:46px;background:linear-gradient(#ffe534,#ffb400);border:1px solid #fff065;box-shadow:0 0 15px #ffc40088;position:relative}.bar b{position:absolute;top:-22px;width:100%;text-align:center}.bar span{position:absolute;bottom:-27px;left:-4px;white-space:nowrap;font-size:12px}
+.salary{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:43px}.salary div{border:1px solid #1484ca;border-radius:8px;text-align:center;padding:10px;background:#07203a}.salary b{display:block;color:#ffe22d;font-size:22px}
+.pending .p{display:flex;align-items:center;padding:9px 0;gap:8px}.pending .p span:nth-child(2){flex:1}.count{min-width:31px;text-align:center;border-radius:7px;padding:6px;color:white;font-weight:700;box-shadow:0 0 12px currentColor}.all{width:100%;padding:13px;border:1px solid #ffd21f;border-radius:8px;background:#11120b;color:#fff;box-shadow:0 0 14px #ffd21f;font-weight:700;margin-top:12px}
+.overview{margin-top:12px}.cats{display:grid;grid-template-columns:repeat(7,1fr);gap:17px}.cat{border:1px solid #075f95;border-radius:8px;text-align:center;padding:10px 4px;background:#06182a}.cat .ci{font-size:27px;color:#00dfff}.cat b{display:block;font-size:20px}
+.guide{background:linear-gradient(180deg,#061425,#020914);border-left:1px solid #c99d00;padding:8px 8px 15px}.guidebox{border:2px solid #ffd21f;border-radius:12px;box-shadow:0 0 15px #ffd21f;padding:10px;height:calc(100vh - 16px);overflow:auto}.guidebox h2{font-size:17px;color:#ffd21f;text-align:center;margin:0 0 10px}.gitem{display:grid;grid-template-columns:31px 1fr;gap:8px;margin:9px 0}.num{width:29px;height:29px;border-radius:50%;display:grid;place-items:center;border:2px solid currentColor;font-weight:800}.gitem h4{margin:0 0 3px;font-size:13px}.gitem ul{margin:0;padding-left:14px;color:#d8e2ec;font-size:10px;line-height:1.35}
+.view{display:none}.view.active{display:block}.detail{min-height:650px}.detail table{width:100%;border-collapse:collapse}.detail th,.detail td{padding:10px;border-bottom:1px solid #19415f;text-align:left}.btn{padding:8px 12px;border-radius:7px;border:1px solid #00dfff;background:#06213a;color:white;cursor:pointer}.btn.gold{border-color:#ffd21f;color:#ffd21f}.btn.red{border-color:#ff244d;color:#ff718a}
+@media(max-width:1150px){.app{grid-template-columns:210px 1fr}.guide{display:none}.metrics{grid-template-columns:repeat(2,1fr)}.mid{grid-template-columns:1fr}.cats{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:700px){.app{display:block}.sidebar{position:relative}.brand{height:95px}.top{flex-wrap:wrap;height:auto;padding:10px 0}.search{width:100%}.metrics{grid-template-columns:1fr 1fr}.cats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head><body>
+<div class="app">
+<aside class="sidebar">
+<div class="brand" aria-label="Bingo"></div>
+<div class="nav active" data-view="Dashboard"><span class="ico">⌂</span>Dashboard</div>
+<div class="nav" data-view="Agents & Permissions"><span class="ico" style="color:#00e7ff">♟</span>Agents & Permissions</div>
+<div class="nav" data-view="Agent Salaries"><span class="ico" style="color:#ff9818">▣</span>Agent Salaries</div>
+<div class="nav" data-view="All Businesses"><span class="ico" style="color:#17ed79">▦</span>All Businesses</div>
+<div class="nav" data-view="All Posts"><span class="ico" style="color:#d43cff">▤</span>All Posts</div>
+<div class="nav" data-view="Reports & Moderation"><span class="ico" style="color:#ff294e">◩</span>Reports & Moderation</div>
+<div class="nav" data-view="Advertising"><span class="ico" style="color:#00dfff">⚑</span>Advertising</div>
+<div class="nav" data-view="Boost Queue"><span class="ico" style="color:#22ec79">➚</span>Boost Queue</div>
+<div class="nav" data-view="Payments & Settlements"><span class="ico" style="color:#ffd21f">▣</span>Payments & Settlements</div>
+<div class="nav" data-view="Withdrawals (Users)"><span class="ico" style="color:#ffb41d">↥</span>Withdrawals (Users)</div>
+<div class="nav" data-view="System Settings"><span class="ico" style="color:#eee">⚙</span>System Settings</div>
+<div class="nav" data-view="Audit Log"><span class="ico" style="color:#eee">▤</span>Audit Log</div>
+<button class="logout" onclick="alert('Logout action')">⏻　Logout</button>
+</aside>
+
+<main class="main">
+<header class="top"><input class="search" placeholder="Search users, businesses, posts, reports..."><div class="toplinks"><div class="topitem"><b>⌂</b>Home</div><div class="topitem"><b>♧</b>Notifications</div><div class="topitem"><b>▣</b>Messages</div><div class="su"><span class="crown">♛</span><div><strong>Super User</strong><br><small>System Administrator</small></div><span style="margin-left:auto">⌄</span></div></div></header>
+
+<section id="Dashboard" class="view active">
+<div class="welcome"><span class="big">♛</span><div><h2>Welcome, Super User</h2><p>Manage the platform, users, businesses, and keep Bingo safe and growing.</p></div><div class="date">◷　Mon, 22 Sep 2026<br>10:24 AM (EAT)</div></div>
+<div class="metrics">
+<div class="metric" style="color:#168cff"><div class="micon">♟</div><div><small>Total Users</small><strong>12,548 <span class="up">↑12%</span></strong><small>+1,340 this month</small></div></div>
+<div class="metric" style="color:#c13cff"><div class="micon">▦</div><div><small>Total Businesses</small><strong>3,742 <span class="up">↑18%</span></strong><small>+572 this month</small></div></div>
+<div class="metric" style="color:#12e87a"><div class="micon">♟</div><div><small>Agents</small><strong>86 <span class="up">↑6%</span></strong><small>+5 this month</small></div></div>
+<div class="metric" style="color:#ff9d18"><div class="micon">▤</div><div><small>Total Posts</small><strong>24,681 <span class="up">↑22%</span></strong><small>+4,410 this month</small></div></div>
+</div>
+<div class="mid">
+<div class="panel"><h3>Recent Registrations</h3><div class="tabs"><button class="tab active">Users</button><button class="tab">Businesses</button><button class="tab">Agents</button></div>
+<div class="person"><span class="avatar"></span><div class="grow">Grace Wanjiku<br><small>12 minutes ago</small></div><span class="tag" style="color:#00bfff">User</span></div>
+<div class="person"><span class="avatar"></span><div class="grow">Safari Rides Ltd<br><small>24 minutes ago</small></div><span class="tag" style="color:#12e87a">Business</span></div>
+<div class="person"><span class="avatar"></span><div class="grow">John Kamau<br><small>35 minutes ago</small></div><span class="tag" style="color:#12e87a">Agent</span></div>
+<div class="person"><span class="avatar"></span><div class="grow">Coast Apartments<br><small>1 hour ago</small></div><span class="tag" style="color:#00bfff">Business</span></div>
+<div class="person"><span class="avatar"></span><div class="grow">Mary Achieng<br><small>2 hours ago</small></div><span class="tag" style="color:#00bfff">User</span></div></div>
+<div class="panel"><h3>Agent Performance <small>(This Month)</small></h3><div class="chart"><div class="bar" style="height:32%"><b>320</b><span>Week 1</span></div><div class="bar" style="height:54%"><b>540</b><span>Week 2</span></div><div class="bar" style="height:76%"><b>760</b><span>Week 3</span></div><div class="bar" style="height:98%"><b>980</b><span>Week 4</span></div></div><div class="salary"><div>500 Clients<b>KSh 17,500</b>(50% Target)</div><div>1,000 Clients<b>KSh 35,000</b>(Full Target)</div></div></div>
+<div class="panel pending"><h3>Pending Actions <span class="count" style="background:#ff244d">12</span></h3>
+<div class="p"><span>♟</span><span>Agent applications</span><b class="count" style="background:#ffb400">5</b></div><div class="p"><span>♟</span><span>Withdrawal requests</span><b class="count" style="background:#168cff">3</b></div><div class="p"><span>▣</span><span>Reported content</span><b class="count" style="background:#ff244d">4</b></div><div class="p"><span>▣</span><span>Business verifications</span><b class="count" style="background:#12e87a">7</b></div><div class="p"><span>▣</span><span>Boost approvals</span><b class="count" style="background:#c13cff">2</b></div><div class="p"><span>▣</span><span>Ad review</span><b class="count" style="background:#ffb400">1</b></div><button class="all">View All Pending →</button></div>
+</div>
+<div class="panel overview"><h3>Platform Overview</h3><div class="cats">
+<div class="cat"><span class="ci">🚙</span><br>Vehicles<b>1,284</b></div><div class="cat"><span class="ci">⌂</span><br>Property<b>892</b></div><div class="cat"><span class="ci">🍴</span><br>Food<b>654</b></div><div class="cat"><span class="ci">▰</span><br>Stay / BnB<b>421</b></div><div class="cat"><span class="ci">🛠</span><br>Services<b>768</b></div><div class="cat"><span class="ci">▣</span><br>Boutiques<b>530</b></div><div class="cat"><span class="ci">▦</span><br>Others<b>1,143</b></div>
+</div></div>
+</section>
+<div id="detailViews"></div>
+</main>
+
+<aside class="guide"><div class="guidebox"><h2>Super User Functions (Detailed)</h2>
+<div class="gitem" style="color:#ddd"><div class="num">1</div><div><h4>Agents & Permissions</h4><ul><li>Find existing users and grant/revoke Agent status</li><li>Assign territory</li><li>View Agent profile and registered businesses</li><li>Track verified client performance</li><li>Activate/deactivate Agents</li></ul></div></div>
+<div class="gitem" style="color:#ff8518"><div class="num">2</div><div><h4>Agent Salaries</h4><ul><li>View monthly performance</li><li>500 clients → KSh 17,500</li><li>1,000 clients → KSh 35,000</li><li>Approve eligible salary payments</li><li>View salary history</li></ul></div></div>
+<div class="gitem" style="color:#16e77a"><div class="num">3</div><div><h4>All Businesses</h4><ul><li>View all business profiles by category</li><li>Verify / suspend / delete businesses</li><li>Search and filter</li><li>View owner and Agent connection</li></ul></div></div>
+<div class="gitem" style="color:#ffd21f"><div class="num">4</div><div><h4>All Posts</h4><ul><li>View posts by type</li><li>Approve / hide / delete posts</li><li>Check reported posts</li><li>Track trending content</li></ul></div></div>
+<div class="gitem" style="color:#ff244d"><div class="num">5</div><div><h4>Reports & Moderation</h4><ul><li>Review all reported content</li><li>Warning, remove, ban actions</li><li>Manage violation records</li><li>6-month ban enforcement</li></ul></div></div>
+<div class="gitem" style="color:#168cff"><div class="num">6</div><div><h4>Advertising</h4><ul><li>Manage ad slots, max 2 per page</li><li>Set targeting, expiry and rotation</li><li>Approve/reject ads</li></ul></div></div>
+<div class="gitem" style="color:#ffd21f"><div class="num">7</div><div><h4>Boost Queue</h4><ul><li>View pending boosts</li><li>Approve / reject</li><li>Track active boosts (KSh 500/day)</li><li>View boost history and expiry</li></ul></div></div>
+<div class="gitem" style="color:#00cfff"><div class="num">8</div><div><h4>Payments & Settlements</h4><ul><li>View platform payments (M-Pesa)</li><li>Track commission splits</li><li>View transaction and settlement reports</li></ul></div></div>
+<div class="gitem" style="color:#ffd21f"><div class="num">9</div><div><h4>Withdrawals (Users)</h4><ul><li>Review and approve user withdrawals</li><li>Track M-Pesa disbursements</li><li>View withdrawal history</li></ul></div></div>
+<div class="gitem" style="color:#00bfff"><div class="num">10</div><div><h4>System Settings</h4><ul><li>Platform configuration</li><li>Categories, locations, content rules</li><li>Security and access controls</li></ul></div></div>
+<div class="gitem" style="color:#ff244d"><div class="num">11</div><div><h4>Audit Log</h4><ul><li>Track administrative actions</li><li>View login history</li><li>Monitor changes and system activity</li></ul></div></div>
+</div></aside>
+</div>
+<script>
+const details={
+"Agents & Permissions":["Find existing Bingo member","Grant / revoke Agent","Assign territory","Connect Agent to business","Activate / deactivate Agent"],
+"Agent Salaries":["Monthly performance","500 clients = KSh 17,500","1,000 clients = KSh 35,000","Approve eligible salary","Salary history"],
+"All Businesses":["Search & filter","Verify business","Suspend business","View owner / Agent","Open reports"],
+"All Posts":["Filter by type","Review post","Hide / restore","Delete where authorized","Trending content"],
+"Reports & Moderation":["Open moderation cases","Warning","Remove content","Violation history","Ban enforcement"],
+"Advertising":["Create campaign","Maximum two ad slots per page","Target location","Expiry / rotation","Approve / reject"],
+"Boost Queue":["Pending boosts","Approve / reject","KSh 500/day","Active boosts","Expiry / history"],
+"Payments & Settlements":["M-Pesa transactions","Commission splits","Settlement status","Payment references","Failure review"],
+"Withdrawals (Users)":["Review requests","Approve / reject","M-Pesa disbursement","Withdrawal history","Minimum rules"],
+"System Settings":["Platform configuration","Categories","Locations","Content rules","Security / access"],
+"Audit Log":["Administrative actions","Role changes","Login history","Moderation actions","System activity"]
+};
+const dv=document.getElementById('detailViews');
+Object.entries(details).forEach(([name,items])=>{
+ const s=document.createElement('section');s.id=name;s.className='view detail panel';
+ s.innerHTML=`<h2>${name}</h2><p style="color:#a8bdd3">Super User management controls</p><table><tr><th>Function</th><th>Status</th><th>Action</th></tr>${items.map((x,i)=>`<tr><td>${x}</td><td><span class="tag" style="color:${i%2?'#12e87a':'#00dfff'}">${i%2?'Active':'Available'}</span></td><td><button class="btn ${i===2?'gold':''}" onclick="alert('${x}')">Open</button></td></tr>`).join('')}</table>`;
+ dv.appendChild(s);
+});
+document.querySelectorAll('.nav[data-view]').forEach(n=>n.onclick=()=>{
+ document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));n.classList.add('active');
+ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+ document.getElementById(n.dataset.view).classList.add('active');
+});
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active')});
+</script>
+</body></html>
