@@ -11376,12 +11376,29 @@ async function aaDeleteProperty(id){
 function aaFoodHTML(){const tab=state.foodTab||'browse', all=aaFoods(), visible=all.filter(aaFoodActive);return `<section style="padding:18px 0 105px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 style="margin:0">Food</h2><div class="aa-v69-tabs aa-content-fit-row-wrap"><button class="btn ${tab==='browse'?'btn-cyan':'btn-glass'}" onclick="aaOpenFood('browse')">Feed</button><button class="btn ${tab==='post'?'btn-publish':'btn-glass'}" onclick="aaOpenFood('post')">+ Post Business</button><button class="btn ${tab==='mine'?'btn-gold':'btn-glass'}" onclick="aaOpenFood('mine')">My Business</button><button class="btn ${tab==='orders'?'btn-cyan':'btn-glass'}" onclick="aaLoadFoodOrders().then(render);aaOpenFood('orders')">My Orders</button></div></div>${tab==='browse'?'<p class="notice" style="margin-top:8px">Restaurants and food businesses run on a paid monthly advertising subscription (KES 1,000 / 30 days via M-Pesa).</p>':''}${tab==='post'?aaFoodPostHTML():tab==='mine'?aaFoodMineHTML(all.filter(x=>String(x.user_id||'')===String(state.user?.id||'')||x.local_owner)):tab==='orders'?aaFoodMyOrdersHTML():aaFoodListHTML(visible)}</section>`}
 function aaFoodPostHTML(){
  const editItem=state.foodEditId?aaFoods().find(x=>String(x.id)===String(state.foodEditId)):null;
- const d=editItem||{};
  const contextKey=editItem?('edit:'+editItem.id):'new';
  if(state.foodDraftMediaFor!==contextKey){
   aaMediaDraftReset('food',editItem&&Array.isArray(editItem.media)?editItem.media:[]);
   state.foodDraftMediaFor=contextKey;
  }
+ /* Text/select fields below are plain uncontrolled inputs whose only
+    source of truth used to be the live DOM - fine as long as nothing
+    ever re-renders this form, but aaSubmitFood always renders at least
+    once (to show the "Publishing…"/"Saving listing…" progress state)
+    before it knows whether the save even succeeded. Every one of those
+    fields would come back empty from a bare d={} on a NEW listing (the
+    edit path at least had editItem's saved values to fall back on),
+    which is exactly what made a slow or failed save look like the form
+    had wiped itself. state.foodFormDraft is kept in sync on every
+    keystroke (aaFoodSectionCheck) and layered under editItem here, so a
+    re-render mid-publish now redraws the same values the user typed
+    instead of blanking them - cleared only once a save has actually
+    succeeded. */
+ if(state.foodFormDraftFor!==contextKey){
+  state.foodFormDraft={};
+  state.foodFormDraftFor=contextKey;
+ }
+ const d={...(editItem||{}),...(state.foodFormDraft||{})};
  const busy=!!state.foodPublishBusy;
  const mediaCount=aaMediaDraftGet('food').items.length;
  const sectionDone=ok=>ok?'<span class="aa-food-section-done">✓ Done</span>':'';
@@ -11454,6 +11471,11 @@ function aaFoodPostHTML(){
 function aaFoodSectionCheck(e){
  const form=e.target&&e.target.closest?e.target.closest('form'):null;if(!form)return;
  const val=n=>{const el=form.elements[n];return el?String(el.value||'').trim():''};
+ if(!state.foodFormDraft)state.foodFormDraft={};
+ const dft=state.foodFormDraft;
+ ['business_name','county','town','delivery_area','phone','whatsapp','opening_hours','price_range','description'].forEach(n=>{dft[n]=val(n)});
+ dft.category=Array.from(form.querySelectorAll('input[name="category"]:checked')).map(el=>el.value).join(', ');
+ dft.delivery_available=val('delivery_available')==='yes';
  [['aaFoodSec1',()=>!!val('business_name')],
   ['aaFoodSec2',()=>!!(val('county')&&val('town')&&val('delivery_area'))],
   ['aaFoodSec3',()=>!!val('phone')],
@@ -11508,6 +11530,8 @@ async function aaSubmitFood(e){
    aaV69Write('aa_v69_foods',arr);
    aaMediaDraftReset('food',[]);
    state.foodDraftMediaFor='';
+   state.foodFormDraft={};
+   state.foodFormDraftFor='';
    state.foodEditId=null;
    toast(editId?'Food business updated (preview mode).':'Food business added in memory only (preview mode).');
    aaOpenFood('mine');
@@ -11549,6 +11573,8 @@ async function aaSubmitFood(e){
    if(removedPaths.length)await aaDeleteUploadedFoodMedia(removedPaths);
    aaMediaDraftReset('food',[]);
    state.foodDraftMediaFor='';
+   state.foodFormDraft={};
+   state.foodFormDraftFor='';
    state.foodEditId=null;
    toast('Food business updated.');
    aaOpenFood('mine');
@@ -11578,8 +11604,28 @@ async function aaSubmitFood(e){
   state.foodBusinesses.unshift(mapped);
   aaMediaDraftReset('food',[]);
   state.foodDraftMediaFor='';
+  state.foodFormDraft={};
+  state.foodFormDraftFor='';
+  /* Food businesses are created inactive (status:'inactive' above) and
+     only appear on the public Home Feed / Food Feed once a subscription
+     is activated - going to Home Feed right now would show the user
+     nothing and look like publishing silently failed. My Food Business
+     is where the record is immediately visible, alongside the exact
+     control that activates the subscription, so that stays the
+     destination for Food specifically. */
   toast('Food business saved. Activate a subscription to appear publicly.');
   aaOpenFood('mine');
+ }catch(err){
+  /* Never seen before this fix: aaUploadFoodMedia/aaInsertFoodBusiness/
+     aaVerifyFoodBusiness/aaMapFoodBusinessRow throwing instead of
+     returning {error} (a genuine network failure, a malformed response,
+     etc.) had no catch anywhere in this function, so it aborted
+     silently - no toast, no navigation - leaving the user stuck on a
+     form that looked broken. Nothing here is cleared: foodFormDraft and
+     the media draft are untouched, so every field and the uploaded
+     media the user already sees stays exactly as it was. */
+  console.error('Bingo: Food business publish failed unexpectedly.',err);
+  toast('Could not save your Food business: '+String(err?.message||err||'an unexpected error occurred')+'. Your entered details and media are still here — please try Save again.');
  }finally{
   state.foodPublishBusy=false;
   state.foodPublishProgress='';
@@ -12648,7 +12694,68 @@ function aaMixedFeedTopicCardHTML(c){
  </div><div class="aa360-actions" style="grid-template-columns:max-content;justify-items:start" onclick="event.stopPropagation()"><button type="button" class="call" onclick='${openPostCall}'>View Post &amp; Comments</button></div></div></section>`;
 }
 function aaMixedFeedItems(){const v=(typeof aaVideoListings==='function'?aaVideoListings():[]).map(x=>({...x,kind:'vehicle',feed_title:x.title,feed_desc:x.description,feed_media:x.videoUrl||x.video_url||x.video||'',feed_location:aaSearchLocationText(x)||x.location||'Kenya',feed_seller:x.sellerName||'Bingo Seller',_promoType:'vehicle',_promoId:x.id}));const p=aaProperties().filter(x=>Array.isArray(x.media)&&x.media.length).map(x=>{const cover=aaPropertyCoverMedia(x);const ownerId=String(x.user_id||x.sellerId||x.userId||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.sellerName||'');return {id:`${x.id}_p`,kind:'property',source:x,feed_title:x.title,feed_desc:x.description,feed_media:cover.url,feed_media_type:cover.type,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta),feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||x.sellerPhoto||'',feed_sellerMeta:ownerMeta,feed_bedrooms:x.bedrooms||'',feed_bathrooms:x.bathrooms||'',feed_media_count:Array.isArray(x.media)?x.media.length:0,created_at:x.created_at,_promoType:(typeof AA_STAY_TYPES!=='undefined'&&AA_STAY_TYPES.includes(x.type))?'stay':'property',_promoId:x.id};});const f=aaFoods().filter(aaFoodActive).flatMap(x=>{const ownerId=String(x.user_id||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.business_name||'');return (x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_fv${i}`,kind:'food',source:x,feed_title:x.business_name,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta)||x.business_name,feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||'',feed_sellerMeta:ownerMeta,created_at:x.created_at,_promoType:'food_business',_promoId:x.id}));});const tp=aaTopics().filter(x=>!x.hiddenFromPublic).map(x=>{const firstMedia=Array.isArray(x.media)&&x.media.length?x.media[0]:null;const authorMeta=typeof aaTopicAuthorMeta==='function'?aaTopicAuthorMeta(x):null;return {id:`${x.id}_t`,kind:'topic',source:x,feed_title:x.title||'',feed_desc:x.body||'',feed_media:firstMedia?aaTopicMediaSrc(firstMedia):'',feed_media_type:firstMedia?firstMedia.type:'',feed_media_count:Array.isArray(x.media)?x.media.length:0,feed_location:'',feed_seller:aaMemberDisplayName(authorMeta),feed_sellerId:String(x.authorId||''),feed_sellerPhoto:(authorMeta&&authorMeta.photo)||'',feed_sellerMeta:authorMeta,created_at:x.createdAt,_promoType:null,_promoId:null,_topicId:x.id};});let all=[...v,...p,...f,...tp];all.forEach(item=>aaAttachPromotions(item,item._promoType,item._promoId));let aaFeedSeedStored="";try{aaFeedSeedStored=sessionStorage.getItem('aa_feed_seed')||""}catch(e){}const seed=String(state.user?.id||aaFeedSeedStored||Math.random());if(!aaFeedSeedStored){try{sessionStorage.setItem('aa_feed_seed',seed)}catch(e){}}const score=s=>{let n=0;for(const c of String(s))n=(n*31+c.charCodeAt(0))>>>0;return n};const viewerLoc=typeof aaViewerFeedLocation==='function'?aaViewerFeedLocation():'All Kenya';all.sort((a,b)=>{const followBoost=(x)=>x.kind==='vehicle'&&typeof aaIsFollowing==='function'&&aaIsFollowing(x.sellerId||x.userId)?10000000000000:0;const promo=(x)=>aaPromotionAdjustment(x,viewerLoc)*1000000;const ta=new Date(a.created_at||a.createdAt||0).getTime()+followBoost(a)+promo(a)+score(seed+a.id)%1000000;const tb=new Date(b.created_at||b.createdAt||0).getTime()+followBoost(b)+promo(b)+score(seed+b.id)%1000000;return tb-ta});return all}
-function aaMixedFeedCardHTML(c,i){if(c.kind==='vehicle')return aaFeedCardHTML(c,i);if(c.kind==='topic')return aaMixedFeedTopicCardHTML(c);const isPropertyImage=c.kind==='property'&&c.feed_media_type==='image';const openDetailCall=c.kind==='property'?`openPropertyDetail('${esc(c._promoId||"")}')`:'';const openDetailAttr=c.kind==='property'?` onclick="${openDetailCall}" style="cursor:pointer"`:'';const media=isPropertyImage?`<img class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" alt=""${openDetailAttr}>`:`<video class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"${openDetailAttr}></video>`;const type=c.kind==='food'?'FOOD':'PROPERTY';const price=c.kind==='property'?`<div class="aa360-price">KES ${money(c.source?.price||0)}</div>`:'';const keyDetails=(c.kind==='property'&&(c.feed_bedrooms||c.feed_bathrooms))?`<div class="aa360-specs">${c.feed_bedrooms?`<span>${esc(String(c.feed_bedrooms))} bed</span>`:''}${c.feed_bathrooms?`<span>${esc(String(c.feed_bathrooms))} bath</span>`:''}</div>`:'';const multiTag=(c.kind==='property'&&c.feed_media_count>1)?`<span class="aa-type-label" style="left:auto;right:10px">1/${c.feed_media_count}</span>`:'';const promoLabel=aaPromotionLabel(c);const promoted=promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";const sellerMeta=c.feed_sellerMeta||{};const sellerUnavailable=!!sellerMeta.unavailable;const sellerBlock=`<button type="button" class="aa360-seller" ${sellerUnavailable?'disabled':`onclick='event.stopPropagation();openSeller(${JSON.stringify(c.feed_sellerId||"")})'`}><img src="${bingoSafeMediaAttr(aaProfilePhoto(c.feed_sellerPhoto))}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.feed_seller)}</b>${!sellerUnavailable?`<br><small style="color:#ffd700;font-weight:800;text-decoration:underline">View Profile</small>`:''}<small>${esc(c.feed_location)}</small></span></button>`;const callBtn=(c.kind==='food')?`<button class="call" onclick='event.stopPropagation();location.href="tel:${esc(c.source?.phone||"")}"'>Call Delivery</button>`:(sellerMeta.showPhone!==false?`<button class="call" onclick='event.stopPropagation();${openDetailCall||`state.selected=${JSON.stringify(c.source||{})};callSeller(state.selected)`}'>Call</button>`:'');const waBtn=`<button class="wa" onclick='event.stopPropagation();${c.kind==='food'?`window.open("https://wa.me/${esc(String(c.source?.whatsapp||c.source?.phone||'').replace(/\D/g,''))}","_blank")`:`state.selected=${JSON.stringify(c.source||{})};contact("whatsapp",state.selected)`}'>WhatsApp</button>`;const viewBtn=c.kind==='property'?`<button class="call" onclick='event.stopPropagation();${openDetailCall}'>View Property</button>`:'';const actions=`${viewBtn}${callBtn}${waBtn}`;return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}<span class="aa-type-label">${type}</span>${multiTag}<div class="aa360-info"${openDetailAttr}>${sellerBlock}<div class="aa360-title">${esc(c.feed_title)}</div>${price}${keyDetails}<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc)}</div><div class="aa360-actions" onclick="event.stopPropagation()">${actions}</div></div></section>`}
+function aaMixedFeedCardHTML(c,i){
+ if(c.kind==='vehicle')return aaFeedCardHTML(c,i);
+ if(c.kind==='topic')return aaMixedFeedTopicCardHTML(c);
+ /* Property/Food used to fall back to a much plainer card here than
+    aaFeedCardHTML gives vehicles - no status badge, no rating/follow
+    stats, a bare bed/bath line (nothing at all for Food), and no
+    right-side engagement rail (Views/Interested/Comments/Share/
+    Download/Save). That made a real published Property or Food post
+    look noticeably less finished than a real Vehicle post, even though
+    all three are the same aa360-item canonical card and the same real
+    Supabase-backed record. This brings both up to the same hierarchy/
+    typography aaFeedCardHTML already established for Vehicle - same
+    aa360-* classes throughout, so no new CSS/typography is introduced -
+    while keeping each kind's own actual fields (never inventing a
+    status/spec a record doesn't have). The existing Call/WhatsApp/View
+    button logic below is left exactly as it already worked. */
+ const isPropertyImage=c.kind==='property'&&c.feed_media_type==='image';
+ const openDetailCall=c.kind==='property'?`openPropertyDetail('${esc(c._promoId||"")}')`:(c.kind==='food'?`aaOpenFoodBusinessProfile('${esc(c._promoId||"")}')`:'');
+ const openDetailAttr=openDetailCall?` onclick="${openDetailCall}" style="cursor:pointer"`:'';
+ const media=isPropertyImage?`<img class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" alt=""${openDetailAttr}>`:`<video class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"${openDetailAttr}></video>`;
+ const multiTag=(c.feed_media_count>1)?`<span class="aa-type-label" style="left:auto;right:10px">1/${c.feed_media_count}</span>`:'';
+ const promoLabel=aaPromotionLabel(c);
+ const promoted=promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";
+ const sellerMeta=c.feed_sellerMeta||{};
+ const sellerUnavailable=!!sellerMeta.unavailable;
+ const sellerBlock=`<div class="aa360-seller-wrap"><button type="button" class="aa360-seller" ${sellerUnavailable?'disabled':`onclick='event.stopPropagation();openSeller(${JSON.stringify(c.feed_sellerId||"")})'`}><img src="${bingoSafeMediaAttr(aaProfilePhoto(c.feed_sellerPhoto))}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.feed_seller)}</b>${!sellerUnavailable?aaListingSellerRating({sellerId:c.feed_sellerId}):''}${aaFollowStatsHTML(c.feed_sellerId)}<small>${esc(c.feed_location)}</small></span></button></div>`;
+ const callBtn=(c.kind==='food')?`<button class="call" onclick='event.stopPropagation();location.href="tel:${esc(c.source?.phone||"")}"'>Call Delivery</button>`:(sellerMeta.showPhone!==false?`<button class="call" onclick='event.stopPropagation();${openDetailCall||`state.selected=${JSON.stringify(c.source||{})};callSeller(state.selected)`}'>Call</button>`:'');
+ const waBtn=`<button class="wa" onclick='event.stopPropagation();${c.kind==='food'?`window.open("https://wa.me/${esc(String(c.source?.whatsapp||c.source?.phone||'').replace(/\D/g,''))}","_blank")`:`state.selected=${JSON.stringify(c.source||{})};contact("whatsapp",state.selected)`}'>WhatsApp</button>`;
+ const viewBtn=openDetailCall?`<button class="call" onclick='event.stopPropagation();${openDetailCall}'>${c.kind==='property'?'View Property':'View Business'}</button>`:'';
+ const actions=`${viewBtn}${callBtn}${waBtn}`;
+ let badge='',price='',specs='';
+ if(c.kind==='property'){
+  const p=c.source||{};
+  const purpose=String(p.purpose||'For Sale');
+  badge=`<span class="badge ${/rent|lease/i.test(purpose)?'badge-green':'badge-red'}">${esc(purpose.toUpperCase())}</span>`;
+  price=`<div class="aa360-price">KES ${money(p.price||0)}</div>`;
+  const parts=[];
+  if(p.type)parts.push(`<span>${esc(p.type)}</span>`);
+  if(c.feed_bedrooms)parts.push(`<span>${esc(String(c.feed_bedrooms))} bed</span>`);
+  if(c.feed_bathrooms)parts.push(`<span>${esc(String(c.feed_bathrooms))} bath</span>`);
+  if(c.feed_location)parts.push(`<span>${esc(c.feed_location)}</span>`);
+  specs=parts.length?`<div class="aa360-specs">${parts.join('')}</div>`:'';
+ }else if(c.kind==='food'){
+  const f=c.source||{};
+  const active=typeof aaFoodActive==='function'?aaFoodActive(f):true;
+  badge=`<span class="badge ${active?'badge-green':'badge-red'}">${active?'OPEN FOR ORDERS':'INACTIVE'}</span>`;
+  price=f.price_range?`<div class="aa360-price">${esc(f.price_range)}</div>`:'';
+  const parts=[];
+  if(f.category)parts.push(`<span>${esc(f.category)}</span>`);
+  if(c.feed_location)parts.push(`<span>${esc(c.feed_location)}</span>`);
+  parts.push(`<span>${f.delivery_available?'Delivery available':'Pickup only'}</span>`);
+  if(f.opening_hours)parts.push(`<span>${esc(f.opening_hours)}</span>`);
+  specs=`<div class="aa360-specs">${parts.join('')}</div>`;
+ }
+ const cid=JSON.stringify(String(c.id));
+ const interested=(state.interested||[]).filter(x=>String(x)===String(c.id)).length;
+ const shareTarget=JSON.stringify({id:c.id,title:c.feed_title,price:c.kind==='property'?(c.source?.price||0):0,shares:c.source?.shares||0});
+ const downloadName=JSON.stringify((c.feed_title||'bingo')+'-media');
+ const commentTarget=JSON.stringify({id:c.id,title:c.feed_title});
+ const side=`<div class="aa360-side"><div><button class="aa360-action" aria-label="Views" title="Views">${aaSideIcon("views")}</button><span>${aaCompact(aaViewCount(c))}</span></div><div><button class="aa360-action ${aaInterested(c)?"on":""}" onclick='event.stopPropagation();aaToggleInterested(${cid})' aria-label="Interested" title="Interested">${aaSideIcon("interested")}</button><span>${aaCompact(interested)}</span></div><div><button class="aa360-action" onclick='event.stopPropagation();aaOpenComments(${commentTarget})' aria-label="Comments" title="Comments">${aaSideIcon("comments")}</button><span>${aaCompact(aaCommentCount(c))}</span></div><div><button class="aa360-action" onclick='event.stopPropagation();state.shareTarget=${shareTarget};render()' aria-label="Share" title="Share">${aaSideIcon("share")}</button><span>${aaCompact(c.source?.shares||0)}</span></div><div><button class="aa360-action" onclick='event.stopPropagation();aaDownloadMedia(${JSON.stringify(c.feed_media)},${downloadName},{title:${JSON.stringify(c.feed_title||"")},sellerName:${JSON.stringify(c.feed_seller||"")}})' aria-label="Download" title="Download">${aaSideIcon("download")}</button><span>Download</span></div><div><button class="aa360-action ${isFav(c.id)?"on":""}" onclick='event.stopPropagation();toggleFav(${cid})' aria-label="Save" title="Save">${aaSideIcon("save")}</button><span>${isFav(c.id)?"Saved":"Save"}</span></div></div>`;
+ return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}${multiTag}${side}<div class="aa360-info"${openDetailAttr}>${sellerBlock}<div>${badge}</div><div class="aa360-title">${esc(c.feed_title)}</div>${price}${specs}<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc)}</div><div class="aa360-actions" onclick="event.stopPropagation()">${actions}</div></div></section>`;
+}
 /* Shared short-excerpt renderer for feed card descriptions - "Read more"
    opens the full listing/post instead of expanding inline, so the card's
    fixed-height layout never grows to cover other controls. */
