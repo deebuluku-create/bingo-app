@@ -5,7 +5,6 @@ const nextConfig: NextConfig = {
   trailingSlash: true,
 
   basePath: "/bingo-app",
-  assetPrefix: "/bingo-app/",
 
   images: {
     unoptimized: true,
