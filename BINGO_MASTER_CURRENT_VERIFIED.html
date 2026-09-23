@@ -733,7 +733,7 @@ Production mother file does not force production.
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{background:#fff;color:#101827;border-radius:12px;overflow:hidden;border:1px solid #dce2ea;box-shadow:0 8px 25px rgba(0,0,0,.2)}.card-img{width:100%;height:190px;object-fit:cover;display:block}.card-body{padding:11px}.card-title{font-weight:950;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:10px;color:#657086;margin-top:4px}.price{margin-top:9px;background:#07101f;color:var(--gold);padding:8px;border-radius:8px;text-align:center;font-size:13px;font-weight:950}.seller{display:flex;align-items:center;gap:7px;border:1px solid #e2e7ee;border-radius:9px;padding:7px;margin-top:9px;background:#fafbfd}.seller img{width:28px;height:28px;border-radius:50%;object-fit:cover}.seller-name{font-size:10px;font-weight:900}.share-row{display:flex;gap:6px;margin-top:8px}.small-btn{flex:1;border:1px solid #d8dee7;background:#fff;border-radius:8px;padding:7px;font-size:10px;font-weight:900}.share-count{color:#087c59}.details-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}.pagination{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px;margin:18px 0 100px;font-size:11px;color:var(--muted)}
 #auto-arcade-widget .bottom{position:fixed;bottom:0;left:0;right:0;z-index:35;background:rgba(3,7,19,.98);border-top:1px solid var(--line);padding:9px}.bottom-inner{width:min(620px,100%);margin:auto;display:flex;justify-content:space-around}.nav-btn{background:none;border:0;color:#8d99ae;font-size:11px;font-weight:900;padding:6px 11px}.nav-btn.active{color:var(--red)}
 #auto-arcade-widget .overlay{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.82);backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:16px}#auto-arcade-widget .modal{width:min(560px,100%);max-height:92vh;overflow:auto;background:#071020;border:1px solid #30405d;border-radius:17px;padding:19px;box-shadow:0 25px 80px rgba(0,0,0,.6)}.modal h2{margin:0 0 6px;font-size:20px}.modal p{color:#aab5c7;font-size:12px;line-height:1.6}.close{float:right;border:0;background:none;color:#9ba7ba;font-size:22px}
-.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.field{width:100%;background:#0d1728;border:1px solid #263650;color:#fff;border-radius:9px;padding:10px;font-size:12px;outline:none}.field:focus{border-color:var(--red)}.full{grid-column:1/-1}.form-label{display:block;color:#aeb9cb;font-size:10px;font-weight:800;margin:0 0 5px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.field{width:100%;background:#0d1728;border:1px solid #263650;color:#fff;border-radius:9px;padding:10px;font-size:12px;outline:none}.field:focus{border-color:var(--red)}.full{grid-column:1/-1}.form-label{display:block;color:#aeb9cb;font-size:10px;font-weight:800;margin:0 0 5px}.aa-field-invalid{border-color:#ef1f2f!important;box-shadow:0 0 0 1px rgba(239,31,47,.45)}.aa-field-error-msg{color:#ff8f94;font-size:10px;font-weight:700;margin-top:4px}
 .tabs{display:flex;gap:5px;margin:10px 0}.tabs button{flex:1}.hidden{display:none!important}
 .detail-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:16px}.detail-img{width:100%;height:420px;object-fit:cover;border-radius:12px}.specs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:12px 0}.spec{background:#111b30;border:1px solid var(--line);border-radius:9px;padding:9px;font-size:11px}.spec span{display:block;color:#7f8ba0;font-size:9px;margin-bottom:3px}.desc{font-size:12px;line-height:1.7;color:#bdc7d6}
 .profile-head{display:flex;gap:14px;align-items:center}.profile-photo{width:82px;height:82px;border-radius:50%;object-fit:cover;border:2px solid var(--red)}.seller-listings{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:15px}.mini{background:#fff;color:#111;border-radius:9px;overflow:hidden}.mini img{width:100%;height:105px;object-fit:cover}.mini div{padding:7px;font-size:10px;font-weight:900}.aa-mini-delete-x{width:22px!important;height:22px!important;min-width:22px!important;font-size:13px!important;top:5px!important;right:5px!important}
@@ -4550,7 +4550,7 @@ var state = {
  userRole:null, agentDirectory:[], roleAuditLog:[], superUserSearch:"", superUserResult:null, superUserTerritoryInput:"",
  foodMediaViewer:null, foodBusinesses:[], foodEditId:null, foodPublishBusy:false, foodPublishProgress:"",
  foodMenuItemsByBusiness:{}, foodMenuBusinessId:"", foodItemEditId:null, foodItemDetailId:"",
- foodItemPreviewOpen:false, foodItemPreviewData:null,
+ foodItemPreviewOpen:false, foodItemPreviewData:null, propertyMediaViewerOpen:false,
  pendingMemberIntent:null, memberEntranceOpen:false,
  moderationCases:[], moderationPanelTarget:null,
  adCampaigns:[], adDraft:null, adDraftId:null, adQueue:[], adSlotState:{},
@@ -10127,45 +10127,60 @@ function aaListingMediaGalleryHTML(id,mediaList,title){
  const isVideo=item.type==='video';
  const src=item.url||'';
  const safeTitle=String(title||'Bingo listing');
+ /* Opens the listing's OWN full-screen viewer (aaOpenPropertyMediaViewer)
+    instead of the site-wide aaOpenVideoLightbox/aaOpenPhotoLightbox -
+    both are correctly proportioned viewers, but keeping Property/Stay on
+    its own already-fixed viewer avoids depending on the shared lightbox
+    functions, which are out of this correction's scope. Passing the
+    whole gallery list (not just this one item) also gives the full-screen
+    view prev/next through every photo and video in the listing. */
+ const viewList=JSON.stringify(list.map(x=>({type:x.type,url:x.url})));
  return `<div class="aa-listing-media">${isVideo
-  ?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(src))},${JSON.stringify(safeTitle)},"")'><video src="${bingoSafeMediaAttr(src)}" muted playsinline preload="metadata"></video><button type="button" class="aa-video-play-overlay" aria-label="Play video">▶</button></div>`
-  :`<img src="${bingoSafeMediaAttr(src)}" alt="${esc(safeTitle)}" onclick='aaOpenPhotoLightbox(${JSON.stringify(bingoSafeMediaUrl(src))},${JSON.stringify(safeTitle)},"")' style="cursor:zoom-in">`
+  ?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenPropertyMediaViewer(${viewList},${idx})'><video src="${bingoSafeMediaAttr(src)}" muted playsinline preload="metadata"></video><button type="button" class="aa-video-play-overlay" aria-label="Play video">▶</button></div>`
+  :`<img src="${bingoSafeMediaAttr(src)}" alt="${esc(safeTitle)}" onclick='event.stopPropagation();aaOpenPropertyMediaViewer(${viewList},${idx})' style="cursor:zoom-in">`
  }${list.length>1?`<span class="aa-post-media-counter">${idx+1}/${list.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaListingMediaNav(${JSON.stringify(String(id))},-1,${list.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaListingMediaNav(${JSON.stringify(String(id))},1,${list.length})'>›</button>`:""}</div>`;
 }
 let aaMediaViewerList=[];
 let aaMediaViewerIndex=0;
+let aaPropertyViewerTouchStartX=0;
+/* Previously this appended box straight to document.body, but
+   .aa-property-media-viewer's CSS (position:fixed;inset:0;...) is scoped
+   #auto-arcade-widget .aa-property-media-viewer - body is a SIBLING of
+   #auto-arcade-widget, not an ancestor, so that CSS never matched and the
+   viewer rendered as a bare, unstyled block at the very end of the page
+   (the "detached video at the bottom-left" bug). Routing it through
+   state+render() instead puts it inside #app, correctly nested under
+   #auto-arcade-widget, so the exact same CSS now actually applies - same
+   markup, same class names, just mounted where the styling can reach it. */
 function aaOpenPropertyMediaViewer(list,index){
  aaMediaViewerList=Array.isArray(list)?list:[];
  aaMediaViewerIndex=Math.max(0,Math.min(aaMediaViewerList.length-1,Number(index)||0));
- aaRenderPropertyMediaViewer();
+ state.propertyMediaViewerOpen=true;
+ render();
 }
-function aaRenderPropertyMediaViewer(){
- const old=document.getElementById('aaPropertyMediaViewer');
- if(old){old.querySelectorAll('video').forEach(v=>{try{v.pause()}catch(e){}});old.remove()}
+function aaPropertyMediaViewerHTML(){
+ if(!state.propertyMediaViewerOpen)return '';
  const item=aaMediaViewerList[aaMediaViewerIndex];
- if(!item)return;
- const box=document.createElement('div');
- box.id='aaPropertyMediaViewer';
- box.className='aa-property-media-viewer';
- box.innerHTML=`<button type="button" class="btn aa-property-media-viewer-close" onclick="aaClosePropertyMediaViewer()">✕</button>${item.type==='video'?`<video src="${bingoSafeMediaAttr(item.url)}" controls playsinline preload="metadata"></video>`:`<img src="${bingoSafeMediaAttr(item.url)}" alt="">`}`;
- let touchStartX=0;
- box.addEventListener('touchstart',e=>{touchStartX=e.touches[0].clientX},{passive:true});
- box.addEventListener('touchend',e=>{
-  const dx=e.changedTouches[0].clientX-touchStartX;
-  if(Math.abs(dx)>40)aaPropertyMediaViewerNav(dx<0?1:-1);
- },{passive:true});
- box.addEventListener('click',e=>{if(e.target===box)aaClosePropertyMediaViewer()});
- document.body.appendChild(box);
+ if(!item)return '';
+ return `<div class="aa-property-media-viewer" ontouchstart="aaPropertyViewerTouchStartX=event.touches[0].clientX" ontouchend="aaPropertyMediaViewerTouchEnd(event)" onclick="if(event.target===this)aaClosePropertyMediaViewer()">
+  <button type="button" class="btn aa-property-media-viewer-close" onclick="aaClosePropertyMediaViewer()">✕</button>
+  ${item.type==='video'?`<video src="${bingoSafeMediaAttr(item.url)}" controls autoplay playsinline preload="metadata"></video>`:`<img src="${bingoSafeMediaAttr(item.url)}" alt="">`}
+  ${aaMediaViewerList.length>1?`<span class="aa-post-media-counter">${aaMediaViewerIndex+1}/${aaMediaViewerList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous" onclick='event.stopPropagation();aaPropertyMediaViewerNav(-1)'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next" onclick='event.stopPropagation();aaPropertyMediaViewerNav(1)'>›</button>`:''}
+ </div>`;
+}
+function aaPropertyMediaViewerTouchEnd(e){
+ const dx=e.changedTouches[0].clientX-aaPropertyViewerTouchStartX;
+ if(Math.abs(dx)>40)aaPropertyMediaViewerNav(dx<0?1:-1);
 }
 function aaPropertyMediaViewerNav(dir){
  if(!aaMediaViewerList.length)return;
  aaMediaViewerIndex=(aaMediaViewerIndex+dir+aaMediaViewerList.length)%aaMediaViewerList.length;
- aaRenderPropertyMediaViewer();
+ render();
 }
 function aaClosePropertyMediaViewer(){
- const old=document.getElementById('aaPropertyMediaViewer');
- if(old){old.querySelectorAll('video').forEach(v=>{try{v.pause()}catch(e){}});old.remove()}
+ state.propertyMediaViewerOpen=false;
  aaMediaViewerList=[];aaMediaViewerIndex=0;
+ render();
 }
 /* ===== Food business Supabase persistence (Food Video Persistence fix) =====
    Food previously had no backend at all: aaFoods() only ever read
@@ -10384,7 +10399,7 @@ function aaEditProperty(id){
  render();
  window.scrollTo(0,0);
 }
-function aaCancelPropertyEdit(){aaMediaDraftReset('property',[]);state.propertyDraftMediaFor='';state.propertyFormDraft={};state.propertyEditId=null;state.propertyEditBlockedId=null;aaOpenProperties('mine')}
+function aaCancelPropertyEdit(){aaMediaDraftReset('property',[]);state.propertyDraftMediaFor='';state.propertyFormDraft={};state.propertyFormErrors=null;state.propertyEditId=null;state.propertyEditBlockedId=null;aaOpenProperties('mine')}
 /* Delegated input/change handler for the Property post/edit form (see
    aaPropertyPostHTML) — keeps state.propertyFormDraft in sync with
    whatever the user has typed, without itself calling render(), so a
@@ -10414,31 +10429,75 @@ function aaPropertyPostHTML(){
      fresh "new" post or switching to a different edit target), avoids
      carrying stale values into an unrelated post. */
   state.propertyFormDraft={};
+  state.propertyFormErrors=null;
  }
  const fd=state.propertyFormDraft||{};
  const val=(name,fallback)=>fd.hasOwnProperty(name)?fd[name]:(fallback??'');
  const busy=!!state.propertyPublishBusy;
- return `<div class="aa-v69-card"><h3>${editItem?'Edit Property':'Post a Property'}</h3><form onsubmit="aaSubmitProperty(event)" oninput="aaSyncPropertyFormDraft(event)" onchange="aaSyncPropertyFormDraft(event)">
+ const fieldErrors=state.propertyFormErrors||{};
+ const errClass=(name)=>fieldErrors[name]?' aa-field-invalid':'';
+ const errMsg=(name)=>fieldErrors[name]?`<div class="aa-field-error-msg">${esc(fieldErrors[name])}</div>`:'';
+ const errCount=Object.keys(fieldErrors).length;
+ return `<div class="aa-v69-card"><h3>${editItem?'Edit Property':'Post a Property'}</h3>
+  ${errCount?`<div class="notice" id="aaPropertyErrorSummary" style="color:#ff8f94;border-color:#ef1f2f">Please fix the highlighted field${errCount>1?'s':''} below before publishing.</div>`:''}
+  <form novalidate onsubmit="aaSubmitProperty(event)" oninput="aaSyncPropertyFormDraft(event)" onchange="aaSyncPropertyFormDraft(event)">
   <div class="form-grid">
-   <div class="full"><label class="form-label">Title</label><input required name="title" class="field" value="${esc(val('title',d.title))}" placeholder="e.g. 3 bedroom apartment in Nyali"></div>
+   <div class="full"><label class="form-label">Title</label><input id="aaPropField_title" name="title" class="field${errClass('title')}" value="${esc(val('title',d.title))}" placeholder="e.g. 3 bedroom apartment in Nyali">${errMsg('title')}</div>
    <div><label class="form-label">Property Type</label><select name="type" class="field">${AA_PROPERTY_TYPES.map(x=>`<option ${val('type',d.type)===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div>
    <div><label class="form-label">Purpose</label><select name="purpose" class="field"><option ${(!val('purpose',d.purpose)||val('purpose',d.purpose)==='For Sale')?'selected':''}>For Sale</option><option ${val('purpose',d.purpose)==='For Rent'?'selected':''}>For Rent</option><option ${val('purpose',d.purpose)==='For Lease'?'selected':''}>For Lease</option></select></div>
-   <div><label class="form-label">Price (KES)</label><input required name="price" class="field" type="number" min="0" value="${esc(val('price',d.price))}"></div>
-   <div><label class="form-label">County</label><input required name="county" class="field" placeholder="Mombasa" value="${esc(val('county',d.county))}"></div>
-   <div><label class="form-label">Town / Area</label><input required name="town" class="field" placeholder="Nyali" value="${esc(val('town',d.town))}"></div>
+   <div><label class="form-label">Price (KES)</label><input id="aaPropField_price" name="price" class="field${errClass('price')}" type="number" min="0" value="${esc(val('price',d.price))}">${errMsg('price')}</div>
+   <div><label class="form-label">County</label><input id="aaPropField_county" name="county" class="field${errClass('county')}" placeholder="Mombasa" value="${esc(val('county',d.county))}">${errMsg('county')}</div>
+   <div><label class="form-label">Town / Area</label><input id="aaPropField_town" name="town" class="field${errClass('town')}" placeholder="Nyali" value="${esc(val('town',d.town))}">${errMsg('town')}</div>
    <div><label class="form-label">Bedrooms</label><input name="bedrooms" class="field" type="number" min="0" value="${esc(val('bedrooms',d.bedrooms))}"></div>
    <div><label class="form-label">Bathrooms</label><input name="bathrooms" class="field" type="number" min="0" value="${esc(val('bathrooms',d.bathrooms))}"></div>
-   <div class="full"><label class="form-label">Description</label><textarea required name="description" class="field" rows="4">${esc(val('description',d.description))}</textarea></div>
-   <div class="full"><label class="form-label">${editItem?'Add More Photos / Videos':'Photos / Videos'} (max 3 videos)</label><input type="file" class="field" accept="image/*,video/*" multiple ${busy?'disabled':''} onchange="aaMediaDraftAddFiles('property',this.files);this.value=''"></div>
+   <div class="full"><label class="form-label">Description</label><textarea id="aaPropField_description" name="description" class="field${errClass('description')}" rows="4">${esc(val('description',d.description))}</textarea>${errMsg('description')}</div>
   </div>
-  <p class="notice" style="margin-top:8px">Tap ★ to set the cover photo/video, ◀▶ to reorder, ✕ to remove. Tap a thumbnail to preview it full-screen.</p>
+  <p class="notice" style="margin-top:8px">${editItem?'Add More Photos / Videos':'Photos / Videos'} (max 3 videos). Tap ★ to set the cover photo/video, ◀▶ to reorder, ✕ to remove. Tap a thumbnail to preview it full-screen.</p>
+  ${fieldErrors.media?`<div class="aa-field-error-msg" id="aaPropField_media">${esc(fieldErrors.media)}</div>`:''}
+  <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap">
+   <label class="btn btn-cyan" style="cursor:pointer">⬆ Upload Video<input type="file" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0" accept="image/*,video/*" multiple ${busy?'disabled':''} onchange="aaMediaDraftAddFiles('property',this.files);this.value=''"></label>
+   <button class="btn btn-publish" type="button" ${busy?'disabled':''} onclick="aaOpenDualCamera('property')">● Record Video</button>
+  </div>
   ${aaMediaGalleryHTML(aaMediaDraftGet('property').items,{editable:true,draftKey:'property',emptyText:'No photos or videos added yet.'})}
   <div class="details-actions aa-content-fit-row" style="margin-top:10px">
-   <button class="btn" type="button" ${busy?'disabled':''} onclick="aaOpenDualCamera('property')">Record Video</button>
    ${editItem?`<button class="btn" type="button" ${busy?'disabled':''} onclick="aaCancelPropertyEdit()">Cancel</button>`:''}
    <button class="btn btn-red" type="submit" ${busy?'disabled':''}>${busy?(state.propertyPublishProgress||'Publishing…'):(editItem?'Save Changes':'Publish Property')}</button>
   </div>
  </form></div>`;
+}
+/* After a successful Property/Stay PUBLISH (not every routine edit save),
+   send the owner to the Home Feed and bring their new listing into view,
+   reusing the same scroll-and-pulse pattern already proven for Wall
+   posts (aaOpenExactTopic's #topic-card-<id> + .bingo-topic-highlight) -
+   just targeting aaMixedFeedItems' own [data-aa-feed-id] convention
+   instead, since Home is the snap-scroll swipe feed, not a normal list. */
+function aaRedirectToHomeAndHighlightFeedItem(feedId){
+ aaRememberPage();
+ state.view='home';state.selected=null;state.seller=null;state.page=1;
+ render();
+ requestAnimationFrame(()=>requestAnimationFrame(()=>{
+  const el=document.querySelector(`#auto-arcade-widget [data-aa-feed-id="${feedId}"]`);
+  if(el){
+   el.scrollIntoView({behavior:'smooth',block:'start'});
+   el.classList.add('bingo-topic-highlight');
+   setTimeout(()=>el.classList.remove('bingo-topic-highlight'),1900);
+  }else{
+   window.scrollTo({top:0,left:0,behavior:'auto'});
+  }
+ }));
+}
+function aaValidatePropertyFormFields(fd){
+ const req=[['title','Title'],['price','Price'],['county','County'],['town','Town / Area'],['description','Description']];
+ const errors={};
+ req.forEach(([name,label])=>{if(!String(fd.get(name)||'').trim())errors[name]=`${label} is required.`});
+ if(!errors.price&&Number(fd.get('price'))<=0)errors.price='Enter a valid price greater than zero.';
+ return errors;
+}
+function aaScrollToFirstPropertyError(){
+ const summary=document.getElementById('aaPropertyErrorSummary');
+ const firstField=document.querySelector('#auto-arcade-widget .aa-field-invalid');
+ const target=firstField||summary;
+ if(target){target.scrollIntoView({behavior:'smooth',block:'center'});if(typeof firstField?.focus==='function')firstField.focus()}
 }
 async function aaSubmitProperty(e){
  e.preventDefault();
@@ -10447,6 +10506,21 @@ async function aaSubmitProperty(e){
  const form=e.target;
  const fd=new FormData(form);
  const editId=state.propertyEditId;
+ /* Custom inline validation (red border + message per field, one top
+    summary, scroll-to-first-invalid) replaces native HTML5 constraint
+    validation (the form now has novalidate) so a missing/invalid field
+    never loses typed text or selected media - state.propertyFormDraft
+    already held everything the moment it was typed (see the delegated
+    oninput/onchange handler above), so re-rendering with errors attached
+    changes nothing else on the form. */
+ const fieldErrors=aaValidatePropertyFormFields(fd);
+ if(Object.keys(fieldErrors).length){
+  state.propertyFormErrors=fieldErrors;
+  render();
+  requestAnimationFrame(()=>requestAnimationFrame(aaScrollToFirstPropertyError));
+  return;
+ }
+ state.propertyFormErrors=null;
  state.propertyPublishBusy=true;
  state.propertyPublishProgress='Publishing…';
  render();
@@ -10513,14 +10587,19 @@ async function aaSubmitProperty(e){
    state.propertyFormDraft={};
    toast('Property added in memory only (preview mode).');
    aaAnnounceAgentIntroEligibility(p);
-   aaOpenProperties('mine');
+   aaRedirectToHomeAndHighlightFeedItem(p.id+'_p');
    return;
   }
   if(!sb||!state.user?.id){toast('You must be logged in to publish a property.');return}
   const listingId=aaNewPropertyListingId();
   const userId=state.user.id;
   const files=aaMediaDraftFilesForUpload('property');
-  if(!files.length){toast('Add at least one photo or video before publishing.');return}
+  if(!files.length){
+   state.propertyFormErrors={media:'Add at least one photo or video before publishing.'};
+   render();
+   requestAnimationFrame(()=>requestAnimationFrame(aaScrollToFirstPropertyError));
+   return;
+  }
   const upload=await aaUploadPropertyMedia(files,userId,listingId,(n,total)=>{state.propertyPublishProgress=`Uploading file ${n} of ${total}…`;render()});
   if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error));return}
   const payload={
@@ -10551,7 +10630,7 @@ async function aaSubmitProperty(e){
   state.propertyFormDraft={};
   toast('Property published.');
   aaAnnounceAgentIntroEligibility(mapped);
-  aaOpenProperties('mine');
+  aaRedirectToHomeAndHighlightFeedItem(mapped.id+'_p');
  }finally{
   state.propertyPublishBusy=false;
   state.propertyPublishProgress='';
@@ -10788,7 +10867,7 @@ async function aaPublishFurnishedStay(){
    state.stayDraft={rooms:[],amenities:[],rules:[]};
    toast("Bingo Stay added in memory only (preview mode).");
    aaAnnounceAgentIntroEligibility(p);
-   state.propertyTab="stays";state.stayView="landing";render();window.scrollTo(0,0);
+   aaRedirectToHomeAndHighlightFeedItem(p.id+'_p');
    return;
   }
   if(!sb||!state.user?.id){toast("You must be logged in to publish a Bingo Stay.");return}
@@ -10828,7 +10907,7 @@ async function aaPublishFurnishedStay(){
   state.stayDraft={rooms:[],amenities:[],rules:[]};
   toast("Bingo Stay published. Your private access code stays hidden from the public listing.");
   aaAnnounceAgentIntroEligibility(mapped);
-  state.propertyTab="stays";state.stayView="landing";render();window.scrollTo(0,0);
+  aaRedirectToHomeAndHighlightFeedItem(mapped.id+'_p');
  }finally{
   state.stayPublishBusy=false;
   state.stayPublishProgress="";
@@ -10864,10 +10943,10 @@ function aaStayStepHTML(view){
 
  if(view==="step3")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('step2')">← Back</button><h3 style="margin:0 0 12px">3. Amenities</h3><p class="notice" style="margin-top:0">Tick everything guests can use during their stay.</p>${aaStayChecklistHTML("amenities",AA_STAY_AMENITIES,d.amenities)}<button class="btn btn-red" style="width:100%;margin-top:8px" onclick="aaStaySaveList('amenities',AA_STAY_AMENITIES)">Save & Continue</button></div>`;
 
- if(view==="step4")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('step3')">← Back</button><h3 style="margin:0 0 12px">4. Photos & Videos</h3><p class="notice" style="margin-top:0">Upload photos and up to 2 videos, or record one directly. Tap ★ to set the cover, ◀▶ to reorder, ✕ to remove. Tap a thumbnail to preview it full-screen.</p>${aaMediaGalleryHTML(aaMediaDraftGet('stay').items,{editable:true,draftKey:'stay',emptyText:'No photos or videos added yet.'})}<div class="form-grid">
-  <label class="full">${state.stayEditId?'Add More Photos':'Photos'}<input class="field" type="file" accept="image/*" multiple onchange="aaMediaDraftAddFiles('stay',this.files);this.value=''"></label>
-  <label class="full">${state.stayEditId?'Add More Videos (max 2)':'Videos (max 2)'}<input class="field" type="file" accept="video/*" multiple onchange="aaMediaDraftAddFiles('stay',this.files);this.value=''"></label>
-  </div><div class="details-actions aa-content-fit-row" style="margin-top:8px"><button class="btn" type="button" onclick="aaOpenDualCamera('stay')">Record Video</button><button class="btn btn-red" onclick="aaStaySaveMedia()">Save & Continue</button></div></div>`;
+ if(view==="step4")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('step3')">← Back</button><h3 style="margin:0 0 12px">4. Photos & Videos</h3><p class="notice" style="margin-top:0">Upload photos and up to 2 videos, or record one directly. Tap ★ to set the cover, ◀▶ to reorder, ✕ to remove. Tap a thumbnail to preview it full-screen.</p>${aaMediaGalleryHTML(aaMediaDraftGet('stay').items,{editable:true,draftKey:'stay',emptyText:'No photos or videos added yet.'})}<div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:8px">
+   <label class="btn btn-cyan" style="cursor:pointer">⬆ Upload Video<input type="file" style="position:absolute;width:1px;height:1px;overflow:hidden;opacity:0" accept="image/*,video/*" multiple onchange="aaMediaDraftAddFiles('stay',this.files);this.value=''"></label>
+   <button class="btn btn-publish" type="button" onclick="aaOpenDualCamera('stay')">● Record Video</button>
+  </div><button class="btn btn-red" style="width:100%;margin-top:8px" onclick="aaStaySaveMedia()">Save & Continue</button></div>`;
 
  if(view==="step5")return `<div class="aa-v69-card"><button class="btn" style="margin-bottom:12px" onclick="aaStayGo('step4')">← Back</button><h3 style="margin:0 0 12px">5. House Rules</h3>${aaStayChecklistHTML("rules",AA_STAY_RULES,d.rules)}<label class="form-label" style="margin-top:6px">Custom rules (optional)</label><textarea class="field" id="stayCustomRules" rows="3" placeholder="Any other house rules guests should know">${esc(d.customRules||"")}</textarea><button class="btn btn-red" style="width:100%;margin-top:10px" onclick="aaStaySaveRules()">Save & Continue</button></div>`;
 
@@ -12253,8 +12332,8 @@ function aaMixedFeedTopicCardHTML(c){
   ${aaIconActionBtn({rgb:"171,71,255",label:"Report",svg:AA_ICON_ACTION_SVG.flag,onclick:`aaTopicReport(${JSON.stringify(String(t.id))})`})}
  </div><div class="aa360-actions" style="grid-template-columns:1fr" onclick="event.stopPropagation()"><button type="button" class="call" onclick='${openPostCall}'>View Post &amp; Comments</button></div></div></section>`;
 }
-function aaMixedFeedItems(){const v=(typeof aaVideoListings==='function'?aaVideoListings():[]).map(x=>({...x,kind:'vehicle',feed_title:x.title,feed_desc:x.description,feed_media:x.videoUrl||x.video_url||x.video||'',feed_location:aaSearchLocationText(x)||x.location||'Kenya',feed_seller:x.sellerName||'Bingo Seller',_promoType:'vehicle',_promoId:x.id}));const p=aaProperties().filter(x=>Array.isArray(x.media)&&x.media.length).map(x=>{const cover=aaPropertyCoverMedia(x);const ownerId=String(x.user_id||x.sellerId||x.userId||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.sellerName||'');return {id:`${x.id}_p`,kind:'property',source:x,feed_title:x.title,feed_desc:x.description,feed_media:cover.url,feed_media_type:cover.type,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta),feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||x.sellerPhoto||'',feed_sellerMeta:ownerMeta,feed_bedrooms:x.bedrooms||'',feed_bathrooms:x.bathrooms||'',created_at:x.created_at,_promoType:(typeof AA_STAY_TYPES!=='undefined'&&AA_STAY_TYPES.includes(x.type))?'stay':'property',_promoId:x.id};});const f=aaFoods().filter(aaFoodActive).flatMap(x=>{const ownerId=String(x.user_id||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.business_name||'');return (x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_fv${i}`,kind:'food',source:x,feed_title:x.business_name,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta)||x.business_name,feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||'',feed_sellerMeta:ownerMeta,created_at:x.created_at,_promoType:'food_business',_promoId:x.id}));});const tp=aaTopics().filter(x=>!x.hiddenFromPublic).map(x=>{const firstMedia=Array.isArray(x.media)&&x.media.length?x.media[0]:null;const authorMeta=typeof aaTopicAuthorMeta==='function'?aaTopicAuthorMeta(x):null;return {id:`${x.id}_t`,kind:'topic',source:x,feed_title:x.title||'',feed_desc:x.body||'',feed_media:firstMedia?aaTopicMediaSrc(firstMedia):'',feed_media_type:firstMedia?firstMedia.type:'',feed_media_count:Array.isArray(x.media)?x.media.length:0,feed_location:'',feed_seller:aaMemberDisplayName(authorMeta),feed_sellerId:String(x.authorId||''),feed_sellerPhoto:(authorMeta&&authorMeta.photo)||'',feed_sellerMeta:authorMeta,created_at:x.createdAt,_promoType:null,_promoId:null,_topicId:x.id};});let all=[...v,...p,...f,...tp];all.forEach(item=>aaAttachPromotions(item,item._promoType,item._promoId));let aaFeedSeedStored="";try{aaFeedSeedStored=sessionStorage.getItem('aa_feed_seed')||""}catch(e){}const seed=String(state.user?.id||aaFeedSeedStored||Math.random());if(!aaFeedSeedStored){try{sessionStorage.setItem('aa_feed_seed',seed)}catch(e){}}const score=s=>{let n=0;for(const c of String(s))n=(n*31+c.charCodeAt(0))>>>0;return n};const viewerLoc=typeof aaViewerFeedLocation==='function'?aaViewerFeedLocation():'All Kenya';all.sort((a,b)=>{const followBoost=(x)=>x.kind==='vehicle'&&typeof aaIsFollowing==='function'&&aaIsFollowing(x.sellerId||x.userId)?10000000000000:0;const promo=(x)=>aaPromotionAdjustment(x,viewerLoc)*1000000;const ta=new Date(a.created_at||a.createdAt||0).getTime()+followBoost(a)+promo(a)+score(seed+a.id)%1000000;const tb=new Date(b.created_at||b.createdAt||0).getTime()+followBoost(b)+promo(b)+score(seed+b.id)%1000000;return tb-ta});return all}
-function aaMixedFeedCardHTML(c,i){if(c.kind==='vehicle')return aaFeedCardHTML(c,i);if(c.kind==='topic')return aaMixedFeedTopicCardHTML(c);const isPropertyImage=c.kind==='property'&&c.feed_media_type==='image';const openDetailCall=c.kind==='property'?`openPropertyDetail('${esc(c._promoId||"")}')`:'';const openDetailAttr=c.kind==='property'?` onclick="${openDetailCall}" style="cursor:pointer"`:'';const media=isPropertyImage?`<img class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" alt=""${openDetailAttr}>`:`<video class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"${openDetailAttr}></video>`;const type=c.kind==='food'?'FOOD':'PROPERTY';const price=c.kind==='property'?`<div class="aa360-price">KES ${money(c.source?.price||0)}</div>`:'';const keyDetails=(c.kind==='property'&&(c.feed_bedrooms||c.feed_bathrooms))?`<div class="aa360-specs">${c.feed_bedrooms?`<span>${esc(String(c.feed_bedrooms))} bed</span>`:''}${c.feed_bathrooms?`<span>${esc(String(c.feed_bathrooms))} bath</span>`:''}</div>`:'';const promoLabel=aaPromotionLabel(c);const promoted=promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";const sellerMeta=c.feed_sellerMeta||{};const sellerUnavailable=!!sellerMeta.unavailable;const sellerBlock=`<button type="button" class="aa360-seller" ${sellerUnavailable?'disabled':`onclick='event.stopPropagation();openSeller(${JSON.stringify(c.feed_sellerId||"")})'`}><img src="${bingoSafeMediaAttr(aaProfilePhoto(c.feed_sellerPhoto))}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.feed_seller)}</b>${!sellerUnavailable?`<br><small style="color:#ffd700;font-weight:800;text-decoration:underline">View Profile</small>`:''}<small>${esc(c.feed_location)}</small></span></button>`;const callBtn=(c.kind==='food')?`<button class="call" onclick='event.stopPropagation();location.href="tel:${esc(c.source?.phone||"")}"'>Call Delivery</button>`:(sellerMeta.showPhone!==false?`<button class="call" onclick='event.stopPropagation();${openDetailCall||`state.selected=${JSON.stringify(c.source||{})};callSeller(state.selected)`}'>Call</button>`:'');const waBtn=`<button class="wa" onclick='event.stopPropagation();${c.kind==='food'?`window.open("https://wa.me/${esc(String(c.source?.whatsapp||c.source?.phone||'').replace(/\D/g,''))}","_blank")`:`state.selected=${JSON.stringify(c.source||{})};contact("whatsapp",state.selected)`}'>WhatsApp</button>`;const viewBtn=c.kind==='property'?`<button class="call" onclick='event.stopPropagation();${openDetailCall}'>View Property</button>`:'';const actions=`${viewBtn}${callBtn}${waBtn}`;return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}<span class="aa-type-label">${type}</span><div class="aa360-info"${openDetailAttr}>${sellerBlock}<div class="aa360-title">${esc(c.feed_title)}</div>${price}${keyDetails}<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc)}</div><div class="aa360-actions" onclick="event.stopPropagation()">${actions}</div></div></section>`}
+function aaMixedFeedItems(){const v=(typeof aaVideoListings==='function'?aaVideoListings():[]).map(x=>({...x,kind:'vehicle',feed_title:x.title,feed_desc:x.description,feed_media:x.videoUrl||x.video_url||x.video||'',feed_location:aaSearchLocationText(x)||x.location||'Kenya',feed_seller:x.sellerName||'Bingo Seller',_promoType:'vehicle',_promoId:x.id}));const p=aaProperties().filter(x=>Array.isArray(x.media)&&x.media.length).map(x=>{const cover=aaPropertyCoverMedia(x);const ownerId=String(x.user_id||x.sellerId||x.userId||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.sellerName||'');return {id:`${x.id}_p`,kind:'property',source:x,feed_title:x.title,feed_desc:x.description,feed_media:cover.url,feed_media_type:cover.type,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta),feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||x.sellerPhoto||'',feed_sellerMeta:ownerMeta,feed_bedrooms:x.bedrooms||'',feed_bathrooms:x.bathrooms||'',feed_media_count:Array.isArray(x.media)?x.media.length:0,created_at:x.created_at,_promoType:(typeof AA_STAY_TYPES!=='undefined'&&AA_STAY_TYPES.includes(x.type))?'stay':'property',_promoId:x.id};});const f=aaFoods().filter(aaFoodActive).flatMap(x=>{const ownerId=String(x.user_id||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.business_name||'');return (x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_fv${i}`,kind:'food',source:x,feed_title:x.business_name,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta)||x.business_name,feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||'',feed_sellerMeta:ownerMeta,created_at:x.created_at,_promoType:'food_business',_promoId:x.id}));});const tp=aaTopics().filter(x=>!x.hiddenFromPublic).map(x=>{const firstMedia=Array.isArray(x.media)&&x.media.length?x.media[0]:null;const authorMeta=typeof aaTopicAuthorMeta==='function'?aaTopicAuthorMeta(x):null;return {id:`${x.id}_t`,kind:'topic',source:x,feed_title:x.title||'',feed_desc:x.body||'',feed_media:firstMedia?aaTopicMediaSrc(firstMedia):'',feed_media_type:firstMedia?firstMedia.type:'',feed_media_count:Array.isArray(x.media)?x.media.length:0,feed_location:'',feed_seller:aaMemberDisplayName(authorMeta),feed_sellerId:String(x.authorId||''),feed_sellerPhoto:(authorMeta&&authorMeta.photo)||'',feed_sellerMeta:authorMeta,created_at:x.createdAt,_promoType:null,_promoId:null,_topicId:x.id};});let all=[...v,...p,...f,...tp];all.forEach(item=>aaAttachPromotions(item,item._promoType,item._promoId));let aaFeedSeedStored="";try{aaFeedSeedStored=sessionStorage.getItem('aa_feed_seed')||""}catch(e){}const seed=String(state.user?.id||aaFeedSeedStored||Math.random());if(!aaFeedSeedStored){try{sessionStorage.setItem('aa_feed_seed',seed)}catch(e){}}const score=s=>{let n=0;for(const c of String(s))n=(n*31+c.charCodeAt(0))>>>0;return n};const viewerLoc=typeof aaViewerFeedLocation==='function'?aaViewerFeedLocation():'All Kenya';all.sort((a,b)=>{const followBoost=(x)=>x.kind==='vehicle'&&typeof aaIsFollowing==='function'&&aaIsFollowing(x.sellerId||x.userId)?10000000000000:0;const promo=(x)=>aaPromotionAdjustment(x,viewerLoc)*1000000;const ta=new Date(a.created_at||a.createdAt||0).getTime()+followBoost(a)+promo(a)+score(seed+a.id)%1000000;const tb=new Date(b.created_at||b.createdAt||0).getTime()+followBoost(b)+promo(b)+score(seed+b.id)%1000000;return tb-ta});return all}
+function aaMixedFeedCardHTML(c,i){if(c.kind==='vehicle')return aaFeedCardHTML(c,i);if(c.kind==='topic')return aaMixedFeedTopicCardHTML(c);const isPropertyImage=c.kind==='property'&&c.feed_media_type==='image';const openDetailCall=c.kind==='property'?`openPropertyDetail('${esc(c._promoId||"")}')`:'';const openDetailAttr=c.kind==='property'?` onclick="${openDetailCall}" style="cursor:pointer"`:'';const media=isPropertyImage?`<img class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" alt=""${openDetailAttr}>`:`<video class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"${openDetailAttr}></video>`;const type=c.kind==='food'?'FOOD':'PROPERTY';const price=c.kind==='property'?`<div class="aa360-price">KES ${money(c.source?.price||0)}</div>`:'';const keyDetails=(c.kind==='property'&&(c.feed_bedrooms||c.feed_bathrooms))?`<div class="aa360-specs">${c.feed_bedrooms?`<span>${esc(String(c.feed_bedrooms))} bed</span>`:''}${c.feed_bathrooms?`<span>${esc(String(c.feed_bathrooms))} bath</span>`:''}</div>`:'';const multiTag=(c.kind==='property'&&c.feed_media_count>1)?`<span class="aa-type-label" style="left:auto;right:10px">1/${c.feed_media_count}</span>`:'';const promoLabel=aaPromotionLabel(c);const promoted=promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";const sellerMeta=c.feed_sellerMeta||{};const sellerUnavailable=!!sellerMeta.unavailable;const sellerBlock=`<button type="button" class="aa360-seller" ${sellerUnavailable?'disabled':`onclick='event.stopPropagation();openSeller(${JSON.stringify(c.feed_sellerId||"")})'`}><img src="${bingoSafeMediaAttr(aaProfilePhoto(c.feed_sellerPhoto))}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.feed_seller)}</b>${!sellerUnavailable?`<br><small style="color:#ffd700;font-weight:800;text-decoration:underline">View Profile</small>`:''}<small>${esc(c.feed_location)}</small></span></button>`;const callBtn=(c.kind==='food')?`<button class="call" onclick='event.stopPropagation();location.href="tel:${esc(c.source?.phone||"")}"'>Call Delivery</button>`:(sellerMeta.showPhone!==false?`<button class="call" onclick='event.stopPropagation();${openDetailCall||`state.selected=${JSON.stringify(c.source||{})};callSeller(state.selected)`}'>Call</button>`:'');const waBtn=`<button class="wa" onclick='event.stopPropagation();${c.kind==='food'?`window.open("https://wa.me/${esc(String(c.source?.whatsapp||c.source?.phone||'').replace(/\D/g,''))}","_blank")`:`state.selected=${JSON.stringify(c.source||{})};contact("whatsapp",state.selected)`}'>WhatsApp</button>`;const viewBtn=c.kind==='property'?`<button class="call" onclick='event.stopPropagation();${openDetailCall}'>View Property</button>`:'';const actions=`${viewBtn}${callBtn}${waBtn}`;return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}<span class="aa-type-label">${type}</span>${multiTag}<div class="aa360-info"${openDetailAttr}>${sellerBlock}<div class="aa360-title">${esc(c.feed_title)}</div>${price}${keyDetails}<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc)}</div><div class="aa360-actions" onclick="event.stopPropagation()">${actions}</div></div></section>`}
 /* Shared short-excerpt renderer for feed card descriptions - "Read more"
    opens the full listing/post instead of expanding inline, so the card's
    fixed-height layout never grows to cover other controls. */
@@ -12429,7 +12508,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
     </div>
   </nav>
  </div>`}
- ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.propertyMediaViewerOpen?aaPropertyMediaViewerHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   if(state.msgActiveCall)aaCallReattachMediaElements();
@@ -16090,6 +16169,18 @@ function aaPublicTopicsFeedHTML(){
  const tagFilter=state.trendingTagFilter||"";
  let all=aaTopics().filter(t=>!t.hiddenFromPublic);
  if(tagFilter)all=all.filter(t=>aaExtractTopicTags(t).includes(tagFilter));
+ /* Property/Stay listings on the Wall: no second post table, no
+    duplicate record - the same aaProperties() rows already shown on
+    Home/profile/Cockpit are woven into this same feed by date, each
+    rendered with the existing aaProfilePropertyCardHTML post card (same
+    gallery, same Edit/Delete, same id="property-card-<id>" convention),
+    not a new card type. Topic view-count/comment-load logic below stays
+    scoped to `all` (topics only) - properties don't have that tracking. */
+ const wallProperties=tagFilter?[]:aaProperties().filter(p=>Array.isArray(p.media)&&p.media.length);
+ const feedItems=[
+  ...all.map(t=>({kind:"topic",data:t,ts:new Date(t.createdAt||0).getTime()})),
+  ...wallProperties.map(p=>({kind:"property",data:p,ts:new Date(p.created_at||0).getTime()}))
+ ].sort((a,b)=>b.ts-a.ts);
  aaWallAdSlotAutoLoad();
  return `<section style="padding:12px 0 105px">
   <button class="btn" onclick="goBack()">← Back</button>
@@ -16103,7 +16194,7 @@ function aaPublicTopicsFeedHTML(){
    <div class="aa-mbea-main" style="min-width:0">
     ${state.isLoggedIn?aaWallComposerSectionHTML():`<div class="aa-v69-card" style="margin-top:10px;text-align:center"><p>Sign up or log in to post, comment, like, save or follow.</p><button class="btn btn-red" onclick="openAuth('login')">Sign Up / Log In</button></div>`}
     ${(()=>{aaLoadTopicCounts(all.map(t=>t.id));all.forEach(t=>{if(typeof aaRecordFeedView==="function")aaRecordFeedView("topic_"+t.id,"topic",t.id);if(String(t.authorId||"")!==String(state.user?.id||""))aaRecordTopicViewOnce(t.id)});return"";})()}
-    ${!all.length?`<div class="empty" style="margin-top:12px">No posts yet. Be the first to post.</div>`:all.map(t=>aaTopicPostCardHTML(t)).join("")}
+    ${!feedItems.length?`<div class="empty" style="margin-top:12px">No posts yet. Be the first to post.</div>`:feedItems.map(it=>it.kind==="topic"?aaTopicPostCardHTML(it.data):aaProfilePropertyCardHTML(it.data)).join("")}
    </div>
    <div class="aa-mbea-right" style="display:grid;gap:12px;align-content:start">
     ${aaProfileDecorationsPanelHTML()}
