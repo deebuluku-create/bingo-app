@@ -12627,7 +12627,20 @@ async function aaStartFoodSubscription(id,months){
  const amount=1000;
  if(state.testMode){
   const a=aaFoods(),f=a.find(x=>String(x.id)===String(id));
-  if(f){const base=Math.max(Date.now(),new Date(f.subscription_expires_at||0).getTime()||0);f.subscription_expires_at=new Date(base+30*86400000).toISOString();f.status='active';aaV69Write('aa_v69_foods',a);toast('30-day restaurant subscription activated for KES 1,000.');aaOpenFood('mine')}
+  if(f){
+   const base=Math.max(Date.now(),new Date(f.subscription_expires_at||0).getTime()||0);
+   f.subscription_expires_at=new Date(base+30*86400000).toISOString();
+   f.status='active';
+   aaV69Write('aa_v69_foods',a);
+   /* Activation, not first-publish: the business is genuinely public
+      now, so - unlike a brand-new (still-inactive) business, which
+      correctly stays in My Food Business - this goes straight to Home
+      Feed and highlights the exact card, the same one this business
+      will always be (aaRedirectToHomeAndHighlightFeedItem only
+      navigates/highlights; it never creates a second record). */
+   toast('30-day restaurant subscription activated for KES 1,000. Opening Home Feed…');
+   aaRedirectToHomeAndHighlightFeedItem(String(id)+'_fv0');
+  }
   return
  }
  if(!state.isLoggedIn){openAuth('login');return}
@@ -12636,8 +12649,41 @@ async function aaStartFoodSubscription(id,months){
   const phone=state.user?.phone||prompt('Enter the Safaricom M-Pesa phone number');if(!phone)return;
   const {data,error}=await sb.functions.invoke('mpesa-food-subscription',{body:{action:'stk',food_business_id:id,months:1,amount:1000,phone}});
   if(error)throw error;
-  toast(data?.message||'M-Pesa request sent for KES 1,000. The 30-day subscription activates only after successful Safaricom confirmation.')
+  toast(data?.message||'M-Pesa request sent for KES 1,000. The 30-day subscription activates only after successful Safaricom confirmation.');
+  /* The M-Pesa confirmation that actually flips status to 'active'
+     happens server-side (Safaricom -> the Edge Function), asynchronously,
+     well after this function returns - there was previously no code path
+     that ever learned activation had happened, so "immediately after
+     successful activation, enter the public feed" could never fire for
+     a real payment. Watches this exact business row and redirects the
+     moment (and only the moment) Supabase confirms status=active. */
+  aaWatchFoodActivation(id);
  }catch(err){toast('M-Pesa subscription request could not start: '+(err?.message||err))}
+}
+let aaFoodActivationChannel=null,aaFoodActivationId=null;
+function aaWatchFoodActivation(id){
+ if(!sb)return;
+ id=String(id);
+ if(aaFoodActivationId===id&&aaFoodActivationChannel)return;
+ if(aaFoodActivationChannel){try{sb.removeChannel(aaFoodActivationChannel)}catch(e){}aaFoodActivationChannel=null}
+ aaFoodActivationId=id;
+ try{
+  aaFoodActivationChannel=sb.channel("food_activation_"+id)
+   .on("postgres_changes",{event:"UPDATE",schema:"public",table:"food_businesses",filter:"id=eq."+id},payload=>{
+    const row=payload.new;
+    if(!row||row.status!=='active')return;
+    try{sb.removeChannel(aaFoodActivationChannel)}catch(e){}
+    aaFoodActivationChannel=null;aaFoodActivationId=null;
+    const mapped=aaMapFoodBusinessRow(row);
+    if(!Array.isArray(state.foodBusinesses))state.foodBusinesses=[];
+    const idx=state.foodBusinesses.findIndex(x=>String(x.id)===id);
+    if(idx>=0)state.foodBusinesses[idx]=mapped;else state.foodBusinesses.unshift(mapped);
+    toast('Subscription confirmed — your restaurant is now live on Home Feed.');
+    const videoIdx=(Array.isArray(mapped.media)?mapped.media:[]).findIndex(m=>m.type==='video');
+    aaRedirectToHomeAndHighlightFeedItem(id+'_fv'+(videoIdx>=0?videoIdx:0));
+   })
+   .subscribe();
+ }catch(e){console.warn("Bingo: could not watch for food subscription activation - the business will still go live once confirmed, just without the automatic redirect.",e)}
 }
 function aaCancelFoodSubscription(id){
  const a=aaFoods(),f=a.find(x=>String(x.id)===String(id));if(!f)return;
@@ -12750,12 +12796,26 @@ function aaMixedFeedCardHTML(c,i){
   if(f.opening_hours)parts.push(`<span>${esc(f.opening_hours)}</span>`);
   specs=`<div class="aa360-specs">${parts.join('')}</div>`;
  }
- const cid=JSON.stringify(String(c.id));
- const interested=(state.interested||[]).filter(x=>String(x)===String(c.id)).length;
- const shareTarget=JSON.stringify({id:c.id,title:c.feed_title,price:c.kind==='property'?(c.source?.price||0):0,shares:c.source?.shares||0});
+ /* Canonical engagement id: the mixed feed's own id field (c.id) is a
+    display-instance id - "${propertyId}_p", "${foodId}_fv0" - that only
+    exists so this merged array/DOM never collides two different kinds
+    sharing the same raw id, and so aaRedirectToHomeAndHighlightFeedItem
+    can scroll to one exact card. It must never be the key comments,
+    reactions, saves or views are stored under - the SAME property/food
+    record already uses its own real id (c._promoId, equal to c.source.id)
+    everywhere else it's shown: the owner-profile card
+    (aaProfilePropertyCardHTML/aaProfileFoodCardHTML) and the detail page
+    both call isFav/toggleFav/etc with the raw record id. Using c.id here
+    instead would silently fork a second, disconnected engagement history
+    for the exact same post depending on whether it was opened from Home
+    Feed or from a profile. */
+ const canonicalId=String(c._promoId||c.id);
+ const cid=JSON.stringify(canonicalId);
+ const interested=(state.interested||[]).filter(x=>String(x)===canonicalId).length;
+ const shareTarget=JSON.stringify({id:canonicalId,title:c.feed_title,price:c.kind==='property'?(c.source?.price||0):0,shares:c.source?.shares||0});
  const downloadName=JSON.stringify((c.feed_title||'bingo')+'-media');
- const commentTarget=JSON.stringify({id:c.id,title:c.feed_title});
- const side=`<div class="aa360-side"><div><button class="aa360-action" aria-label="Views" title="Views">${aaSideIcon("views")}</button><span>${aaCompact(aaViewCount(c))}</span></div><div><button class="aa360-action ${aaInterested(c)?"on":""}" onclick='event.stopPropagation();aaToggleInterested(${cid})' aria-label="Interested" title="Interested">${aaSideIcon("interested")}</button><span>${aaCompact(interested)}</span></div><div><button class="aa360-action" onclick='event.stopPropagation();aaOpenComments(${commentTarget})' aria-label="Comments" title="Comments">${aaSideIcon("comments")}</button><span>${aaCompact(aaCommentCount(c))}</span></div><div><button class="aa360-action" onclick='event.stopPropagation();state.shareTarget=${shareTarget};render()' aria-label="Share" title="Share">${aaSideIcon("share")}</button><span>${aaCompact(c.source?.shares||0)}</span></div><div><button class="aa360-action" onclick='event.stopPropagation();aaDownloadMedia(${JSON.stringify(c.feed_media)},${downloadName},{title:${JSON.stringify(c.feed_title||"")},sellerName:${JSON.stringify(c.feed_seller||"")}})' aria-label="Download" title="Download">${aaSideIcon("download")}</button><span>Download</span></div><div><button class="aa360-action ${isFav(c.id)?"on":""}" onclick='event.stopPropagation();toggleFav(${cid})' aria-label="Save" title="Save">${aaSideIcon("save")}</button><span>${isFav(c.id)?"Saved":"Save"}</span></div></div>`;
+ const commentTarget=JSON.stringify({id:canonicalId,title:c.feed_title});
+ const side=`<div class="aa360-side"><div><button class="aa360-action" aria-label="Views" title="Views">${aaSideIcon("views")}</button><span>${aaCompact(aaViewCount({id:canonicalId}))}</span></div><div><button class="aa360-action ${aaInterested({id:canonicalId})?"on":""}" onclick='event.stopPropagation();aaToggleInterested(${cid})' aria-label="Interested" title="Interested">${aaSideIcon("interested")}</button><span>${aaCompact(interested)}</span></div><div><button class="aa360-action" onclick='event.stopPropagation();aaOpenComments(${commentTarget})' aria-label="Comments" title="Comments">${aaSideIcon("comments")}</button><span>${aaCompact(aaCommentCount({id:canonicalId}))}</span></div><div><button class="aa360-action" onclick='event.stopPropagation();state.shareTarget=${shareTarget};render()' aria-label="Share" title="Share">${aaSideIcon("share")}</button><span>${aaCompact(c.source?.shares||0)}</span></div><div><button class="aa360-action" onclick='event.stopPropagation();aaDownloadMedia(${JSON.stringify(c.feed_media)},${downloadName},{title:${JSON.stringify(c.feed_title||"")},sellerName:${JSON.stringify(c.feed_seller||"")}})' aria-label="Download" title="Download">${aaSideIcon("download")}</button><span>Download</span></div><div><button class="aa360-action ${isFav(canonicalId)?"on":""}" onclick='event.stopPropagation();toggleFav(${cid})' aria-label="Save" title="Save">${aaSideIcon("save")}</button><span>${isFav(canonicalId)?"Saved":"Save"}</span></div></div>`;
  return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}${multiTag}${side}<div class="aa360-info"${openDetailAttr}>${sellerBlock}<div>${badge}</div><div class="aa360-title">${esc(c.feed_title)}</div>${price}${specs}<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc)}</div><div class="aa360-actions" onclick="event.stopPropagation()">${actions}</div></div></section>`;
 }
 /* Shared short-excerpt renderer for feed card descriptions - "Read more"
@@ -23000,7 +23060,6 @@ Only requested areas changed:
 /* Suppress the legacy giraffe-icon pseudo-element so it never renders
    behind/before the real Bingo logo image in the header. */
 #auto-arcade-widget .brand.bingo-brand-logo:before{content:none!important;display:none!important}
-#auto-arcade-widget .aa-login-title:after{content:"Bingo";color:var(--bingo-orange);font-weight:1000;margin-left:4px}
 #auto-arcade-widget .aa-view-profile-btn,#auto-arcade-widget [onclick*="goAccount"],#auto-arcade-widget [onclick*="openSeller"]{font-weight:950!important;letter-spacing:.02em!important}
 #auto-arcade-widget .aa-view-profile-btn{color:#fff!important;background:linear-gradient(180deg,#172337,#09111f)!important;border:1px solid #ffb21c!important;box-shadow:0 4px 0 #a86b00,0 0 15px rgba(255,162,0,.32)!important;text-shadow:0 1px 0 #000!important}
 </style>
