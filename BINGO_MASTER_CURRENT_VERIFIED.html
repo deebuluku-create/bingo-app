@@ -36,7 +36,7 @@ splash itself begins fading out.
 #bingoSplash{position:fixed;inset:0;z-index:2147483640;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#172033 0%,#08101e 48%,#02050a 100%);overflow:hidden;transition:opacity .55s ease,visibility .55s ease}
 #bingoSplash.hide{opacity:0;visibility:hidden;pointer-events:none}
 #bingoSplash .inner{position:relative;width:min(83.6vw,572px);display:grid;place-items:center;transform:scale(.35);opacity:.1;filter:blur(9px);animation:bingoZoom 2s cubic-bezier(.15,.84,.18,1) forwards}
-#bingoSplash .inner img{animation:bingoSplashTremble 2.1s ease-in-out 2s infinite}
+#bingoSplash .inner img{animation:bingoSplashTremble .9s ease-in-out 2s 4}
 #bingoSplash.disperse .inner img{animation:none}
 @keyframes bingoSplashTremble{
   0%,100%{transform:translate(0,0) rotate(0deg) scale(1)}
@@ -60,9 +60,11 @@ splash itself begins fading out.
     ONLY thing that reveals #auto-arcade-widget (see the matching
     html.bingo-preload rule in <head>). Kept independent of the visual
     dust-burst/logo code below so a failure there can never strand the
-    app hidden. Timing (14000ms) matches the existing splash.hide()
-    call below exactly, unchanged. */
- setTimeout(()=>{document.documentElement.classList.remove('bingo-preload')},9800);
+    app hidden. Timing (6300ms) matches the existing splash.hide()
+    call below exactly - both were shortened together so the opening
+    montage runs exactly 4 logo pulses instead of sitting on screen
+    for several extra seconds. */
+ setTimeout(()=>{document.documentElement.classList.remove('bingo-preload')},6300);
 
  const splash=document.getElementById('bingoSplash'),canvas=document.getElementById('bingoDust');
  if(splash){
@@ -79,9 +81,9 @@ splash itself begins fading out.
    for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,sp=1.4+Math.random()*4.2;particles.push({x:cx+(Math.random()-.5)*180,y:cy+(Math.random()-.5)*130,vx:Math.cos(a)*sp+1.2,vy:Math.sin(a)*sp-1.5,r:1+Math.random()*4,c:colors[i%colors.length],o:.95})}
    let f=0;(function tick(){ctx.clearRect(0,0,canvas.width,canvas.height);for(const p of particles){p.x+=p.vx;p.y+=p.vy;p.vx*=1.015;p.vy-=.015;p.o*=.965;ctx.globalAlpha=p.o;ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;if(++f<46)requestAnimationFrame(tick)})();
   }
-  setTimeout(()=>{splash.classList.add('disperse');burst()},9100);
-  setTimeout(()=>splash.classList.add('hide'),9800);
-  setTimeout(()=>splash.remove(),10500);
+  setTimeout(()=>{splash.classList.add('disperse');burst()},5600);
+  setTimeout(()=>splash.classList.add('hide'),6300);
+  setTimeout(()=>splash.remove(),7000);
   /* Welcome sequence only: a small animated Bingo mark settles briefly
      below the top-left "Ad" position on Home right as the splash
      clears, then disappears for good — never during normal browsing. */
@@ -99,7 +101,7 @@ splash itself begins fading out.
      setTimeout(()=>w.remove(),500);
     },2600);
    }catch(e){}
-  },9905);
+  },6405);
  }
 })();
 </script>
@@ -608,14 +610,24 @@ color:#fff!important;-webkit-text-fill-color:#fff!important;outline:2px solid #7
 #auto-arcade-widget .brand.bingo-brand-logo:before{content:none!important;display:none!important}
 #auto-arcade-widget .brand.bingo-brand-logo img{
   height:62px;width:auto;max-width:187px;display:block;object-fit:contain;
+  animation:bingoLively 3.6s ease-in-out 1s infinite, bingoGlowOnly 3.3s ease-in-out 1s infinite;
+}
+/* The one-time swoop-down entrance plays only on the render() call that
+   carries the .bingo-logo-intro class (see aaBingoLogoIntroClass() -
+   exactly the first render of the session, right as the splash hands
+   off to this small floating logo). Scoped to this single img element
+   only, same as the rule above - never a wrapper, container or any
+   other component. */
+#auto-arcade-widget .brand.bingo-brand-logo.bingo-logo-intro img{
   animation:bingoDropIn .8s cubic-bezier(.34,1.56,.64,1) both, bingoLively 3.6s ease-in-out 1s infinite, bingoGlowOnly 3.3s ease-in-out 1s infinite;
 }
-/* Isolation: the header logo's idle "lively" animation (which includes a
-   left/right rocking wiggle) re-triggers on every render() since the
-   header markup is rebuilt inside #app.innerHTML each time. On the
-   Vehicle posting form specifically, that made the logo above the form
-   visibly rock/shake on every keystroke-driven re-render. Freeze it only
-   while that form is open; every other page keeps the animation as-is. */
+/* Isolation: previously the header logo's idle "lively" animation
+   (which includes a left/right rocking wiggle) re-triggered on every
+   render() since the header markup is rebuilt inside #app.innerHTML
+   each time - now that the entrance-only class above is added at most
+   once per session, ordinary re-renders no longer replay the big swoop
+   at all. These two rules are kept as a second layer of protection for
+   the Vehicle posting form and any open form/modal specifically. */
 #auto-arcade-widget.aa-vehicle-form-open .brand.bingo-brand-logo img{animation:none!important}
 /* Same freeze, generalized to every other posting form (Property, Food,
    CV) and to any open modal (.overlay) via the bingo-form-open/
@@ -4484,6 +4496,25 @@ function bingoAppLogoHTML(options){
 }
 function bingoLogoMascot(sizeClass){
  return `<div class="bingo-logo-mascot ${sizeClass||''}">${bingoAppLogoHTML({})}</div>`;
+}
+/* The floating Home header logo's one-time "drop in" entrance (swoop
+   down + settle) is meant to play exactly once per visit, right as the
+   opening splash hands off to the small floating logo. render() rebuilds
+   this header's markup from scratch on every state change though (a
+   fresh <img> node each time), which was replaying that big swoop on
+   every re-render - typing in a form, a video's state changing, any
+   click anywhere - the actual source of the floating logo appearing to
+   "dance" far more often, and far more dramatically, than the intended
+   idle wiggle/glow. This is called exactly once: the first render()
+   call of the whole session returns the entrance class, every render()
+   after that returns nothing, so the CSS bingoDropIn swoop (see
+   .brand.bingo-brand-logo.bingo-logo-intro img below) plays once and
+   the logo then only ever does its small continuous idle animation -
+   never a second entrance. */
+function aaBingoLogoIntroClass(){
+ if(window.__bingoLogoIntroDone)return "";
+ window.__bingoLogoIntroDone=true;
+ return " bingo-logo-intro";
 }
 
 
@@ -12691,7 +12722,7 @@ function render(){
  if(root)root.classList.toggle("bingo-form-open",["add","spare-add","edit-profile"].includes(state.view)||(state.view==="properties"&&state.propertyTab==="post")||(state.view==="food"&&state.foodTab==="post")||(state.view==="jobs"&&["cv","mycv"].includes(state.jobsTab))||!!state.postTodayTopicOpen||!!state.wallComposerOpen);
  app.innerHTML=`
  <header class="header"><div class="container header-inner">
-  <div class="bingo-header-stack" id="bingoHeaderStack"><button class="brand bingo-brand-logo" id="bingoMainLogo" onclick="openBingoCockpit()" role="button" tabindex="0" aria-label="Open Bingo menu" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBingoCockpit()}">${bingoAppLogoHTML({className:"bingo-app-logo--header"})}</button><button type="button" id="bingoLogoCloseBtn" aria-label="Move the Bingo logo out of the way"><span class="bingo-logo-close-dot">&times;</span></button></div>
+  <div class="bingo-header-stack" id="bingoHeaderStack"><button class="brand bingo-brand-logo${aaBingoLogoIntroClass()}" id="bingoMainLogo" onclick="openBingoCockpit()" role="button" tabindex="0" aria-label="Open Bingo menu" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBingoCockpit()}">${bingoAppLogoHTML({className:"bingo-app-logo--header"})}</button><button type="button" id="bingoLogoCloseBtn" aria-label="Move the Bingo logo out of the way"><span class="bingo-logo-close-dot">&times;</span></button><div class="bingo-press-here" id="bingoPressHere" aria-hidden="true"><span class="bingo-press-here-arrow">▲</span>Press here</div></div>
   <div class="top-actions aa-auth-actions">${state.isLoggedIn?`<button class="btn" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button><button class="btn" onclick="goAccount()">Profile</button><button class="btn btn-red" onclick="logoutAutoArcade()">Log Out</button>`:`<button class="btn" onclick="openAuth('login')">Log In</button><button class="btn btn-red" onclick="openAuth('register')">Sign Up</button>`}</div>
  </div></header>
  <main class="${feedHome?"":"container"}">
@@ -22744,7 +22775,7 @@ Only requested areas changed:
 #bingoSplash{position:fixed;inset:0;z-index:2147483640;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#172033 0%,#08101e 48%,#02050a 100%);overflow:hidden;transition:opacity .55s ease,visibility .55s ease}
 #bingoSplash.hide{opacity:0;visibility:hidden;pointer-events:none}
 #bingoSplash .inner{position:relative;width:min(83.6vw,572px);display:grid;place-items:center;transform:scale(.35);opacity:.1;filter:blur(9px);animation:bingoZoom 2s cubic-bezier(.15,.84,.18,1) forwards}
-#bingoSplash .inner img{animation:bingoSplashTremble 2.1s ease-in-out 2s infinite}
+#bingoSplash .inner img{animation:bingoSplashTremble .9s ease-in-out 2s 4}
 #bingoSplash.disperse .inner img{animation:none}
 @keyframes bingoSplashTremble{
   0%,100%{transform:translate(0,0) rotate(0deg) scale(1)}
@@ -24096,7 +24127,7 @@ Preserve all existing onclick actions, routes, forms and button wording.
      (still used by FIX #07's notification pulse). */
   var splash=document.getElementById("bingoSplash");
   if(splash){
-    setTimeout(function(){document.body.classList.add("bingo-splash-done");document.documentElement.classList.remove("bingo-preload");}, 10500);
+    setTimeout(function(){document.body.classList.add("bingo-splash-done");document.documentElement.classList.remove("bingo-preload");}, 7000);
   }else{
     document.body.classList.add("bingo-splash-done");
     document.documentElement.classList.remove("bingo-preload");
@@ -24476,6 +24507,40 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 4px 10px rgba(0,0,0,.4);
 }
+/* "Press here" prompt: a small pill pointing at the floating logo,
+   shown once the logo has settled on Home (see bingo-logo-drag-script),
+   dismissed for good the first time the user drags or taps the logo.
+   It is an absolutely-positioned child of the same #bingoHeaderStack
+   wrapper the logo itself sits in, so it travels with the logo for
+   free via that wrapper's own drag-position transform - it never
+   applies a transform of its own to anything but itself, and never to
+   any shared/parent element. */
+#auto-arcade-widget .bingo-press-here{
+  position:absolute;
+  top:100%;left:50%;
+  margin-top:8px;
+  transform:translateX(-50%);
+  display:none;
+  align-items:center;gap:4px;
+  white-space:nowrap;
+  background:linear-gradient(135deg,#ff2fb0,#22c9ff);
+  color:#fff;font-weight:900;font-size:10px;letter-spacing:.02em;
+  padding:5px 11px;border-radius:999px;
+  box-shadow:0 6px 16px rgba(0,0,0,.4);
+  pointer-events:none;
+  z-index:2147481001;
+  animation:bingoPressHereBounce 1.6s ease-in-out infinite;
+}
+#auto-arcade-widget .bingo-press-here.bingo-press-here-visible{display:inline-flex}
+#auto-arcade-widget .bingo-press-here-arrow{display:inline-block;animation:bingoPressHereArrow 1.6s ease-in-out infinite}
+@keyframes bingoPressHereBounce{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-4px)}}
+@keyframes bingoPressHereArrow{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@media(prefers-reduced-motion:reduce){
+  #auto-arcade-widget .bingo-press-here,#auto-arcade-widget .bingo-press-here-arrow{animation:none!important}
+}
+@media(max-width:390px){
+  #auto-arcade-widget .bingo-press-here{font-size:9px;padding:4px 9px}
+}
 </style>
 <script id="bingo-logo-drag-script">
 (function(){
@@ -24505,6 +24570,28 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
   function getWrap(){ return document.getElementById("bingoHeaderStack"); }
   function getHandle(){ return document.getElementById("bingoMainLogo"); }
   function getCloseBtn(){ return document.getElementById("bingoLogoCloseBtn"); }
+  function getPressHere(){ return document.getElementById("bingoPressHere"); }
+
+  /* "Press here" prompt: shown once, the first time the logo is fully
+     settled on Home after the splash clears, dismissed for good (this
+     browser, via localStorage) the first time the user drags or taps
+     the logo - so returning users are never nagged by it again. */
+  var PRESS_HERE_KEY="bingo_press_here_seen_v1";
+  function pressHereSeen(){
+    try{ return localStorage.getItem(PRESS_HERE_KEY)==="1"; }catch(e){ return true; }
+  }
+  function markPressHereSeen(){
+    try{ localStorage.setItem(PRESS_HERE_KEY,"1"); }catch(e){}
+    hidePressHere();
+  }
+  function hidePressHere(){
+    var el=getPressHere(); if(el)el.classList.remove("bingo-press-here-visible");
+  }
+  function showPressHereIfDue(){
+    if(pressHereSeen()||!isHome())return;
+    if(!document.body.classList.contains("bingo-splash-done"))return;
+    var el=getPressHere(); if(el)el.classList.add("bingo-press-here-visible");
+  }
 
   /* Both resting spots below are anchored to the currently active feed
      card's actual EMPTY media area - the gap between the feed filter bar
@@ -24577,6 +24664,7 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
       wrap.classList.remove("bingo-logo-draggable");
       wrap.style.transform="";wrap.style.transition="";
       hideCloseBtn();
+      hidePressHere();
       return;
     }
     wrap.classList.add("bingo-logo-draggable");
@@ -24611,6 +24699,7 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
     btn.setAttribute("aria-label","Move the Bingo logo out of the way");
     btn.addEventListener("click",function(ev){
       ev.preventDefault();ev.stopPropagation();
+      markPressHereSeen();
       if(centered){
         /* Dismiss the centered entrance logo: it settles into the
            discreet corner spot (below Ad, or top-left) and stays
@@ -24638,7 +24727,9 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
       origX=r.left;origY=r.top;
       try{handle.setPointerCapture(ev.pointerId);}catch(e){}
       wrap.classList.add("bingo-logo-dragging");
+      markPressHereSeen();
     });
+    handle.addEventListener("click",markPressHereSeen);
 
     handle.addEventListener("pointermove",function(ev){
       if(!dragging)return;
@@ -24682,6 +24773,7 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
       bindCloseBtn(btn);
     }
     applyPosition(wrap,false);
+    showPressHereIfDue();
   }
 
   /* While still at the default spot (not yet dragged), keep tracking
@@ -24695,7 +24787,20 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
     applyPosition(getWrap(),false);
   },true);
 
-  var mo=new MutationObserver(sync);
+  /* render() can rebuild large parts of #app many times in quick
+     succession (fast typing, several state updates back-to-back) -
+     each one is a childList mutation this observer sees. Collapsing
+     them to at most one reposition per animation frame keeps this
+     purely a positioning sync (transform on #bingoHeaderStack only)
+     and stops it from doing redundant layout reads/writes on every
+     single one of those mutations. */
+  var syncScheduled=false;
+  function scheduleSync(){
+    if(syncScheduled)return;
+    syncScheduled=true;
+    requestAnimationFrame(function(){syncScheduled=false;sync();});
+  }
+  var mo=new MutationObserver(scheduleSync);
   mo.observe(document.body,{childList:true,subtree:true});
   window.addEventListener("resize",sync,{passive:true});
   window.addEventListener("orientationchange",function(){setTimeout(sync,60);});
