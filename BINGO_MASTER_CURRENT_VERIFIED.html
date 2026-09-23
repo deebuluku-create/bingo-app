@@ -10289,7 +10289,7 @@ function aaFoodMedia(p){return Array.isArray(p?.media)?p.media:[]}
 function aaRemainingDays(exp){if(!exp)return 0;return Math.max(0,Math.ceil((new Date(exp).getTime()-Date.now())/86400000))}
 function aaFoodActive(f){return aaRemainingDays(f?.subscription_expires_at)>0&&String(f?.status||'').toLowerCase()!=='suspended'}
 function aaOpenProperties(tab='browse'){if(tab==='post'&&!aaRequireMember({action:'post',mode:'register',destination:'/post-property'}))return;aaRememberPage();state.propertyTab=tab;state.view='properties';if(tab==='stays'&&!state.stayView)state.stayView='landing';aaLoadProperties();render();window.scrollTo(0,0)}
-function aaOpenFood(tab='browse'){if(tab==='post'&&!aaRequireMember({action:'post',mode:'register',destination:'/post-food'}))return;aaRememberPage();state.foodTab=tab;state.view='food';aaLoadFoods();render();window.scrollTo(0,0)}
+function aaOpenFood(tab='browse'){toast('Food is being rebuilt — check back soon.');goHome();}
 function aaMediaPreviewHTML(media,businessId){
  return (media||[]).map((m,i)=>{
   const isVideo=m.type==='video';
@@ -12408,14 +12408,13 @@ function render(){
  app.innerHTML=`
  <header class="header"><div class="container header-inner">
   <div class="bingo-header-stack" id="bingoHeaderStack"><button class="brand bingo-brand-logo" id="bingoMainLogo" onclick="openBingoCockpit()" role="button" tabindex="0" aria-label="Open Bingo menu" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBingoCockpit()}">${bingoAppLogoHTML({className:"bingo-app-logo--header"})}</button><button type="button" id="bingoLogoCloseBtn" aria-label="Move the Bingo logo out of the way"><span class="bingo-logo-close-dot">&times;</span></button></div>
-  <div class="top-actions aa-auth-actions"><button class="btn aa-v69-top" onclick="aaOpenProperties('browse')">Properties</button><button class="btn aa-v69-top" onclick="aaOpenFood('browse')">Food</button><button class="btn aa-jobs-top-btn" onclick="openJobs('jobs')">Jobs/CVs</button>${state.isLoggedIn?`<button class="btn" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button><button class="btn" onclick="goAccount()">Profile</button><button class="btn btn-red" onclick="logoutAutoArcade()">Log Out</button>`:`<button class="btn" onclick="openAuth('login')">Log In</button><button class="btn btn-red" onclick="openAuth('register')">Sign Up</button>`}</div>
+  <div class="top-actions aa-auth-actions"><button class="btn aa-v69-top" onclick="aaOpenProperties('browse')">Properties</button><button class="btn aa-jobs-top-btn" onclick="openJobs('jobs')">Jobs/CVs</button>${state.isLoggedIn?`<button class="btn" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button><button class="btn" onclick="goAccount()">Profile</button><button class="btn btn-red" onclick="logoutAutoArcade()">Log Out</button>`:`<button class="btn" onclick="openAuth('login')">Log In</button><button class="btn btn-red" onclick="openAuth('register')">Sign Up</button>`}</div>
  </div></header>
  <main class="${feedHome?"":"container"}">
   ${aaPageGuideHTML()}
   ${state.view==="home"?homeHTML(boosted,rows,filteredListings,pages):""}
   ${state.view==="search"?aaSearchHTML():""}
   ${state.view==="properties"?aaPropertyHTML():""}
-  ${state.view==="food"?aaFoodHTML():""}
   ${state.view==="market"?aaMarketHTML():""}
   ${state.view==="topics"?aaPublicTopicsFeedHTML():""}
   ${state.view==="solutions"?aaSolutionRoomsHTML():""}
@@ -12438,9 +12437,6 @@ function render(){
   ${state.view==="chat"&&state.selected?chatHTML(state.selected):""}
   ${state.view==="super-admin"?aaSuperUserDashboardHTML():""}
   ${state.view==="member-central"?aaMemberCentralHTML():""}
-  ${state.view==="food-menu"?aaFoodMenuHTML():""}
-  ${state.view==="food-item-form"?aaFoodItemFormHTML():""}
-  ${state.view==="food-item-detail"?aaFoodItemDetailHTML():""}
  </main>
  <button class="aa-refresh-fab" title="Refresh this page" aria-label="Refresh this page" onclick="aaRefreshCurrentView()">↻</button>
  <!-- Bottom tabs: Home, Search, Sell, Market, Rooms, Profile. Inbox is accessed from Profile/header. -->
@@ -12479,7 +12475,6 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
             <button class="bcp-btn ${state.view==="jobs"?"active":""}" onclick="aaAssistantNavigate(()=>openJobs('jobs'))"><span class="bcp-ico">&#9635;</span><b>Jobs &amp; CV</b></button>
             <button class="bcp-btn ${state.view==="properties"&&state.propertyTab!=="stays"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenProperties('browse'))"><span class="bcp-ico">&#9637;</span><b>Property</b></button>
             <button class="bcp-btn ${state.view==="properties"&&state.propertyTab==="stays"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenProperties('stays'))"><span class="bcp-ico">&#127958;</span><b>Stays</b></button>
-            <button class="bcp-btn ${state.view==="food"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenFood('browse'))"><span class="bcp-ico">&#127860;</span><b>Food</b></button>
           </div>
         </div>
 
@@ -12950,7 +12945,6 @@ const AA_POST_TODAY_OPTIONS=[
  {key:"bidding",label:"Bidding"},
  {key:"property",label:"Property"},
  {key:"stay",label:"Bingo Stays"},
- {key:"food",label:"Food / Restaurant"},
  {key:"fashion",label:"Fashion"},
  {key:"furniture",label:"Furniture"},
  {key:"electronics",label:"Electronics"},
@@ -15221,7 +15215,6 @@ function aaAgentAddBusinessHTML(){
    <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("vehicle-sale")'>Vehicle</button>
    <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("property")'>Property</button>
    <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("stay")'>Bingo Stays</button>
-   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("food")'>Food / Restaurant</button>
    <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("fashion")'>Fashion</button>
    <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("furniture")'>Furniture</button>
    <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("electronics")'>Electronics</button>
@@ -15292,7 +15285,6 @@ function aaSuperUserDashboardHTML(){
    <button class="btn btn-glass" onclick="goHome()">Home</button>
    <button class="btn btn-glass" onclick="goAccount()">Profile</button>
    <button class="btn btn-glass" onclick="aaOpenProperties('browse')">Properties</button>
-   <button class="btn btn-glass" onclick="aaOpenFood('browse')">Food</button>
    <button class="btn btn-glass" onclick="openJobs('jobs')">Jobs/CVs</button>
    <button class="btn btn-cyan" onclick="openInbox()">Inbox</button>
   </div>
@@ -21765,7 +21757,7 @@ Source specification: Complete Platform Changes & Feature Specification.
 (function(){
   const root=document.getElementById('auto-arcade-widget'); if(!root)return;
   const PURPOSES=[['sale','ON SALE'],['rent','ON RENT'],['lease','ON LEASE'],['hire','ON HIRE'],['bid','ON BID'],['auction','ON AUCTION']];
-  const CATEGORIES=['AUTO','PROPERTIES','FASHION','FOOD','FURNITURE','BEAUTY','ELECTRONICS'];
+  const CATEGORIES=['AUTO','PROPERTIES','FASHION','FURNITURE','BEAUTY','ELECTRONICS'];
   const META_KEY='aa_dawood_update_one_listing_meta_v1';
   const BID_KEY='aa_dawood_update_one_bids_v1';
   let currentCategory=null;
