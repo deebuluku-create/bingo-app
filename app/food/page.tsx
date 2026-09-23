@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../../supabase/lib/supabase";
 const delicacies = [
   "African",
   "Chinese",
@@ -26,60 +26,116 @@ const delicacies = [
   "Turkish",
 ];
 
-const foodItems = [
-  {
-    name: "Swahili Chicken Biryani",
-    restaurant: "Mama Amina's Kitchen",
-    location: "Mombasa",
-    price: "KSh 650",
-    emoji: "🍛",
-    category: "Swahili",
-  },
-  {
-    name: "Grilled Chicken",
-    restaurant: "Bingo Grill House",
-    location: "Nairobi",
-    price: "KSh 800",
-    emoji: "🍗",
-    category: "African",
-  },
-  {
-    name: "Pilau Special",
-    restaurant: "Coastal Kitchen",
-    location: "Mombasa",
-    price: "KSh 500",
-    emoji: "🍲",
-    category: "Coastal",
-  },
-  {
-    name: "Nyama Choma",
-    restaurant: "Kenya BBQ",
-    location: "Nakuru",
-    price: "KSh 1,200",
-    emoji: "🥩",
-    category: "African",
-  },
-  {
-    name: "Chapati & Beef Stew",
-    restaurant: "Mama's Pot",
-    location: "Kisumu",
-    price: "KSh 450",
-    emoji: "🥘",
-    category: "Luo",
-  },
-  {
-    name: "Fresh Seafood Platter",
-    restaurant: "Bingo Ocean View",
-    location: "Mombasa",
-    price: "KSh 1,500",
-    emoji: "🦐",
-    category: "Coastal",
-  },
-];
+type FoodItem = {
+  id: string;
+  businessId: string;
+  name: string;
+  restaurant: string;
+  location: string;
+  price: number;
+  currency: string;
+  imageUrl: string | null;
+  videoUrl: string | null;
+  category: string;
+  description: string;
+};
 
 export default function FoodPage() {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
+  const [foodItems, setFoodItems] = useState<FoodItem[]>([]);
+  const [loadingFood, setLoadingFood] = useState(true);
+  const [foodError, setFoodError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    const loadFood = async () => {
+      setLoadingFood(true);
+      setFoodError("");
+
+      const { data: menuRows, error: menuError } = await supabase
+        .from("food_menu_items")
+        .select(
+          "id,business_id,item_name,category,description,price,currency,image_urls,video_url,is_available,status,created_at"
+        )
+        .eq("status", "published")
+        .eq("is_available", true)
+        .order("created_at", { ascending: false });
+
+      if (!active) return;
+
+      if (menuError) {
+        console.error("Unable to load Bingo food menu items:", menuError);
+        setFoodError("Food could not be loaded right now. Please try again.");
+        setLoadingFood(false);
+        return;
+      }
+
+      const businessIds = [
+        ...new Set((menuRows ?? []).map((row) => row.business_id).filter(Boolean)),
+      ];
+
+      let businesses: Array<{
+        id: string;
+        business_name: string | null;
+        county: string | null;
+        town: string | null;
+        location: string | null;
+      }> = [];
+
+      if (businessIds.length > 0) {
+        const { data: businessRows, error: businessError } = await supabase
+          .from("food_businesses")
+          .select("id,business_name,county,town,location")
+          .in("id", businessIds);
+
+        if (!active) return;
+
+        if (businessError) {
+          console.error("Unable to load Bingo food businesses:", businessError);
+        } else {
+          businesses = businessRows ?? [];
+        }
+      }
+
+      const businessById = new Map(
+        businesses.map((business) => [business.id, business])
+      );
+
+      const liveItems: FoodItem[] = (menuRows ?? []).map((row) => {
+        const business = businessById.get(row.business_id);
+        const location =
+          business?.location || business?.town || business?.county || "Kenya";
+
+        return {
+          id: row.id,
+          businessId: row.business_id,
+          name: row.item_name,
+          restaurant: business?.business_name || "Bingo Food Business",
+          location,
+          price: Number(row.price ?? 0),
+          currency: row.currency || "KES",
+          imageUrl:
+            Array.isArray(row.image_urls) && row.image_urls.length > 0
+              ? row.image_urls[0]
+              : null,
+          videoUrl: row.video_url || null,
+          category: row.category || "Food",
+          description: row.description || "",
+        };
+      });
+
+      setFoodItems(liveItems);
+      setLoadingFood(false);
+    };
+
+    void loadFood();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const toggleDelicacy = (name: string) => {
     setSelected((current) =>
@@ -255,14 +311,43 @@ export default function FoodPage() {
           </span>
         </div>
 
+        {loadingFood && (
+          <div className="mt-4 rounded-2xl border border-cyan-500/20 bg-[#151C28] p-8 text-center text-sm font-bold text-cyan-300">
+            Loading food from Bingo…
+          </div>
+        )}
+
+        {foodError && (
+          <div className="mt-4 rounded-2xl border border-red-500/30 bg-red-500/5 p-6 text-center text-sm font-bold text-red-300">
+            {foodError}
+          </div>
+        )}
+
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredFood.map((item) => (
             <article
-              key={`${item.restaurant}-${item.name}`}
+              key={item.id}
               className="overflow-hidden rounded-2xl border border-white/10 bg-[#151C28] transition hover:border-cyan-400/40"
             >
-              <div className="flex h-52 items-center justify-center bg-gradient-to-br from-[#192334] to-[#0B0E14] text-7xl">
-                {item.emoji}
+              <div className="relative flex h-52 items-center justify-center overflow-hidden bg-gradient-to-br from-[#192334] to-[#0B0E14]">
+                {item.imageUrl ? (
+                  <Image
+                    src={item.imageUrl}
+                    alt={item.name}
+                    fill
+                    unoptimized
+                    className="object-cover"
+                  />
+                ) : item.videoUrl ? (
+                  <video
+                    src={item.videoUrl}
+                    controls
+                    preload="metadata"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-7xl">🍽️</span>
+                )}
               </div>
 
               <div className="p-4">
@@ -276,7 +361,11 @@ export default function FoodPage() {
                   </div>
 
                   <span className="whitespace-nowrap text-sm font-black text-yellow-400">
-                    {item.price}
+                    {new Intl.NumberFormat("en-KE", {
+                      style: "currency",
+                      currency: item.currency === "KSh" ? "KES" : item.currency,
+                      maximumFractionDigits: 0,
+                    }).format(item.price)}
                   </span>
                 </div>
 
@@ -305,7 +394,7 @@ export default function FoodPage() {
           ))}
         </div>
 
-        {filteredFood.length === 0 && (
+        {!loadingFood && !foodError && filteredFood.length === 0 && (
           <div className="mt-4 rounded-2xl border border-white/10 bg-[#151C28] p-10 text-center">
             <div className="text-4xl">🍽️</div>
             <h3 className="mt-3 font-black">No matching food found</h3>
