@@ -12595,11 +12595,9 @@ function aaFoodBusinessProfileHTML(){
    <div>
     ${aaListingMediaGalleryHTML(String(f.id),f.media,f.business_name)}
     <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:10px">
-     <button class="btn btn-publish" onclick="aaOpenFoodMenu('${esc(f.id)}')">🛒 Order Now</button>
-     ${phone?`<a class="btn btn-cyan" href="tel:${esc(phone)}">☎ Call</a>`:''}
-     ${wa?`<button class="btn btn-glass" onclick="window.open('https://wa.me/${esc(wa)}','_blank')">WhatsApp</button>`:''}
-     <button class="btn btn-glass" onclick="if(!aaRequireMember({action:'message',targetId:'${esc(f.id)}'}))return;aaMsgOpenConversationWith('${esc(f.user_id||'')}','${esc((f.business_name||'Bingo Member').replace(/'/g,"\\'"))}','')">✉ Inbox</button>
-     <button class="btn btn-glass" onclick="window.open('${esc(directionsUrl)}','_blank')">📍 Directions</button>
+     <button class="btn bingo-neon-action bingo-neon-action-gold" onclick="aaOpenFoodMenu('${esc(f.id)}')">🛒 Order Now</button>
+     ${own?'':`${phone?`<a class="btn bingo-neon-action bingo-neon-action-cyan" href="tel:${esc(phone)}">☎ Call</a>`:''}${wa?`<button class="btn bingo-neon-action bingo-neon-action-green" onclick="window.open('https://wa.me/${esc(wa)}','_blank')">WhatsApp</button>`:''}<button class="btn bingo-neon-action bingo-neon-action-purple" onclick="if(!aaRequireMember({action:'message',targetId:'${esc(f.id)}'}))return;aaMsgOpenConversationWith('${esc(f.user_id||'')}','${esc((f.business_name||'Bingo Member').replace(/'/g,"\\'"))}','')">💬 Chat</button>`}
+     <button class="btn bingo-neon-action bingo-neon-action-cyan" onclick="window.open('${esc(directionsUrl)}','_blank')">📍 Directions</button>
     </div>
     <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:8px">
      <button class="btn btn-glass" onclick="state.shareTarget={id:'${esc(f.id)}',title:${JSON.stringify(f.business_name||'')}};render()">↗ Share</button>
@@ -12725,7 +12723,9 @@ function aaMixedFeedCardHTML(c,i){
  const callBtn=(c.kind==='food')?`<button class="bingo-neon-action bingo-neon-action-cyan" onclick='event.stopPropagation();location.href="tel:${esc(c.source?.phone||"")}"'>☎ Call Delivery</button>`:(sellerMeta.showPhone!==false?`<button class="bingo-neon-action bingo-neon-action-cyan" onclick='event.stopPropagation();${openDetailCall||`state.selected=${JSON.stringify(c.source||{})};callSeller(state.selected)`}'>☎ Call</button>`:'');
  const waBtn=`<button class="bingo-neon-action bingo-neon-action-green" onclick='event.stopPropagation();${c.kind==='food'?`window.open("https://wa.me/${esc(String(c.source?.whatsapp||c.source?.phone||'').replace(/\D/g,''))}","_blank")`:`state.selected=${JSON.stringify(c.source||{})};contact("whatsapp",state.selected)`}'>WhatsApp</button>`;
  const viewBtn=openDetailCall?`<button class="bingo-neon-action bingo-neon-action-gold" onclick='event.stopPropagation();${openDetailCall}'>${c.kind==='property'?'View Property':'View Business'}</button>`:'';
- const actions=`${viewBtn}${callBtn}${waBtn}`;
+ const isOwnListing=state.isLoggedIn&&String(c.feed_sellerId||"")===String(state.user?.id||"");
+ const chatBtn=isOwnListing?'':`<button class="bingo-neon-action bingo-neon-action-purple" onclick='event.stopPropagation();aaMsgOpenConversationWith(${JSON.stringify(String(c.feed_sellerId||""))},${JSON.stringify(String(c.feed_seller||""))},${JSON.stringify(String(c.feed_sellerPhoto||""))})'>💬 Chat</button>`;
+ const actions=`${viewBtn}${callBtn}${waBtn}${chatBtn}`;
  let badge='',price='',specs='';
  if(c.kind==='property'){
   const p=c.source||{};
@@ -13357,9 +13357,9 @@ function sellerHTML(s,cars){
   return `<div class="aa-review"><div><span class="aa-rating-stars">${starsHTML(r.rating)}</span>${r.rating?` <span style="font-size:9px;color:#7f8ba0">${r.rating}/5</span>`:""}${ownerEntry?` <span class="meta">(owner comment — not counted)</span>`:""}</div>${r.text?`<div style="font-size:11px;line-height:1.5;margin-top:4px">${esc(r.text)}</div>`:""}<div style="font-size:9px;color:#7f8ba0;margin-top:4px">${esc(r.author||"Bingo Member")}</div>${r.reply?`<div class="notice" style="margin-top:8px"><b>${esc(r.replyAuthor||s.name)} replied:</b><br>${esc(r.reply)}</div>`:""}${canReply?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><textarea id="reviewReply_${esc(String(r.id))}" class="field" rows="2" placeholder="Reply to this review..."></textarea><button class="btn" style="width:100%;margin-top:6px" onclick='replyToProfileReview(${JSON.stringify(String(r.id))})'>Reply</button></div>`:""}</div>`;
  }).join(""):`<div class="notice">No reviews yet. Be the first logged-in member to review this profile.</div>`;
 
- return `<section style="padding:20px 0 100px"><button class="btn" onclick="goBack()">Back</button><div class="modal ${s.gold?"aa-gold-qualified":""}" style="max-height:none;margin-top:12px"><div class="profile-head"><div style="position:relative"><img class="profile-photo" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)"><div style="position:absolute;right:0;bottom:4px;background:#071020;border-radius:99px;padding:3px 5px">${aaPresenceBadge(s)}</div></div><div>${aaFollowTopControlHTML(s)}<h2>${esc(s.name)}</h2>${own&&aaIsAgentRole()?`<div class="aa-public-agent-badge">🎖 Bingo Agent${state.userRole?.territory?" — "+esc(state.userRole.territory):""}${state.userRole?.agent_since?` <span class="aa-public-agent-since">· Agent since ${esc(new Date(state.userRole.agent_since).toLocaleDateString("en-KE",{month:"short",year:"numeric"}))}</span>`:""}</div>`:!own?aaPublicAgentBadgeHTML(sellerKey):""}${aaFollowStatsHTML(sellerKey,true)}${s.location?`<p>${esc(s.location)}</p>`:""}${aaMemberSinceHTML(s)}<p>${esc(s.bio)}</p><small style="color:#f5b91e;font-weight:900">${s.gold?"Gold Member":"Bingo Member"}</small></div></div><div class="boost-summary" style="margin-top:12px"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div><div class="notice">${rs.count} review${rs.count===1?"":"s"}</div></div><div class="details-actions" style="margin-top:14px"><button class="btn" type="button" data-aa-call="seller">Call</button><button class="btn btn-green" onclick="contact('whatsapp',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}'})">WhatsApp</button><button class="btn btn-red" onclick="contact('chat',{sellerId:'${esc(sellerKey)}',sellerPhone:'${esc(s.phone)}',sellerName:'${esc(s.name)}',sellerGold:${s.gold?"true":"false"},title:'Profile conversation'})">Bingo Chat</button></div>${own?`${aaPostTodayHTML()}${aaMyTopicsHTML()}${aaAgentProfilePanelHTML()}${aaHelpSellPendingRequestsHTML()}${aaMyHelpSellListingsHTML()}<div class="aa-room-reward"><b>${gold()?"★ GOLD MEMBER":"Community Gold Progress"}</b><br>Accepted Solution Room answers: ${aaAcceptedSolutionsFor(state.user?.id)}/${aaGoldAcceptedTarget()}. Outstanding Gold Members may qualify for annual Bingo recognition and rewards.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+ return `<section style="padding:20px 0 100px"><button class="btn" onclick="goBack()">Back</button><div class="modal ${s.gold?"aa-gold-qualified":""}" style="max-height:none;margin-top:12px"><div class="profile-head"><div style="position:relative"><img class="profile-photo" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)"><div style="position:absolute;right:0;bottom:4px;background:#071020;border-radius:99px;padding:3px 5px">${aaPresenceBadge(s)}</div></div><div>${aaFollowTopControlHTML(s)}<h2>${esc(s.name)}</h2>${own&&aaIsAgentRole()?`<div class="aa-public-agent-badge">🎖 Bingo Agent${state.userRole?.territory?" — "+esc(state.userRole.territory):""}${state.userRole?.agent_since?` <span class="aa-public-agent-since">· Agent since ${esc(new Date(state.userRole.agent_since).toLocaleDateString("en-KE",{month:"short",year:"numeric"}))}</span>`:""}</div>`:!own?aaPublicAgentBadgeHTML(sellerKey):""}${aaFollowStatsHTML(sellerKey,true)}${s.location?`<p>${esc(s.location)}</p>`:""}${aaMemberSinceHTML(s)}<p>${esc(s.bio)}</p><small style="color:#f5b91e;font-weight:900">${s.gold?"Gold Member":"Bingo Member"}</small></div></div><div class="boost-summary" style="margin-top:12px"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div><div class="notice">${rs.count} review${rs.count===1?"":"s"}</div></div>${own?"":`<div class="details-actions" style="margin-top:14px"><button class="btn bingo-neon-action bingo-neon-action-purple" onclick="contact('chat',{sellerId:'${esc(sellerKey)}',sellerName:'${esc(s.name)}',sellerGold:${s.gold?"true":"false"},title:'Profile conversation'})">💬 Bingo Chat</button></div>`}${own?`${aaPostTodayHTML()}${aaMyTopicsHTML()}${aaAgentProfilePanelHTML()}${aaHelpSellPendingRequestsHTML()}${aaMyHelpSellListingsHTML()}<div class="aa-room-reward"><b>${gold()?"★ GOLD MEMBER":"Community Gold Progress"}</b><br>Accepted Solution Room answers: ${aaAcceptedSolutionsFor(state.user?.id)}/${aaGoldAcceptedTarget()}. Outstanding Gold Members may qualify for annual Bingo recognition and rewards.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
 <button class="btn btn-gold" style="width:100%" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">Edit My Profile</button>
-<button class="btn" style="width:100%" onclick="openInbox()">✉ Messages${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button>
+<button class="btn" style="width:100%" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button>
 <button class="btn btn-glass" style="width:100%;grid-column:1/-1" type="button" onclick="if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio();">🎥 Record Video</button>
 </div><div class="aa-owner-posts-panel"><div class="aa-owner-posts-head"><h3>My Vehicle Posts</h3><span class="aa-owner-posts-count">${aaOwnActiveListings().length}/15 Active</span></div><div class="aa-owner-posts-note">Your published videos and photos are arranged below. Tap a post to open it, or use × to delete it.</div>${cars.length?`<div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,true)).join("")}</div>`:`<div class="notice">No active vehicle posts.</div>`}</div>${aaOwnerPropertySectionHTML(sellerKey,s.name,true)}${aaOwnerFoodSectionHTML(sellerKey,s.name,true)}<div class="boost-summary"><b>Deleted Items · 30-day recovery</b>${aaTrashHTML()}</div>`:""}<div class="boost-summary"><b>Reviews</b>${reviewList}${state.isLoggedIn?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><label class="form-label">Your rating (optional)</label><select id="profileRating" class="field"><option value="0">No star rating</option><option value="5">★★★★★ 5</option><option value="4">★★★★☆ 4</option><option value="3">★★★☆☆ 3</option><option value="2">★★☆☆☆ 2</option><option value="1">★☆☆☆☆ 1</option></select><label class="form-label" style="margin-top:8px">Your review (optional)</label><textarea id="profileReview" class="field" rows="3" placeholder="${own?"Owner comments are allowed but do not count toward your profile rating.":"Write a review about this profile..."}"></textarea><button class="btn btn-red" style="width:100%;margin-top:8px" onclick='submitProfileReview(${JSON.stringify(sellerKey)})'>Submit Review</button></div>`:`<div class="notice">Sign up / log in to submit a rating or review.</div>`}</div>${own?"":`<div class="section-title" style="margin-top:18px"><h2>More vehicles by ${esc(s.name)}</h2></div><div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,false)).join("")||"<p>No other listings yet.</p>"}</div>${aaOwnerPropertySectionHTML(sellerKey,s.name,false)}${aaOwnerFoodSectionHTML(sellerKey,s.name,false)}`}</div></section>`
 }
@@ -17195,25 +17195,113 @@ function aaMsgConversationDisplayName(conv){
 /* Profile -> Message -> reuse existing eligible conversation, or create
    exactly one. This is the shared entry point: contact('chat', c) below
    now routes here instead of the decorative aa82 overlay. */
+/* Pulls every conversation THIS account is a participant in, straight
+   from Supabase, and merges it into the local cache - the missing half
+   of "one conversation regardless of entry point". Without this, each
+   browser/device only ever knows about conversations it personally
+   created or has already opened once; a conversation the OTHER
+   participant started (or one this same account started on a
+   different device) would never appear here at all. Called on Inbox
+   open and right after a fresh direct conversation is confirmed on
+   Supabase. Local cache stays the fallback when offline/sb is
+   unavailable - never the primary source once Supabase can answer. */
+async function aaMsgFetchConversationsFromSupabase(){
+ if(!sb||!state.user?.id)return;
+ const myId=aaMsgMyId();
+ try{
+  const{data:rows,error}=await sb.from("bingo_conversation_participants")
+   .select("conversation_id,last_read_message_id,archived_at,pinned_at,muted_until,deleted_at,bingo_conversations(id,type,created_by,created_at,updated_at,group_name,group_photo_url)")
+   .eq("user_id",myId);
+  if(error)throw error;
+  if(!Array.isArray(rows)||!rows.length)return;
+  const convIds=rows.map(r=>r.conversation_id).filter(Boolean);
+  const{data:allParticipants,error:pErr}=await sb.from("bingo_conversation_participants").select("conversation_id,user_id").in("conversation_id",convIds);
+  if(pErr)throw pErr;
+  const local=aaMsgConversations();
+  const byId={};local.forEach(c=>{byId[c.id]=c});
+  rows.forEach(r=>{
+   const conv=r.bingo_conversations;
+   if(!conv)return;
+   const participantIds=(allParticipants||[]).filter(p=>String(p.conversation_id)===String(r.conversation_id)).map(p=>String(p.user_id));
+   const existing=byId[conv.id]||{};
+   byId[conv.id]={
+    id:conv.id,type:conv.type,createdBy:conv.created_by,
+    createdAt:conv.created_at,updatedAt:conv.updated_at,
+    groupName:conv.group_name||existing.groupName||"",
+    groupPhoto:conv.group_photo_url||existing.groupPhoto||"",
+    participantIds:participantIds.length?participantIds:(existing.participantIds||[]),
+    participantNames:existing.participantNames||{},
+    participantPhotos:existing.participantPhotos||{}
+   };
+   aaMsgSetMyPState(conv.id,{
+    lastReadMessageId:r.last_read_message_id||undefined,
+    archivedAt:r.archived_at||undefined,
+    pinnedAt:r.pinned_at||undefined,
+    mutedUntil:r.muted_until||undefined,
+    deletedAt:r.deleted_at||undefined
+   });
+  });
+  const merged=Object.values(byId).sort((a,b)=>new Date(b.updatedAt||0)-new Date(a.updatedAt||0));
+  aaMsgSaveConversations(merged);
+ }catch(e){console.warn("Bingo: could not sync conversations from Supabase - showing local/cached conversations only.",String(e?.message||e))}
+}
 async function aaMsgFindOrCreateDirect(otherUserId,otherUserName,otherUserPhoto){
  if(!state.isLoggedIn||!state.user?.id){openAuth("login");return null}
  otherUserId=String(otherUserId||"");
  if(!otherUserId){toast("This member cannot be messaged.");return null}
  if(otherUserId===aaMsgMyId()){toast("You cannot message yourself.");return null}
  if(aaMsgIsBlockedBy(otherUserId)){toast("You cannot message this account.");return null}
- const existing=aaMsgConversations().find(c=>c.type==="direct"&&c.participantIds.includes(otherUserId)&&c.participantIds.includes(aaMsgMyId()));
- if(existing)return existing.id;
- const id="conv_"+Date.now()+"_"+Math.random().toString(36).slice(2,8);
- const conv={id,type:"direct",createdBy:aaMsgMyId(),createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
-  participantIds:[aaMsgMyId(),otherUserId],
-  participantNames:{[aaMsgMyId()]:aaOwnProfileName?aaOwnProfileName():"Me",[otherUserId]:otherUserName||"Bingo Member"},
-  participantPhotos:{[otherUserId]:otherUserPhoto||""}};
- const list=aaMsgConversations();list.unshift(conv);aaMsgSaveConversations(list);
+ const myId=aaMsgMyId();
+ // Fast path: this device already knows about the conversation.
+ const cached=aaMsgConversations().find(c=>c.type==="direct"&&c.participantIds.includes(otherUserId)&&c.participantIds.includes(myId));
+ if(cached)return cached.id;
+ /* Ask Supabase directly before creating anything - the fast path above
+    only ever reflects what THIS browser has already seen, which is
+    exactly the bug being fixed here: opening Chat from Mary's profile,
+    then again from a listing of hers, or from a different device,
+    must resolve to the SAME conversation, and Mary herself must be
+    able to find it too, without ever depending on which device/page
+    first created it. */
  if(sb){
-  sb.from("bingo_conversations").insert({id,type:"direct",created_by:aaMsgMyId()}).then(()=>{
-   sb.from("bingo_conversation_participants").insert([{conversation_id:id,user_id:aaMsgMyId()},{conversation_id:id,user_id:otherUserId}]).then(()=>{},()=>{});
-  },()=>{});
+  try{
+   const{data:mine,error:mineErr}=await sb.from("bingo_conversation_participants").select("conversation_id").eq("user_id",myId);
+   if(mineErr)throw mineErr;
+   const myConvIds=(mine||[]).map(r=>r.conversation_id).filter(Boolean);
+   if(myConvIds.length){
+    const{data:theirs,error:theirErr}=await sb.from("bingo_conversation_participants").select("conversation_id").eq("user_id",otherUserId).in("conversation_id",myConvIds);
+    if(theirErr)throw theirErr;
+    const sharedId=(theirs||[])[0]?.conversation_id;
+    if(sharedId){
+     const{data:convRow}=await sb.from("bingo_conversations").select("id").eq("id",sharedId).eq("type","direct").maybeSingle();
+     if(convRow?.id){
+      await aaMsgFetchConversationsFromSupabase();
+      return convRow.id;
+     }
+    }
+   }
+  }catch(e){console.warn("Bingo: could not check Supabase for an existing conversation - falling back to local state for this attempt.",String(e?.message||e))}
  }
+ /* No existing conversation anywhere - create exactly one. A real uuid
+    is required once Supabase is involved (bingo_conversations.id is a
+    uuid column); the previous "conv_<timestamp>_<random>" id was never
+    valid there, so every Supabase-side create silently failed and this
+    system was 100% localStorage-only in practice regardless of intent. */
+ const id=(sb&&typeof crypto!=="undefined"&&crypto.randomUUID)?crypto.randomUUID():"conv_"+Date.now()+"_"+Math.random().toString(36).slice(2,8);
+ const conv={id,type:"direct",createdBy:myId,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),
+  participantIds:[myId,otherUserId],
+  participantNames:{[myId]:aaOwnProfileName?aaOwnProfileName():"Me",[otherUserId]:otherUserName||"Bingo Member"},
+  participantPhotos:{[otherUserId]:otherUserPhoto||""}};
+ if(sb){
+  try{
+   const{error:convErr}=await sb.from("bingo_conversations").insert({id,type:"direct",created_by:myId});
+   if(convErr)throw convErr;
+   const{error:partErr}=await sb.from("bingo_conversation_participants").insert([{conversation_id:id,user_id:myId},{conversation_id:id,user_id:otherUserId}]);
+   if(partErr)throw partErr;
+  }catch(e){
+   console.warn("Bingo: could not create this conversation on Supabase - saved locally only for now; the other member will not see it in their Inbox until this succeeds.",String(e?.message||e));
+  }
+ }
+ const list=aaMsgConversations();list.unshift(conv);aaMsgSaveConversations(list);
  return id;
 }
 async function aaMsgOpenConversationWith(otherUserId,otherUserName,otherUserPhoto){
@@ -17224,6 +17312,7 @@ async function aaMsgOpenConversationWith(otherUserId,otherUserName,otherUserPhot
 function aaMsgOpenInbox(){
  if(!state.isLoggedIn){openAuth("login");return}
  aaRememberPage();
+ if(sb)aaMsgFetchConversationsFromSupabase().then(()=>render());
  state.view="inbox";
  state.msgActiveConversationId=null;
  render();
