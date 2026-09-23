@@ -3722,8 +3722,34 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .aa-food-field-full{grid-column:1/-1}
 #auto-arcade-widget .aa-food-req{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:#fb3058}
 #auto-arcade-widget .aa-food-opt{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#7c8aa0}
-#auto-arcade-widget .aa-food-record-btn{width:100%;margin-top:10px}
+#auto-arcade-widget .aa-food-record-btn{width:auto;margin-top:10px}
 #auto-arcade-widget .aa-food-section-submit{text-align:left}
+#auto-arcade-widget .aa-food-cuisine-grid{display:flex;flex-wrap:wrap;gap:6px}
+#auto-arcade-widget .aa-food-cuisine-chip{
+  display:inline-flex!important;align-items:center;gap:5px;width:auto!important;
+  padding:6px 11px!important;border-radius:999px!important;cursor:pointer;
+  font-size:10.5px;font-weight:700;color:#cbd5e1;
+  border:1.5px solid rgba(120,150,200,.28)!important;
+  background:linear-gradient(160deg,#0d1b32,#081120)!important;
+  box-shadow:none!important;transition:.15s;
+}
+#auto-arcade-widget .aa-food-cuisine-chip input{accent-color:#22c9ff;width:12px;height:12px;margin:0}
+#auto-arcade-widget .aa-food-cuisine-chip.is-checked{
+  border-color:rgba(34,201,255,.65)!important;color:#e7edf6;
+  box-shadow:0 0 8px rgba(34,201,255,.28)!important;
+}
+#auto-arcade-widget .aa-food-section-title .aa-food-section-done{color:#1fd67a;font-size:11px;margin-left:6px}
+#auto-arcade-widget .aa-food-basket-bar{
+  all:unset;box-sizing:border-box;position:sticky;bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  width:100%;margin-top:14px;padding:12px 16px;border-radius:14px;cursor:pointer;
+  background:linear-gradient(160deg,#2a0d3a,#150620);border:1.5px solid rgba(255,47,176,.55);
+  box-shadow:0 0 14px rgba(255,47,176,.28),0 8px 20px rgba(0,0,0,.4);color:#fff;font-size:12px;font-weight:800;
+}
+#auto-arcade-widget .aa-food-basket-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid rgba(120,150,200,.14);font-size:12px}
+#auto-arcade-widget .aa-food-basket-qty{display:flex;align-items:center;gap:8px}
+#auto-arcade-widget .aa-food-basket-qty .btn{padding:4px 10px!important;font-size:13px!important;width:auto!important}
+#auto-arcade-widget .aa-food-basket-qty span{min-width:16px;text-align:center;font-weight:900}
+#auto-arcade-widget .aa-food-basket-total{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1.5px solid rgba(120,150,200,.25);font-size:14px;font-weight:900;color:#f3be2b}
 @media(max-width:640px){
   #auto-arcade-widget .aa-food-grid-2{grid-template-columns:1fr}
   #auto-arcade-widget .aa-food-field-full{grid-column:auto}
@@ -10289,7 +10315,7 @@ function aaFoodMedia(p){return Array.isArray(p?.media)?p.media:[]}
 function aaRemainingDays(exp){if(!exp)return 0;return Math.max(0,Math.ceil((new Date(exp).getTime()-Date.now())/86400000))}
 function aaFoodActive(f){return aaRemainingDays(f?.subscription_expires_at)>0&&String(f?.status||'').toLowerCase()!=='suspended'}
 function aaOpenProperties(tab='browse'){if(tab==='post'&&!aaRequireMember({action:'post',mode:'register',destination:'/post-property'}))return;aaRememberPage();state.propertyTab=tab;state.view='properties';if(tab==='stays'&&!state.stayView)state.stayView='landing';aaLoadProperties();render();window.scrollTo(0,0)}
-function aaOpenFood(tab='browse'){toast('Food is being rebuilt — check back soon.');goHome();}
+function aaOpenFood(tab='browse'){if(tab==='post'&&!aaRequireMember({action:'post',mode:'register',destination:'/post-food'}))return;aaRememberPage();state.foodTab=tab;state.view='food';aaLoadFoods();render();window.scrollTo(0,0)}
 function aaMediaPreviewHTML(media,businessId){
  return (media||[]).map((m,i)=>{
   const isVideo=m.type==='video';
@@ -11164,6 +11190,53 @@ function aaOwnerPropertySectionHTML(ownerId,ownerName,isOwner){
  const heading=isOwner?"My Properties &amp; Stays":`Properties &amp; Stays by ${esc(ownerName||"this member")}`;
  return `<div class="aa-owner-posts-panel" style="margin-top:14px"><div class="aa-owner-posts-head"><h3>${heading}</h3>${listings.length?`<span class="aa-owner-posts-count">${listings.length} listing${listings.length===1?"":"s"}</span>`:""}</div>${listings.length?listings.map(p=>aaProfilePropertyCardHTML(p)).join(""):`<div class="notice">${isOwner?"You have not posted a property or Bingo Stay yet.":"This member has not posted a property or Bingo Stay yet."}</div>`}</div>`;
 }
+/* ===== Food businesses on the owner's profile =====
+   Mirrors aaOwnerPropertySectionHTML/aaProfilePropertyCardHTML exactly -
+   same one-record-everywhere principle: no duplicate post, the same
+   aaFoods() row already shown on the Food Feed/business profile is
+   rendered here too via aaOpenFoodBusinessProfile, not a second card
+   design or a copy of the business data. */
+function aaOwnerFoodListings(ownerId){
+ const uid=String(ownerId||"");
+ if(!uid)return [];
+ return aaFoods().filter(x=>String(x.user_id||"")===uid);
+}
+function aaProfileFoodCardHTML(f){
+ const ownerId=String(f.user_id||"");
+ const ownerMeta=typeof aaResolveMemberMeta==="function"?aaResolveMemberMeta(ownerId,""):null;
+ const ownerUnavailable=!!(ownerMeta&&ownerMeta.unavailable);
+ const ownerName=ownerMeta?aaMemberDisplayName(ownerMeta):"Bingo Member";
+ const ownerPhoto=(ownerMeta&&ownerMeta.photo)||"";
+ const own=state.isLoggedIn&&ownerId===String(state.user?.id||"");
+ const openCall=`aaOpenFoodBusinessProfile(${JSON.stringify(String(f.id))})`;
+ const locLine=[f.town,f.county].filter(Boolean).map(esc).join(', ');
+ return `<div class="aa-post-card" id="food-card-${esc(f.id)}" style="margin-top:12px">
+  <div class="aa-post-head">
+   <img class="aa-post-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(ownerPhoto))}" alt="" onerror="aaProfileImgFallback(this)" ${ownerUnavailable?'':`onclick='event.stopPropagation();openSeller(${JSON.stringify(ownerId)})' style="cursor:pointer"`}>
+   <div style="flex:1;min-width:0">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b style="font-size:12px;color:#a9b6c9;${ownerUnavailable?'':'cursor:pointer'}" ${ownerUnavailable?'':`onclick='event.stopPropagation();openSeller(${JSON.stringify(ownerId)})'`}>${esc(ownerName)}</b>${ownerMeta&&ownerMeta.verified?`<span class="aa-post-verified">✓</span>`:""}</div>
+    <div class="meta">${locLine?`📍 ${locLine}`:""}</div>
+   </div>
+  </div>
+  ${aaListingMediaGalleryHTML(String(f.id),f.media,f.business_name)}
+  <div class="aa-post-content" style="margin-top:10px">
+   <div class="aa-post-title" style="font-size:16px;font-weight:900;color:#f5b91e;cursor:pointer" onclick='${openCall}'>${esc(f.business_name)}</div>
+   ${f.category?`<div class="meta" style="margin-top:4px">${esc(f.category)}</div>`:""}
+   ${f.description?`<div class="desc" style="margin-top:8px">${esc(f.description)}</div>`:""}
+  </div>
+  <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:10px">
+   <button class="btn btn-publish" type="button" onclick='event.stopPropagation();${openCall}'>View Restaurant</button>
+   <button class="btn btn-glass" type="button" onclick='event.stopPropagation();state.shareTarget={id:${JSON.stringify(String(f.id))},title:${JSON.stringify(f.business_name||"")}};render()'>Share</button>
+   <button class="btn ${isFav(f.id)?"btn-gold fav-on":"btn-glass"}" type="button" onclick='event.stopPropagation();toggleFav(${JSON.stringify(String(f.id))})'>${isFav(f.id)?"★ Saved":"☆ Save"}</button>
+   ${own?`<button class="btn btn-glass" type="button" onclick="event.stopPropagation();aaEditFoodBusiness('${esc(f.id)}')">✎ Edit</button><button class="btn btn-danger" type="button" onclick="event.stopPropagation();aaDeleteFoodBusiness('${esc(f.id)}')">Delete</button>`:""}
+  </div>
+ </div>`;
+}
+function aaOwnerFoodSectionHTML(ownerId,ownerName,isOwner){
+ const listings=aaOwnerFoodListings(ownerId);
+ const heading=isOwner?"My Food Businesses":`Food Businesses by ${esc(ownerName||"this member")}`;
+ return `<div class="aa-owner-posts-panel" style="margin-top:14px"><div class="aa-owner-posts-head"><h3>${heading}</h3>${listings.length?`<span class="aa-owner-posts-count">${listings.length} listing${listings.length===1?"":"s"}</span>`:""}</div>${listings.length?listings.map(f=>aaProfileFoodCardHTML(f)).join(""):`<div class="notice">${isOwner?"You have not posted a food business yet.":"This member has not posted a food business yet."}</div>`}</div>`;
+}
 function openPropertyDetail(id){
  const p=aaProperties().find(x=>String(x.id)===String(id));
  if(!p){toast('This listing could not be found.');return}
@@ -11269,7 +11342,7 @@ async function aaDeleteProperty(id){
  }
  aaOpenProperties('mine');
 }
-function aaFoodHTML(){const tab=state.foodTab||'browse', all=aaFoods(), visible=all.filter(aaFoodActive);return `<section style="padding:18px 0 105px"><h2>Food & Home Delivery</h2><p class="notice">Restaurants and food businesses use a paid monthly advertising subscription. KES 1,000 per 30 days via M-Pesa. The counter runs from 30 days down to 0.</p><div class="aa-v69-tabs"><button class="btn ${tab==='browse'?'btn-red':''}" onclick="aaOpenFood('browse')">Browse Food</button><button class="btn ${tab==='post'?'btn-red':''}" onclick="aaOpenFood('post')">Post Food Business</button><button class="btn ${tab==='mine'?'btn-red':''}" onclick="aaOpenFood('mine')">My Food Business</button></div>${tab==='post'?aaFoodPostHTML():tab==='mine'?aaFoodMineHTML(all.filter(x=>String(x.user_id||'')===String(state.user?.id||'')||x.local_owner)):aaFoodListHTML(visible)}</section>`}
+function aaFoodHTML(){const tab=state.foodTab||'browse', all=aaFoods(), visible=all.filter(aaFoodActive);return `<section style="padding:18px 0 105px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 style="margin:0">Food</h2><div class="aa-v69-tabs aa-content-fit-row-wrap"><button class="btn ${tab==='browse'?'btn-cyan':'btn-glass'}" onclick="aaOpenFood('browse')">Feed</button><button class="btn ${tab==='post'?'btn-publish':'btn-glass'}" onclick="aaOpenFood('post')">+ Post Business</button><button class="btn ${tab==='mine'?'btn-gold':'btn-glass'}" onclick="aaOpenFood('mine')">My Business</button><button class="btn ${tab==='orders'?'btn-cyan':'btn-glass'}" onclick="aaLoadFoodOrders().then(render);aaOpenFood('orders')">My Orders</button></div></div>${tab==='browse'?'<p class="notice" style="margin-top:8px">Restaurants and food businesses run on a paid monthly advertising subscription (KES 1,000 / 30 days via M-Pesa).</p>':''}${tab==='post'?aaFoodPostHTML():tab==='mine'?aaFoodMineHTML(all.filter(x=>String(x.user_id||'')===String(state.user?.id||'')||x.local_owner)):tab==='orders'?aaFoodMyOrdersHTML():aaFoodListHTML(visible)}</section>`}
 function aaFoodPostHTML(){
  const editItem=state.foodEditId?aaFoods().find(x=>String(x.id)===String(state.foodEditId)):null;
  const d=editItem||{};
@@ -11280,20 +11353,23 @@ function aaFoodPostHTML(){
  }
  const busy=!!state.foodPublishBusy;
  const mediaCount=aaMediaDraftGet('food').items.length;
- return `<div class="aa-v69-card aa-food-form"><h3>${editItem?'Edit Food Business':'Create Food Business Listing'}</h3><form onsubmit="aaSubmitFood(event)">
+ const sectionDone=ok=>ok?'<span class="aa-food-section-done">✓ Done</span>':'';
+ return `<div class="aa-v69-card aa-food-form"><h3>${editItem?'Edit Food Business':'Create Food Business Listing'}</h3><form onsubmit="aaSubmitFood(event)" oninput="aaFoodSectionCheck(event)" onchange="aaFoodSectionCheck(event)">
 
   <div class="aa-food-section">
-   <div class="aa-food-section-title">1. Business Identity</div>
+   <div class="aa-food-section-title" id="aaFoodSec1">1. Business Identity${sectionDone(!!d.business_name)}</div>
    <div class="aa-food-grid-2">
-    <label class="aa-food-field"><span>Business Name <i class="aa-food-req">Required</i></span><input class="field" required name="business_name" value="${esc(d.business_name||'')}" placeholder="e.g. Mama Njeri's Kitchen"></label>
-    <label class="aa-food-field"><span>Category <i class="aa-food-opt">Optional</i></span><select class="field" name="category">${AA_FOOD_TYPES.map(x=>`<option ${d.category===x?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
+    <label class="aa-food-field aa-food-field-full"><span>Business Name <i class="aa-food-req">Required</i></span><input class="field" required name="business_name" value="${esc(d.business_name||'')}" placeholder="e.g. Mama Njeri's Kitchen"></label>
+    <label class="aa-food-field aa-food-field-full"><span>Cuisines / Delicacies <i class="aa-food-opt">Optional — choose all that apply</i></span>
+     <div class="aa-food-cuisine-grid">${AA_FOOD_TYPES.map(x=>{const checked=String(d.category||'').split(',').map(s=>s.trim()).includes(x);return `<label class="aa-food-cuisine-chip${checked?' is-checked':''}"><input type="checkbox" name="category" value="${esc(x)}" ${checked?'checked':''} onchange="this.closest('label').classList.toggle('is-checked',this.checked)">${esc(x)}</label>`}).join('')}</div>
+    </label>
    </div>
   </div>
 
   <div class="aa-food-section">
-   <div class="aa-food-section-title">2. Location &amp; Delivery</div>
+   <div class="aa-food-section-title" id="aaFoodSec2">2. Location &amp; Delivery${sectionDone(!!(d.county&&d.town&&d.delivery_area))}</div>
    <div class="aa-food-grid-2">
-    <label class="aa-food-field"><span>County <i class="aa-food-req">Required</i></span><input class="field" required name="county" value="${esc(d.county||'')}"></label>
+    <label class="aa-food-field"><span>County <i class="aa-food-req">Required</i></span><select class="field" required name="county"><option value="" ${d.county?'':'selected'} disabled>Choose county</option>${kenyaCounties.map(c=>`<option ${d.county===c?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
     <label class="aa-food-field"><span>Town / Area <i class="aa-food-req">Required</i></span><input class="field" required name="town" value="${esc(d.town||'')}"></label>
     <label class="aa-food-field aa-food-field-full"><span>Delivery Area <i class="aa-food-req">Required</i></span><input class="field" required name="delivery_area" placeholder="Nyali, Bamburi, Mombasa CBD" value="${esc(d.delivery_area||'')}"></label>
     <label class="aa-food-field"><span>Home Delivery <i class="aa-food-opt">Optional</i></span><select class="field" name="delivery_available"><option value="yes" ${d.delivery_available?'selected':''}>Yes</option><option value="no" ${d.delivery_available===false?'selected':''}>No</option></select></label>
@@ -11301,7 +11377,7 @@ function aaFoodPostHTML(){
   </div>
 
   <div class="aa-food-section">
-   <div class="aa-food-section-title">3. Contact Information</div>
+   <div class="aa-food-section-title" id="aaFoodSec3">3. Contact Information${sectionDone(!!d.phone)}</div>
    <div class="aa-food-grid-2">
     <label class="aa-food-field"><span>Phone <i class="aa-food-req">Required</i></span><input class="field" required name="phone" type="tel" value="${esc(d.phone||'')}"></label>
     <label class="aa-food-field"><span>WhatsApp <i class="aa-food-opt">Optional</i></span><input class="field" name="whatsapp" type="tel" value="${esc(d.whatsapp||'')}"></label>
@@ -11317,7 +11393,7 @@ function aaFoodPostHTML(){
   </div>
 
   <div class="aa-food-section">
-   <div class="aa-food-section-title">5. Description</div>
+   <div class="aa-food-section-title" id="aaFoodSec5">5. Description${sectionDone(!!d.description)}</div>
    <label class="aa-food-field aa-food-field-full"><span>Tell customers about this business <i class="aa-food-req">Required</i></span><textarea class="field" required name="description" rows="4" placeholder="Describe your food, specialties and what makes this business special">${esc(d.description||'')}</textarea></label>
   </div>
 
@@ -11339,10 +11415,24 @@ function aaFoodPostHTML(){
   <div class="aa-food-section aa-food-section-submit">
    <div class="aa-food-section-title">7. Preview &amp; Submission</div>
    <p class="notice">Review your details above before saving. Required fields are marked - everything else is optional but helps customers trust your business.</p>
-   <div class="details-actions aa-content-fit-row" style="margin-top:10px">${editItem?`<button class="btn" type="button" ${busy?'disabled':''} onclick="aaCancelFoodEdit()">Cancel</button>`:''}<button class="btn btn-red" type="submit" ${busy?'disabled':''} aria-busy="${busy?'true':'false'}">${busy?(state.foodPublishProgress||'Publishing…'):(editItem?'Save Changes':'Save Business')}</button></div>
+   <div class="details-actions aa-content-fit-row" style="margin-top:10px">${editItem?`<button class="btn btn-glass" type="button" ${busy?'disabled':''} onclick="aaCancelFoodEdit()">Cancel</button>`:''}<button class="btn btn-publish" type="submit" ${busy?'disabled':''} aria-busy="${busy?'true':'false'}">${busy?(state.foodPublishProgress||'Publishing…'):(editItem?'Save Changes':'Save Business')}</button></div>
   </div>
 
  </form></div>`;
+}
+function aaFoodSectionCheck(e){
+ const form=e.target&&e.target.closest?e.target.closest('form'):null;if(!form)return;
+ const val=n=>{const el=form.elements[n];return el?String(el.value||'').trim():''};
+ [['aaFoodSec1',()=>!!val('business_name')],
+  ['aaFoodSec2',()=>!!(val('county')&&val('town')&&val('delivery_area'))],
+  ['aaFoodSec3',()=>!!val('phone')],
+  ['aaFoodSec5',()=>!!val('description')]
+ ].forEach(([id,test])=>{
+  const head=document.getElementById(id);if(!head)return;
+  const ok=test(),mark=head.querySelector('.aa-food-section-done');
+  if(ok&&!mark)head.insertAdjacentHTML('beforeend','<span class="aa-food-section-done">✓ Done</span>');
+  else if(!ok&&mark)mark.remove();
+ });
 }
 async function aaEditFoodBusiness(id){
  const item=aaFoods().find(x=>String(x.id)===String(id));
@@ -11368,7 +11458,7 @@ async function aaSubmitFood(e){
  render();
  try{
   const basePayload={
-   business_name:fd.get('business_name')||'',category:fd.get('category')||'',
+   business_name:fd.get('business_name')||'',category:fd.getAll('category').join(', ')||'',
    county:fd.get('county')||'',town:fd.get('town')||'',delivery_area:fd.get('delivery_area')||'',
    phone:fd.get('phone')||'',whatsapp:fd.get('whatsapp')||'',opening_hours:fd.get('opening_hours')||'',
    price_range:fd.get('price_range')||'',delivery_available:fd.get('delivery_available')==='yes',
@@ -12180,23 +12270,26 @@ function aaFoodItemFormHTML(){
   <div id="bingo-food-menu-editor-mount"></div>
  </div>`;
 }
-function aaFoodMenuItemCardHTML(it){
+function aaFoodMenuItemCardHTML(it,own){
  const media=it.media?.[0];
  const tags=Array.isArray(it.dietary_tags)?it.dietary_tags:[];
- return `<button type="button" class="aa-food-menu-card" onclick="aaOpenFoodItemDetail('${esc(it.id)}')">
+ return `<div class="aa-food-menu-card">
+  <button type="button" style="all:unset;display:block;width:100%;cursor:pointer" onclick="aaOpenFoodItemDetail('${esc(it.id)}')">
   <div class="aa-food-menu-card-media">
    ${media?(media.type==='video'?`<video src="${bingoSafeMediaAttr(media.url)}" muted playsinline preload="metadata"></video><span class="aa-media-play">▶</span>`:`<img src="${bingoSafeMediaAttr(media.url)}" alt="">`):''}
    ${it.status==='draft'?'<span class="badge badge-gold" style="position:absolute;top:6px;left:6px">DRAFT</span>':''}
    ${!it.available?'<span class="badge badge-red" style="position:absolute;top:6px;right:6px">UNAVAILABLE</span>':''}
   </div>
-  <div style="padding:8px">
+  <div style="padding:8px 8px 0">
    <b style="font-size:12px;display:block">${esc(it.name)}</b>
    ${it.category?`<div class="meta" style="font-size:9px">${esc(it.category)}</div>`:''}
    <div class="meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.description)}</div>
    <div class="price" style="margin-top:6px;font-size:12px">KSh ${money(it.price_kes)}</div>
    ${tags.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${tags.map(t=>`<span class="badge">${esc(t)}</span>`).join('')}</div>`:''}
   </div>
- </button>`;
+  </button>
+  ${!own&&it.available!==false?`<button type="button" class="btn btn-publish" style="width:calc(100% - 16px);margin:8px" onclick='aaFoodBasketAdd("${esc(it.business_id)}",${JSON.stringify({id:it.id,name:it.name,price_kes:it.price_kes,available:it.available})})'>+ Add to Order</button>`:''}
+ </div>`;
 }
 function aaFoodMenuHTML(){
  const businessId=state.foodMenuBusinessId;
@@ -12209,8 +12302,10 @@ function aaFoodMenuHTML(){
    <div><h3 style="margin:0">${esc(biz.business_name)}</h3><div class="meta">${own?'Add food to your menu':'Restaurant menu'}</div></div>
   </div></div>
   <button class="btn" style="margin:10px 0" onclick="aaCloseFoodMenu()">← Back to ${own?'My Food Business':'Browse Food'}</button>
-  ${own?`<button class="btn btn-red" style="width:100%;margin-bottom:12px" onclick="aaOpenFoodItemForm('${esc(businessId)}')">+ Add Food Item</button>`:''}
-  ${!items.length?`<div class="aa-v69-card"><p>${own?'No food items yet. Tap + Add Food Item to start.':'This restaurant has not published any menu items yet.'}</p></div>`:`<div class="aa-food-menu-grid">${items.map(it=>aaFoodMenuItemCardHTML(it)).join('')}</div>`}`;
+  ${own?`<div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-bottom:12px"><button class="btn btn-publish" onclick="aaOpenFoodItemForm('${esc(businessId)}')">+ Add Food Item</button><button class="btn btn-glass" onclick="aaLoadFoodOrders().then(render);state.foodOrdersOpenFor='${esc(businessId)}';render()">📋 Incoming Orders</button></div>`:''}
+  ${own&&state.foodOrdersOpenFor===String(businessId)?aaFoodBusinessOrdersHTML(businessId):''}
+  ${!items.length?`<div class="aa-v69-card"><p>${own?'No food items yet. Tap + Add Food Item to start.':'This restaurant has not published any menu items yet.'}</p></div>`:`<div class="aa-food-menu-grid">${items.map(it=>aaFoodMenuItemCardHTML({...it,business_id:businessId},own)).join('')}</div>`}
+  ${!own?aaFoodBasketBarHTML():''}`;
 }
 function aaFoodItemDetailHTML(){
  const businessId=state.foodMenuBusinessId;
@@ -12231,8 +12326,147 @@ function aaFoodItemDetailHTML(){
   <div class="meta">${it.category?esc(it.category)+' · ':''}${it.preparation_type==='made_to_order'?'Made to Order':'Ready Made'} · ${it.available?'Available':'Unavailable'}${it.status==='draft'?' · Draft (not public yet)':''}</div>
   ${it.delivery_option?`<div class="meta" style="margin-top:4px">${esc(it.delivery_option)}</div>`:''}
   ${Array.isArray(it.dietary_tags)&&it.dietary_tags.length?`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px">${it.dietary_tags.map(t=>`<span class="badge">${esc(t)}</span>`).join('')}</div>`:''}
-  ${own?`<div class="details-actions aa-content-fit-row" style="margin-top:12px"><button class="btn" onclick="aaOpenFoodItemForm('${esc(businessId)}','${esc(it.id)}')">Edit</button><button class="btn btn-red" onclick="aaDeleteFoodMenuItem('${esc(it.id)}')">Delete</button></div>`:''}
+  ${own?`<div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:12px"><button class="btn btn-glass" onclick="aaOpenFoodItemForm('${esc(businessId)}','${esc(it.id)}')">Edit</button><button class="btn btn-danger" onclick="aaDeleteFoodMenuItem('${esc(it.id)}')">Delete</button></div>`:it.available!==false?`<button type="button" class="btn btn-publish" style="width:100%;margin-top:12px" onclick='aaFoodBasketAdd("${esc(businessId)}",${JSON.stringify({id:it.id,name:it.name,price_kes:it.price_kes,available:it.available})})'>+ Add to Order</button>`:''}
  </div>`;
+}
+/* ---- Food Order / Basket (new — no existing backend for this) ----
+   Reuses the same testMode/aa_v69-localStorage-then-real-Supabase
+   pattern as every other business type in this file (see
+   aaSubmitFood above). Table public.food_orders is drafted in
+   supabase/bingo_change_food_orders.sql but NOT applied - awaiting
+   separate approval, same as every other SQL change in this session. */
+const AA_FOOD_ORDER_STATUSES=[["placed","Placed"],["ongoing","Ongoing"],["finished","Finished / Packed"],["dispatched","Dispatched"]];
+function aaFoodOrderStatusLabel(s){return (AA_FOOD_ORDER_STATUSES.find(x=>x[0]===s)||AA_FOOD_ORDER_STATUSES[0])[1]}
+function aaFoodBasketGet(){return state.foodBasket||(state.foodBasket={businessId:'',items:{}})}
+function aaFoodBasketAdd(businessId,item){
+ if(!item||item.available===false){toast('This item is currently unavailable.');return}
+ const b=aaFoodBasketGet();
+ if(b.businessId&&b.businessId!==String(businessId)&&Object.keys(b.items).length){
+  if(!confirm('Your order is from a different restaurant. Start a new order and clear the current one?'))return;
+  b.items={};
+ }
+ b.businessId=String(businessId);
+ b.items[item.id]=(b.items[item.id]||0)+1;
+ save();render();
+ toast(`${item.name} added to your order.`);
+}
+function aaFoodBasketQty(itemId,delta){
+ const b=aaFoodBasketGet();
+ const next=(b.items[itemId]||0)+delta;
+ if(next<=0)delete b.items[itemId];else b.items[itemId]=next;
+ save();render();
+}
+function aaFoodBasketCount(){const b=aaFoodBasketGet();return Object.values(b.items).reduce((s,n)=>s+n,0)}
+function aaFoodBasketTotal(){
+ const b=aaFoodBasketGet();
+ const items=aaFoodMenuItems(b.businessId);
+ return Object.entries(b.items).reduce((sum,[id,qty])=>{const it=items.find(x=>String(x.id)===id);return sum+(it?Number(it.price_kes||0)*qty:0)},0);
+}
+function aaOpenFoodBasket(){
+ if(!aaFoodBasketCount()){toast('Your order is empty. Add a food item first.');return}
+ state.foodBasketOpen=true;render();
+}
+function aaCloseFoodBasket(){state.foodBasketOpen=false;render()}
+function aaFoodBasketBarHTML(){
+ if(!aaFoodBasketCount())return '';
+ return `<button type="button" class="aa-food-basket-bar" onclick="aaOpenFoodBasket()"><span>🛒 ${aaFoodBasketCount()} item${aaFoodBasketCount()===1?'':'s'}</span><b>KSh ${money(aaFoodBasketTotal())}</b><span>Review Order →</span></button>`;
+}
+function aaFoodBasketHTML(){
+ if(!state.foodBasketOpen)return '';
+ const b=aaFoodBasketGet();
+ const biz=aaFoods().find(x=>String(x.id)===String(b.businessId));
+ const items=aaFoodMenuItems(b.businessId);
+ const rows=Object.entries(b.items).map(([id,qty])=>{const it=items.find(x=>String(x.id)===id);if(!it)return '';return `<div class="aa-food-basket-row"><div><b>${esc(it.name)}</b><div class="meta">KSh ${money(it.price_kes)} each</div></div><div class="aa-food-basket-qty"><button type="button" class="btn btn-glass" onclick="aaFoodBasketQty('${esc(id)}',-1)">−</button><span>${qty}</span><button type="button" class="btn btn-glass" onclick="aaFoodBasketQty('${esc(id)}',1)">+</button></div></div>`}).join('');
+ const busy=!!state.foodOrderBusy;
+ return `<div class="overlay"><div class="modal">
+  <button class="close" onclick="aaCloseFoodBasket()">×</button>
+  <h2>Review Order</h2>
+  <div class="meta">${esc(biz?.business_name||'')}</div>
+  <div style="margin-top:10px">${rows||'<p class="notice">Your order is empty.</p>'}</div>
+  <div class="aa-food-basket-total"><span>Total</span><b>KSh ${money(aaFoodBasketTotal())}</b></div>
+  <label class="form-label" style="margin-top:10px">Delivery / pickup notes (optional)</label>
+  <textarea class="field" id="aaFoodOrderNote" rows="2" placeholder="Apartment, landmark, pickup time...">${esc(state.foodOrderNote||'')}</textarea>
+  <button class="btn btn-publish" style="width:100%;margin-top:12px" ${busy?'disabled':''} onclick="aaSubmitFoodOrder()">${busy?'Placing order…':'Place Order'}</button>
+ </div></div>`;
+}
+async function aaSubmitFoodOrder(){
+ if(!aaRequireMember({action:'food_order',mode:'register'}))return;
+ const b=aaFoodBasketGet();
+ if(!Object.keys(b.items).length){toast('Your order is empty.');return}
+ const biz=aaFoods().find(x=>String(x.id)===String(b.businessId));
+ if(!biz){toast('This restaurant could not be found.');return}
+ const items=aaFoodMenuItems(b.businessId);
+ const lineItems=Object.entries(b.items).map(([id,qty])=>{const it=items.find(x=>String(x.id)===id);return {item_id:id,name:it?.name||'Item',price_kes:Number(it?.price_kes||0),qty}});
+ const note=document.getElementById('aaFoodOrderNote')?.value||'';
+ const total=aaFoodBasketTotal();
+ state.foodOrderBusy=true;render();
+ const order={id:'order_'+Date.now(),business_id:b.businessId,business_name:biz.business_name,customer_id:state.user?.id||'',customer_name:(typeof aaOwnProfileName==='function'?aaOwnProfileName():'')||state.user?.firstName||'Bingo Member',items:lineItems,total_kes:total,note,status:'placed',created_at:new Date().toISOString()};
+ if(state.testMode||!sb){
+  const list=aaV69Read('aa_v69_food_orders',[]);
+  list.unshift(order);
+  aaV69Write('aa_v69_food_orders',list);
+ }else{
+  try{
+   const {error}=await sb.from('food_orders').insert({business_id:b.businessId,customer_id:state.user.id,items:lineItems,total_kes:total,note,status:'placed'});
+   if(error)throw error;
+   await aaLoadFoodOrders();
+  }catch(e){
+   toast('Could not place the order online yet — saved locally instead: '+String(e?.message||e));
+   const list=aaV69Read('aa_v69_food_orders',[]);
+   list.unshift(order);
+   aaV69Write('aa_v69_food_orders',list);
+  }
+ }
+ state.foodOrderBusy=false;
+ state.foodBasket={businessId:'',items:{}};
+ state.foodOrderNote='';
+ state.foodBasketOpen=false;
+ save();render();
+ toast('Order placed! Track it from My Food Orders.');
+}
+async function aaLoadFoodOrders(){
+ if(!sb||state.testMode||!state.user?.id)return;
+ try{
+  const ownedIds=aaFoods().filter(x=>String(x.user_id||'')===String(state.user.id)).map(x=>x.id);
+  const orClauses=['customer_id.eq.'+state.user.id];
+  if(ownedIds.length)orClauses.push('business_id.in.('+ownedIds.join(',')+')');
+  const {data,error}=await sb.from('food_orders').select('*').or(orClauses.join(',')).order('created_at',{ascending:false}).limit(150);
+  if(!error&&Array.isArray(data))state._foodOrdersCache=data;
+ }catch(e){}
+}
+function aaFoodOrdersAll(){
+ if(state.testMode||!sb)return aaV69Read('aa_v69_food_orders',[]);
+ return state._foodOrdersCache||[];
+}
+function aaFoodMyOrdersHTML(){
+ const mine=aaFoodOrdersAll().filter(o=>String(o.customer_id||'')===String(state.user?.id||''));
+ if(!mine.length)return `<div class="aa-v69-card"><p>You have not placed a food order yet.</p></div>`;
+ return `<div class="aa-v69-grid">${mine.map(o=>`<div class="aa-v69-card"><div style="display:flex;justify-content:space-between;gap:8px"><h3 style="margin:0">${esc(o.business_name||'Restaurant')}</h3><span class="aa-sub-pill active">${esc(aaFoodOrderStatusLabel(o.status))}</span></div><div class="meta">${new Date(o.created_at).toLocaleString('en-KE',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>${(o.items||[]).map(it=>`<div class="aa-food-basket-row" style="padding:6px 0"><span>${it.qty}× ${esc(it.name)}</span><span>KSh ${money(it.price_kes*it.qty)}</span></div>`).join('')}<div class="aa-food-basket-total"><span>Total</span><b>KSh ${money(o.total_kes)}</b></div></div>`).join('')}</div>`;
+}
+async function aaUpdateFoodOrderStatus(orderId,status){
+ const list=aaFoodOrdersAll();
+ const order=list.find(o=>String(o.id)===String(orderId));
+ if(!order){toast('Order not found.');return}
+ const biz=aaFoods().find(x=>String(x.id)===String(order.business_id));
+ const allowed=await aaCanManageBusinessAction({businessType:'food_business',businessId:order.business_id,ownerId:biz?.user_id,permission:'manage_orders'});
+ if(!allowed){toast('You do not have permission to update this order.');return}
+ order.status=status;
+ if(state.testMode||!sb){aaV69Write('aa_v69_food_orders',list);}
+ else{
+  try{const {error}=await sb.from('food_orders').update({status}).eq('id',orderId);if(error)throw error;}
+  catch(e){toast('Could not update the order online: '+String(e?.message||e));return}
+ }
+ save();render();
+ toast('Order status updated to '+aaFoodOrderStatusLabel(status)+'.');
+}
+function aaFoodBusinessOrdersHTML(businessId){
+ const orders=aaFoodOrdersAll().filter(o=>String(o.business_id)===String(businessId));
+ if(!orders.length)return `<div class="aa-v69-card"><p>No orders yet for this restaurant.</p></div>`;
+ return `<div class="aa-v69-grid">${orders.map(o=>{
+  const idx=AA_FOOD_ORDER_STATUSES.findIndex(s=>s[0]===o.status);
+  const next=AA_FOOD_ORDER_STATUSES[idx+1];
+  return `<div class="aa-v69-card"><div style="display:flex;justify-content:space-between;gap:8px"><h3 style="margin:0">${esc(o.customer_name||'Bingo Member')}</h3><span class="aa-sub-pill active">${esc(aaFoodOrderStatusLabel(o.status))}</span></div><div class="meta">${new Date(o.created_at).toLocaleString('en-KE',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}${o.note?' · '+esc(o.note):''}</div>${(o.items||[]).map(it=>`<div class="aa-food-basket-row" style="padding:6px 0"><span>${it.qty}× ${esc(it.name)}</span><span>KSh ${money(it.price_kes*it.qty)}</span></div>`).join('')}<div class="aa-food-basket-total"><span>Total</span><b>KSh ${money(o.total_kes)}</b></div>${next?`<button class="btn btn-publish" style="width:100%;margin-top:8px" onclick="aaUpdateFoodOrderStatus('${esc(o.id)}','${next[0]}')">Mark as ${esc(next[1])}</button>`:'<div class="notice" style="margin-top:8px">Order complete.</div>'}</div>`;
+ }).join('')}</div>`;
 }
 function aaFoodMineHTML(a){
  if(!a.length)return `<div class="aa-v69-card"><p>You have not created a food business yet.</p><button class="btn btn-red" onclick="aaOpenFood('post')">Create Food Business</button></div>`;
@@ -12260,7 +12494,57 @@ function aaFoodMineHTML(a){
   </div>`;
  }).join('')
 }
-function aaFoodListHTML(a){if(!a.length)return `<div class="aa-v69-card"><p>No active food business is available yet.</p></div>`;return `<div class="aa-v69-grid">${a.map(f=>`<article class="aa-v69-card"><button type="button" style="all:unset;display:block;width:100%;position:relative;cursor:pointer" onclick="aaOpenFoodMediaViewer('${esc(f.id)}',0)">${f.media?.[0]?.type==='video'?`<video src="${bingoSafeMediaAttr(f.media[0].url)}" muted playsinline preload="metadata" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#000"></video><span class="aa-media-play">▶</span>`:`<img src="${bingoSafeMediaAttr(f.media?.[0]?.url||'')}" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#111" alt="">`}</button><h3>${esc(f.business_name)}</h3><div class="meta">${esc(f.category)} · Delivery: ${esc(f.delivery_area)}</div><p>${esc(f.description)}</p><div class="details-actions"><button class="btn" onclick="location.href='tel:${esc(f.phone)}'">Call for Delivery</button><button class="btn btn-green" onclick="window.open('https://wa.me/${esc(String(f.whatsapp||f.phone).replace(/\D/g,''))}','_blank')">WhatsApp</button></div><button class="btn btn-gold" style="width:100%;margin-top:7px" onclick="aaOpenFoodMenu('${esc(f.id)}')">View Menu</button>${aaHelpSellBlockHTML("food_business",f.id,f.user_id||"")}${aaAdminControlsHTML("food_business",f.id,f.user_id||"")}</article>`).join('')}</div>`}
+function aaFoodListHTML(a){if(!a.length)return `<div class="aa-v69-card"><p>No active food business is available yet.</p></div>`;return `<div class="aa-v69-grid">${a.map(f=>`<article class="aa-v69-card"><button type="button" style="all:unset;display:block;width:100%;position:relative;cursor:pointer" onclick="aaOpenFoodBusinessProfile('${esc(f.id)}')">${f.media?.[0]?.type==='video'?`<video src="${bingoSafeMediaAttr(f.media[0].url)}" muted playsinline preload="metadata" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#000"></video><span class="aa-media-play">▶</span>`:`<img src="${bingoSafeMediaAttr(f.media?.[0]?.url||'')}" style="width:100%;height:220px;object-fit:cover;border-radius:11px;background:#111" alt="">`}${Array.isArray(f.media)&&f.media.length>1?`<span class="aa-type-label" style="left:auto;right:10px">1/${f.media.length}</span>`:''}</button><button type="button" style="all:unset;display:block;width:100%;cursor:pointer" onclick="aaOpenFoodBusinessProfile('${esc(f.id)}')"><h3>${esc(f.business_name)}</h3><div class="meta">${esc(f.category||'Restaurant')} · Delivery: ${esc(f.delivery_area)}</div><p>${aaFeedDescExcerptHTML?aaFeedDescExcerptHTML(f.description,90):esc(f.description||'')}</p></button><div class="details-actions aa-content-fit-row aa-content-fit-row-wrap"><button class="btn btn-cyan" onclick="location.href='tel:${esc(f.phone)}'">☎ Call</button><button class="btn btn-glass" onclick="window.open('https://wa.me/${esc(String(f.whatsapp||f.phone).replace(/\D/g,''))}','_blank')">WhatsApp</button><button class="btn btn-publish" onclick="aaOpenFoodBusinessProfile('${esc(f.id)}')">View Profile</button></div>${aaHelpSellBlockHTML("food_business",f.id,f.user_id||"")}${aaAdminControlsHTML("food_business",f.id,f.user_id||"")}</article>`).join('')}</div>`}
+function aaOpenFoodBusinessProfile(id){
+ aaRememberPage();
+ state.foodProfileId=String(id||'');
+ state.view='food-profile';
+ render();
+ window.scrollTo(0,0);
+}
+function aaFoodBusinessProfileHTML(){
+ const f=aaFoods().find(x=>String(x.id)===String(state.foodProfileId));
+ if(!f)return `<section style="padding:18px 0 100px"><button class="btn btn-glass" onclick="goBack()">← Back</button><div class="notice" style="margin-top:12px">This restaurant could not be found.</div></section>`;
+ const own=state.isLoggedIn&&String(f.user_id||'')===String(state.user?.id||'');
+ const phone=normalizeKenyanPhone(f.phone||'');
+ const wa=String(f.whatsapp||f.phone||'').replace(/\D/g,'');
+ const addr=[f.town,f.county].filter(Boolean).join(', ');
+ const directionsUrl='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((f.business_name||'')+' '+addr);
+ return `<section style="padding:18px 0 105px">
+  <button class="btn btn-glass" onclick="goBack()">← Back</button>
+  <div class="detail-grid" style="margin-top:12px">
+   <div>
+    ${aaListingMediaGalleryHTML(String(f.id),f.media,f.business_name)}
+    <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:10px">
+     <button class="btn btn-publish" onclick="aaOpenFoodMenu('${esc(f.id)}')">🛒 Order Now</button>
+     ${phone?`<a class="btn btn-cyan" href="tel:${esc(phone)}">☎ Call</a>`:''}
+     ${wa?`<button class="btn btn-glass" onclick="window.open('https://wa.me/${esc(wa)}','_blank')">WhatsApp</button>`:''}
+     <button class="btn btn-glass" onclick="if(!aaRequireMember({action:'message',targetId:'${esc(f.id)}'}))return;aaMsgOpenConversationWith('${esc(f.user_id||'')}','${esc((f.business_name||'Bingo Member').replace(/'/g,"\\'"))}','')">✉ Inbox</button>
+     <button class="btn btn-glass" onclick="window.open('${esc(directionsUrl)}','_blank')">📍 Directions</button>
+    </div>
+    <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:8px">
+     <button class="btn btn-glass" onclick="state.shareTarget={id:'${esc(f.id)}',title:${JSON.stringify(f.business_name||'')}};render()">↗ Share</button>
+     <button class="btn ${isFav(f.id)?'btn-gold fav-on':'btn-glass'}" onclick='toggleFav(${JSON.stringify(String(f.id))})'>${isFav(f.id)?'★ Saved':'☆ Save'}</button>
+    </div>
+   </div>
+   <div class="modal" style="max-height:none">
+    <div style="display:flex;justify-content:space-between;gap:8px"><h2>${esc(f.business_name)}</h2>${aaFoodActive(f)?'<span class="badge badge-green">OPEN FOR ORDERS</span>':'<span class="badge badge-red">INACTIVE</span>'}</div>
+    <div class="specs">
+     ${f.category?`<div class="spec"><span>Cuisine</span><b>${esc(f.category)}</b></div>`:''}
+     <div class="spec"><span>Location</span><b>${esc(addr||'—')}</b></div>
+     ${f.opening_hours?`<div class="spec"><span>Hours</span><b>${esc(f.opening_hours)}</b></div>`:''}
+     ${f.price_range?`<div class="spec"><span>Price Range</span><b>${esc(f.price_range)}</b></div>`:''}
+     <div class="spec"><span>Delivery</span><b>${f.delivery_available?'Available':'Pickup only'} · ${esc(f.delivery_area||'—')}</b></div>
+    </div>
+    <div class="desc">${esc(f.description||'')}</div>
+    <button class="btn btn-gold" style="width:100%;margin-top:12px" onclick="aaOpenFoodMenu('${esc(f.id)}')">View Full Menu</button>
+    ${own?`<div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:10px"><button class="btn btn-glass" onclick="aaEditFoodBusiness('${esc(f.id)}')">✎ Edit Business</button><button class="btn btn-glass" onclick="aaOpenInviteAgentModal('food_business','${esc(f.id)}')">Invite Manager</button></div>`:''}
+    ${aaHelpSellBlockHTML("food_business",f.id,f.user_id||"")}
+    ${aaAdminControlsHTML("food_business",f.id,f.user_id||"")}
+   </div>
+  </div>
+ </section>`;
+}
 async function aaStartFoodSubscription(id,months){
  months=1;
  const amount=1000;
@@ -12408,13 +12692,15 @@ function render(){
  app.innerHTML=`
  <header class="header"><div class="container header-inner">
   <div class="bingo-header-stack" id="bingoHeaderStack"><button class="brand bingo-brand-logo" id="bingoMainLogo" onclick="openBingoCockpit()" role="button" tabindex="0" aria-label="Open Bingo menu" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBingoCockpit()}">${bingoAppLogoHTML({className:"bingo-app-logo--header"})}</button><button type="button" id="bingoLogoCloseBtn" aria-label="Move the Bingo logo out of the way"><span class="bingo-logo-close-dot">&times;</span></button></div>
-  <div class="top-actions aa-auth-actions"><button class="btn aa-v69-top" onclick="aaOpenProperties('browse')">Properties</button><button class="btn aa-jobs-top-btn" onclick="openJobs('jobs')">Jobs/CVs</button>${state.isLoggedIn?`<button class="btn" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button><button class="btn" onclick="goAccount()">Profile</button><button class="btn btn-red" onclick="logoutAutoArcade()">Log Out</button>`:`<button class="btn" onclick="openAuth('login')">Log In</button><button class="btn btn-red" onclick="openAuth('register')">Sign Up</button>`}</div>
+  <div class="top-actions aa-auth-actions"><button class="btn aa-v69-top" onclick="aaOpenProperties('browse')">Properties</button><button class="btn btn-cyan aa-v69-top" onclick="aaOpenFood('browse')">Food</button><button class="btn aa-jobs-top-btn" onclick="openJobs('jobs')">Jobs/CVs</button>${state.isLoggedIn?`<button class="btn" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button><button class="btn" onclick="goAccount()">Profile</button><button class="btn btn-red" onclick="logoutAutoArcade()">Log Out</button>`:`<button class="btn" onclick="openAuth('login')">Log In</button><button class="btn btn-red" onclick="openAuth('register')">Sign Up</button>`}</div>
  </div></header>
  <main class="${feedHome?"":"container"}">
   ${aaPageGuideHTML()}
   ${state.view==="home"?homeHTML(boosted,rows,filteredListings,pages):""}
   ${state.view==="search"?aaSearchHTML():""}
   ${state.view==="properties"?aaPropertyHTML():""}
+  ${state.view==="food"?aaFoodHTML():""}
+  ${state.view==="food-profile"?aaFoodBusinessProfileHTML():""}
   ${state.view==="market"?aaMarketHTML():""}
   ${state.view==="topics"?aaPublicTopicsFeedHTML():""}
   ${state.view==="solutions"?aaSolutionRoomsHTML():""}
@@ -12437,6 +12723,9 @@ function render(){
   ${state.view==="chat"&&state.selected?chatHTML(state.selected):""}
   ${state.view==="super-admin"?aaSuperUserDashboardHTML():""}
   ${state.view==="member-central"?aaMemberCentralHTML():""}
+  ${state.view==="food-menu"?aaFoodMenuHTML():""}
+  ${state.view==="food-item-form"?aaFoodItemFormHTML():""}
+  ${state.view==="food-item-detail"?aaFoodItemDetailHTML():""}
  </main>
  <button class="aa-refresh-fab" title="Refresh this page" aria-label="Refresh this page" onclick="aaRefreshCurrentView()">↻</button>
  <!-- Bottom tabs: Home, Search, Sell, Market, Rooms, Profile. Inbox is accessed from Profile/header. -->
@@ -12475,6 +12764,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
             <button class="bcp-btn ${state.view==="jobs"?"active":""}" onclick="aaAssistantNavigate(()=>openJobs('jobs'))"><span class="bcp-ico">&#9635;</span><b>Jobs &amp; CV</b></button>
             <button class="bcp-btn ${state.view==="properties"&&state.propertyTab!=="stays"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenProperties('browse'))"><span class="bcp-ico">&#9637;</span><b>Property</b></button>
             <button class="bcp-btn ${state.view==="properties"&&state.propertyTab==="stays"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenProperties('stays'))"><span class="bcp-ico">&#127958;</span><b>Stays</b></button>
+            <button class="bcp-btn ${state.view==="food"||state.view==="food-profile"||state.view==="food-menu"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenFood('browse'))"><span class="bcp-ico">&#127860;</span><b>Food</b></button>
           </div>
         </div>
 
@@ -12503,7 +12793,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
     </div>
   </nav>
  </div>`}
- ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.propertyMediaViewerOpen?aaPropertyMediaViewerHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.propertyMediaViewerOpen?aaPropertyMediaViewerHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.foodBasketOpen?aaFoodBasketHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   if(state.msgActiveCall)aaCallReattachMediaElements();
@@ -12931,7 +13221,7 @@ function sellerHTML(s,cars){
 <button class="btn btn-gold" style="width:100%" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">Edit My Profile</button>
 <button class="btn" style="width:100%" onclick="openInbox()">✉ Messages${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button>
 <button class="btn btn-glass" style="width:100%;grid-column:1/-1" type="button" onclick="if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio();">🎥 Record Video</button>
-</div><div class="aa-owner-posts-panel"><div class="aa-owner-posts-head"><h3>My Vehicle Posts</h3><span class="aa-owner-posts-count">${aaOwnActiveListings().length}/15 Active</span></div><div class="aa-owner-posts-note">Your published videos and photos are arranged below. Tap a post to open it, or use × to delete it.</div>${cars.length?`<div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,true)).join("")}</div>`:`<div class="notice">No active vehicle posts.</div>`}</div>${aaOwnerPropertySectionHTML(sellerKey,s.name,true)}<div class="boost-summary"><b>Deleted Items · 30-day recovery</b>${aaTrashHTML()}</div>`:""}<div class="boost-summary"><b>Reviews</b>${reviewList}${state.isLoggedIn?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><label class="form-label">Your rating (optional)</label><select id="profileRating" class="field"><option value="0">No star rating</option><option value="5">★★★★★ 5</option><option value="4">★★★★☆ 4</option><option value="3">★★★☆☆ 3</option><option value="2">★★☆☆☆ 2</option><option value="1">★☆☆☆☆ 1</option></select><label class="form-label" style="margin-top:8px">Your review (optional)</label><textarea id="profileReview" class="field" rows="3" placeholder="${own?"Owner comments are allowed but do not count toward your profile rating.":"Write a review about this profile..."}"></textarea><button class="btn btn-red" style="width:100%;margin-top:8px" onclick='submitProfileReview(${JSON.stringify(sellerKey)})'>Submit Review</button></div>`:`<div class="notice">Sign up / log in to submit a rating or review.</div>`}</div>${own?"":`<div class="section-title" style="margin-top:18px"><h2>More vehicles by ${esc(s.name)}</h2></div><div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,false)).join("")||"<p>No other listings yet.</p>"}</div>${aaOwnerPropertySectionHTML(sellerKey,s.name,false)}`}</div></section>`
+</div><div class="aa-owner-posts-panel"><div class="aa-owner-posts-head"><h3>My Vehicle Posts</h3><span class="aa-owner-posts-count">${aaOwnActiveListings().length}/15 Active</span></div><div class="aa-owner-posts-note">Your published videos and photos are arranged below. Tap a post to open it, or use × to delete it.</div>${cars.length?`<div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,true)).join("")}</div>`:`<div class="notice">No active vehicle posts.</div>`}</div>${aaOwnerPropertySectionHTML(sellerKey,s.name,true)}${aaOwnerFoodSectionHTML(sellerKey,s.name,true)}<div class="boost-summary"><b>Deleted Items · 30-day recovery</b>${aaTrashHTML()}</div>`:""}<div class="boost-summary"><b>Reviews</b>${reviewList}${state.isLoggedIn?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><label class="form-label">Your rating (optional)</label><select id="profileRating" class="field"><option value="0">No star rating</option><option value="5">★★★★★ 5</option><option value="4">★★★★☆ 4</option><option value="3">★★★☆☆ 3</option><option value="2">★★☆☆☆ 2</option><option value="1">★☆☆☆☆ 1</option></select><label class="form-label" style="margin-top:8px">Your review (optional)</label><textarea id="profileReview" class="field" rows="3" placeholder="${own?"Owner comments are allowed but do not count toward your profile rating.":"Write a review about this profile..."}"></textarea><button class="btn btn-red" style="width:100%;margin-top:8px" onclick='submitProfileReview(${JSON.stringify(sellerKey)})'>Submit Review</button></div>`:`<div class="notice">Sign up / log in to submit a rating or review.</div>`}</div>${own?"":`<div class="section-title" style="margin-top:18px"><h2>More vehicles by ${esc(s.name)}</h2></div><div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,false)).join("")||"<p>No other listings yet.</p>"}</div>${aaOwnerPropertySectionHTML(sellerKey,s.name,false)}${aaOwnerFoodSectionHTML(sellerKey,s.name,false)}`}</div></section>`
 }
 function myBoostListHTML(mine){return mine.length?`<div class="seller-listings" style="margin-top:10px">${mine.map(c=>`<div class="mini"><img src="${(Array.isArray(c.images)&&c.images[0])||c.image||""}" alt="" onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=900&q=85'"><div>${esc(c.title)}<br><span style="color:#a46b00">${listingType(c)==="hire"?hirePrice(c):`KES ${money(c.price)}`}</span><button class="btn btn-gold" style="width:100%;margin-top:7px;font-size:10px;padding:7px"onclick="openBoost(state.listings.find(x=>x.id===${c.id}))">Boost</button></div></div>`).join("")}</div>`:`<div class="notice">You have no vehicle listings yet. Post a vehicle first.</div>`}
 /* Legacy dashboard retained for existing functions; Account/Profile routes to sellerHTML(). */
@@ -12945,6 +13235,7 @@ const AA_POST_TODAY_OPTIONS=[
  {key:"bidding",label:"Bidding"},
  {key:"property",label:"Property"},
  {key:"stay",label:"Bingo Stays"},
+ {key:"food",label:"Food / Restaurant"},
  {key:"fashion",label:"Fashion"},
  {key:"furniture",label:"Furniture"},
  {key:"electronics",label:"Electronics"},
@@ -14935,8 +15226,8 @@ async function aaSearchInviteAgent(){
 }
 function aaInviteAgentModalHTML(){
  const t=state.agentInviteTarget;if(!t)return "";
- const perms=["edit_business","manage_listings","manage_media","manage_menu","publish","manage_boost","view_enquiries"];
- const labels={edit_business:"Edit business profile",manage_listings:"Create and edit listings",manage_media:"Upload photos and videos",manage_menu:"Manage Food Menu",publish:"Publish posts",manage_boost:"Initiate boosts",view_enquiries:"View business enquiries"};
+ const perms=["edit_business","manage_listings","manage_media","manage_menu","manage_orders","publish","manage_boost","view_enquiries"];
+ const labels={edit_business:"Edit business profile",manage_listings:"Create and edit listings",manage_media:"Upload photos and videos",manage_menu:"Manage Food Menu",manage_orders:"Manage Food Orders (never payments/M-Pesa)",publish:"Publish posts",manage_boost:"Initiate boosts",view_enquiries:"View business enquiries"};
  return `<div class="overlay"><div class="modal">
   <button class="close" onclick="aaCloseInviteAgentModal()">×</button>
   <h2>Invite a Bingo Agent</h2>
@@ -15215,6 +15506,7 @@ function aaAgentAddBusinessHTML(){
    <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("vehicle-sale")'>Vehicle</button>
    <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("property")'>Property</button>
    <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("stay")'>Bingo Stays</button>
+   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("food")'>Food / Restaurant</button>
    <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("fashion")'>Fashion</button>
    <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("furniture")'>Furniture</button>
    <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("electronics")'>Electronics</button>
@@ -15285,6 +15577,7 @@ function aaSuperUserDashboardHTML(){
    <button class="btn btn-glass" onclick="goHome()">Home</button>
    <button class="btn btn-glass" onclick="goAccount()">Profile</button>
    <button class="btn btn-glass" onclick="aaOpenProperties('browse')">Properties</button>
+   <button class="btn btn-glass" onclick="aaOpenFood('browse')">Food</button>
    <button class="btn btn-glass" onclick="openJobs('jobs')">Jobs/CVs</button>
    <button class="btn btn-cyan" onclick="openInbox()">Inbox</button>
   </div>
@@ -16169,9 +16462,11 @@ function aaPublicTopicsFeedHTML(){
     not a new card type. Topic view-count/comment-load logic below stays
     scoped to `all` (topics only) - properties don't have that tracking. */
  const wallProperties=tagFilter?[]:aaProperties().filter(p=>Array.isArray(p.media)&&p.media.length);
+ const wallFoods=tagFilter?[]:aaFoods().filter(f=>aaFoodActive(f)&&Array.isArray(f.media)&&f.media.length);
  const feedItems=[
   ...all.map(t=>({kind:"topic",data:t,ts:new Date(t.createdAt||0).getTime()})),
-  ...wallProperties.map(p=>({kind:"property",data:p,ts:new Date(p.created_at||0).getTime()}))
+  ...wallProperties.map(p=>({kind:"property",data:p,ts:new Date(p.created_at||0).getTime()})),
+  ...wallFoods.map(f=>({kind:"food",data:f,ts:new Date(f.created_at||0).getTime()}))
  ].sort((a,b)=>b.ts-a.ts);
  aaWallAdSlotAutoLoad();
  return `<section style="padding:12px 0 105px">
@@ -16186,7 +16481,7 @@ function aaPublicTopicsFeedHTML(){
    <div class="aa-mbea-main" style="min-width:0">
     ${state.isLoggedIn?aaWallComposerSectionHTML():`<div class="aa-v69-card" style="margin-top:10px;text-align:center"><p>Sign up or log in to post, comment, like, save or follow.</p><button class="btn btn-red" onclick="openAuth('login')">Sign Up / Log In</button></div>`}
     ${(()=>{aaLoadTopicCounts(all.map(t=>t.id));all.forEach(t=>{if(typeof aaRecordFeedView==="function")aaRecordFeedView("topic_"+t.id,"topic",t.id);if(String(t.authorId||"")!==String(state.user?.id||""))aaRecordTopicViewOnce(t.id)});return"";})()}
-    ${!feedItems.length?`<div class="empty" style="margin-top:12px">No posts yet. Be the first to post.</div>`:feedItems.map(it=>it.kind==="topic"?aaTopicPostCardHTML(it.data):aaProfilePropertyCardHTML(it.data)).join("")}
+    ${!feedItems.length?`<div class="empty" style="margin-top:12px">No posts yet. Be the first to post.</div>`:feedItems.map(it=>it.kind==="topic"?aaTopicPostCardHTML(it.data):it.kind==="food"?aaProfileFoodCardHTML(it.data):aaProfilePropertyCardHTML(it.data)).join("")}
    </div>
    <div class="aa-mbea-right" style="display:grid;gap:12px;align-content:start">
     ${aaProfileDecorationsPanelHTML()}
@@ -21764,7 +22059,7 @@ Source specification: Complete Platform Changes & Feature Specification.
 (function(){
   const root=document.getElementById('auto-arcade-widget'); if(!root)return;
   const PURPOSES=[['sale','ON SALE'],['rent','ON RENT'],['lease','ON LEASE'],['hire','ON HIRE'],['bid','ON BID'],['auction','ON AUCTION']];
-  const CATEGORIES=['AUTO','PROPERTIES','FASHION','FURNITURE','BEAUTY','ELECTRONICS'];
+  const CATEGORIES=['AUTO','PROPERTIES','FOOD','FASHION','FURNITURE','BEAUTY','ELECTRONICS'];
   const META_KEY='aa_dawood_update_one_listing_meta_v1';
   const BID_KEY='aa_dawood_update_one_bids_v1';
   let currentCategory=null;
