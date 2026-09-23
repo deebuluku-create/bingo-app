@@ -3474,10 +3474,10 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
   padding:0 8px!important;
   display:inline-flex!important;align-items:center;justify-content:center;gap:4px;
   border-radius:999px!important;
-  background:linear-gradient(180deg,#fbfcfe,#dfe3e9)!important;
-  border:1px solid rgba(var(--aa-ic-rgb),.55)!important;
-  color:#182233!important;
-  box-shadow:0 0 4px rgba(var(--aa-ic-rgb),.22),inset 0 1px 0 rgba(255,255,255,.9)!important;
+  background:linear-gradient(160deg,#0d1b32,#081120)!important;
+  border:1.5px solid rgba(var(--aa-ic-rgb),.55)!important;
+  color:#e7edf6!important;
+  box-shadow:0 0 6px rgba(var(--aa-ic-rgb),.24),inset 0 1px 0 rgba(255,255,255,.06)!important;
   cursor:pointer;white-space:nowrap;
   font-size:10px;font-weight:700;
   transition:background .15s ease,border-color .15s ease,transform .12s ease,box-shadow .15s ease;
@@ -6168,7 +6168,7 @@ function aaUnifiedProfileFields(mode){
  const location=register?(d.location??u.location??""):(u.location||"");
  const bio=register?(d.bio??u.bio??""):(u.bio||"");
  const photo=aaProfilePhoto(register?(state.pendingProfilePhoto||u.photo_url):u.photo_url);
- return `<div class="aa-unified-profile"><div style="text-align:center;margin:15px 0 20px"><div style="width:90px;height:90px;border-radius:50%;margin:0 auto 10px;overflow:hidden;background:#2a2d3d;border:2px solid #0073aa;display:flex;align-items:center;justify-content:center"><img id="${register?'aaSignupPhotoPreview':'profile-photo-preview'}" src="${photo}" style="width:100%;height:100%;object-fit:cover"></div><label for="${register?'aProfilePhoto':'profilePhotoInput'}" class="btn" style="display:inline-block">Choose Profile Photo</label><input type="file" id="${register?'aProfilePhoto':'profilePhotoInput'}" accept="image/jpeg,image/png" style="display:none" onchange="${register?'handleSignupPhoto(event)':'handleProfilePhotoUpload(event)'}"></div><div class="form-grid"><select id="${p}AccountType" class="field full"><option value="individual" ${accountType==='individual'?'selected':''}>Individual Account</option><option value="company" ${accountType==='company'?'selected':''}>Company / Business Account</option></select><input id="${p}First" class="field" placeholder="First name" value="${esc(first)}"><input id="${p}Last" class="field" placeholder="Last name" value="${esc(last)}"><input id="${p}Company" class="field full" placeholder="Company / Business name" value="${esc(company)}"><input id="${p}Username" class="field full" placeholder="Username e.g. @dawoodcars" value="${esc(username)}"><div class="aa-password-note full">Your @username is shown on downloaded media and can be used to search your public profile.</div><input id="${p}Phone" class="field full" type="tel" placeholder="Phone / WhatsApp number" value="${esc(phone)}"><label class="full" style="display:flex;align-items:center;gap:8px;font-size:11px"><input id="${p}ShowPhone" type="checkbox" ${(register?(d.showPhone??u.showPhone):u.showPhone)!==false?'checked':''}> Display my phone number publicly</label><input id="${p}Email" class="field full" type="email" placeholder="Email address" value="${esc(email)}"><select id="${p}Location" class="field full"><option value="">Location / County</option>${kenyaCounties.map(c=>`<option ${location===c?'selected':''}>${esc(c)}</option>`).join('')}</select><textarea id="${p}Bio" class="field full" rows="4" placeholder="My Bio">${esc(bio)}</textarea>${register?`<input id="aPassword" class="field full aa-password-field" type="password" autocomplete="new-password" placeholder="Create password"><input id="aConfirmPassword" class="field full aa-password-field" type="password" autocomplete="new-password" placeholder="Confirm password"><div class="aa-password-note full">Password: at least 6 characters, including uppercase, lowercase and a number.</div><label class="full" style="display:flex;align-items:flex-start;gap:8px;font-size:11px"><input id="aAgreePolicies" type="checkbox"> <span>I agree to the Bingo Terms & Conditions, Privacy Policy and Marketplace Rules.</span></label>`:''}</div></div>`;
+ return `<div class="aa-unified-profile"><div style="text-align:center;margin:15px 0 20px"><div style="width:90px;height:90px;border-radius:50%;margin:0 auto 10px;overflow:hidden;background:#2a2d3d;border:2px solid #0073aa;display:flex;align-items:center;justify-content:center"><img id="${register?'aaSignupPhotoPreview':'profile-photo-preview'}" src="${photo}" style="width:100%;height:100%;object-fit:cover"></div><label for="${register?'aProfilePhoto':'profilePhotoInput'}" class="btn" style="display:inline-block">Choose Profile Photo</label><input type="file" id="${register?'aProfilePhoto':'profilePhotoInput'}" accept="image/jpeg,image/png" style="display:none" onchange="${register?'handleSignupPhoto(event)':'handleProfilePhotoUpload(event)'}"></div><div class="form-grid"><select id="${p}AccountType" class="field full"><option value="individual" ${accountType==='individual'?'selected':''}>Individual Account</option><option value="company" ${accountType==='company'?'selected':''}>Company / Business Account</option></select><input id="${p}First" class="field" placeholder="First name" value="${esc(first)}"><input id="${p}Last" class="field" placeholder="Last name" value="${esc(last)}"><input id="${p}Company" class="field full" placeholder="Company / Business name" value="${esc(company)}"><input id="${p}Username" class="field full" placeholder="Username e.g. @dawoodcars" value="${esc(username)}"><div class="aa-password-note full">Your @username is shown on downloaded media and can be used to search your public profile.</div><input id="${p}Phone" class="field" type="tel" placeholder="Phone / WhatsApp number" value="${esc(phone)}"><label class="full" style="display:flex;align-items:center;gap:8px;font-size:11px"><input id="${p}ShowPhone" type="checkbox" ${(register?(d.showPhone??u.showPhone):u.showPhone)!==false?'checked':''}> Display my phone number publicly</label><input id="${p}Email" class="field" type="email" placeholder="Email address" value="${esc(email)}"><select id="${p}Location" class="field full"><option value="">Location / County</option>${kenyaCounties.map(c=>`<option ${location===c?'selected':''}>${esc(c)}</option>`).join('')}</select><textarea id="${p}Bio" class="field full" rows="3" placeholder="My Bio">${esc(bio)}</textarea>${register?`<input id="aPassword" class="field aa-password-field" type="password" autocomplete="new-password" placeholder="Create password"><input id="aConfirmPassword" class="field aa-password-field" type="password" autocomplete="new-password" placeholder="Confirm password"><div class="aa-password-note full">Password: at least 6 characters, including uppercase, lowercase and a number.</div><label class="full" style="display:flex;align-items:flex-start;gap:8px;font-size:11px"><input id="aAgreePolicies" type="checkbox"> <span>I agree to the Bingo Terms & Conditions, Privacy Policy and Marketplace Rules.</span></label>`:''}</div></div>`;
 }
 async function aaSendPasswordReset(){
  if(!sb){state.authError="Password reset service is not ready. Please refresh and try again.";render();return}
@@ -12330,7 +12330,7 @@ function aaMixedFeedTopicCardHTML(c){
   ${aaIconActionBtn({rgb:"34,201,255",label:"Share",svg:AA_ICON_ACTION_SVG.share,onclick:`aaTopicShare(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"245,185,30",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"171,71,255",label:"Report",svg:AA_ICON_ACTION_SVG.flag,onclick:`aaTopicReport(${JSON.stringify(String(t.id))})`})}
- </div><div class="aa360-actions" style="grid-template-columns:1fr" onclick="event.stopPropagation()"><button type="button" class="call" onclick='${openPostCall}'>View Post &amp; Comments</button></div></div></section>`;
+ </div><div class="aa360-actions" style="grid-template-columns:max-content;justify-items:start" onclick="event.stopPropagation()"><button type="button" class="call" onclick='${openPostCall}'>View Post &amp; Comments</button></div></div></section>`;
 }
 function aaMixedFeedItems(){const v=(typeof aaVideoListings==='function'?aaVideoListings():[]).map(x=>({...x,kind:'vehicle',feed_title:x.title,feed_desc:x.description,feed_media:x.videoUrl||x.video_url||x.video||'',feed_location:aaSearchLocationText(x)||x.location||'Kenya',feed_seller:x.sellerName||'Bingo Seller',_promoType:'vehicle',_promoId:x.id}));const p=aaProperties().filter(x=>Array.isArray(x.media)&&x.media.length).map(x=>{const cover=aaPropertyCoverMedia(x);const ownerId=String(x.user_id||x.sellerId||x.userId||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.sellerName||'');return {id:`${x.id}_p`,kind:'property',source:x,feed_title:x.title,feed_desc:x.description,feed_media:cover.url,feed_media_type:cover.type,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta),feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||x.sellerPhoto||'',feed_sellerMeta:ownerMeta,feed_bedrooms:x.bedrooms||'',feed_bathrooms:x.bathrooms||'',feed_media_count:Array.isArray(x.media)?x.media.length:0,created_at:x.created_at,_promoType:(typeof AA_STAY_TYPES!=='undefined'&&AA_STAY_TYPES.includes(x.type))?'stay':'property',_promoId:x.id};});const f=aaFoods().filter(aaFoodActive).flatMap(x=>{const ownerId=String(x.user_id||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.business_name||'');return (x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_fv${i}`,kind:'food',source:x,feed_title:x.business_name,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta)||x.business_name,feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||'',feed_sellerMeta:ownerMeta,created_at:x.created_at,_promoType:'food_business',_promoId:x.id}));});const tp=aaTopics().filter(x=>!x.hiddenFromPublic).map(x=>{const firstMedia=Array.isArray(x.media)&&x.media.length?x.media[0]:null;const authorMeta=typeof aaTopicAuthorMeta==='function'?aaTopicAuthorMeta(x):null;return {id:`${x.id}_t`,kind:'topic',source:x,feed_title:x.title||'',feed_desc:x.body||'',feed_media:firstMedia?aaTopicMediaSrc(firstMedia):'',feed_media_type:firstMedia?firstMedia.type:'',feed_media_count:Array.isArray(x.media)?x.media.length:0,feed_location:'',feed_seller:aaMemberDisplayName(authorMeta),feed_sellerId:String(x.authorId||''),feed_sellerPhoto:(authorMeta&&authorMeta.photo)||'',feed_sellerMeta:authorMeta,created_at:x.createdAt,_promoType:null,_promoId:null,_topicId:x.id};});let all=[...v,...p,...f,...tp];all.forEach(item=>aaAttachPromotions(item,item._promoType,item._promoId));let aaFeedSeedStored="";try{aaFeedSeedStored=sessionStorage.getItem('aa_feed_seed')||""}catch(e){}const seed=String(state.user?.id||aaFeedSeedStored||Math.random());if(!aaFeedSeedStored){try{sessionStorage.setItem('aa_feed_seed',seed)}catch(e){}}const score=s=>{let n=0;for(const c of String(s))n=(n*31+c.charCodeAt(0))>>>0;return n};const viewerLoc=typeof aaViewerFeedLocation==='function'?aaViewerFeedLocation():'All Kenya';all.sort((a,b)=>{const followBoost=(x)=>x.kind==='vehicle'&&typeof aaIsFollowing==='function'&&aaIsFollowing(x.sellerId||x.userId)?10000000000000:0;const promo=(x)=>aaPromotionAdjustment(x,viewerLoc)*1000000;const ta=new Date(a.created_at||a.createdAt||0).getTime()+followBoost(a)+promo(a)+score(seed+a.id)%1000000;const tb=new Date(b.created_at||b.createdAt||0).getTime()+followBoost(b)+promo(b)+score(seed+b.id)%1000000;return tb-ta});return all}
 function aaMixedFeedCardHTML(c,i){if(c.kind==='vehicle')return aaFeedCardHTML(c,i);if(c.kind==='topic')return aaMixedFeedTopicCardHTML(c);const isPropertyImage=c.kind==='property'&&c.feed_media_type==='image';const openDetailCall=c.kind==='property'?`openPropertyDetail('${esc(c._promoId||"")}')`:'';const openDetailAttr=c.kind==='property'?` onclick="${openDetailCall}" style="cursor:pointer"`:'';const media=isPropertyImage?`<img class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" alt=""${openDetailAttr}>`:`<video class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"${openDetailAttr}></video>`;const type=c.kind==='food'?'FOOD':'PROPERTY';const price=c.kind==='property'?`<div class="aa360-price">KES ${money(c.source?.price||0)}</div>`:'';const keyDetails=(c.kind==='property'&&(c.feed_bedrooms||c.feed_bathrooms))?`<div class="aa360-specs">${c.feed_bedrooms?`<span>${esc(String(c.feed_bedrooms))} bed</span>`:''}${c.feed_bathrooms?`<span>${esc(String(c.feed_bathrooms))} bath</span>`:''}</div>`:'';const multiTag=(c.kind==='property'&&c.feed_media_count>1)?`<span class="aa-type-label" style="left:auto;right:10px">1/${c.feed_media_count}</span>`:'';const promoLabel=aaPromotionLabel(c);const promoted=promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";const sellerMeta=c.feed_sellerMeta||{};const sellerUnavailable=!!sellerMeta.unavailable;const sellerBlock=`<button type="button" class="aa360-seller" ${sellerUnavailable?'disabled':`onclick='event.stopPropagation();openSeller(${JSON.stringify(c.feed_sellerId||"")})'`}><img src="${bingoSafeMediaAttr(aaProfilePhoto(c.feed_sellerPhoto))}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.feed_seller)}</b>${!sellerUnavailable?`<br><small style="color:#ffd700;font-weight:800;text-decoration:underline">View Profile</small>`:''}<small>${esc(c.feed_location)}</small></span></button>`;const callBtn=(c.kind==='food')?`<button class="call" onclick='event.stopPropagation();location.href="tel:${esc(c.source?.phone||"")}"'>Call Delivery</button>`:(sellerMeta.showPhone!==false?`<button class="call" onclick='event.stopPropagation();${openDetailCall||`state.selected=${JSON.stringify(c.source||{})};callSeller(state.selected)`}'>Call</button>`:'');const waBtn=`<button class="wa" onclick='event.stopPropagation();${c.kind==='food'?`window.open("https://wa.me/${esc(String(c.source?.whatsapp||c.source?.phone||'').replace(/\D/g,''))}","_blank")`:`state.selected=${JSON.stringify(c.source||{})};contact("whatsapp",state.selected)`}'>WhatsApp</button>`;const viewBtn=c.kind==='property'?`<button class="call" onclick='event.stopPropagation();${openDetailCall}'>View Property</button>`:'';const actions=`${viewBtn}${callBtn}${waBtn}`;return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}<span class="aa-type-label">${type}</span>${multiTag}<div class="aa360-info"${openDetailAttr}>${sellerBlock}<div class="aa360-title">${esc(c.feed_title)}</div>${price}${keyDetails}<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc)}</div><div class="aa360-actions" onclick="event.stopPropagation()">${actions}</div></div></section>`}
@@ -21688,6 +21688,13 @@ Source specification: Complete Platform Changes & Feature Specification.
    .du1-clean-card/.du1-close/.du1-camera-main chrome is affected. */
 #auto-arcade-widget #du1PostHub{background:rgba(3,8,18,.88)}
 #auto-arcade-widget #du1PostHub .du1-modal{width:min(580px,calc(100vw - 24px));background:#07111f;color:#f2ede1;border:1px solid rgba(217,173,50,.35)}
+/* All Categories popup: match the same dark navy chrome as the POST
+   ABOUT picker above (was inheriting the plain white .du1-modal
+   default, the "gold/black rectangular" look reported). */
+#auto-arcade-widget #bgcCatGrid .du1-modal,
+#auto-arcade-widget #bgcCatView .du1-modal{width:min(640px,calc(100vw - 24px));max-height:82dvh;background:#07111f;color:#f2ede1;border:1px solid rgba(34,201,255,.25)}
+#auto-arcade-widget #bgcCatGrid .du1-head b,#auto-arcade-widget #bgcCatView .du1-head b{color:#f2ede1}
+#auto-arcade-widget #bgcCatGrid .du1-head div div,#auto-arcade-widget #bgcCatView .du1-head div div{color:#8fa0b8!important}
 #auto-arcade-widget #du1PostHub .du1-close{background:#0a1526!important;border:1px solid rgba(217,173,50,.45)!important;color:#f2ede1!important}
 #auto-arcade-widget #du1PostHub .du1-close:hover,#auto-arcade-widget #du1PostHub .du1-close:active{background:#3a0f14!important;border-color:#ef1f2f!important;color:#fff!important}
 #auto-arcade-widget #du1PostHub .du1-hint{margin:8px 0 0;padding:8px 10px;border-radius:10px;background:rgba(239,31,47,.12);border:1px solid rgba(239,31,47,.4);color:#ffd7d7;font-size:11px;font-weight:700}
@@ -22245,14 +22252,15 @@ Only requested areas changed:
     };
   }
 
+  /* Delegates to the canonical aaRequireMember() gate (same
+     state.isLoggedIn+state.user.id check it already uses) instead of
+     its own separate copy of that check, so an authenticated session
+     is recognized identically everywhere and - unlike the previous
+     ad-hoc version - the click that triggered this gate is recorded
+     in state.pendingMemberIntent/redirectAfterLogin and resumed after
+     login, rather than silently dropped. */
   function requireMembership(){
-    if(state.isLoggedIn)return true;
-    openAuth('register');
-    requestAnimationFrame(()=>{
-      const h=[...root.querySelectorAll('.modal h2')].find(x=>/Create My Bingo Profile/i.test(x.textContent||''));
-      h?.scrollIntoView({block:'start',behavior:'smooth'});
-    });
-    return false;
+    return aaRequireMember({mode:'register'});
   }
 
   /* ---------------- Mutual follow + accepted number sharing ---------------- */
@@ -23322,6 +23330,24 @@ Preserve all existing onclick actions, routes, forms and button wording.
   --tab-light:#22c9ff;
   --tab-rgb:34,201,255;
 }
+/* Reusable Bingo neon button system (compact base + 4 named colour
+   identities), for the UI correction pass. These are plain aliases
+   onto the SAME --tab-light/--tab-rgb recipe every other .btn-* class
+   above already uses - not a second button system - so anything
+   already themed via .btn-cyan/.btn-publish/.btn-success/.btn-gold
+   is visually identical to its bingo-neon-* counterpart. Never applied
+   to the Cockpit (#aaAssistantDrawer/.bcp-btn), which is protected and
+   unchanged by this pass. */
+#auto-arcade-widget .bingo-neon-base{
+  border-radius:999px!important;
+  padding:7px 13px!important;
+  font-size:11px!important;
+  width:auto!important;
+}
+#auto-arcade-widget .bingo-neon-cyan{--tab-light:#22c9ff;--tab-rgb:34,201,255}
+#auto-arcade-widget .bingo-neon-pink{--tab-light:#ff2fb0;--tab-rgb:255,47,176}
+#auto-arcade-widget .bingo-neon-green{--tab-light:#1fd67a;--tab-rgb:31,214,122}
+#auto-arcade-widget .bingo-neon-gold{--tab-light:var(--bingo-gold,#f3be2b);--tab-rgb:243,190,43}
 #auto-arcade-widget .btn-purple,
 #auto-arcade-widget button.btn-purple{
   --tab-light:#ab47ff;
@@ -23508,13 +23534,40 @@ Preserve all existing onclick actions, routes, forms and button wording.
 <style id="bgc-generic-categories-style">
 /* Reuses .du1-overlay / .du1-modal / .du1-head / .du1-close chrome already defined above. */
 #auto-arcade-widget .bgc-cat-search{display:flex;gap:8px;margin-bottom:12px}
-#auto-arcade-widget .bgc-cat-search input{flex:1;border:1px solid #cfd6e2;border-radius:10px;padding:10px 12px;font-size:13px}
-#auto-arcade-widget .bgc-tile-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-#auto-arcade-widget .bgc-tile{border:1px solid #dce2eb;background:#fff;border-radius:13px;padding:14px 10px;text-align:center;cursor:pointer;font-weight:800;font-size:12.5px;color:#071225;transition:.15s}
-#auto-arcade-widget .bgc-tile:hover{border-color:#d9ad32;transform:translateY(-2px)}
-#auto-arcade-widget .bgc-tile small{display:block;font-weight:600;color:#758095;margin-top:4px;font-size:10px}
+#auto-arcade-widget .bgc-cat-search input{flex:1;border:1px solid #263650;background:#0d1728;color:#fff;border-radius:10px;padding:10px 12px;font-size:13px}
+#auto-arcade-widget .bgc-cat-search input::placeholder{color:#7a8aa3}
+/* Compact neon pills, sized to their own label (not a forced equal-
+   width grid column), wrapping naturally - the fix for the "huge
+   gold/black rectangular buttons" report. Colour cycles cyan/pink/
+   green/gold across tiles via :nth-child so the popup isn't a wall of
+   one colour, reusing the same accent hexes as .btn-cyan/.btn-publish/
+   .btn-success/.btn-gold elsewhere in the app. */
+#auto-arcade-widget .bgc-tile-grid{display:flex!important;flex-wrap:wrap!important;gap:8px}
+/* !important throughout: the earlier "every button gets gold neon"
+   base recipe (#bingo-all-buttons-neon-v1, matches any <button>) also
+   applies to these tiles and uses !important on background/border/
+   border-radius/box-shadow/color, which otherwise silently wins over
+   an equal-or-lower-specificity rule regardless of source order -
+   the exact same conflict already documented for #bingoLogoCloseBtn
+   above. Matching its specificity here is what actually produces the
+   compact pill instead of the large uniform gold rectangle. */
+#auto-arcade-widget .bgc-tile{
+  flex:0 0 auto!important;width:auto!important;
+  border:1.5px solid rgba(34,201,255,.55)!important;
+  background:linear-gradient(160deg,#0d1b32,#081120)!important;
+  border-radius:999px!important;padding:8px 14px!important;text-align:center;cursor:pointer;
+  font-weight:800;font-size:11px;color:#e7edf6!important;
+  box-shadow:0 0 9px rgba(34,201,255,.16)!important;transition:.15s;
+}
+#auto-arcade-widget .bgc-tile:hover{transform:translateY(-2px);box-shadow:0 0 13px rgba(34,201,255,.32)!important}
+#auto-arcade-widget .bgc-tile small{display:block;font-weight:600;color:#9fb0c6;margin-top:2px;font-size:9px}
 #auto-arcade-widget .bgc-tile.bgc-age b{color:#ef1f2f}
-@media(max-width:600px){#auto-arcade-widget .bgc-tile-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#auto-arcade-widget .bgc-tile:nth-child(4n+2){border-color:rgba(255,47,176,.55)!important;box-shadow:0 0 9px rgba(255,47,176,.16)!important}
+#auto-arcade-widget .bgc-tile:nth-child(4n+2):hover{box-shadow:0 0 13px rgba(255,47,176,.32)!important}
+#auto-arcade-widget .bgc-tile:nth-child(4n+3){border-color:rgba(31,214,122,.55)!important;box-shadow:0 0 9px rgba(31,214,122,.16)!important}
+#auto-arcade-widget .bgc-tile:nth-child(4n+3):hover{box-shadow:0 0 13px rgba(31,214,122,.32)!important}
+#auto-arcade-widget .bgc-tile:nth-child(4n+4){border-color:rgba(243,190,43,.55)!important;box-shadow:0 0 9px rgba(243,190,43,.16)!important}
+#auto-arcade-widget .bgc-tile:nth-child(4n+4):hover{box-shadow:0 0 13px rgba(243,190,43,.32)!important}
 
 #auto-arcade-widget .bgc-filters{display:grid;grid-template-columns:1fr 180px auto;gap:8px;margin-bottom:12px}
 #auto-arcade-widget .bgc-filters input,#auto-arcade-widget .bgc-filters select{border:1px solid #cfd6e2;border-radius:10px;padding:10px 12px;font-size:13px}
