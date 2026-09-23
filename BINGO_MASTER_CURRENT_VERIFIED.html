@@ -12602,9 +12602,20 @@ function aaFoodBusinessProfileHTML(){
  const wa=String(f.whatsapp||f.phone||'').replace(/\D/g,'');
  const addr=[f.town,f.county].filter(Boolean).join(', ');
  const directionsUrl='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent((f.business_name||'')+' '+addr);
+ const coverMedia=f.media?.[0];
+ const initials=String(f.business_name||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
+ const menuItems=aaFoodMenuItems(f.id).filter(x=>own||x.status==='published').slice(0,6);
  return `<section style="padding:18px 0 105px">
   <button class="btn btn-glass" onclick="goBack()">← Back</button>
-  <div class="detail-grid" style="margin-top:12px">
+  <div class="aa-foodprofile-cover" style="margin-top:12px">${coverMedia&&coverMedia.type!=='video'?`<img src="${bingoSafeMediaAttr(coverMedia.url)}" alt="">`:''}</div>
+  <div class="aa-foodprofile-head">
+   <div class="aa-foodprofile-logo">${esc(initials)}</div>
+   <div class="aa-foodprofile-id">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h2>${esc(f.business_name)}</h2>${aaFoodActive(f)?'<span class="badge badge-green">OPEN FOR ORDERS</span>':'<span class="badge badge-red">INACTIVE</span>'}</div>
+    <div class="meta">${esc(f.category||'Restaurant')} · ${esc(addr||'—')}${f.opening_hours?' · '+esc(f.opening_hours):''}</div>
+   </div>
+  </div>
+  <div class="detail-grid" style="margin-top:14px">
    <div>
     ${aaListingMediaGalleryHTML(String(f.id),f.media,f.business_name)}
     <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:10px">
@@ -12618,7 +12629,6 @@ function aaFoodBusinessProfileHTML(){
     </div>
    </div>
    <div class="modal" style="max-height:none">
-    <div style="display:flex;justify-content:space-between;gap:8px"><h2>${esc(f.business_name)}</h2>${aaFoodActive(f)?'<span class="badge badge-green">OPEN FOR ORDERS</span>':'<span class="badge badge-red">INACTIVE</span>'}</div>
     <div class="specs">
      ${f.category?`<div class="spec"><span>Cuisine</span><b>${esc(f.category)}</b></div>`:''}
      <div class="spec"><span>Location</span><b>${esc(addr||'—')}</b></div>
@@ -12627,12 +12637,32 @@ function aaFoodBusinessProfileHTML(){
      <div class="spec"><span>Delivery</span><b>${f.delivery_available?'Available':'Pickup only'} · ${esc(f.delivery_area||'—')}</b></div>
     </div>
     <div class="desc">${esc(f.description||'')}</div>
-    <button class="btn btn-gold" style="width:100%;margin-top:12px" onclick="aaOpenFoodMenu('${esc(f.id)}')">View Full Menu</button>
-    ${own?`<div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:10px"><button class="btn btn-glass" onclick="aaEditFoodBusiness('${esc(f.id)}')">✎ Edit Business</button><button class="btn btn-glass" onclick="aaOpenInviteAgentModal('food_business','${esc(f.id)}')">Invite Manager</button></div>`:''}
+    ${own?`<div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:10px"><button class="btn btn-glass" onclick="aaEditFoodBusiness('${esc(f.id)}')">✎ Edit Business</button></div>`:''}
     ${aaHelpSellBlockHTML("food_business",f.id,f.user_id||"")}
     ${aaAdminControlsHTML("food_business",f.id,f.user_id||"")}
    </div>
   </div>
+  <div class="boost-summary" style="margin-top:14px">
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+    <b>Menu</b>
+    <div class="aa-agentdash-tabs" style="margin:0">
+     ${own?`<button class="bingo-neon-action bingo-neon-action-gold" onclick="aaOpenFoodMenu('${esc(f.id)}')">Manage Menu</button>`:''}
+     <button class="bingo-neon-action bingo-neon-action-cyan" onclick="aaOpenFoodMenu('${esc(f.id)}')">View Full Menu</button>
+    </div>
+   </div>
+   ${!menuItems.length?`<p class="notice">${own?'No food items yet. Tap Manage Menu to start.':'This restaurant has not published any menu items yet.'}</p>`:`<div class="aa-food-menu-grid">${menuItems.map(it=>aaFoodMenuItemCardHTML({...it,business_id:f.id},own)).join('')}</div>`}
+  </div>
+  ${own?`<div class="boost-summary" style="margin-top:14px;border-color:var(--gold)">
+   <b style="color:var(--gold)">Restaurant Management</b>
+   <div class="aa-agentdash-tabs aa-agentdash-chips" style="margin-top:8px">
+    <button class="bingo-neon-action bingo-neon-action-cyan" onclick="aaLoadFoodOrders().then(render);state.foodProfileOrdersOpen=!state.foodProfileOrdersOpen;render()">📋 Orders Dashboard</button>
+    <button class="bingo-neon-action bingo-neon-action-gold" onclick="aaStartFoodSubscription('${esc(f.id)}',1)">Renew / Pay KES 1,000</button>
+    <button class="bingo-neon-action bingo-neon-action-purple" onclick="aaOpenInviteAgentModal('food_business','${esc(f.id)}')">Invite Manager</button>
+    <button class="bingo-neon-action bingo-neon-action-red" onclick="aaDeleteFoodBusiness('${esc(f.id)}')">Delete Business</button>
+   </div>
+   ${state.foodProfileOrdersOpen?aaFoodBusinessOrdersHTML(f.id):''}
+   <p class="notice">Managers can update posts and menu items but never see M-Pesa or payment details.</p>
+  </div>`:''}
  </section>`;
 }
 async function aaStartFoodSubscription(id,months){
@@ -24232,6 +24262,14 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .aa-agentdash-pcard-body{padding:9px 10px 11px}
 #auto-arcade-widget .aa-agentdash-pcard-body b{display:block;font-size:12px;line-height:1.3}
 #auto-arcade-widget .aa-agentdash-pcard-body .meta{font-size:9.5px;color:#8f9bb0;margin-top:3px}
+#auto-arcade-widget .aa-foodprofile-cover{height:150px;border-radius:16px;position:relative;overflow:hidden;background:linear-gradient(135deg,#8d3e20,#e2a542 42%,#234c30 72%,#0a1d2d);background-size:cover;background-position:center}
+#auto-arcade-widget .aa-foodprofile-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#auto-arcade-widget .aa-foodprofile-cover:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(3,7,19,0) 42%,rgba(3,7,19,.9))}
+#auto-arcade-widget .aa-foodprofile-head{display:flex;gap:12px;align-items:flex-end;margin:-36px 4px 0;position:relative}
+#auto-arcade-widget .aa-foodprofile-logo{width:72px;height:72px;border-radius:18px;border:3px solid var(--gold);background:linear-gradient(145deg,#1c5476,#6c315f);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex:none}
+#auto-arcade-widget .aa-foodprofile-id{padding-bottom:4px;min-width:0}
+#auto-arcade-widget .aa-foodprofile-id h2{margin:0;font-size:19px;line-height:1.25;word-break:break-word}
+#auto-arcade-widget .aa-foodprofile-id .meta{font-size:10.5px;color:#9aa7bc;margin-top:3px}
 </style>
 
 <style id="bingo-change07-advertising-style">
