@@ -12963,7 +12963,13 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
           <div class="bcp-grid">
             <button class="bcp-btn btn-blue ${state.view==="home"?"active":""}" onclick="aaAssistantNavigate(goHome)"><span class="bcp-ico">&#8962;</span><b>Home</b></button>
             <button class="bcp-btn btn-glass ${state.view==="search"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenSearch('videos'))"><span class="bcp-ico">&#8981;</span><b>Search</b></button>
-            <button class="bcp-btn btn-publish ${state.view==="add"?"active":""}" onclick="aaAssistantNavigate(()=>{if(typeof aaDU1OpenCreate==='function')aaDU1OpenCreate();else openPostVehicle();})"><span class="bcp-ico">&#65291;</span><b>Post</b></button>
+            <!-- Post entry point removed from the Cockpit per the current
+                 posting-roadmap redesign - aaDU1OpenCreate/openPostVehicle
+                 and everything they lead to (POST ABOUT, all posting forms)
+                 are untouched and still fully reachable from within each
+                 module (Post Vehicle, Post Property, Post Food, etc.).
+                 Only this Cockpit shortcut is disconnected, deliberately,
+                 for now. -->
             <button class="bcp-btn" onclick="aaAssistantNavigate(openInbox)"><span class="bcp-ico">&#128172;</span><b>Chats</b></button>
             <button class="bcp-btn" onclick="aaAssistantNavigate(goHome)"><span class="bcp-ico">&#9638;</span><b>Feed</b></button>
           </div>
