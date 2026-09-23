@@ -15656,43 +15656,54 @@ function aaAgentPerformanceHTML(){
  biz.forEach(b=>{counts[b._cat]=(counts[b._cat]||0)+1});
  const boosts=biz.filter(b=>b.isBoosted);
  const totals=aaAgentLedgerTotals();
+ const tiles=[
+  {v:biz.length,l:"Onboarded",rgb:"34,201,255",ic:"◎"},
+  {v:counts["Bingo Stays"]||0,l:"Bingo Stays",rgb:"171,71,255",ic:"▰"},
+  {v:counts.Vehicle||0,l:"Vehicles",rgb:"31,214,122",ic:"◆"},
+  {v:counts.Property||0,l:"Properties",rgb:"243,190,43",ic:"⌂"},
+  {v:boosts.length,l:"Active Boosts",rgb:"255,47,176",ic:"⚡"},
+  {v:"KES "+money(totals.available),l:"Commission",rgb:"239,31,47",ic:"₵"}
+ ];
  return `<div class="boost-summary">
   <b>Performance — ${esc(aaAgentTerritory()||"Territory not set")}</b>
-  <div class="stat-grid" style="margin-top:10px">
-   <div class="stat"><b>${biz.length}</b><span>Businesses Onboarded</span></div>
-   <div class="stat"><b>${counts["Bingo Stays"]||0}</b><span>Bingo Stays</span></div>
-   <div class="stat"><b>${counts.Vehicle||0}</b><span>Vehicles</span></div>
-   <div class="stat"><b>${counts.Property||0}</b><span>Properties</span></div>
-   <div class="stat"><b>${boosts.length}</b><span>Active Boosts</span></div>
-   <div class="stat"><b>KES ${money(totals.available)}</b><span>Available Commission</span></div>
+  <div class="aa-agentdash-metrics">
+   ${tiles.map(t=>`<div class="aa-agentdash-metric" style="--m-rgb:${t.rgb}"><div class="ic">${t.ic}</div><b>${t.v}</b><span>${esc(t.l)}</span></div>`).join("")}
   </div>
  </div>`;
 }
 function aaAgentDashboardHTML(){
  const uid=String(state.user?.id||"");
  const biz=aaAgentBusinesses(uid);
- return `<section style="padding:20px 0 105px"><div class="modal" style="max-height:none">
+ const view=state.agentDashView||"mine";
+ const tabs=[
+  ["mine","My Businesses","cyan"],
+  ["managed","Managed","purple"],
+  ["invitations",`Invitations${state.agentInvitations?.length?` (${state.agentInvitations.length})`:""}`,"pink"],
+  ["commission","Commission","gold"],
+  ["withdrawals","Withdrawals","green"],
+  ["moderation","Moderation","red"]
+ ];
+ const pcColors=[["#233a6b","#0d1228"],["#3a2166","#0d1228"],["#1d4a44","#0d1228"],["#4a2a1d","#0d1228"]];
+ return `<section class="aa-agentdash-shell"><div class="modal" style="max-height:none">
   <button class="btn" onclick="aaBackToMyProfile()">← Back to My Profile</button>
-  <h2 style="margin-top:12px">Agent Dashboard</h2>
-  <p class="notice" style="margin-top:0">Territory: <b style="color:var(--gold)">${esc(aaAgentTerritory()||"Not set")}</b> · This is the same Bingo account — switching modes never logs you out.</p>
+  <div class="aa-agentdash-head" style="margin-top:12px">
+   <h2>Agent Dashboard</h2>
+   <span class="aa-sub-pill active aa-agentdash-territory">${esc(aaAgentTerritory()||"Territory not set")}</span>
+  </div>
+  <p class="notice" style="margin-top:2px">This is the same Bingo account — switching modes never logs you out.</p>
   ${aaAgentProgressBulletinHTML(state.agentProgressBulletin)}
   ${aaAgentSalaryStatusHTML(state.agentSalarySummary)}
   ${aaAgentPerformanceHTML()}
-  <div class="dashboard-actions" style="margin-top:12px">
-   <button class="btn btn-publish" onclick="aaOpenAgentAddBusiness()">+ Add Business</button>
-   <button class="btn btn-glass" onclick="state.agentDashView='mine';render()">My Businesses</button>
-   <button class="btn btn-glass" onclick="state.agentDashView='managed';render()">Managed Businesses</button>
-   <button class="btn btn-glass" onclick="state.agentDashView='invitations';render()">Invitations${state.agentInvitations?.length?` (${state.agentInvitations.length})`:""}</button>
-   <button class="btn btn-cyan" onclick="state.agentDashView='commission';aaLoadMyCommissionLedger().then(render);render()">Commission</button>
-   <button class="btn btn-gold" onclick="state.agentDashView='withdrawals';aaLoadMyWithdrawals().then(render);render()">Withdrawals</button>
-   <button class="btn btn-danger" onclick="state.agentDashView='moderation';render()">Moderation</button>
+  <div class="aa-agentdash-tabs">
+   <button class="bingo-neon-action bingo-neon-action-gold" onclick="aaOpenAgentAddBusiness()">+ Add Business</button>
+   ${tabs.map(([k,label,color])=>`<button class="bingo-neon-action bingo-neon-action-${color}${view===k?" is-active":""}" onclick="state.agentDashView='${k}';${k==="commission"?"aaLoadMyCommissionLedger().then(render);":""}${k==="withdrawals"?"aaLoadMyWithdrawals().then(render);":""}render()">${label}</button>`).join("")}
   </div>
-  ${state.agentDashView==="mine"?`<div class="boost-summary" style="margin-top:12px"><b>My Businesses</b>${!biz.length?'<p class="notice">No businesses onboarded yet. Tap + Add Business to start.</p>':biz.map(b=>`<div class="aa360-item" style="position:relative;height:auto;min-height:0;padding:10px;margin-top:8px;border:1px solid var(--line);border-radius:10px"><b style="font-size:13px">${esc(b.title||b.name||"Business")}</b><div class="meta">${esc(b._cat)} · ${esc(b.businessClass||"Small")} · ${b.isBoosted?"Boosted":"Not boosted"}</div></div>`).join("")}</div>`:""}
-  ${state.agentDashView==="commission"?aaAgentCommissionTabHTML():""}
-  ${state.agentDashView==="withdrawals"?aaAgentWithdrawalsHTML():""}
-  ${state.agentDashView==="moderation"?`<div class="boost-summary" style="margin-top:12px"><b>Assigned Moderation Cases</b><p class="notice" style="margin-top:0">Only cases the Super User has assigned to you appear here, and only Dismiss / Request Edit are available to Agents.</p>${aaAgentModerationQueueHTML()}</div>`:""}
-  ${state.agentDashView==="managed"?`<div class="boost-summary" style="margin-top:12px"><b>Businesses You Manage</b><p class="notice" style="margin-top:0">Only the permissions the owner granted you are usable — you can never change ownership, payment records or your own permissions.</p>${aaAgentManagedBusinessesHTML()}</div>`:""}
-  ${state.agentDashView==="invitations"?`<div class="boost-summary" style="margin-top:12px"><b>Pending Invitations</b>${aaAgentInvitationsHTML()}</div>`:""}
+  ${view==="mine"?`<div class="boost-summary" style="margin-top:12px"><b>My Businesses</b>${!biz.length?'<p class="notice">No businesses onboarded yet. Tap + Add Business to start.</p>':`<div class="aa-agentdash-portfolio">${biz.map((b,i)=>{const c=pcColors[i%pcColors.length];return `<div class="aa-agentdash-pcard"><div class="aa-agentdash-pcard-media" style="--pc1:${c[0]};--pc2:${c[1]}">${esc(b._cat)}</div><div class="aa-agentdash-pcard-body"><b>${esc(b.title||b.name||"Business")}</b><div class="meta">${esc(b.businessClass||"Small")} · ${b.isBoosted?"Boosted":"Not boosted"}</div></div></div>`}).join("")}</div>`}</div>`:""}
+  ${view==="commission"?aaAgentCommissionTabHTML():""}
+  ${view==="withdrawals"?aaAgentWithdrawalsHTML():""}
+  ${view==="moderation"?`<div class="boost-summary" style="margin-top:12px"><b>Assigned Moderation Cases</b><p class="notice" style="margin-top:0">Only cases the Super User has assigned to you appear here, and only Dismiss / Request Edit are available to Agents.</p>${aaAgentModerationQueueHTML()}</div>`:""}
+  ${view==="managed"?`<div class="boost-summary" style="margin-top:12px"><b>Businesses You Manage</b><p class="notice" style="margin-top:0">Only the permissions the owner granted you are usable — you can never change ownership, payment records or your own permissions.</p>${aaAgentManagedBusinessesHTML()}</div>`:""}
+  ${view==="invitations"?`<div class="boost-summary" style="margin-top:12px"><b>Pending Invitations</b>${aaAgentInvitationsHTML()}</div>`:""}
  </div></section>`;
 }
 function aaAgentCommissionTabHTML(){
@@ -15721,17 +15732,17 @@ function aaAgentAddBusinessHTML(){
   <p class="notice" style="margin-top:0">Enter the employee count first — Bingo classifies the business automatically (below 50 = Small Business, 50+ = Corporate), then routes you to the correct existing Bingo form. No new form is created.</p>
   <label class="form-label">Number of Employees</label>
   <input class="field" id="aaAgentEmployeeCount" type="number" min="0" placeholder="e.g. 4">
-  <div class="dashboard-actions" style="margin-top:10px">
-   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("vehicle-sale")'>Vehicle</button>
-   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("property")'>Property</button>
-   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("stay")'>Bingo Stays</button>
-   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("food")'>Food / Restaurant</button>
-   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("fashion")'>Fashion</button>
-   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("furniture")'>Furniture</button>
-   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("electronics")'>Electronics</button>
-   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("beauty")'>Beauty</button>
-   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("agriculture")'>Agriculture</button>
-   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("other")'>Other</button>
+  <div class="aa-agentdash-tabs aa-agentdash-chips" style="margin-top:10px">
+   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("vehicle-sale")'>Vehicle</button>
+   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("property")'>Property</button>
+   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("stay")'>Bingo Stays</button>
+   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("food")'>Food / Restaurant</button>
+   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("fashion")'>Fashion</button>
+   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("furniture")'>Furniture</button>
+   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("electronics")'>Electronics</button>
+   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("beauty")'>Beauty</button>
+   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("agriculture")'>Agriculture</button>
+   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("other")'>Other</button>
   </div>
   <button class="btn btn-glass" style="width:100%;margin-top:8px" onclick="state.agentAddBusinessOpen=false;render()">Cancel</button>
  </div>`;
@@ -24197,6 +24208,30 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .aa-agent-client-progress-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,#f5ae00,#ffe36a);box-shadow:0 0 18px rgba(255,204,45,0.58);transition:width 0.3s ease}
 #auto-arcade-widget .aa-agent-client-count{color:#f4f7ff}
 #auto-arcade-widget .aa-member-since{margin-top:5px;color:#9db0c9;font-size:12px;font-weight:700}
+</style>
+
+<style id="bingo-agentdash-v2-style">
+#auto-arcade-widget .aa-agentdash-shell{padding:16px 0 110px}
+#auto-arcade-widget .aa-agentdash-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#auto-arcade-widget .aa-agentdash-head h2{margin:0;font-size:19px}
+#auto-arcade-widget .aa-agentdash-territory{margin-left:auto}
+#auto-arcade-widget .aa-agentdash-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+#auto-arcade-widget .aa-agentdash-metric{--m-rgb:34,201,255;background:linear-gradient(150deg,#101b30,#0a121f);border:1px solid rgba(var(--m-rgb),.35);border-radius:12px;padding:10px 6px;text-align:center}
+#auto-arcade-widget .aa-agentdash-metric .ic{width:28px;height:28px;margin:0 auto 6px;border-radius:9px;border:1px solid rgba(var(--m-rgb),.6);display:flex;align-items:center;justify-content:center;font-size:13px;color:rgb(var(--m-rgb));box-shadow:0 0 10px rgba(var(--m-rgb),.3)}
+#auto-arcade-widget .aa-agentdash-metric b{display:block;font-size:15px;color:rgb(var(--m-rgb));font-weight:900}
+#auto-arcade-widget .aa-agentdash-metric span{display:block;font-size:8.3px;color:#8f9bb0;margin-top:2px;letter-spacing:.02em;text-transform:uppercase}
+@media(max-width:430px){#auto-arcade-widget .aa-agentdash-metrics{grid-template-columns:repeat(2,1fr)}}
+#auto-arcade-widget .aa-agentdash-tabs{display:flex;gap:7px;overflow-x:auto;padding:2px 1px 4px;margin-top:14px;scrollbar-width:none}
+#auto-arcade-widget .aa-agentdash-tabs::-webkit-scrollbar{display:none}
+#auto-arcade-widget .aa-agentdash-tabs>button{flex:none!important}
+#auto-arcade-widget .aa-agentdash-tabs.aa-agentdash-chips{flex-wrap:wrap;overflow-x:visible}
+#auto-arcade-widget .aa-agentdash-tabs.aa-agentdash-chips>button{flex:0 0 auto!important}
+#auto-arcade-widget .aa-agentdash-portfolio{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+#auto-arcade-widget .aa-agentdash-pcard{background:linear-gradient(150deg,#101b30,#0a121f);border:1px solid #223353;border-radius:14px;overflow:hidden}
+#auto-arcade-widget .aa-agentdash-pcard-media{height:60px;background:linear-gradient(135deg,var(--pc1,#233a6b),var(--pc2,#0d1228));display:flex;align-items:flex-end;padding:7px 9px;font-size:9px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.7)}
+#auto-arcade-widget .aa-agentdash-pcard-body{padding:9px 10px 11px}
+#auto-arcade-widget .aa-agentdash-pcard-body b{display:block;font-size:12px;line-height:1.3}
+#auto-arcade-widget .aa-agentdash-pcard-body .meta{font-size:9.5px;color:#8f9bb0;margin-top:3px}
 </style>
 
 <style id="bingo-change07-advertising-style">
