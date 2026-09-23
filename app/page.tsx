@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "./supabase/lib/supabase";
+import { supabase } from "../supabase/lib/supabase";
 
 const sections = [
   { name: "Food", href: "/food", icon: "🍽️" },
@@ -128,24 +128,6 @@ export default function Home() {
     setError("");
 
     try {
-      /*
-       * FOOD
-       *
-       * We use the live schema already confirmed in Supabase:
-       * food_menu_items:
-       * id
-       * business_id
-       * item_name
-       * category
-       * description
-       * price
-       * currency
-       * image_urls
-       * video_url
-       * is_available
-       * status
-       * created_at
-       */
       const foodRequest = supabase
         .from("food_menu_items")
         .select(`
@@ -170,12 +152,6 @@ export default function Home() {
         .order("created_at", { ascending: false })
         .limit(40);
 
-      /*
-       * POSTS
-       *
-       * Posts are loaded separately so a failure in Posts does not
-       * prevent Food from appearing on Home.
-       */
       const postsRequest = supabase
         .from("posts")
         .select("*")
@@ -195,10 +171,9 @@ export default function Home() {
         for (const item of foodResult.data || []) {
           const businessRelation: any = item.food_businesses;
 
-          const businessName =
-            Array.isArray(businessRelation)
-              ? businessRelation[0]?.business_name
-              : businessRelation?.business_name;
+          const businessName = Array.isArray(businessRelation)
+            ? businessRelation[0]?.business_name
+            : businessRelation?.business_name;
 
           combined.push({
             id: `food-${item.id}`,
@@ -223,13 +198,6 @@ export default function Home() {
         console.error("Posts feed error:", postsResult.error);
       } else {
         for (const post of postsResult.data || []) {
-          /*
-           * Do not show records explicitly marked as draft,
-           * deleted, removed or rejected.
-           *
-           * If the current posts table has no status field,
-           * the post remains eligible.
-           */
           const status = String(post?.status || "").toLowerCase();
 
           if (
@@ -340,11 +308,7 @@ export default function Home() {
               className="rounded-xl border border-cyan-500/25 bg-[#151C28] p-5 transition hover:border-cyan-400 hover:bg-[#192334]"
             >
               <div className="text-2xl">{section.icon}</div>
-
-              <div className="mt-3 font-bold">
-                {section.name}
-              </div>
-
+              <div className="mt-3 font-bold">{section.name}</div>
               <div className="mt-1 text-xs text-slate-400">
                 Open {section.name}
               </div>
@@ -355,10 +319,7 @@ export default function Home() {
         <section className="mt-8">
           <div className="mb-4 flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-xl font-black">
-                Home Feed
-              </h2>
-
+              <h2 className="text-xl font-black">Home Feed</h2>
               <p className="mt-1 text-xs text-slate-400">
                 Latest across Bingo
               </p>
@@ -383,7 +344,6 @@ export default function Home() {
             <div className="flex min-h-[260px] items-center justify-center rounded-2xl border border-white/10 bg-[#151C28]">
               <div className="text-center">
                 <div className="mx-auto h-9 w-9 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
-
                 <p className="mt-4 text-sm text-slate-400">
                   Loading Bingo...
                 </p>
@@ -393,9 +353,7 @@ export default function Home() {
 
           {!loading && error && feed.length === 0 && (
             <div className="rounded-2xl border border-red-500/30 bg-[#151C28] p-8 text-center">
-              <p className="font-bold text-red-300">
-                {error}
-              </p>
+              <p className="font-bold text-red-300">{error}</p>
 
               <button
                 type="button"
@@ -438,9 +396,7 @@ export default function Home() {
                               : "rounded-full border border-cyan-500/40 bg-cyan-500/10 px-2 py-1 text-[10px] font-black uppercase text-cyan-300"
                           }
                         >
-                          {item.source === "food"
-                            ? "Food"
-                            : "Post"}
+                          {item.source === "food" ? "Food" : "Post"}
                         </span>
 
                         {item.category && (
@@ -543,7 +499,7 @@ export default function Home() {
                               url: window.location.href,
                             });
                           } catch {
-                            // User cancelled sharing.
+                            // Sharing cancelled.
                           }
                         }}
                         className="rounded-lg border border-white/20 px-4 py-2 text-xs font-bold text-slate-200 transition hover:border-white/40"
