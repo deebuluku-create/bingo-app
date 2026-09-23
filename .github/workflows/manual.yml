@@ -37,10 +37,21 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
         run: npm run build
 
+      - name: Package existing Bingo master into Pages output
+        run: |
+          test -f "BINGO_MASTER_CURRENT_VERIFIED.html"
+          cp "BINGO_MASTER_CURRENT_VERIFIED.html" "out/BINGO_MASTER_CURRENT_VERIFIED.html"
+          if [ -d assets ]; then
+            rm -rf out/assets
+            cp -R assets out/assets
+          fi
+          echo "Existing Bingo master and assets packaged without modifying the master."
+
       - name: Verify static export
         run: |
           test -d out
           test -f out/index.html
+          test -f out/BINGO_MASTER_CURRENT_VERIFIED.html
           echo "Bingo static export created successfully."
 
       - name: Setup GitHub Pages
