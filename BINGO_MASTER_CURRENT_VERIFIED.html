@@ -876,9 +876,11 @@ Production mother file does not force production.
 #auto-arcade-widget .aa360-price{font-size:20px;font-weight:950;color:var(--gold);margin:3px 0}
 #auto-arcade-widget .aa360-specs{font-size:10px;color:#dbe3ef;display:flex;flex-wrap:wrap;gap:5px 10px;margin:6px 0}
 #auto-arcade-widget .aa360-desc{font-size:10px;color:#bcc6d5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:4px 0 8px}
-#auto-arcade-widget .aa360-actions{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-#auto-arcade-widget .aa360-actions button{border:0;border-radius:10px;padding:9px 5px;color:#fff;font-size:9px;font-weight:900;background:#172033}
-#auto-arcade-widget .aa360-actions .call{background:#0d6fb0}.aa360-actions .chat{background:#1764c0}.aa360-actions .wa{background:#138b4d}.aa360-actions .negotiate{background:linear-gradient(180deg,#f5b91e,#b8860b);color:#1a1200;font-weight:900}
+/* Compact pill row (bingo-neon-action, see the shared button system)
+   instead of a 4-column grid that stretched every action button to a
+   large equal-width block. flex-wrap lets a narrower phone wrap extra
+   buttons onto a second line rather than compressing or overflowing. */
+#auto-arcade-widget .aa360-actions{display:flex;flex-wrap:wrap;gap:6px}
 #auto-arcade-widget .aa360-readmore{background:none;border:0;padding:0;color:#f5b91e;font-weight:800;font-size:inherit;cursor:pointer;display:inline}
 #auto-arcade-widget .aa360-scroll-note{text-align:center;font-size:8px;color:#c8d0dc;text-transform:uppercase;letter-spacing:.14em;margin-top:7px}
 #auto-arcade-widget .aa360-empty{min-height:60vh;display:flex;align-items:center;justify-content:center;padding:30px;text-align:center;color:#9aa7bc}
@@ -4444,7 +4446,7 @@ aaInitSupabase();
           <div class="aa360-price">KES 8,500,000</div>
           <div class="aa360-specs"><span>2022</span><span>45,000 KM</span><span>Diesel</span><span>Automatic</span><span>Foreign Used</span></div>
           <div class="aa360-desc">Modern Bingo 360View preview. Live data replaces this preview automatically.</div>
-          <div class="aa360-actions"><button class="call">☎ Call</button><button class="chat">💬 Message</button><button class="wa">WhatsApp</button><button>Share</button></div>
+          <div class="aa360-actions"><button class="bingo-neon-action bingo-neon-action-cyan">☎ Call</button><button class="bingo-neon-action bingo-neon-action-purple">💬 Message</button><button class="bingo-neon-action bingo-neon-action-green">WhatsApp</button></div>
           <div class="aa360-scroll-note">BINGO 360VIEW</div>
         </div>
       </section>
@@ -8623,7 +8625,7 @@ function aaFeedCardHTML(c,i){
    : `<img class="aa360-photo" src="${esc(aaMainPhoto(c))}" alt="${esc(c.title||"Promoted vehicle")}">`;
  const promoLabel=aaPromotionLabel(c);
  const promoted=c?.isBoosted?`<div class="aa-ad-label">Ad</div>`:promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";
- return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}<div class="aa360-side"><div><button class="aa360-action" aria-label="Views" title="Views">${aaSideIcon("views")}</button><span>${aaCompact(aaViewCount(c))}</span></div><div><button class="aa360-action ${aaInterested(c)?"on":""}" onclick='aaToggleInterested(${id})' aria-label="Interested" title="Interested">${aaSideIcon("interested")}</button><span>${aaCompact(interested)}</span></div><div><button class="aa360-action" onclick='aaOpenComments(state.listings.find(x=>String(x.id)===${id}))' aria-label="Comments" title="Comments">${aaSideIcon("comments")}</button><span>${aaCompact(aaCommentCount(c))}</span></div><div><button class="aa360-action" onclick='state.shareTarget=state.listings.find(x=>String(x.id)===${id});render()' aria-label="Share" title="Share">${aaSideIcon("share")}</button><span>${aaCompact(c.shares||0)}</span></div><div><button class="aa360-action" onclick='${isVideo?`aaDownloadListingVideo(state.listings.find(x=>String(x.id)===${id}))`:`aaDownloadCurrentPhoto(state.listings.find(x=>String(x.id)===${id}))`}' aria-label="Download" title="Download">${aaSideIcon("download")}</button><span>Download</span></div><div><button class="aa360-action ${isFav(c.id)?"on":""}" onclick='toggleFav(${id})' aria-label="Save" title="Save">${aaSideIcon("save")}</button><span>${isFav(c.id)?"Saved":"Save"}</span></div></div><div class="aa360-info"><div class="aa360-seller-wrap"><button class="aa360-seller" title="Open seller profile" aria-label="Open seller profile" onclick='openSeller(${sellerId})'><img src="${esc(aaProfilePhoto(c.sellerPhoto || (state.isLoggedIn && aaListingOwnerId(c)===String(state.user?.id||"") ? state.user?.photo_url : "")))}" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.sellerName||"Bingo Seller")}</b>${aaListingSellerRating(c)}${aaFollowStatsHTML(c.sellerId||c.userId)}<small style="color:#f5b91e">${esc(aaListingUsername(c))}</small><small>${aaPresenceBadge({id:c.sellerId,sellerId:c.sellerId,phone:c.sellerPhone})}</small></span></button>${aaFeedFollowButtonHTML(c)}</div><div>${listingBadge(c)}</div><div class="aa360-title">${esc(c.title)}</div><div class="aa360-price">${price}</div><div class="aa360-specs"><span>${esc(c.year||"")}</span><span>${money(c.mileage)} KM</span><span>${esc(c.fuel||"")}</span><span>${esc(c.transmission||"")}</span><span>${esc(c.condition||"")}</span><span>${esc(aaSearchLocationText(c)||c.location||"Kenya")}</span></div><div class="aa360-desc">${esc(c.description||"")}${c.description&&c.description.length>60?` <button type="button" class="aa360-readmore" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'>Read more ›</button>`:""}</div><div class="aa360-actions"><button class="call" onclick='callSeller(state.listings.find(x=>String(x.id)===${id}))'>Call</button><button class="chat" onclick='contact("chat",state.listings.find(x=>String(x.id)===${id}))'>Message</button><button class="wa" onclick='contact("whatsapp",state.listings.find(x=>String(x.id)===${id}))'>WhatsApp</button><button class="negotiate" onclick='if(typeof aaDU1Negotiate==="function")aaDU1Negotiate(${id});else toast("Negotiation opens Bingo Chat.")'>Negotiate</button></div></div></section>`;
+ return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}<div class="aa360-side"><div><button class="aa360-action" aria-label="Views" title="Views">${aaSideIcon("views")}</button><span>${aaCompact(aaViewCount(c))}</span></div><div><button class="aa360-action ${aaInterested(c)?"on":""}" onclick='aaToggleInterested(${id})' aria-label="Interested" title="Interested">${aaSideIcon("interested")}</button><span>${aaCompact(interested)}</span></div><div><button class="aa360-action" onclick='aaOpenComments(state.listings.find(x=>String(x.id)===${id}))' aria-label="Comments" title="Comments">${aaSideIcon("comments")}</button><span>${aaCompact(aaCommentCount(c))}</span></div><div><button class="aa360-action" onclick='state.shareTarget=state.listings.find(x=>String(x.id)===${id});render()' aria-label="Share" title="Share">${aaSideIcon("share")}</button><span>${aaCompact(c.shares||0)}</span></div><div><button class="aa360-action" onclick='${isVideo?`aaDownloadListingVideo(state.listings.find(x=>String(x.id)===${id}))`:`aaDownloadCurrentPhoto(state.listings.find(x=>String(x.id)===${id}))`}' aria-label="Download" title="Download">${aaSideIcon("download")}</button><span>Download</span></div><div><button class="aa360-action ${isFav(c.id)?"on":""}" onclick='toggleFav(${id})' aria-label="Save" title="Save">${aaSideIcon("save")}</button><span>${isFav(c.id)?"Saved":"Save"}</span></div></div><div class="aa360-info"><div class="aa360-seller-wrap"><button class="aa360-seller" title="Open seller profile" aria-label="Open seller profile" onclick='openSeller(${sellerId})'><img src="${esc(aaProfilePhoto(c.sellerPhoto || (state.isLoggedIn && aaListingOwnerId(c)===String(state.user?.id||"") ? state.user?.photo_url : "")))}" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.sellerName||"Bingo Seller")}</b>${aaListingSellerRating(c)}${aaFollowStatsHTML(c.sellerId||c.userId)}<small style="color:#f5b91e">${esc(aaListingUsername(c))}</small><small>${aaPresenceBadge({id:c.sellerId,sellerId:c.sellerId,phone:c.sellerPhone})}</small></span></button>${aaFeedFollowButtonHTML(c)}</div><div>${listingBadge(c)}</div><div class="aa360-title">${esc(c.title)}</div><div class="aa360-price">${price}</div><div class="aa360-specs"><span>${esc(c.year||"")}</span><span>${money(c.mileage)} KM</span><span>${esc(c.fuel||"")}</span><span>${esc(c.transmission||"")}</span><span>${esc(c.condition||"")}</span><span>${esc(aaSearchLocationText(c)||c.location||"Kenya")}</span></div><div class="aa360-desc">${esc(c.description||"")}${c.description&&c.description.length>60?` <button type="button" class="aa360-readmore" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'>Read more ›</button>`:""}</div><div class="aa360-actions"><button class="bingo-neon-action bingo-neon-action-cyan" onclick='callSeller(state.listings.find(x=>String(x.id)===${id}))'>☎ Call</button><button class="bingo-neon-action bingo-neon-action-purple" onclick='contact("chat",state.listings.find(x=>String(x.id)===${id}))'>💬 Message</button><button class="bingo-neon-action bingo-neon-action-green" onclick='contact("whatsapp",state.listings.find(x=>String(x.id)===${id}))'>WhatsApp</button><button class="bingo-neon-action bingo-neon-action-gold" onclick='if(typeof aaDU1Negotiate==="function")aaDU1Negotiate(${id});else toast("Negotiation opens Bingo Chat.")'>Negotiate</button></div></div></section>`;
 }
 /* ---- Promotion geography and analytics (Change 10) ----
    Super-User-controlled distribution by objective (visibility/ranking/
@@ -12691,7 +12693,7 @@ function aaMixedFeedTopicCardHTML(c){
   ${aaIconActionBtn({rgb:"34,201,255",label:"Share",svg:AA_ICON_ACTION_SVG.share,onclick:`aaTopicShare(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"245,185,30",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"171,71,255",label:"Report",svg:AA_ICON_ACTION_SVG.flag,onclick:`aaTopicReport(${JSON.stringify(String(t.id))})`})}
- </div><div class="aa360-actions" style="grid-template-columns:max-content;justify-items:start" onclick="event.stopPropagation()"><button type="button" class="call" onclick='${openPostCall}'>View Post &amp; Comments</button></div></div></section>`;
+ </div><div class="aa360-actions" onclick="event.stopPropagation()"><button type="button" class="bingo-neon-action bingo-neon-action-cyan" onclick='${openPostCall}'>View Post &amp; Comments</button></div></div></section>`;
 }
 function aaMixedFeedItems(){const v=(typeof aaVideoListings==='function'?aaVideoListings():[]).map(x=>({...x,kind:'vehicle',feed_title:x.title,feed_desc:x.description,feed_media:x.videoUrl||x.video_url||x.video||'',feed_location:aaSearchLocationText(x)||x.location||'Kenya',feed_seller:x.sellerName||'Bingo Seller',_promoType:'vehicle',_promoId:x.id}));const p=aaProperties().filter(x=>Array.isArray(x.media)&&x.media.length).map(x=>{const cover=aaPropertyCoverMedia(x);const ownerId=String(x.user_id||x.sellerId||x.userId||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.sellerName||'');return {id:`${x.id}_p`,kind:'property',source:x,feed_title:x.title,feed_desc:x.description,feed_media:cover.url,feed_media_type:cover.type,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta),feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||x.sellerPhoto||'',feed_sellerMeta:ownerMeta,feed_bedrooms:x.bedrooms||'',feed_bathrooms:x.bathrooms||'',feed_media_count:Array.isArray(x.media)?x.media.length:0,created_at:x.created_at,_promoType:(typeof AA_STAY_TYPES!=='undefined'&&AA_STAY_TYPES.includes(x.type))?'stay':'property',_promoId:x.id};});const f=aaFoods().filter(aaFoodActive).flatMap(x=>{const ownerId=String(x.user_id||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.business_name||'');return (x.media||[]).filter(m=>m.type==='video').map((m,i)=>({id:`${x.id}_fv${i}`,kind:'food',source:x,feed_title:x.business_name,feed_desc:x.description,feed_media:m.url,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta)||x.business_name,feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||'',feed_sellerMeta:ownerMeta,created_at:x.created_at,_promoType:'food_business',_promoId:x.id}));});const tp=aaTopics().filter(x=>!x.hiddenFromPublic).map(x=>{const firstMedia=Array.isArray(x.media)&&x.media.length?x.media[0]:null;const authorMeta=typeof aaTopicAuthorMeta==='function'?aaTopicAuthorMeta(x):null;return {id:`${x.id}_t`,kind:'topic',source:x,feed_title:x.title||'',feed_desc:x.body||'',feed_media:firstMedia?aaTopicMediaSrc(firstMedia):'',feed_media_type:firstMedia?firstMedia.type:'',feed_media_count:Array.isArray(x.media)?x.media.length:0,feed_location:'',feed_seller:aaMemberDisplayName(authorMeta),feed_sellerId:String(x.authorId||''),feed_sellerPhoto:(authorMeta&&authorMeta.photo)||'',feed_sellerMeta:authorMeta,created_at:x.createdAt,_promoType:null,_promoId:null,_topicId:x.id};});let all=[...v,...p,...f,...tp];all.forEach(item=>aaAttachPromotions(item,item._promoType,item._promoId));let aaFeedSeedStored="";try{aaFeedSeedStored=sessionStorage.getItem('aa_feed_seed')||""}catch(e){}const seed=String(state.user?.id||aaFeedSeedStored||Math.random());if(!aaFeedSeedStored){try{sessionStorage.setItem('aa_feed_seed',seed)}catch(e){}}const score=s=>{let n=0;for(const c of String(s))n=(n*31+c.charCodeAt(0))>>>0;return n};const viewerLoc=typeof aaViewerFeedLocation==='function'?aaViewerFeedLocation():'All Kenya';all.sort((a,b)=>{const followBoost=(x)=>x.kind==='vehicle'&&typeof aaIsFollowing==='function'&&aaIsFollowing(x.sellerId||x.userId)?10000000000000:0;const promo=(x)=>aaPromotionAdjustment(x,viewerLoc)*1000000;const ta=new Date(a.created_at||a.createdAt||0).getTime()+followBoost(a)+promo(a)+score(seed+a.id)%1000000;const tb=new Date(b.created_at||b.createdAt||0).getTime()+followBoost(b)+promo(b)+score(seed+b.id)%1000000;return tb-ta});return all}
 function aaMixedFeedCardHTML(c,i){
@@ -12720,9 +12722,9 @@ function aaMixedFeedCardHTML(c,i){
  const sellerMeta=c.feed_sellerMeta||{};
  const sellerUnavailable=!!sellerMeta.unavailable;
  const sellerBlock=`<div class="aa360-seller-wrap"><button type="button" class="aa360-seller" ${sellerUnavailable?'disabled':`onclick='event.stopPropagation();openSeller(${JSON.stringify(c.feed_sellerId||"")})'`}><img src="${bingoSafeMediaAttr(aaProfilePhoto(c.feed_sellerPhoto))}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.feed_seller)}</b>${!sellerUnavailable?aaListingSellerRating({sellerId:c.feed_sellerId}):''}${aaFollowStatsHTML(c.feed_sellerId)}<small>${esc(c.feed_location)}</small></span></button></div>`;
- const callBtn=(c.kind==='food')?`<button class="call" onclick='event.stopPropagation();location.href="tel:${esc(c.source?.phone||"")}"'>Call Delivery</button>`:(sellerMeta.showPhone!==false?`<button class="call" onclick='event.stopPropagation();${openDetailCall||`state.selected=${JSON.stringify(c.source||{})};callSeller(state.selected)`}'>Call</button>`:'');
- const waBtn=`<button class="wa" onclick='event.stopPropagation();${c.kind==='food'?`window.open("https://wa.me/${esc(String(c.source?.whatsapp||c.source?.phone||'').replace(/\D/g,''))}","_blank")`:`state.selected=${JSON.stringify(c.source||{})};contact("whatsapp",state.selected)`}'>WhatsApp</button>`;
- const viewBtn=openDetailCall?`<button class="call" onclick='event.stopPropagation();${openDetailCall}'>${c.kind==='property'?'View Property':'View Business'}</button>`:'';
+ const callBtn=(c.kind==='food')?`<button class="bingo-neon-action bingo-neon-action-cyan" onclick='event.stopPropagation();location.href="tel:${esc(c.source?.phone||"")}"'>☎ Call Delivery</button>`:(sellerMeta.showPhone!==false?`<button class="bingo-neon-action bingo-neon-action-cyan" onclick='event.stopPropagation();${openDetailCall||`state.selected=${JSON.stringify(c.source||{})};callSeller(state.selected)`}'>☎ Call</button>`:'');
+ const waBtn=`<button class="bingo-neon-action bingo-neon-action-green" onclick='event.stopPropagation();${c.kind==='food'?`window.open("https://wa.me/${esc(String(c.source?.whatsapp||c.source?.phone||'').replace(/\D/g,''))}","_blank")`:`state.selected=${JSON.stringify(c.source||{})};contact("whatsapp",state.selected)`}'>WhatsApp</button>`;
+ const viewBtn=openDetailCall?`<button class="bingo-neon-action bingo-neon-action-gold" onclick='event.stopPropagation();${openDetailCall}'>${c.kind==='property'?'View Property':'View Business'}</button>`:'';
  const actions=`${viewBtn}${callBtn}${waBtn}`;
  let badge='',price='',specs='';
  if(c.kind==='property'){
@@ -22492,6 +22494,11 @@ No duplicate mobile-shell is created. Existing navigation/business logic is pres
 
 #auto-arcade-widget .aa360-actions{gap:6px!important}
 #auto-arcade-widget .aa360-actions button{font-size:10.08px!important;line-height:1.1!important;min-height:41px!important;padding:9px 4px!important}
+/* The compact bingo-neon-action pills used by real post action rows
+   keep their own 28px height/padding here - this block predates that
+   shared button system and would otherwise stretch them back to the
+   old 41px block size. */
+#auto-arcade-widget .aa360-actions .bingo-neon-action{font-size:11px!important;line-height:1!important;min-height:28px!important;height:28px!important;padding:0 12px!important}
 
 /* Right action rail: larger readable counts without making it collide with listing details. */
 #auto-arcade-widget .aa360-side span,
@@ -22513,6 +22520,7 @@ No duplicate mobile-shell is created. Existing navigation/business logic is pres
   #auto-arcade-widget .aa360-price{font-size:21.5px!important}
   #auto-arcade-widget .aa360-specs,#auto-arcade-widget .aa360-desc{font-size:10.7px!important}
   #auto-arcade-widget .aa360-actions button{font-size:9.7px!important;min-height:40px!important}
+  #auto-arcade-widget .aa360-actions .bingo-neon-action{font-size:10.5px!important;min-height:28px!important;height:28px!important}
   #auto-arcade-widget .aa360-info{right:57px!important}
 }
 </style>
@@ -23780,6 +23788,79 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .bingo-neon-pink{--tab-light:#ff2fb0;--tab-rgb:255,47,176}
 #auto-arcade-widget .bingo-neon-green{--tab-light:#1fd67a;--tab-rgb:31,214,122}
 #auto-arcade-widget .bingo-neon-gold{--tab-light:var(--bingo-gold,#f3be2b);--tab-rgb:243,190,43}
+#auto-arcade-widget .bingo-neon-red{--tab-light:var(--bingo-red,#ef1f2f);--tab-rgb:239,31,47}
+#auto-arcade-widget .bingo-neon-purple{--tab-light:#ab47ff;--tab-rgb:171,71,255}
+/* ---- Global button size update (screenshots: Love/Comments/Share/
+   Save/Report row = Primary Action; small chips under the comment box
+   = Micro/Secondary) ----
+   Two compact sizes, reused everywhere outside the Cockpit, instead of
+   the taller/wider default every <button>/.btn gets from the base
+   recipe above. Both ride the exact same --tab-light/--tab-rgb colour
+   variables as .btn-cyan/.btn-publish/.btn-success/.btn-gold/.btn-red/
+   .btn-purple/.bingo-neon-* above - pair one of those colour classes
+   with .bingo-neon-action or .bingo-neon-micro (or use their own
+   -cyan/-pink/-gold/-green/-red/-purple variants below) rather than
+   inventing a new colour per module. .bingo-neon-action reuses the
+   exact recipe already proven on the post action row (.aa-icon-action)
+   so the two never visually drift apart; .bingo-neon-micro is the same
+   idea a size class smaller, for filters/tags/categories/small
+   options. Neither is ever applied inside #aaAssistantDrawer/.bcp-btn
+   (the Cockpit), which keeps its own design untouched. */
+#auto-arcade-widget .bingo-neon-action{
+ position:relative!important;isolation:isolate;
+ height:28px!important;min-height:28px!important;
+ padding:0 12px!important;width:auto!important;min-width:0!important;
+ display:inline-flex!important;align-items:center;justify-content:center;gap:5px;
+ border-radius:999px!important;
+ background:linear-gradient(160deg,#0d1b32,#081120)!important;
+ border:1.5px solid rgba(var(--tab-rgb),.55)!important;
+ color:#e7edf6!important;
+ box-shadow:0 0 6px rgba(var(--tab-rgb),.24),inset 0 1px 0 rgba(255,255,255,.06)!important;
+ font-size:11px!important;font-weight:700!important;
+ white-space:nowrap;
+}
+#auto-arcade-widget .bingo-neon-action::after{content:none!important}
+#auto-arcade-widget .bingo-neon-action::before{content:"";position:absolute!important;top:50%;left:0;transform:translateY(-50%);width:100%;height:44px;background:none!important}
+#auto-arcade-widget .bingo-neon-action svg{width:13px;height:13px;flex:0 0 auto;pointer-events:none}
+@media(hover:hover){#auto-arcade-widget .bingo-neon-action:hover:not(:disabled){box-shadow:0 0 7px rgba(var(--tab-rgb),.5)!important}}
+#auto-arcade-widget .bingo-neon-action:active:not(:disabled){transform:translateY(2px) scale(.96)!important}
+#auto-arcade-widget .bingo-neon-action:disabled{opacity:.4!important;cursor:not-allowed;filter:grayscale(.3)}
+#auto-arcade-widget .bingo-neon-action.is-active{background:linear-gradient(180deg,rgba(var(--tab-rgb),.24),rgba(var(--tab-rgb),.12))!important;border-color:var(--tab-light)!important;box-shadow:0 0 8px rgba(var(--tab-rgb),.55)!important;color:var(--tab-light)!important}
+#auto-arcade-widget .bingo-neon-action-cyan{--tab-light:#22c9ff;--tab-rgb:34,201,255}
+#auto-arcade-widget .bingo-neon-action-pink{--tab-light:#ff2fb0;--tab-rgb:255,47,176}
+#auto-arcade-widget .bingo-neon-action-gold{--tab-light:var(--bingo-gold,#f3be2b);--tab-rgb:243,190,43}
+#auto-arcade-widget .bingo-neon-action-green{--tab-light:#1fd67a;--tab-rgb:31,214,122}
+#auto-arcade-widget .bingo-neon-action-red{--tab-light:var(--bingo-red,#ef1f2f);--tab-rgb:239,31,47}
+#auto-arcade-widget .bingo-neon-action-purple{--tab-light:#ab47ff;--tab-rgb:171,71,255}
+
+#auto-arcade-widget .bingo-neon-micro{
+ position:relative!important;isolation:isolate;
+ height:22px!important;min-height:22px!important;
+ padding:0 9px!important;width:auto!important;min-width:0!important;
+ display:inline-flex!important;align-items:center;justify-content:center;gap:3px;
+ border-radius:999px!important;
+ background:linear-gradient(160deg,#0d1b32,#081120)!important;
+ border:1px solid rgba(var(--tab-rgb),.5)!important;
+ color:#dbe4f2!important;
+ box-shadow:0 0 4px rgba(var(--tab-rgb),.2)!important;
+ font-size:9.5px!important;font-weight:700!important;
+ white-space:nowrap;
+}
+#auto-arcade-widget .bingo-neon-micro::after{content:none!important}
+#auto-arcade-widget .bingo-neon-micro::before{content:"";position:absolute!important;top:50%;left:0;transform:translateY(-50%);width:100%;height:36px;background:none!important}
+#auto-arcade-widget .bingo-neon-micro svg{width:11px;height:11px;flex:0 0 auto;pointer-events:none}
+#auto-arcade-widget .bingo-neon-micro:active:not(:disabled){transform:translateY(1px) scale(.95)!important}
+#auto-arcade-widget .bingo-neon-micro.is-active,
+#auto-arcade-widget .bingo-neon-micro.is-checked{background:linear-gradient(180deg,rgba(var(--tab-rgb),.28),rgba(var(--tab-rgb),.14))!important;border-color:var(--tab-light)!important;color:var(--tab-light)!important}
+#auto-arcade-widget .bingo-neon-micro-cyan{--tab-light:#22c9ff;--tab-rgb:34,201,255}
+#auto-arcade-widget .bingo-neon-micro-pink{--tab-light:#ff2fb0;--tab-rgb:255,47,176}
+#auto-arcade-widget .bingo-neon-micro-gold{--tab-light:var(--bingo-gold,#f3be2b);--tab-rgb:243,190,43}
+#auto-arcade-widget .bingo-neon-micro-green{--tab-light:#1fd67a;--tab-rgb:31,214,122}
+#auto-arcade-widget .bingo-neon-micro-red{--tab-light:var(--bingo-red,#ef1f2f);--tab-rgb:239,31,47}
+#auto-arcade-widget .bingo-neon-micro-purple{--tab-light:#ab47ff;--tab-rgb:171,71,255}
+@media(max-width:430px){
+ #auto-arcade-widget .bingo-neon-action{font-size:10.5px!important;padding:0 10px!important}
+}
 #auto-arcade-widget .btn-purple,
 #auto-arcade-widget button.btn-purple{
   --tab-light:#ab47ff;
