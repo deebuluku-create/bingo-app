@@ -15176,12 +15176,12 @@ function aaAgentDashboardHTML(){
   ${aaAgentPerformanceHTML()}
   <div class="dashboard-actions" style="margin-top:12px">
    <button class="btn btn-publish" onclick="aaOpenAgentAddBusiness()">+ Add Business</button>
-   <button class="btn" onclick="state.agentDashView='mine';render()">My Businesses</button>
-   <button class="btn" onclick="state.agentDashView='managed';render()">Managed Businesses</button>
-   <button class="btn" onclick="state.agentDashView='invitations';render()">Invitations${state.agentInvitations?.length?` (${state.agentInvitations.length})`:""}</button>
-   <button class="btn" onclick="state.agentDashView='commission';aaLoadMyCommissionLedger().then(render);render()">Commission</button>
-   <button class="btn" onclick="state.agentDashView='withdrawals';aaLoadMyWithdrawals().then(render);render()">Withdrawals</button>
-   <button class="btn" onclick="state.agentDashView='moderation';render()">Moderation</button>
+   <button class="btn btn-glass" onclick="state.agentDashView='mine';render()">My Businesses</button>
+   <button class="btn btn-glass" onclick="state.agentDashView='managed';render()">Managed Businesses</button>
+   <button class="btn btn-glass" onclick="state.agentDashView='invitations';render()">Invitations${state.agentInvitations?.length?` (${state.agentInvitations.length})`:""}</button>
+   <button class="btn btn-cyan" onclick="state.agentDashView='commission';aaLoadMyCommissionLedger().then(render);render()">Commission</button>
+   <button class="btn btn-gold" onclick="state.agentDashView='withdrawals';aaLoadMyWithdrawals().then(render);render()">Withdrawals</button>
+   <button class="btn btn-danger" onclick="state.agentDashView='moderation';render()">Moderation</button>
   </div>
   ${state.agentDashView==="mine"?`<div class="boost-summary" style="margin-top:12px"><b>My Businesses</b>${!biz.length?'<p class="notice">No businesses onboarded yet. Tap + Add Business to start.</p>':biz.map(b=>`<div class="aa360-item" style="position:relative;height:auto;min-height:0;padding:10px;margin-top:8px;border:1px solid var(--line);border-radius:10px"><b style="font-size:13px">${esc(b.title||b.name||"Business")}</b><div class="meta">${esc(b._cat)} · ${esc(b.businessClass||"Small")} · ${b.isBoosted?"Boosted":"Not boosted"}</div></div>`).join("")}</div>`:""}
   ${state.agentDashView==="commission"?aaAgentCommissionTabHTML():""}
@@ -15218,18 +15218,18 @@ function aaAgentAddBusinessHTML(){
   <label class="form-label">Number of Employees</label>
   <input class="field" id="aaAgentEmployeeCount" type="number" min="0" placeholder="e.g. 4">
   <div class="dashboard-actions" style="margin-top:10px">
-   <button class="btn" onclick='aaAgentRouteAddBusiness("vehicle-sale")'>Vehicle</button>
-   <button class="btn" onclick='aaAgentRouteAddBusiness("property")'>Property</button>
-   <button class="btn" onclick='aaAgentRouteAddBusiness("stay")'>Bingo Stays</button>
-   <button class="btn" onclick='aaAgentRouteAddBusiness("food")'>Food / Restaurant</button>
-   <button class="btn" onclick='aaAgentRouteAddBusiness("fashion")'>Fashion</button>
-   <button class="btn" onclick='aaAgentRouteAddBusiness("furniture")'>Furniture</button>
-   <button class="btn" onclick='aaAgentRouteAddBusiness("electronics")'>Electronics</button>
-   <button class="btn" onclick='aaAgentRouteAddBusiness("beauty")'>Beauty</button>
-   <button class="btn" onclick='aaAgentRouteAddBusiness("agriculture")'>Agriculture</button>
-   <button class="btn" onclick='aaAgentRouteAddBusiness("other")'>Other</button>
+   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("vehicle-sale")'>Vehicle</button>
+   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("property")'>Property</button>
+   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("stay")'>Bingo Stays</button>
+   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("food")'>Food / Restaurant</button>
+   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("fashion")'>Fashion</button>
+   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("furniture")'>Furniture</button>
+   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("electronics")'>Electronics</button>
+   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("beauty")'>Beauty</button>
+   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("agriculture")'>Agriculture</button>
+   <button class="btn btn-cyan" onclick='aaAgentRouteAddBusiness("other")'>Other</button>
   </div>
-  <button class="btn" style="width:100%;margin-top:8px" onclick="state.agentAddBusinessOpen=false;render()">Cancel</button>
+  <button class="btn btn-glass" style="width:100%;margin-top:8px" onclick="state.agentAddBusinessOpen=false;render()">Cancel</button>
  </div>`;
 }
 function aaAgentRouteAddBusiness(key){
@@ -15289,12 +15289,12 @@ function aaSuperUserDashboardHTML(){
   <h2 style="margin:0 0 4px">Super User Dashboard</h2>
   <p class="notice" style="margin-top:0">Protected administrator area. Every action here is verified against your Supabase account role and recorded in the audit log.</p>
   <div class="dashboard-actions" style="margin-top:10px">
-   <button class="btn" onclick="goHome()">Home</button>
-   <button class="btn" onclick="goAccount()">Profile</button>
-   <button class="btn" onclick="aaOpenProperties('browse')">Properties</button>
-   <button class="btn" onclick="aaOpenFood('browse')">Food</button>
-   <button class="btn" onclick="openJobs('jobs')">Jobs/CVs</button>
-   <button class="btn" onclick="openInbox()">Inbox</button>
+   <button class="btn btn-glass" onclick="goHome()">Home</button>
+   <button class="btn btn-glass" onclick="goAccount()">Profile</button>
+   <button class="btn btn-glass" onclick="aaOpenProperties('browse')">Properties</button>
+   <button class="btn btn-glass" onclick="aaOpenFood('browse')">Food</button>
+   <button class="btn btn-glass" onclick="openJobs('jobs')">Jobs/CVs</button>
+   <button class="btn btn-cyan" onclick="openInbox()">Inbox</button>
   </div>
   <div class="boost-summary" style="margin-top:14px">
    <b>Find Bingo Account</b>
@@ -15337,7 +15337,7 @@ function aaSuperUserDashboardHTML(){
   <div class="boost-summary" style="margin-top:14px">
    <b>Promotion &amp; Analytics</b>
    <p class="notice" style="margin-top:0">Admin-controlled distribution by objective and geography, time-boxed and always labeled — never shown as organic Trending. Copy a post ID from All Posts above, or tap Promote next to a listing there.</p>
-   ${state.promotionDraft?aaPromotionFormHTML():`<button class="btn" onclick="aaOpenPromotionForm('vehicle','')">New Promotion</button>`}
+   ${state.promotionDraft?aaPromotionFormHTML():`<button class="btn btn-publish" onclick="aaOpenPromotionForm('vehicle','')">New Promotion</button>`}
    <div style="margin-top:10px"><b style="font-size:12px">Active &amp; Past Promotions</b>${aaPromotionListHTML()}</div>
    <div style="margin-top:10px"><b style="font-size:12px">Impressions, Clicks &amp; CTR</b>${aaPromotionAnalyticsHTML()}</div>
   </div>
