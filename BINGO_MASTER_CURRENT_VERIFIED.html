@@ -4320,6 +4320,10 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 </style>
 <div id="auto-arcade-widget">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+  <!-- tus-js-client: resumable/chunked uploads for Property photos/videos over
+       Supabase's TUS endpoint, used only for files above the 6MB standard-upload
+       threshold (see aaUploadPropertyMediaTus). Exposes the global `tus`. -->
+  <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4.1.0/dist/tus.min.js"></script>
 <script>
 var SUPABASE_URL="https://ktwkfavryihrfwghsbuo.supabase.co";
 /* Detect whether Bingo is running inside the Elementor page-builder
@@ -10007,6 +10011,127 @@ async function aaVerifyPropertyUpdate(id,expected){
  return {data:result.data,error:null,reason:'ok'};
 }
 const AA_PROPERTY_MEDIA_BUCKET='property-media';
+/* ===== Property media upload transport (dual: standard + TUS resumable) =====
+   Root cause established via live DevTools diagnosis (2026-09-24): standard
+   .upload() on this bucket was returning a 502 Bad Gateway with no JSON body
+   for larger files - Supabase's own docs recommend standard upload only up
+   to ~6MB and TUS resumable upload above that threshold, and document 502s
+   as a known standard-upload failure mode for larger payloads. This module
+   keeps standard upload for small files (fast path, unchanged behavior) and
+   adds TUS resumable upload - chunked, resumable, retrying - for anything
+   larger, especially video. Same bucket ('property-media'), same canonical
+   path (userId/listingId/filename), same {type,url,path,name} media record
+   returned to the caller - nothing downstream of aaUploadPropertyMedia
+   changes. */
+const AA_PROPERTY_TUS_THRESHOLD_BYTES=6*1024*1024;
+const AA_PROPERTY_TUS_CHUNK_SIZE=6*1024*1024;
+const AA_PROPERTY_STANDARD_RETRY_DELAYS=[0,800,2000];
+const AA_PROPERTY_TUS_RETRY_DELAYS=[0,1000,3000,5000,10000,20000];
+function aaSupabaseStorageResumableEndpoint(){
+ try{
+  const m=String(SUPABASE_URL||'').match(/^https:\/\/([a-z0-9-]+)\.supabase\.co\/?$/i);
+  return m?`https://${m[1]}.storage.supabase.co/storage/v1/upload/resumable`:null;
+ }catch(e){return null}
+}
+async function aaGetSupabaseAccessToken(){
+ if(!sb)return null;
+ try{
+  const {data,error}=await sb.auth.getSession();
+  if(error||!data?.session?.access_token)return null;
+  return data.session.access_token;
+ }catch(e){return null}
+}
+function aaSleep(ms){return new Promise(r=>setTimeout(r,ms))}
+/* Turns a raw fetch/Supabase/tus error into one of a small set of DISTINCT,
+   accurate reasons instead of collapsing everything into one generic
+   "check your connection" message. Only the true catch-all keeps the old
+   token/key redaction; every classified case keeps its own real meaning. */
+function aaClassifyPropertyStorageError(error){
+ const status=Number(error?.statusCode??error?.status??error?.originalRequest?.status??NaN);
+ const raw=String(error?.message||error?.originalResponse?.getBody?.()||error||'');
+ if(status===401||/jwt|not authenticated|invalid.*token/i.test(raw))
+  return {kind:'auth',message:'Your session has expired. Please log in again and retry the upload.'};
+ if(status===403||/row-level security|rls|permission denied|forbidden/i.test(raw))
+  return {kind:'rls',message:'Bingo does not currently have permission to store this file - this is a Storage access-policy issue, not a connection problem.'};
+ if(status===413||/payload too large|exceeds?[^.]{0,20}limit/i.test(raw))
+  return {kind:'too_large',message:'This file is larger than Supabase Storage currently allows.'};
+ if(status===415||status===422||/unsupported.*(type|media)|mime/i.test(raw))
+  return {kind:'mime',message:'This file type is not accepted by Property Storage.'};
+ if(status>=500)
+  return {kind:'gateway',message:`Supabase Storage returned a temporary server error (${status}). Bingo retries automatically before giving up.`};
+ if(/failed to fetch|networkerror|load failed|aborted|timed?.?out/i.test(raw))
+  return {kind:'network',message:'The upload connection was interrupted. Check your internet connection - large videos need a steadier connection - then try again.'};
+ return {kind:'unknown',message:(raw.replace(/[?&]apikey=[^&\s]+/gi,'').replace(/eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_.-]+/g,'[hidden]'))||'Media upload failed for an unknown reason.'};
+}
+/* Small/standard files (<=6MB): unchanged Supabase .upload(), but a 502/5xx
+   or a raw network failure now gets a short local retry before giving up -
+   these are exactly the transient-gateway cases Supabase's own issue
+   tracker documents for this endpoint. */
+async function aaUploadPropertyMediaStandard(file,path,isVideo,diag){
+ let lastCls=null;
+ for(let attempt=0;attempt<AA_PROPERTY_STANDARD_RETRY_DELAYS.length;attempt++){
+  if(attempt>0)await aaSleep(AA_PROPERTY_STANDARD_RETRY_DELAYS[attempt]);
+  try{
+   const up=await sb.storage.from(AA_PROPERTY_MEDIA_BUCKET).upload(path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
+   if(up.error){
+    const cls=aaClassifyPropertyStorageError(up.error);
+    console.error('[Bingo Property Storage Upload Error]',up.error,{...diag,attempt,transport:'standard'});
+    if(cls.kind==='gateway'&&attempt<AA_PROPERTY_STANDARD_RETRY_DELAYS.length-1){lastCls=cls;continue}
+    return {ok:false,cls};
+   }
+   return {ok:true};
+  }catch(networkError){
+   const cls=aaClassifyPropertyStorageError(networkError);
+   console.error('[Bingo Property Storage Upload Error]',networkError,{...diag,attempt,transport:'standard'});
+   if(cls.kind==='network'&&attempt<AA_PROPERTY_STANDARD_RETRY_DELAYS.length-1){lastCls=cls;continue}
+   return {ok:false,cls};
+  }
+ }
+ return {ok:false,cls:lastCls||{kind:'unknown',message:'Upload failed after retries.'}};
+}
+/* Large files / video (>6MB): Supabase's recommended TUS resumable path,
+   using the dedicated Storage hostname, a fresh session access token (never
+   hard-coded), Supabase's required 6MB chunk size, and tus-js-client's own
+   fingerprint-based resume so an interrupted upload continues instead of
+   restarting from byte zero. */
+async function aaUploadPropertyMediaTus(file,path,isVideo,diag,onByteProgress){
+ if(typeof window.tus==='undefined'||!window.tus.Upload){
+  return {ok:false,cls:{kind:'unknown',message:'The large-file uploader could not load. Please retry - if this keeps happening, try a stronger connection.'}};
+ }
+ const endpoint=aaSupabaseStorageResumableEndpoint();
+ if(!endpoint)return {ok:false,cls:{kind:'unknown',message:'Could not determine the Storage upload endpoint.'}};
+ const token=await aaGetSupabaseAccessToken();
+ if(!token)return {ok:false,cls:{kind:'auth',message:'Your session has expired. Please log in again and retry the upload.'}};
+ return new Promise(resolve=>{
+  let settled=false;
+  const upload=new window.tus.Upload(file,{
+   endpoint,
+   retryDelays:AA_PROPERTY_TUS_RETRY_DELAYS,
+   chunkSize:AA_PROPERTY_TUS_CHUNK_SIZE,
+   headers:{authorization:`Bearer ${token}`,apikey:SUPABASE_PUBLISHABLE_KEY,'x-upsert':'false'},
+   uploadDataDuringCreation:true,
+   removeFingerprintOnSuccess:true,
+   metadata:{bucketName:AA_PROPERTY_MEDIA_BUCKET,objectName:path,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'},
+   onError:(error)=>{
+    if(settled)return;settled=true;
+    const cls=aaClassifyPropertyStorageError(error);
+    console.error('[Bingo Property Storage Upload Error]',error,{...diag,transport:'tus'});
+    resolve({ok:false,cls});
+   },
+   onProgress:(bytesUploaded,bytesTotal)=>{
+    if(typeof onByteProgress==='function')try{onByteProgress(bytesUploaded,bytesTotal)}catch(e){}
+   },
+   onSuccess:()=>{
+    if(settled)return;settled=true;
+    resolve({ok:true});
+   }
+  });
+  upload.findPreviousUploads().then(previous=>{
+   if(previous&&previous.length)upload.resumeFromPreviousUpload(previous[0]);
+   upload.start();
+  }).catch(()=>upload.start());
+ });
+}
 async function aaUploadPropertyMedia(files,userId,listingId,onProgress){
  if(!sb)return {media:[],paths:[],error:new Error('No database connection. Bingo could not reach Supabase.')};
  if(!files||!files.length)return {media:[],paths:[],error:new Error('No media selected')};
@@ -10023,22 +10148,18 @@ async function aaUploadPropertyMedia(files,userId,listingId,onProgress){
    const isVideo=AA_PROPERTY_MEDIA_VIDEO_TYPES.test(String(file.type||''));
    const safe=(file.name||`property-${i}`).replace(/[^a-zA-Z0-9._-]/g,'-');
    const path=`${userId}/${listingId}/${Date.now()}-${i+1}-${safe}`;
-   /* Temporary diagnostic only - captures the real browser/Supabase error
-      in DevTools without exposing tokens/keys. No upload/bucket/path/error
-      handling behavior changes; the friendly message shown to the user is
-      unchanged below. Remove once the root cause is confirmed. */
-   const aaPropUploadDiag={bucket:AA_PROPERTY_MEDIA_BUCKET,fileType:file.type||'(empty)',fileSizeBytes:file.size,path,hasAuthenticatedSession:!!(state.isLoggedIn&&state.user?.id&&String(state.user.id)===String(userId))};
-   let up;
-   try{
-    up=await sb.storage.from(AA_PROPERTY_MEDIA_BUCKET).upload(path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
-   }catch(networkError){
-    console.error('[Bingo Property Storage Upload Error]',networkError,aaPropUploadDiag);
-    throw new Error(aaFriendlyStorageError(networkError));
+   const diag={bucket:AA_PROPERTY_MEDIA_BUCKET,fileType:file.type||'(empty)',fileSizeBytes:file.size,path,hasAuthenticatedSession:!!(state.isLoggedIn&&state.user?.id&&String(state.user.id)===String(userId))};
+   const byteProgress=(loaded,total)=>{
+    if(typeof onProgress==='function')try{onProgress(i+1,files.length,{loaded,total,percent:total?Math.round(loaded/total*100):0})}catch(e){}
+   };
+   let result=file.size>AA_PROPERTY_TUS_THRESHOLD_BYTES
+    ?await aaUploadPropertyMediaTus(file,path,isVideo,diag,byteProgress)
+    :await aaUploadPropertyMediaStandard(file,path,isVideo,diag);
+   if(!result.ok&&result.cls.kind!=='auth'&&result.cls.kind!=='rls'&&result.cls.kind!=='too_large'&&result.cls.kind!=='mime'&&file.size<=AA_PROPERTY_TUS_THRESHOLD_BYTES){
+    console.warn('Bingo: standard upload failed ('+result.cls.kind+'), falling back to resumable upload for this file.');
+    result=await aaUploadPropertyMediaTus(file,path,isVideo,diag,byteProgress);
    }
-   if(up.error){
-    console.error('[Bingo Property Storage Upload Error]',up.error,aaPropUploadDiag);
-    throw new Error(aaFriendlyStorageError(up.error));
-   }
+   if(!result.ok)throw Object.assign(new Error(result.cls.message),{aaKind:result.cls.kind});
    paths.push(path);
    const pub=sb.storage.from(AA_PROPERTY_MEDIA_BUCKET).getPublicUrl(path);
    const url=pub?.data?.publicUrl||'';
@@ -10047,7 +10168,7 @@ async function aaUploadPropertyMedia(files,userId,listingId,onProgress){
   }
   return {media,paths,error:null};
  }catch(error){
-  return {media,paths,error:new Error(aaFriendlyStorageError(error))};
+  return {media,paths,error};
  }
 }
 async function aaDeleteUploadedPropertyMedia(paths,bucket='property-media'){
