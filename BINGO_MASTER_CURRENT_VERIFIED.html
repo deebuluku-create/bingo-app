@@ -10023,13 +10023,22 @@ async function aaUploadPropertyMedia(files,userId,listingId,onProgress){
    const isVideo=AA_PROPERTY_MEDIA_VIDEO_TYPES.test(String(file.type||''));
    const safe=(file.name||`property-${i}`).replace(/[^a-zA-Z0-9._-]/g,'-');
    const path=`${userId}/${listingId}/${Date.now()}-${i+1}-${safe}`;
+   /* Temporary diagnostic only - captures the real browser/Supabase error
+      in DevTools without exposing tokens/keys. No upload/bucket/path/error
+      handling behavior changes; the friendly message shown to the user is
+      unchanged below. Remove once the root cause is confirmed. */
+   const aaPropUploadDiag={bucket:AA_PROPERTY_MEDIA_BUCKET,fileType:file.type||'(empty)',fileSizeBytes:file.size,path,hasAuthenticatedSession:!!(state.isLoggedIn&&state.user?.id&&String(state.user.id)===String(userId))};
    let up;
    try{
     up=await sb.storage.from(AA_PROPERTY_MEDIA_BUCKET).upload(path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
    }catch(networkError){
+    console.error('[Bingo Property Storage Upload Error]',networkError,aaPropUploadDiag);
     throw new Error(aaFriendlyStorageError(networkError));
    }
-   if(up.error)throw new Error(aaFriendlyStorageError(up.error));
+   if(up.error){
+    console.error('[Bingo Property Storage Upload Error]',up.error,aaPropUploadDiag);
+    throw new Error(aaFriendlyStorageError(up.error));
+   }
    paths.push(path);
    const pub=sb.storage.from(AA_PROPERTY_MEDIA_BUCKET).getPublicUrl(path);
    const url=pub?.data?.publicUrl||'';
