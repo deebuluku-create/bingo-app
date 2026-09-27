@@ -1,23 +1,27 @@
 -- ============================================================================
 -- BINGO — FOOD MENU ITEM: ingredients / delicacy_tags / availability_notes
 --
--- Status: DRAFT ONLY — NOT APPLIED. NOT approved. Do not run against any
--- Supabase project without explicit approval, and not before the
--- companion read-only inspection
--- (20260927_bingo_food_menu_items_INSPECT_LIVE.sql) has been run against
--- the live project and its results confirm the assumptions below still
--- hold. This file is additive only: it does not create a new table, does
--- not touch any existing column, CHECK constraint, RLS policy or grant on
--- public.food_menu_items, and does not modify the food-media Storage
--- bucket. It follows exactly the same convention already used (as a
--- draft, also not yet applied) by
+-- Status: APPLIED LIVE on 2026-09-28, as migration
+-- 20260927222723_bingo_food_menu_items_delicacy_origin_fields_20260928
+-- (same three add-column-if-not-exists statements below, run through the
+-- normal Supabase migration workflow). Confirmed afterward: ingredients,
+-- delicacy_tags and availability_notes all exist on public.food_menu_items,
+-- and no existing column, CHECK constraint, RLS policy or grant on that
+-- table changed - this file was and remains additive only, and it did
+-- not touch the food-media Storage bucket. It followed exactly the same
+-- convention already used (as a still-unapplied draft) by
 -- supabase/bingo_change_food_menu_item_fields.sql for category/
--- delivery_option/dietary_tags.
+-- delivery_option/dietary_tags - that companion file's status is
+-- unaffected by this one having been applied.
+--
+-- This file is kept as the historical record of exactly what was
+-- reviewed and run; do not re-run it (add column if not exists makes a
+-- second run a no-op regardless, but there is no need to).
 --
 -- Why this exists: the approved "Combined Integration Review" Food Menu
 -- layout (integrated on branch bingo-storage-preview-repair-2026-09-27,
 -- replacing BingoFoodMenuEditor's markup for this one screen only)
--- collects three fields that have no live column:
+-- collects three fields that had no live column before this migration:
 --   1. ingredients text — free text, "Ingredients" field under
 --      "1. Food Details".
 --   2. delicacy_tags text[] — the "2. Delicacy / Origin" checkbox grid
@@ -37,22 +41,23 @@
 --      available boolean column exactly as before. Nothing about the
 --      table's existing enum or boolean columns changes.
 --
--- Until this migration is reviewed and applied, the frontend already
--- degrades gracefully: on save it detects a "column does not exist"
--- error (aaMissingPropertyColumn, the same pattern used for category/
--- delivery_option/dietary_tags and for property_listings before that)
--- and retries the same save with just the missing field(s) stripped, so
--- item_name/description/price/preparation_type/is_available/media/status
--- (the real live column names - confirmed after this file was first
--- drafted, when the save/load code was also found to be using the wrong
--- names entirely; see the commit fixing that) keep saving normally
--- today and nothing already saved by the previous editor is overwritten
--- or lost. ingredients/availability_notes stay visible in the form and
--- are retried on every save even before this migration lands. Delicacy/
--- Origin is treated differently: whenever the owner has actually ticked
--- a tag, the frontend refuses to save at all until this migration is
--- applied, rather than silently publishing without it - see
--- aaFoodMenuProtoSave's blockedField handling.
+-- Before this migration was applied, the frontend degraded gracefully
+-- rather than failing outright: on save it detected a "column does not
+-- exist" error (aaMissingPropertyColumn, the same pattern used for
+-- category/delivery_option/dietary_tags and for property_listings
+-- before that) and retried the same save with just the missing field(s)
+-- stripped, so item_name/description/price/preparation_type/
+-- is_available/media/status (the real live column names - confirmed
+-- after this file was first drafted, when the save/load code was also
+-- found to be using the wrong names entirely; see the commit fixing
+-- that) kept saving normally and nothing already saved by the previous
+-- editor was overwritten or lost. Delicacy/Origin was treated
+-- differently even pre-migration: whenever the owner had actually
+-- ticked a tag, the frontend refused to save at all rather than
+-- silently publishing without it - see aaFoodMenuProtoSave's
+-- blockedField handling. That handling is still in the code and is now
+-- simply dead weight for this table (the columns exist), which is
+-- harmless and intentionally left in place rather than removed.
 -- ============================================================================
 
 alter table public.food_menu_items
@@ -68,5 +73,5 @@ comment on column public.food_menu_items.availability_notes is
   'Zero or more notes from the Preparation & Availability section that do not map onto the existing preparation_type/available columns - currently "Pre-order", "Delivery", "Pickup". Nullable text array.';
 
 -- ============================================================================
--- END DRAFT — NOT APPLIED
+-- END — APPLIED LIVE 2026-09-28 (see status note at top of file)
 -- ============================================================================
