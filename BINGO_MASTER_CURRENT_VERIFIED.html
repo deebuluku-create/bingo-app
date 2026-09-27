@@ -3462,6 +3462,61 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .aa-food-menu-card-media img,#auto-arcade-widget .aa-food-menu-card-media video{width:100%;height:100%;object-fit:cover;display:block}
 @media(min-width:600px){#auto-arcade-widget .aa-food-menu-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(min-width:900px){#auto-arcade-widget .aa-food-menu-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+/* ===== Approved "Combined Integration Review" Food Menu layout, ported
+   verbatim (sidebar, headings, spacing, colors, form arrangement,
+   Delicacy/Origin checkboxes) from the approved reference file. Every
+   token/class below is scoped under .bingo-food-menu-proto so it can
+   never collide with the app's own .btn/.field/.panel/.card etc. */
+#auto-arcade-widget .bingo-food-menu-proto{--bfp-bg:#020914;--bfp-nav:#03101d;--bfp-card:#071a2d;--bfp-card2:#0a2037;--bfp-line:#254967;--bfp-txt:#f7f9fd;--bfp-mut:#9fb2c8;--bfp-gold:#ffc928;--bfp-cyan:#19e7ef;--bfp-pink:#ff48c8;--bfp-green:#2ef095;--bfp-blue:#239fff;--bfp-purple:#b94dff;--bfp-red:#ff4c6b;
+ display:grid;grid-template-columns:220px 1fr;min-height:520px;background:radial-gradient(circle at 50% -10%,#0c2b4b,var(--bfp-bg) 42%);color:var(--bfp-txt);font:14px Segoe UI,Arial,sans-serif;border:1px solid var(--bfp-line);border-radius:14px;overflow:hidden}
+#auto-arcade-widget .bingo-food-menu-proto *{box-sizing:border-box}
+#auto-arcade-widget .bfp-aside{background:#03101c;border-right:1px solid #203e59;padding:10px 7px;overflow:auto}
+#auto-arcade-widget .bfp-nav{--tab-light:#f3be2b;--tab-rgb:243,190,43;display:block;width:100%;padding:11px;border:0!important;border-radius:7px!important;background:transparent!important;box-shadow:none!important;color:#c3d0df;text-align:left;cursor:pointer;white-space:nowrap;font:inherit;margin-bottom:2px;transform:none!important}
+#auto-arcade-widget .bfp-nav::after{content:none!important}
+#auto-arcade-widget .bfp-nav.on,#auto-arcade-widget .bfp-nav:hover{background:linear-gradient(90deg,#5b480d,#10223a)!important;box-shadow:inset 3px 0 var(--bfp-gold)!important;color:#fff}
+#auto-arcade-widget .bfp-main{padding:15px;min-width:0}
+#auto-arcade-widget .bfp-panel{background:linear-gradient(145deg,#081c30,#05121f);border:1px solid #234663;border-radius:12px;padding:15px;margin-bottom:12px}
+#auto-arcade-widget .bfp-panel h2,#auto-arcade-widget .bfp-panel h3{margin:0 0 10px;color:var(--bfp-txt)}
+#auto-arcade-widget .bfp-mut{color:var(--bfp-mut);font-size:12px}
+#auto-arcade-widget .bfp-formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#auto-arcade-widget .bfp-formgrid label{font-size:11px;color:#c4d0df;display:block}
+#auto-arcade-widget .bfp-field{min-height:39px;padding:8px 10px;background:#041426;border:1px solid #315473;border-radius:8px;color:#fff;display:block;width:100%;margin-top:5px;font:inherit}
+#auto-arcade-widget .bfp-field:focus{outline:2px solid var(--bfp-cyan)}
+#auto-arcade-widget .bfp-wide{grid-column:1/-1}
+#auto-arcade-widget .bfp-media-upload{border:1px dashed #416786;border-radius:10px;padding:12px;text-align:center}
+#auto-arcade-widget .bfp-media-upload input{color:#cfe0f0}
+#auto-arcade-widget .bfp-complete-section{border:1px solid #294b66;border-radius:12px;padding:12px;margin:0 0 12px;background:#061522;transition:.2s}
+#auto-arcade-widget .bfp-complete-section.complete{border-color:var(--bfp-green);background:#06251b;box-shadow:0 0 14px #2ef09524}
+#auto-arcade-widget .bfp-complete-section.complete .bfp-sectionstate{color:var(--bfp-green)}
+#auto-arcade-widget .bfp-sectionstate{float:right;color:var(--bfp-gold);font-size:11px}
+#auto-arcade-widget .bfp-choice-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
+#auto-arcade-widget .bfp-checkgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+#auto-arcade-widget .bfp-checkitem{display:flex!important;align-items:center;gap:7px;padding:8px 9px;border:1px solid #315473;border-radius:8px;background:#041426;color:#d8e4ef!important;cursor:pointer}
+#auto-arcade-widget .bfp-checkitem input{accent-color:var(--bfp-green)}
+#auto-arcade-widget .bfp-checkitem:has(input:checked){border-color:var(--bfp-green);background:#073222;box-shadow:0 0 10px #2ef09533}
+#auto-arcade-widget .bfp-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
+/* The sitewide glossy button recipe (#auto-arcade-widget button{...},
+   ~line 24860) paints border/background/box-shadow/::after with
+   !important on every bare <button>, reading --tab-light/--tab-rgb
+   (gold by default) - the same mechanism .btn-red/.bingo-neon-action-*
+   already ride on. The approved prototype's buttons are flat outlines
+   on a plain dark card, not that glossy dimensional surface, so .bfp-btn
+   cancels the gloss the same proven way (::after{content:none!important}
+   plus an equal-!important flat background/box-shadow) and each colour
+   modifier below only ever swaps --tab-light/--tab-rgb, never fights
+   border-color/background directly. */
+#auto-arcade-widget .bfp-btn{--tab-light:#f3be2b;--tab-rgb:243,190,43;min-height:38px;padding:8px 12px;border:1px solid rgba(var(--tab-rgb),.75)!important;border-radius:8px!important;background:#061729!important;box-shadow:none!important;color:#fff;cursor:pointer;font:inherit;transform:none!important}
+#auto-arcade-widget .bfp-btn::after{content:none!important}
+@media(hover:hover){#auto-arcade-widget .bfp-btn:hover{filter:brightness(1.18);border-color:var(--tab-light)!important;box-shadow:0 0 12px rgba(var(--tab-rgb),.4)!important}}
+#auto-arcade-widget .bfp-btn.cyan{--tab-light:#22c9ff;--tab-rgb:34,201,255}
+#auto-arcade-widget .bfp-btn.green{--tab-light:#1fd67a;--tab-rgb:31,214,122}
+#auto-arcade-widget .bfp-btn.pink{--tab-light:#ff2fb0;--tab-rgb:255,47,176}
+#auto-arcade-widget .bfp-btn.red{--tab-light:var(--bingo-red,#ef1f2f);--tab-rgb:239,31,47;color:#ff8295}
+#auto-arcade-widget .bfp-btn:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:820px){#auto-arcade-widget .bingo-food-menu-proto{grid-template-columns:1fr}#auto-arcade-widget .bfp-aside{display:flex;gap:6px;overflow-x:auto;overflow-y:hidden;border-right:0;border-bottom:1px solid #203e59}#auto-arcade-widget .bfp-nav{width:auto;flex:none;margin-bottom:0}}
+@media(max-width:700px){#auto-arcade-widget .bfp-checkgrid{grid-template-columns:1fr 1fr}}
+@media(max-width:599px){#auto-arcade-widget .bfp-main{padding:9px}#auto-arcade-widget .bfp-formgrid{grid-template-columns:1fr}#auto-arcade-widget .bfp-wide{grid-column:auto}}
+@media(max-width:420px){#auto-arcade-widget .bfp-checkgrid{grid-template-columns:1fr}}
 @media(min-width:860px){#auto-arcade-widget .aa-mbea-layout{grid-template-columns:230px 1fr!important}}
 @media(min-width:1180px){#auto-arcade-widget .aa-mbea-layout{grid-template-columns:230px 1fr 260px!important}}
 /* Below 860px the layout falls back to its own single full-width column
@@ -12018,6 +12073,9 @@ function aaMapFoodMenuItemRow(row){
   status:row.status==='published'?'published':'draft',
   category:row.category||'',delivery_option:row.delivery_option||'',
   dietary_tags:Array.isArray(row.dietary_tags)?row.dietary_tags:[],
+  ingredients:row.ingredients||'',
+  delicacy_tags:Array.isArray(row.delicacy_tags)?row.delicacy_tags:[],
+  availability_notes:Array.isArray(row.availability_notes)?row.availability_notes:[],
   created_at:row.created_at,createdAt:row.created_at
  };
 }
@@ -12125,6 +12183,7 @@ function aaOpenFoodItemForm(businessId,itemId){
 function aaCancelFoodItemForm(){
  aaFoodMenuEditorInstance=null;
  aaFoodMenuEditorContextKey='';
+ aaFoodMenuProtoInstance=null;
  state.foodItemEditId=null;
  aaOpenFoodMenu(state.foodMenuBusinessId);
 }
@@ -12518,39 +12577,288 @@ async function aaFoodMenuEditorValidateMedia(file){
  if(err)return {ok:false,message:err};
  return {ok:true,mediaType:/^video\//.test(file.type||"")?"video":"image"};
 }
+/* ===== Approved "Combined Integration Review" Food Menu layout —
+   integrated verbatim (sidebar, headings, form arrangement, Delicacy/
+   Origin checkboxes) in place of BingoFoodMenuEditor above, which is
+   kept but no longer mounted (nothing else references it). Uses the
+   exact same "build once, remount without reconstructing" technique as
+   BingoFoodMenuEditor did, so a stray global render() (e.g. an unread-
+   count poll) while the owner is mid-form never wipes what they typed:
+   the built DOM element is kept alive in aaFoodMenuProtoInstance and
+   re-attached to the fresh mount node instead of being rebuilt from an
+   HTML string. Real saves reuse the exact same aaInsertFoodMenuItem/
+   aaUpdateFoodMenuItem/aaMissingPropertyColumn/aaUploadFoodMenuItemMedia
+   path already proven for this table - see aaFoodMenuProtoSave below. */
+const AA_FOOD_MENU_DELICACY_OPTIONS=["African Delicacies","Chinese Delicacies","Italian Delicacies","Swahili Delicacies","Luhya Delicacies","Kikuyu Delicacies","Coasterian / Coastal Delicacies","Mijikenda Delicacies","Kisii Delicacies","Luo Delicacies","Maasai Delicacies","Oromo / Pokomo Delicacies","Kamba Delicacies","Meru Delicacies","Turkana Delicacies","Somali Delicacies","Arab Delicacies","Ethiopian Delicacies","Turkish Delicacies","Indian Delicacies","Other / International"];
+let aaFoodMenuProtoInstance=null;
+function aaFoodMenuProtoSidebarHTML(businessId){
+ const items=[
+  {label:"Food",action:"aaOpenFood('browse')"},
+  {label:"Post Food Business",action:"aaOpenFood('post')"},
+  {label:"Food Menu",action:`aaOpenFoodItemForm('${esc(businessId)}')`,on:true},
+  {label:"Restaurant Profile",action:`aaOpenFoodBusinessProfile('${esc(businessId)}')`},
+  {label:"Orders",action:`aaOpenFoodMenuProtoOrders('${esc(businessId)}')`}
+ ];
+ return `<aside class="bfp-aside">${items.map(x=>`<button type="button" class="bfp-nav${x.on?' on':''}" onclick="${x.action}">${esc(x.label)}</button>`).join('')}</aside>`;
+}
+function aaFoodMenuProtoFormHTML(biz,editItem){
+ const businessId=String(biz.id);
+ const it=editItem||{};
+ const delicacySet=new Set(Array.isArray(it.delicacy_tags)?it.delicacy_tags:[]);
+ const notes=new Set(Array.isArray(it.availability_notes)?it.availability_notes:[]);
+ const prep=it.preparation_type==='made_to_order'?'made_to_order':(notes.has('Pre-order')?'pre_order':'ready_made');
+ const media=Array.isArray(it.media)?it.media:[];
+ const photo=media.find(m=>m&&m.type!=='video');
+ const video=media.find(m=>m&&m.type==='video');
+ return `<div class="bingo-food-menu-proto">
+  ${aaFoodMenuProtoSidebarHTML(businessId)}
+  <div class="bfp-main"><div class="bfp-panel">
+   <h2>FOOD MENU</h2>
+   <p class="bfp-mut">${esc(biz.business_name)} • add another menu item without creating another restaurant profile.</p>
+   <form id="bfpMenuItemForm">
+    <div class="bfp-complete-section"><h3>1. Food Details <span class="bfp-sectionstate">Complete required fields</span></h3>
+     <div class="bfp-formgrid">
+      <label>Food Name *<input id="bfpFoodName" class="bfp-field bfp-req" required value="${esc(it.name||'')}"></label>
+      <label>Price (KES) *<input id="bfpFoodPrice" class="bfp-field bfp-req" required type="number" min="0" value="${it.price_kes!=null?esc(String(it.price_kes)):''}"></label>
+      <label class="bfp-wide">Ingredients<input id="bfpFoodIngredients" class="bfp-field" value="${esc(it.ingredients||'')}"></label>
+      <label class="bfp-wide">Description *<textarea id="bfpFoodDesc" class="bfp-field bfp-req" required rows="3">${esc(it.description||'')}</textarea></label>
+     </div>
+    </div>
+    <div class="bfp-complete-section"><h3>2. Delicacy / Origin * <span class="bfp-sectionstate">Tick one or more</span></h3>
+     <div class="bfp-checkgrid">${AA_FOOD_MENU_DELICACY_OPTIONS.map(d=>`<label class="bfp-checkitem"><input type="checkbox" name="bfpDelicacy" value="${esc(d)}"${delicacySet.has(d)?' checked':''}><span>${esc(d)}</span></label>`).join('')}</div>
+    </div>
+    <div class="bfp-complete-section"><h3>3. Preparation &amp; Availability</h3>
+     <div class="bfp-choice-row">
+      <label class="bfp-checkitem"><input type="radio" name="bfpPrep" value="ready_made"${prep==='ready_made'?' checked':''}><span>Ready Made</span></label>
+      <label class="bfp-checkitem"><input type="radio" name="bfpPrep" value="made_to_order"${prep==='made_to_order'?' checked':''}><span>Made to Order</span></label>
+      <label class="bfp-checkitem"><input type="radio" name="bfpPrep" value="pre_order"${prep==='pre_order'?' checked':''}><span>Pre-order</span></label>
+      <label class="bfp-checkitem"><input type="checkbox" id="bfpAvailable"${it.available!==false?' checked':''}><span>Available</span></label>
+      <label class="bfp-checkitem"><input type="checkbox" id="bfpDelivery"${notes.has('Delivery')?' checked':''}><span>Delivery</span></label>
+      <label class="bfp-checkitem"><input type="checkbox" id="bfpPickup"${notes.has('Pickup')?' checked':''}><span>Pickup</span></label>
+     </div>
+    </div>
+    <div class="bfp-formgrid">
+     <label>Upload Photo<div class="bfp-media-upload"><input type="file" id="bfpPhotoInput" accept="image/*"></div>${photo?`<div class="bfp-mut" style="margin-top:4px">Current: ${esc(photo.name||'photo')}</div>`:''}</label>
+     <label>Upload / Record Video<div class="bfp-media-upload"><input type="file" id="bfpVideoInput" accept="video/*" capture="environment"></div>${video?`<div class="bfp-mut" style="margin-top:4px">Current: ${esc(video.name||'video')}</div>`:''}</label>
+    </div>
+    <div class="bfp-actions">
+     <button type="button" class="bfp-btn" data-bfp-action="draft">Save Draft</button>
+     <button type="button" class="bfp-btn cyan" data-bfp-action="preview">Preview</button>
+     <button type="button" class="bfp-btn green" data-bfp-action="publish">Publish Food</button>
+     <button type="button" class="bfp-btn pink" data-bfp-action="add-another">＋ Add Another Menu Item</button>
+     ${editItem?'<button type="button" class="bfp-btn red" data-bfp-action="delete">Delete Item</button>':''}
+    </div>
+   </form>
+  </div></div>
+ </div>`;
+}
+function aaFoodMenuProtoValidateSections(root){
+ root.querySelectorAll('.bfp-complete-section').forEach(sec=>{
+  const req=[...sec.querySelectorAll('.bfp-req')];
+  const dInputs=sec.querySelectorAll('input[name="bfpDelicacy"]');
+  const reqOk=req.every(x=>String(x.value||'').trim());
+  const delicacyOk=!dInputs.length||[...dInputs].some(x=>x.checked);
+  const ok=reqOk&&delicacyOk;
+  sec.classList.toggle('complete',ok);
+  const st=sec.querySelector('.bfp-sectionstate');
+  if(st)st.textContent=ok?'✓ Complete':(dInputs.length?'Tick one or more':'Complete required fields');
+ });
+}
+function aaFoodMenuProtoCollect(root){
+ const inst=aaFoodMenuProtoInstance;
+ const name=root.querySelector('#bfpFoodName').value.trim();
+ const price=Number(root.querySelector('#bfpFoodPrice').value||0);
+ const ingredients=root.querySelector('#bfpFoodIngredients').value.trim();
+ const description=root.querySelector('#bfpFoodDesc').value.trim();
+ const delicacy_tags=[...root.querySelectorAll('input[name="bfpDelicacy"]:checked')].map(x=>x.value);
+ const prepRaw=root.querySelector('input[name="bfpPrep"]:checked')?.value||'ready_made';
+ const available=root.querySelector('#bfpAvailable').checked;
+ const delivery=root.querySelector('#bfpDelivery').checked;
+ const pickup=root.querySelector('#bfpPickup').checked;
+ const availability_notes=[...(prepRaw==='pre_order'?['Pre-order']:[]),...(delivery?['Delivery']:[]),...(pickup?['Pickup']:[])];
+ const preparation_type=prepRaw==='made_to_order'?'made_to_order':(prepRaw==='ready_made'?'ready_made':null);
+ return {name,price,ingredients,description,delicacy_tags,preparation_type,available,availability_notes,
+  photoFile:inst?.photoFile||null,videoFile:inst?.videoFile||null};
+}
+async function aaFoodMenuProtoSave(root,status,opts){
+ opts=opts||{};
+ if(!state.isLoggedIn&&!state.testMode){openAuth('login');return}
+ const inst=aaFoodMenuProtoInstance;
+ if(!inst)return;
+ const businessId=inst.businessId;
+ const biz=aaFoods().find(x=>String(x.id)===String(businessId));
+ if(!biz){toast('This restaurant could not be found.');return}
+ const data=aaFoodMenuProtoCollect(root);
+ if(!data.name||!data.description){toast('Food Name and Description are required.');return}
+ if(status==='published'&&!data.delicacy_tags.length){toast('Tick at least one Delicacy / Origin.');return}
+ const editId=inst.editItemId;
+ const itemId=editId||aaNewFoodMenuItemId();
+ const btn=opts.action?root.querySelector(`[data-bfp-action="${opts.action}"]`):null;
+ if(btn)btn.disabled=true;
+ try{
+  if(state.testMode){
+   const list=state.foodMenuItemsByBusiness?.[businessId]||[];
+   const existing=list.find(x=>String(x.id)===String(itemId));
+   let media=existing&&Array.isArray(existing.media)?existing.media:[];
+   const newMedia=[];
+   if(data.photoFile)newMedia.push({type:'image',url:URL.createObjectURL(data.photoFile),name:data.photoFile.name});
+   if(data.videoFile)newMedia.push({type:'video',url:URL.createObjectURL(data.videoFile),name:data.videoFile.name});
+   if(newMedia.length)media=newMedia;
+   const p={id:itemId,business_id:businessId,user_id:state.user?.id||'',
+    name:data.name,description:data.description,price_kes:data.price,
+    preparation_type:data.preparation_type||existing?.preparation_type||'ready_made',
+    available:data.available,media,status,
+    ingredients:data.ingredients,delicacy_tags:data.delicacy_tags,availability_notes:data.availability_notes,
+    category:existing?.category||'',delivery_option:existing?.delivery_option||'',dietary_tags:existing?.dietary_tags||[],
+    created_at:existing?.created_at||new Date().toISOString()};
+   state.foodMenuItemsByBusiness=state.foodMenuItemsByBusiness||{};
+   const idx=list.findIndex(x=>String(x.id)===String(itemId));
+   if(idx>=0)list[idx]=p;else list.unshift(p);
+   state.foodMenuItemsByBusiness[businessId]=list;
+   toast(status==='draft'?'Food item saved as a draft (preview mode).':'Food item published (preview mode).');
+   aaFoodMenuProtoInstance=null;
+   if(opts.addAnother)aaOpenFoodItemForm(businessId);else aaOpenFoodMenu(businessId);
+   return;
+  }
+  if(!sb||!state.user?.id){toast('You must be logged in to save a food item.');return}
+  let existingRow=null;
+  if(editId){
+   existingRow=aaFoodMenuItems(businessId).find(x=>String(x.id)===String(editId));
+   if(!existingRow){toast('This food item could not be found.');return}
+   if(String(existingRow.user_id||'')!==String(state.user.id)){toast('You can only edit your own food items.');return}
+  }
+  const newFiles=[data.photoFile,data.videoFile].filter(Boolean);
+  const upload=newFiles.length?await aaUploadFoodMenuItemMedia(newFiles,state.user.id,businessId,itemId,()=>{}):{media:[],paths:[],error:null};
+  if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error));return}
+  const existingMedia=Array.isArray(existingRow?.media)?existingRow.media:[];
+  const media=newFiles.length?upload.media:existingMedia;
+  const basePayload={business_id:businessId,user_id:state.user.id,name:data.name,description:data.description,price_kes:data.price,available:data.available,media,status};
+  if(data.preparation_type)basePayload.preparation_type=data.preparation_type;
+  const AA_FOOD_ITEM_CORE_FIELDS=["business_id","user_id","name","description","price_kes","preparation_type","available","media","status"];
+  let extra={ingredients:data.ingredients,delicacy_tags:data.delicacy_tags,availability_notes:data.availability_notes};
+  let result;
+  for(let attempt=0;attempt<5;attempt++){
+   const finalPayload={...basePayload,...extra};
+   result=editId?await aaUpdateFoodMenuItem(editId,finalPayload):await aaInsertFoodMenuItem({id:itemId,...finalPayload});
+   if(!result.error)break;
+   const missing=aaMissingPropertyColumn(result.error);
+   if(missing&&!AA_FOOD_ITEM_CORE_FIELDS.includes(missing)&&Object.prototype.hasOwnProperty.call(extra,missing)){
+    const rest={...extra};delete rest[missing];extra=rest;continue;
+   }
+   break;
+  }
+  if(result.error){
+   if(upload.paths&&upload.paths.length)await aaDeleteUploadedFoodMedia(upload.paths);
+   toast('Could not save food item: '+String(result.error.message||result.error));
+   return;
+  }
+  const verify=await aaVerifyFoodMenuItem(itemId);
+  if(verify.error){toast('Food item could not be verified after saving.');return}
+  const mapped=aaMapFoodMenuItemRow(verify.data);
+  state.foodMenuItemsByBusiness=state.foodMenuItemsByBusiness||{};
+  const list=state.foodMenuItemsByBusiness[businessId]||[];
+  const idx=list.findIndex(x=>String(x.id)===String(itemId));
+  if(idx>=0)list[idx]=mapped;else list.unshift(mapped);
+  state.foodMenuItemsByBusiness[businessId]=list;
+  if(newFiles.length){
+   const oldPaths=existingMedia.map(m=>m.storagePath).filter(Boolean);
+   if(oldPaths.length)await aaDeleteUploadedFoodMedia(oldPaths);
+  }
+  toast(status==='draft'?'Food item saved as a draft.':'Food item published.');
+  aaFoodMenuProtoInstance=null;
+  if(opts.addAnother)aaOpenFoodItemForm(businessId);else aaOpenFoodMenu(businessId);
+ }finally{
+  if(btn)btn.disabled=false;
+ }
+}
+function aaFoodMenuProtoPreview(root){
+ const inst=aaFoodMenuProtoInstance;
+ if(!inst)return;
+ const data=aaFoodMenuProtoCollect(root);
+ let media=[];
+ if(data.photoFile)media.push({type:'image',url:URL.createObjectURL(data.photoFile)});
+ if(data.videoFile)media.push({type:'video',url:URL.createObjectURL(data.videoFile)});
+ if(!media.length){
+  const existing=inst.editItemId?aaFoodMenuItems(inst.businessId).find(x=>String(x.id)===String(inst.editItemId)):null;
+  media=Array.isArray(existing?.media)?existing.media:[];
+ }
+ state.foodItemPreviewData={
+  id:inst.editItemId||'preview',business_id:inst.businessId,user_id:state.user?.id||'',
+  name:data.name,description:data.description,price_kes:data.price,
+  preparation_type:data.preparation_type||'ready_made',available:data.available,media,status:'draft',
+  ingredients:data.ingredients,delicacy_tags:data.delicacy_tags,availability_notes:data.availability_notes
+ };
+ state.foodItemPreviewOpen=true;
+ render();
+}
+async function aaFoodMenuProtoDelete(){
+ const inst=aaFoodMenuProtoInstance;
+ if(!inst?.editItemId)return;
+ if(!confirm('Delete this food item? This cannot be undone.'))return;
+ const result=await aaDeleteFoodMenuItemNow(inst.editItemId);
+ if(!result.ok)toast(result.message);
+ else aaFoodMenuProtoInstance=null;
+}
+function aaOpenFoodMenuProtoOrders(businessId){
+ aaFoodMenuProtoInstance=null;
+ aaOpenFoodMenu(businessId);
+ aaLoadFoodOrders().then(render);
+ state.foodOrdersOpenFor=String(businessId);
+ render();
+}
+function aaWireFoodMenuProtoForm(root){
+ root.querySelectorAll('input,textarea').forEach(el=>{
+  el.addEventListener('input',()=>aaFoodMenuProtoValidateSections(root));
+  el.addEventListener('change',()=>aaFoodMenuProtoValidateSections(root));
+ });
+ const photoInput=root.querySelector('#bfpPhotoInput');
+ const videoInput=root.querySelector('#bfpVideoInput');
+ if(photoInput)photoInput.addEventListener('change',()=>{
+  const f=photoInput.files&&photoInput.files[0];
+  if(!f)return;
+  const err=aaValidatePropertyMediaFile(f);
+  if(err){toast(err);photoInput.value='';return}
+  if(aaFoodMenuProtoInstance)aaFoodMenuProtoInstance.photoFile=f;
+ });
+ if(videoInput)videoInput.addEventListener('change',()=>{
+  const f=videoInput.files&&videoInput.files[0];
+  if(!f)return;
+  const err=aaValidatePropertyMediaFile(f);
+  if(err){toast(err);videoInput.value='';return}
+  if(aaFoodMenuProtoInstance)aaFoodMenuProtoInstance.videoFile=f;
+ });
+ root.querySelectorAll('[data-bfp-action]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+   const action=btn.getAttribute('data-bfp-action');
+   if(action==='draft')aaFoodMenuProtoSave(root,'draft',{action});
+   else if(action==='publish')aaFoodMenuProtoSave(root,'published',{action});
+   else if(action==='add-another')aaFoodMenuProtoSave(root,'published',{action,addAnother:true});
+   else if(action==='preview')aaFoodMenuProtoPreview(root);
+   else if(action==='delete')aaFoodMenuProtoDelete();
+  });
+ });
+ root.querySelector('#bfpMenuItemForm')?.addEventListener('submit',e=>e.preventDefault());
+}
 function aaEnsureFoodMenuEditorMounted(){
  const mount=document.getElementById("bingo-food-menu-editor-mount");
  if(!mount)return;
  const businessId=state.foodMenuBusinessId;
+ const biz=aaFoods().find(x=>String(x.id)===String(businessId));
+ if(!biz){mount.innerHTML='';aaFoodMenuProtoInstance=null;return}
  const editItem=state.foodItemEditId?aaFoodMenuItems(businessId).find(x=>String(x.id)===String(state.foodItemEditId)):null;
  const contextKey=editItem?("edit:"+editItem.id):("new:"+businessId);
- if(aaFoodMenuEditorInstance&&aaFoodMenuEditorContextKey===contextKey){
-  aaFoodMenuEditorInstance.remount(mount);
+ if(aaFoodMenuProtoInstance&&aaFoodMenuProtoInstance.key===contextKey){
+  if(aaFoodMenuProtoInstance.el.parentNode!==mount)mount.appendChild(aaFoodMenuProtoInstance.el);
   return;
  }
- aaFoodMenuEditorContextKey=contextKey;
- const media=Array.isArray(editItem?.media)&&editItem.media[0]?editItem.media[0]:null;
- aaFoodMenuEditorInstance=new BingoFoodMenuEditor(mount,{
-  item:{
-   id:editItem?editItem.id:null,
-   name:editItem?.name||"",
-   category:editItem?.category||AA_FOOD_MENU_ITEM_CATEGORIES[0],
-   description:editItem?.description||"",
-   price:editItem?.price_kes||"",
-   available:editItem?editItem.available!==false:true,
-   preparationTime:editItem?.preparation_type==="made_to_order"?"Made to Order":"Ready Made",
-   deliveryOption:editItem?.delivery_option||AA_FOOD_MENU_ITEM_DELIVERY_OPTIONS[2],
-   dietaryTags:Array.isArray(editItem?.dietary_tags)?editItem.dietary_tags:[],
-   mediaUrl:media?media.url:"",
-   mediaType:media?media.type:""
-  },
-  categories:AA_FOOD_MENU_ITEM_CATEGORIES,
-  validateMedia:aaFoodMenuEditorValidateMedia,
-  onSave:aaHandleFoodMenuItemEditorSave,
-  onRemove:aaHandleFoodMenuItemEditorRemove,
-  onCancel:aaCancelFoodItemForm,
-  onPreview:aaHandleFoodMenuItemEditorPreview
- });
+ const wrap=document.createElement('div');
+ wrap.innerHTML=aaFoodMenuProtoFormHTML(biz,editItem);
+ const root=wrap.firstElementChild;
+ aaFoodMenuProtoInstance={el:root,key:contextKey,businessId:String(businessId),editItemId:editItem?String(editItem.id):null,photoFile:null,videoFile:null};
+ mount.innerHTML='';
+ mount.appendChild(root);
+ aaWireFoodMenuProtoForm(root);
+ aaFoodMenuProtoValidateSections(root);
 }
 async function aaHandleFoodMenuItemEditorSave(item){
  if(!state.isLoggedIn&&!state.testMode){openAuth("login");return {ok:false,message:"Please log in to save this item."}}
@@ -12682,15 +12990,14 @@ function aaFoodItemFormHTML(){
  const biz=aaFoods().find(x=>String(x.id)===String(businessId));
  if(!biz)return `<div class="aa-v69-card"><p>This restaurant could not be found.</p><button class="btn" onclick="aaOpenFood('mine')">Back to My Food Business</button></div>`;
  const editItem=state.foodItemEditId?aaFoodMenuItems(businessId).find(x=>String(x.id)===String(state.foodItemEditId)):null;
- return `<div class="aa-v69-card">
+ return `<div class="aa-v69-card" style="padding:8px">
   <button class="btn" style="margin-bottom:12px" onclick="aaCancelFoodItemForm()">← Back to Restaurant Menu</button>
-  <p class="notice" style="margin-top:0">${esc(biz.business_name)} · ${editItem?"Update this menu item.":"Fill in the details below to add a food item to your menu."}</p>
   <div id="bingo-food-menu-editor-mount"></div>
  </div>`;
 }
 function aaFoodMenuItemCardHTML(it,own){
  const media=it.media?.[0];
- const tags=Array.isArray(it.dietary_tags)?it.dietary_tags:[];
+ const tags=[...(Array.isArray(it.dietary_tags)?it.dietary_tags:[]),...(Array.isArray(it.delicacy_tags)?it.delicacy_tags:[])];
  return `<div class="aa-food-menu-card">
   <button type="button" style="all:unset;display:block;width:100%;cursor:pointer" onclick="aaOpenFoodItemDetail('${esc(it.id)}')">
   <div class="aa-food-menu-card-media">
