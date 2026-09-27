@@ -23615,6 +23615,50 @@ No other mother-snippet functions are changed.
     nativeFetch:nativeFetch
   };
 
+  /* Seed one local-only demo Food listing so the Food tab has something to
+     show when there are no real food_businesses rows yet. This never
+     touches Supabase (state.testMode already short-circuits every food
+     load/write path) and only ever runs while test mode is active. */
+  function seedDemoFood(){
+    if(!window.state) return;
+    state.testMode=true;
+    state.isLoggedIn=true;
+    if(!state.user||!state.user.id){
+      state.user=Object.assign({},state.user,{id:"aa_preview_member",firstName:"Amina",lastName:"Hassan",accountType:"business",email:"preview@bingo.local",location:"Mombasa"});
+    }
+    var bizId=(typeof aaNewFoodBusinessId==="function")?aaNewFoodBusinessId():"demo-food-business-1";
+    var nowIso=new Date().toISOString();
+    state.foodBusinesses=[{
+      id:bizId, user_id:state.user.id, local_owner:false, _localOnly:false, kind:"food",
+      business_name:"Mama Amina's Kitchen", title:"Mama Amina's Kitchen", category:"Restaurant",
+      county:"Mombasa", town:"Nyali", delivery_area:"Nyali, Bamburi, Mombasa CBD",
+      phone:"", whatsapp:"", opening_hours:"8:00 AM - 11:00 PM", price_range:"KES 300 - 2,500",
+      delivery_available:true, description:"Authentic coastal and Kenyan dishes, freshly prepared with home delivery around Mombasa.",
+      media:[], status:"active", subscription_expires_at:new Date(Date.now()+30*86400000).toISOString(),
+      created_at:nowIso, createdAt:nowIso
+    }];
+    function menuItem(name,category,description,price){
+      return {
+        id:(typeof aaNewFoodMenuItemId==="function")?aaNewFoodMenuItemId():("demo-item-"+name),
+        business_id:bizId, user_id:state.user.id, name:name, description:description,
+        price_kes:price, preparation_type:"made_to_order", available:true, media:[],
+        status:"published", category:category, delivery_option:"delivery", dietary_tags:[],
+        created_at:nowIso, createdAt:nowIso
+      };
+    }
+    state.foodMenuItemsByBusiness=state.foodMenuItemsByBusiness||{};
+    state.foodMenuItemsByBusiness[bizId]=[
+      menuItem("Swahili Coconut Fish","Swahili","Fresh fish in coconut sauce.",850),
+      menuItem("Luhya Chicken & Ugali","Luhya","Traditional chicken with ugali.",700)
+    ];
+    if(typeof window.render==="function") window.render();
+  }
+  if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded",seedDemoFood,{once:true});
+  }else{
+    seedDemoFood();
+  }
+
   console.info(
     "[BINGO TEST MODE] ACTIVE — remote write requests are blocked; browser storage is restored when the page exits or reloads."
   );
