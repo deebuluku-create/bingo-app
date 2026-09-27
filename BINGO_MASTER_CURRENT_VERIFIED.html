@@ -8970,7 +8970,7 @@ var aaAdTimer=null;
    are backend authoritative (RLS-scoped campaign rows; the existing
    isBoosted/boostRemaining fields already trusted everywhere else in
    this file), never a client-invented status. */
-const AA_AD_SLOTS=[{id:"home-banner",page:"home",capability:"medium"},{id:"wall-sidebar",page:"topics",capability:"medium"}];
+const AA_AD_SLOTS=[{id:"home-banner",page:"home",capability:"medium"},{id:"wall-sidebar",page:"topics",capability:"medium"},{id:"messenger-sidebar",page:"inbox",capability:"medium"}];
 function aaAdSlotDef(slotId){return AA_AD_SLOTS.find(s=>s.id===slotId)}
 function aaEligibleQueueItems(slot,now=Date.now()){
  return (state.adQueue||[]).filter(x=>x.status==="active"&&Date.parse(x.starts_at)<=now&&Date.parse(x.expires_at)>now&&x.eligible_slots?.includes(slot.id));
@@ -9071,6 +9071,18 @@ function aaStartAdTimer(){
  });
 }
 function aaStopAdTimer(){if(aaAdTimer){clearInterval(aaAdTimer);aaAdTimer=null}}
+var aaMsgAdTimer=null;
+function aaStartMsgAdTimer(){
+ aaStopMsgAdTimer();
+ if(!aaCanRenderAdSlot())return;
+ const slot=aaAdSlotDef("messenger-sidebar");
+ if(!slot)return;
+ aaLoadAdQueue(slot.page).then(()=>{
+  if(!aaCanRenderAdSlot()||state.view!=="inbox"||!aaEligibleQueueItems(slot).length)return;
+  aaMsgAdTimer=aaStartAdSlot(slot,0);
+ });
+}
+function aaStopMsgAdTimer(){if(aaMsgAdTimer){clearInterval(aaMsgAdTimer);aaMsgAdTimer=null}}
 function aaCloseAd(){state.adOpen=false;render()}
 function aaPauseAllFeedVideos(){
  document.querySelectorAll("#auto-arcade-widget .aa360-video").forEach(v=>{try{v.pause()}catch(e){}});
@@ -9985,6 +9997,11 @@ function aaPageGuideBoostAction(){
 }
 function aaPageGuideHTML(){
  if(state.view==="home")return "";
+ /* Messenger is its own full-height, self-contained shell (like Home) -
+    the generic per-page "Boost/Promote" hero above it was eating into
+    the vertical space an open conversation needs to fill the usable
+    screen on mobile, matching how it's already skipped on Home. */
+ if(state.view==="inbox")return "";
  const info=aaPageGuideInfo();if(!info)return "";
  return `<div class="aa-page-guide">
    <div class="aa-page-guide-copy">
@@ -13766,6 +13783,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
  ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.propertyMediaViewerOpen?aaPropertyMediaViewerHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.foodBasketOpen?aaFoodBasketHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
+  if(state.view==="inbox"&&!state.msgActiveConversationId)aaStartMsgAdTimer();else aaStopMsgAdTimer();
   if(state.msgActiveCall)aaCallReattachMediaElements();
   aaDynamicAdAfterRender();
   if(state.view==="add")aaInstallVehicleUploadEnhancer();
@@ -19350,7 +19368,7 @@ function aaMsgInboxHTML(){
  const myName=aaOwnProfileName?aaOwnProfileName():"Me";
  const currentThemeId=bingoMsgThemeRoot()?.dataset.msgTheme||"cyan";
  return `<section style="padding:14px 0 20px;display:flex;justify-content:center">
- <div class="bingo-messenger" data-msg-theme="${esc(currentThemeId)}">
+ <div class="bingo-messenger${showingSecondaryPane?" msg-sidebar-collapsed":""}" data-msg-theme="${esc(currentThemeId)}">
   <aside class="msg-sidebar${showingSecondaryPane?" is-hidden":""}">
    <header class="msg-account-bar">
     <span class="msg-brand-mark" aria-hidden="true">${bingoAppLogoHTML({className:"bingo-app-logo--mobile",style:"max-height:26px"})}</span>
@@ -19447,7 +19465,8 @@ function aaMsgChatsSidebarBodyHTML(){
    </div>
    ${state.msgRowMenuFor===c.id?aaMsgRowMenuHTML(c.id):""}`;
   }).join("")}
- </div>`;
+ </div>
+ ${aaAdSlotHTML("messenger-sidebar")}`;
 }
 function aaCallLogOutcomeLabel(r){
  const dir=r.direction||"outgoing";
@@ -26593,6 +26612,16 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 }
 #auto-arcade-widget .msg-sidebar,#auto-arcade-widget .msg-info-panel{min-width:0;background:rgba(7,18,37,.94);display:flex;flex-direction:column;min-height:0}
 #auto-arcade-widget .msg-sidebar{border-right:1px solid rgba(var(--msg-accent-rgb),.22)}
+/* Left nav/chat-list behind a drawer at every width, not just mobile:
+   opening a conversation collapses it (the existing "← Back" control,
+   already labelled aria-label="Back", re-expands it) so the conversation
+   is the main centre area, matching the already-drawer-based right
+   .msg-info-panel (toggled by the existing "⋮" three-dot control).
+   .is-hidden on the child alone is not enough on a CSS Grid parent - a
+   display:none grid item still leaves its track reserved, so the parent
+   also needs its own template swapped via this modifier class. */
+#auto-arcade-widget .msg-sidebar.is-hidden{display:none}
+#auto-arcade-widget .bingo-messenger.msg-sidebar-collapsed{grid-template-columns:minmax(0,1fr) minmax(240px,310px)}
 #auto-arcade-widget .msg-info-panel{border-left:1px solid rgba(var(--msg-accent-rgb),.22);overflow-y:auto;padding:14px}
 /* The info panel uses the `hidden` attribute as its drawer-closed state
    on tablet/mobile (see the <1050px rule below); on desktop the panel is
@@ -26752,6 +26781,7 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 #auto-arcade-widget .msg-call-btn.msg-call-accept{--tab-light:var(--msg-whatsapp);--tab-rgb:34,197,94}
 @media(max-width:1050px){
   #auto-arcade-widget .bingo-messenger{grid-template-columns:minmax(260px,330px) minmax(0,1fr)}
+  #auto-arcade-widget .bingo-messenger.msg-sidebar-collapsed{grid-template-columns:minmax(0,1fr)}
   #auto-arcade-widget .msg-info-panel{position:fixed;inset:0 0 0 auto;width:min(360px,92vw);z-index:100;border-radius:0}
   #auto-arcade-widget .msg-info-panel[hidden]{display:none}
 }
