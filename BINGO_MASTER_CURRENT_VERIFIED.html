@@ -10109,7 +10109,18 @@ const AA_PROPERTY_MEDIA_BUCKET='property-media';
 const AA_PROPERTY_TUS_THRESHOLD_BYTES=6*1024*1024;
 const AA_PROPERTY_TUS_CHUNK_SIZE=6*1024*1024;
 const AA_PROPERTY_STANDARD_RETRY_DELAYS=[0,800,2000];
-const AA_PROPERTY_TUS_RETRY_DELAYS=[0,1000,3000,5000,10000,20000];
+/* Was [0,1000,3000,5000,10000,20000] (39s of internal retry before
+   tus-js-client even reports failure) - shortened after a live report of
+   uploads "taking too much time to respond" before finally failing. A
+   systemically unreachable endpoint gains nothing from a long backoff;
+   a genuinely transient blip is still caught within a few seconds. */
+const AA_PROPERTY_TUS_RETRY_DELAYS=[0,1200,3000];
+/* Hard ceiling on a single TUS attempt, independent of tus-js-client's
+   own retry schedule above - so a hang at the transport level (DNS/CORS/
+   connection stuck before any error event fires at all, which retryDelays
+   cannot help with since they only apply AFTER an error) still resolves
+   to a clear failure instead of leaving the UI spinning indefinitely. */
+const AA_PROPERTY_TUS_OVERALL_TIMEOUT_MS=25000;
 function aaSupabaseStorageResumableEndpoint(){
  try{
   const m=String(SUPABASE_URL||'').match(/^https:\/\/([a-z0-9-]+)\.supabase\.co\/?$/i);
@@ -10144,6 +10155,17 @@ function aaClassifyPropertyStorageError(error,label='Property Storage'){
   return {kind:'gateway',message:`${label} returned a temporary server error (${status}). Bingo retries automatically before giving up.`};
  if(/failed to fetch|networkerror|load failed|aborted|timed?.?out/i.test(raw))
   return {kind:'network',message:'The upload connection was interrupted. Check your internet connection - large videos need a steadier connection - then try again.'};
+ /* tus-js-client's own wording ("tus: failed to create upload, caused by
+    [object ProgressEvent] ... response code: n/a") doesn't match any
+    pattern above, so without this it fell through to the raw/unknown
+    branch and that exact internal string was shown to real users
+    verbatim - caught from a live report. "response code: n/a" is the
+    tell: the browser's request errored before any HTTP response was
+    received at all (not a 4xx/5xx from the server), which points at a
+    network/CORS/reachability problem specifically with Supabase's
+    dedicated Storage upload host, not a account/file/RLS problem. */
+ if(/^tus:/i.test(raw)||/response code:\s*n\/a/i.test(raw))
+  return {kind:'transport',message:`${label}'s upload server could not be reached (the connection failed before any response came back - not a permission or file-size problem). This can be a network, firewall or ad-blocker issue specific to Supabase's Storage upload host. Your selected media and details are kept; please retry, ideally on a different network, and tell Bingo support if it persists.`};
  return {kind:'unknown',message:(raw.replace(/[?&]apikey=[^&\s]+/gi,'').replace(/eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_.-]+/g,'[hidden]'))||'Media upload failed for an unknown reason.'};
 }
 /* Small/standard files (<=6MB): unchanged Supabase .upload(), but a 502/5xx
@@ -10187,6 +10209,19 @@ async function aaUploadPropertyMediaTus(file,path,isVideo,diag,onByteProgress,bu
  if(!token)return {ok:false,cls:{kind:'auth',message:'Your session has expired. Please log in again and retry the upload.'}};
  return new Promise(resolve=>{
   let settled=false;
+  const settle=(result)=>{if(settled)return;settled=true;clearTimeout(overallTimer);resolve(result)};
+  /* Independent of tus-js-client's own retryDelays above: those only
+     apply AFTER an error event fires, so a transport-level hang (DNS/
+     CORS/connection stuck before anything errors at all) would never
+     reach onError and would leave the UI spinning indefinitely. This
+     gives every TUS attempt - across all of its internal retries - one
+     hard ceiling, after a live report of uploads "taking too much time
+     to respond" before finally failing. */
+  const overallTimer=setTimeout(()=>{
+   try{upload.abort()}catch(e){}
+   console.error(`[Bingo ${label} Upload Error]`,'client-side timeout',{...diag,transport:'tus',timeoutMs:AA_PROPERTY_TUS_OVERALL_TIMEOUT_MS});
+   settle({ok:false,cls:{kind:'transport',message:`${label}'s upload server did not respond in time. This usually means a network, firewall or ad-blocker issue reaching Supabase's Storage upload host, not a problem with your account or file. Your selected media and details are kept; please retry, ideally on a different network.`}});
+  },AA_PROPERTY_TUS_OVERALL_TIMEOUT_MS);
   const upload=new window.tus.Upload(file,{
    endpoint,
    retryDelays:AA_PROPERTY_TUS_RETRY_DELAYS,
@@ -10196,17 +10231,15 @@ async function aaUploadPropertyMediaTus(file,path,isVideo,diag,onByteProgress,bu
    removeFingerprintOnSuccess:true,
    metadata:{bucketName:bucket,objectName:path,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'},
    onError:(error)=>{
-    if(settled)return;settled=true;
     const cls=aaClassifyPropertyStorageError(error,label);
     console.error(`[Bingo ${label} Upload Error]`,error,{...diag,transport:'tus'});
-    resolve({ok:false,cls});
+    settle({ok:false,cls});
    },
    onProgress:(bytesUploaded,bytesTotal)=>{
     if(typeof onByteProgress==='function')try{onByteProgress(bytesUploaded,bytesTotal)}catch(e){}
    },
    onSuccess:()=>{
-    if(settled)return;settled=true;
-    resolve({ok:true});
+    settle({ok:true});
    }
   });
   upload.findPreviousUploads().then(previous=>{
