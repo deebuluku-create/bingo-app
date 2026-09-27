@@ -25479,6 +25479,102 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .bgc-back{margin-bottom:10px}
 #auto-arcade-widget .bgc-post-cta{width:100%;margin-top:6px}
 #auto-arcade-widget .bgc-empty{grid-column:1/-1;text-align:center;color:#758095;padding:20px;font-size:12px}
+
+/* ===== Sitewide tab/navigation button flat-neon pass (approved
+   reference: compact medium buttons for primary section tabs, micro
+   for smaller tabs/filters/pagination). Pure CSS only - no HTML/JS
+   below changes, so every button keeps its existing label, onclick
+   handler, permission check and disabled state exactly as before.
+   Scoped to specific ancestor selectors so it can never reach the two
+   explicit exceptions: Cockpit uses its own .bcp-* classes entirely
+   (never .btn/.tabs/.dashboard-actions), and the Love/Comment/Share/
+   Save/Report row plus comment Like/Reply already use their own
+   .aa-icon-action/.bingo-neon-* classes, untouched here.
+
+   The category popup's own button rules just above (.bgc-pager button,
+   .bgc-card .bgc-acts button, .bgc-detail-acts button) were a light
+   grey/white theme with no !important, so the sitewide glossy
+   "#auto-arcade-widget button{...!important}" base recipe (identical
+   conflict already solved for .bgc-tile above) silently won over them
+   regardless of source order - that mismatch, not a missing design, is
+   what actually produced the huge gold/black rectangular buttons
+   reported inside category popups like Pastries & Bakeries. Matching
+   !important here, with colours that fit the popup's own dark navy
+   modal chrome instead of the old light theme, is the fix. */
+#auto-arcade-widget .bgc-pager button,
+#auto-arcade-widget .bgc-card .bgc-acts button,
+#auto-arcade-widget .bgc-detail-acts button,
+#auto-arcade-widget .bgc-filters button{
+  --tab-light:#22c9ff!important;--tab-rgb:34,201,255!important;
+  border:1px solid rgba(34,201,255,.55)!important;
+  background:#0d1b32!important;color:#e7edf6!important;
+  border-radius:8px!important;box-shadow:none!important;
+  min-height:30px!important;padding:6px 11px!important;
+  font-size:10.5px!important;font-weight:800!important;
+  transform:none!important;
+}
+#auto-arcade-widget .bgc-pager button::after,
+#auto-arcade-widget .bgc-card .bgc-acts button::after,
+#auto-arcade-widget .bgc-detail-acts button::after,
+#auto-arcade-widget .bgc-filters button::after{content:none!important}
+#auto-arcade-widget .bgc-post-cta{
+  --tab-light:var(--bingo-red,#ef1f2f)!important;--tab-rgb:239,31,47!important;
+  background:#0d1b32!important;box-shadow:none!important;transform:none!important;
+}
+#auto-arcade-widget .bgc-post-cta::after{content:none!important}
+@media(hover:hover){
+ #auto-arcade-widget .bgc-pager button:hover,
+ #auto-arcade-widget .bgc-card .bgc-acts button:hover,
+ #auto-arcade-widget .bgc-detail-acts button:hover,
+ #auto-arcade-widget .bgc-filters button:hover,
+ #auto-arcade-widget .bgc-post-cta:hover{
+  filter:brightness(1.18);border-color:var(--tab-light)!important;
+  box-shadow:0 0 9px rgba(var(--tab-rgb),.35)!important;
+ }
+}
+
+/* POST ABOUT / category picker grid - was a solid gold block for the
+   active state ("black text on gold" bulky rectangle). Flat outline
+   instead; the active state is a border+glow like every other approved
+   neon control, not a filled block. */
+#auto-arcade-widget #du1PostHub .du1-post-about-grid button{
+  background:#0b1729!important;box-shadow:none!important;
+  min-height:40px!important;transform:none!important;
+}
+#auto-arcade-widget #du1PostHub .du1-post-about-grid button::after{content:none!important}
+#auto-arcade-widget #du1PostHub .du1-post-about-grid button.active{
+  background:#0b1729!important;border-color:#f3be2b!important;
+  color:#f3be2b!important;box-shadow:0 0 10px rgba(243,190,43,.45)!important;
+}
+
+/* Section-level tab bars (Properties: Browse/Post/Stays/Mine; Food:
+   Feed/Post Business/My Business/My Orders; Jobs: Find Jobs/Candidates/
+   My CV/Post Vacancy/My Jobs; Wall composer's Title/Message style
+   target toggle) and page-navigation shortcut rows (profile/seller/
+   Super User/account-tools "dashboard-actions" grids) were plain bare
+   buttons riding the full glossy dimensional recipe - compact flat
+   outline instead, same recipe as everywhere else, colours untouched
+   (each already sets --tab-light/--tab-rgb via its own .btn-red/
+   .btn-cyan/.btn-gold/.btn-glass/.btn-publish modifier). */
+#auto-arcade-widget .aa-v69-tabs button,
+#auto-arcade-widget .tabs button,
+#auto-arcade-widget .dashboard-actions button{
+  min-height:34px!important;padding:7px 12px!important;
+  border-radius:10px!important;background:#0b1729!important;
+  box-shadow:none!important;transform:none!important;
+  font-weight:800;font-size:11.5px;
+}
+#auto-arcade-widget .aa-v69-tabs button::after,
+#auto-arcade-widget .tabs button::after,
+#auto-arcade-widget .dashboard-actions button::after{content:none!important}
+@media(hover:hover){
+ #auto-arcade-widget .aa-v69-tabs button:hover,
+ #auto-arcade-widget .tabs button:hover,
+ #auto-arcade-widget .dashboard-actions button:hover{
+  filter:brightness(1.15);border-color:var(--tab-light)!important;
+  box-shadow:0 0 10px rgba(var(--tab-rgb),.4)!important;
+ }
+}
 </style>
 
 <script id="bgc-generic-categories-js">
