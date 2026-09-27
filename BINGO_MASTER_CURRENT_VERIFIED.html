@@ -12633,10 +12633,14 @@ async function aaSubmitFoodOrder(){
    if(error)throw error;
    await aaLoadFoodOrders();
   }catch(e){
-   toast('Could not place the order online yet — saved locally instead: '+String(e?.message||e));
-   const list=aaV69Read('aa_v69_food_orders',[]);
-   list.unshift(order);
-   aaV69Write('aa_v69_food_orders',list);
+   /* A failed insert must never fall back to a local-only order that
+      looks the same as a real one to the customer - the restaurant would
+      never see it, so "saved locally instead" was a false success. Fail
+      clearly and let the customer retry once the service is reachable. */
+   state.foodOrderBusy=false;
+   render();
+   toast('Order was not placed. Please retry once the restaurant ordering service is available: '+String(e?.message||e));
+   return;
   }
  }
  state.foodOrderBusy=false;
@@ -12653,8 +12657,9 @@ async function aaLoadFoodOrders(){
   const orClauses=['customer_id.eq.'+state.user.id];
   if(ownedIds.length)orClauses.push('business_id.in.('+ownedIds.join(',')+')');
   const {data,error}=await sb.from('food_orders').select('*').or(orClauses.join(',')).order('created_at',{ascending:false}).limit(150);
-  if(!error&&Array.isArray(data))state._foodOrdersCache=data;
- }catch(e){}
+  if(error)throw error;
+  if(Array.isArray(data))state._foodOrdersCache=data;
+ }catch(e){console.warn('[Bingo Food] Could not load online orders:',e);}
 }
 function aaFoodOrdersAll(){
  if(state.testMode||!sb)return aaV69Read('aa_v69_food_orders',[]);
@@ -12672,10 +12677,9 @@ async function aaUpdateFoodOrderStatus(orderId,status){
  const biz=aaFoods().find(x=>String(x.id)===String(order.business_id));
  const allowed=await aaCanManageBusinessAction({businessType:'food_business',businessId:order.business_id,ownerId:biz?.user_id,permission:'manage_orders'});
  if(!allowed){toast('You do not have permission to update this order.');return}
- order.status=status;
- if(state.testMode||!sb){aaV69Write('aa_v69_food_orders',list);}
+ if(state.testMode||!sb){order.status=status;aaV69Write('aa_v69_food_orders',list);}
  else{
-  try{const {error}=await sb.from('food_orders').update({status}).eq('id',orderId);if(error)throw error;}
+  try{const {error}=await sb.from('food_orders').update({status}).eq('id',orderId);if(error)throw error;order.status=status;}
   catch(e){toast('Could not update the order online: '+String(e?.message||e));return}
  }
  save();render();
@@ -12788,6 +12792,7 @@ function aaFoodBusinessProfileHTML(){
     <button class="bingo-neon-action bingo-neon-action-cyan" onclick="aaLoadFoodOrders().then(render);state.foodProfileOrdersOpen=!state.foodProfileOrdersOpen;render()">📋 Orders Dashboard</button>
     <button class="bingo-neon-action bingo-neon-action-gold" onclick="aaStartFoodSubscription('${esc(f.id)}',1)">Renew / Pay KES 1,000</button>
     <button class="bingo-neon-action bingo-neon-action-purple" onclick="aaOpenInviteAgentModal('food_business','${esc(f.id)}')">Invite Manager</button>
+    <button class="bingo-neon-action bingo-neon-action-green" onclick='openContentBoost(aaFoods().find(x=>String(x.id)===${JSON.stringify(String(f.id))}),"food_business")'>Boost Profile</button>
     <button class="bingo-neon-action bingo-neon-action-red" onclick="aaDeleteFoodBusiness('${esc(f.id)}')">Delete Business</button>
    </div>
    ${state.foodProfileOrdersOpen?aaFoodBusinessOrdersHTML(f.id):''}
