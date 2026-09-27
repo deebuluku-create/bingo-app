@@ -22,13 +22,28 @@
 //   - Ownership is checked against vehicle_listings(id, user_id) — this
 //     function only ever supports vehicle listings; any other post type
 //     will always fail with "Listing was not found."
-//   - Writes to auto_arcade_boosts (the pending/active boost record) and
+//   - Writes to bingo_boosts (the pending/active boost record) and
 //     mpesa_transactions (the raw M-Pesa transaction log), keyed to each
-//     other by auto_arcade_boosts.id = mpesa_transactions.boost_id.
+//     other by bingo_boosts.id = mpesa_transactions.boost_id.
 //
 // Do not deploy over the live function without first diffing this file
 // against a freshly re-downloaded copy — someone may have changed the
 // deployed version since this copy was taken.
+//
+// *** 2026-09-27 legacy-naming migration — READ BEFORE REDEPLOYING ***
+// The table this function writes to was renamed from auto_arcade_boosts
+// to bingo_boosts (see supabase/migrations/20260927_bingo_rename_boosts_and_follows.sql).
+// That migration also creates a compatibility view named
+// "auto_arcade_boosts" over the new table, so the CURRENTLY DEPLOYED
+// version of this function (which still says auto_arcade_boosts) keeps
+// working unmodified even after the migration runs — nothing breaks
+// simply because the migration is applied. This file has been updated
+// to reference bingo_boosts directly, but editing this repository copy
+// does NOT change the live function. Redeploy it deliberately (Supabase
+// CLI `supabase functions deploy mpesa-boost`, or paste into the
+// dashboard editor) only when ready, after diffing against production
+// as noted above. The compatibility view can be dropped once the new
+// deployment is confirmed stable.
 // ============================================================================
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -628,7 +643,7 @@ async function createBoostPayment(
     error: boostError,
   } =
     await supabaseAdmin
-      .from("auto_arcade_boosts")
+      .from("bingo_boosts")
       .insert({
         listing_id:
           listingId,
@@ -678,7 +693,7 @@ async function createBoostPayment(
       {
         ok: false,
         error:
-          "The boost could not be created. Check the auto_arcade_boosts table columns.",
+          "The boost could not be created. Check the bingo_boosts table columns.",
       },
       500,
     );
@@ -706,7 +721,7 @@ async function createBoostPayment(
         accountReference,
 
         transactionDescription:
-          `Auto Arcade listing boost - ${requestedDays} day(s)`,
+          `Bingo listing boost - ${requestedDays} day(s)`,
       });
   } catch (error) {
     console.error(
@@ -715,7 +730,7 @@ async function createBoostPayment(
     );
 
     await supabaseAdmin
-      .from("auto_arcade_boosts")
+      .from("bingo_boosts")
       .update({
         status:
           "payment_failed",
@@ -1062,7 +1077,7 @@ async function handleMpesaCallback(
 
       await supabaseAdmin
         .from(
-          "auto_arcade_boosts",
+          "bingo_boosts",
         )
         .update({
           status:
@@ -1155,7 +1170,7 @@ async function handleMpesaCallback(
     } =
       await supabaseAdmin
         .from(
-          "auto_arcade_boosts",
+          "bingo_boosts",
         )
         .select("*")
         .eq(
@@ -1217,7 +1232,7 @@ async function handleMpesaCallback(
     } =
       await supabaseAdmin
         .from(
-          "auto_arcade_boosts",
+          "bingo_boosts",
         )
         .select(
           "id,ends_at",
@@ -1289,7 +1304,7 @@ async function handleMpesaCallback(
     } =
       await supabaseAdmin
         .from(
-          "auto_arcade_boosts",
+          "bingo_boosts",
         )
         .update({
           status:
@@ -1355,7 +1370,7 @@ async function handleMpesaCallback(
 
   await supabaseAdmin
     .from(
-      "auto_arcade_boosts",
+      "bingo_boosts",
     )
     .update({
       status:

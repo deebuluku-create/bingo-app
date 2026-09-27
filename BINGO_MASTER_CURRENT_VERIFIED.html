@@ -2277,35 +2277,35 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 
 
 /* ===== v40 ADAPTIVE BOOSTED AD BANNER — Home design otherwise unchanged ===== */
-#auto-arcade-widget .auto-arcade-ad-banner{
+#auto-arcade-widget .bingo-ad-banner{
   width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;
   margin:7px 0 8px;padding:8px 9px;border-radius:11px;
   background:rgba(5,10,18,.72);border:1px solid rgba(245,185,30,.42);
   backdrop-filter:blur(9px);box-shadow:0 6px 18px rgba(0,0,0,.24);
   color:#fff;text-shadow:none;overflow:hidden
 }
-#auto-arcade-widget .auto-arcade-ad-banner .ad-content{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
-#auto-arcade-widget .auto-arcade-ad-banner .ad-badge{
+#auto-arcade-widget .bingo-ad-banner .ad-content{display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+#auto-arcade-widget .bingo-ad-banner .ad-badge{
   flex:0 0 auto;background:var(--gold);color:#171000;border-radius:999px;padding:4px 6px;
   font-size:7px;font-weight:950;letter-spacing:.08em
 }
-#auto-arcade-widget .auto-arcade-ad-banner .ad-text-group{display:grid;gap:1px;min-width:0}
-#auto-arcade-widget .auto-arcade-ad-banner .ad-title{
+#auto-arcade-widget .bingo-ad-banner .ad-text-group{display:grid;gap:1px;min-width:0}
+#auto-arcade-widget .bingo-ad-banner .ad-title{
   font-size:9.5px;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
-#auto-arcade-widget .auto-arcade-ad-banner .ad-subtitle{
+#auto-arcade-widget .bingo-ad-banner .ad-subtitle{
   font-size:8px;color:#d8dfeb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
 }
-#auto-arcade-widget .auto-arcade-ad-banner .ad-cta-btn{
+#auto-arcade-widget .bingo-ad-banner .ad-cta-btn{
   flex:0 0 auto;border:0;border-radius:9px;background:var(--gold);color:#171000;
   padding:7px 9px;font-size:8px;font-weight:950;cursor:pointer;white-space:nowrap
 }
 @media(max-width:430px){
- #auto-arcade-widget .auto-arcade-ad-banner{gap:6px;padding:7px}
- #auto-arcade-widget .auto-arcade-ad-banner .ad-badge{display:none}
- #auto-arcade-widget .auto-arcade-ad-banner .ad-title{font-size:9px}
- #auto-arcade-widget .auto-arcade-ad-banner .ad-subtitle{font-size:7.5px}
- #auto-arcade-widget .auto-arcade-ad-banner .ad-cta-btn{padding:7px 8px}
+ #auto-arcade-widget .bingo-ad-banner{gap:6px;padding:7px}
+ #auto-arcade-widget .bingo-ad-banner .ad-badge{display:none}
+ #auto-arcade-widget .bingo-ad-banner .ad-title{font-size:9px}
+ #auto-arcade-widget .bingo-ad-banner .ad-subtitle{font-size:7.5px}
+ #auto-arcade-widget .bingo-ad-banner .ad-cta-btn{padding:7px 8px}
 }
 
 /* ===== v41 CHAT STYLE + SENT / RECEIVED BUBBLES ===== */
@@ -5482,7 +5482,7 @@ function aaHandleAppNavigation(){
   }
 
   if(target==="logout"){
-   logoutAutoArcade();
+   logoutBingo();
    return;
   }
  }catch(e){
@@ -5499,8 +5499,8 @@ function aaNormalizeUsername(value){
  return clean?"@"+clean:"";
 }
 function aaUsernameFromName(value){
- const clean=String(value||"autoarcade").trim().toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,24);
- return "@"+(clean||"autoarcade");
+ const clean=String(value||"bingo").trim().toLowerCase().replace(/[^a-z0-9]+/g,"").slice(0,24);
+ return "@"+(clean||"bingo");
 }
 function aaListingUsername(c){
  return aaNormalizeUsername(c?.sellerUsername||c?.username||"")||aaUsernameFromName(c?.sellerName||"Bingo Seller");
@@ -7534,7 +7534,7 @@ async function aaStudioRenderEditedFile(){
  try{ac&&await ac.close()}catch(e){};try{URL.revokeObjectURL(srcUrl)}catch(e){}
  if(!chunks.length)throw new Error("No edited video data was produced.");
  const blob=new Blob(chunks,{type:mime||"video/webm"}),base=(aaStudioSourceFile.name||"vehicle-video").replace(/\.[^.]+$/,"");
- return new File([blob],`${base}-auto-arcade-edited.webm`,{type:blob.type,lastModified:Date.now()});
+ return new File([blob],`${base}-bingo-edited.webm`,{type:blob.type,lastModified:Date.now()});
 }
 async function aaApplyStudioVideo(){
  if(aaStudioRendering)return;
@@ -7821,7 +7821,7 @@ async function publish(e){
  if(!state.isLoggedIn){openAuth("register","/post-vehicle");return}
  if(!state.testMode&&!sb){toast("Bingo publishing service is not connected. Please try again later.");return}
 
- const publishSessionData=state.testMode?{session:{access_token:"TEST_ONLY",user:{id:state.user.id||"aa_preview_member",email:state.user.email||"preview@autoarcade.local"}}}:(await sb.auth.getSession()).data;
+ const publishSessionData=state.testMode?{session:{access_token:"TEST_ONLY",user:{id:state.user.id||"aa_preview_member",email:state.user.email||"preview@bingo.local"}}}:(await sb.auth.getSession()).data;
  const publishSessionError=null;
  const publishSession=publishSessionData?.session;
  if(publishSessionError||!publishSession?.access_token||!publishSession?.user?.id){
@@ -8675,7 +8675,7 @@ function aaOpenPromotedDeal(c){
 async function aaSyncBoostNotifications(){
  if(!sb||!state.isLoggedIn||state.testMode||!state.user?.id)return;
  try{
-  const {data,error}=await sb.from("auto_arcade_notifications")
+  const {data,error}=await sb.from("bingo_notifications")
     .select("id,type,title,message,created_at,read_at")
     .eq("user_id",state.user.id)
     .order("created_at",{ascending:false})
@@ -8704,7 +8704,7 @@ function aaPromotedBannerHTML(c){
  const id=JSON.stringify(String(c.id));
  const seller=String(c.sellerName||"Verified Seller");
  const price=listingType(c)==="hire"?hirePrice(c):`KES ${money(c.price)}`;
- return `<div class="auto-arcade-ad-banner" role="region" aria-label="Promoted vehicle advertisement">
+ return `<div class="bingo-ad-banner" role="region" aria-label="Promoted vehicle advertisement">
    <div class="ad-content">
      <span class="ad-badge">PROMOTED</span>
      <div class="ad-text-group">
@@ -9203,7 +9203,7 @@ if(!window.__aaFeedResizeSnap){
 
 
 
-function aaIsAutoArcadeMember(){
+function aaIsBingoMember(){
  return !!(state.isLoggedIn && state.user && state.user.id);
 }
 function aaCommunityGroupById(id){
@@ -9226,11 +9226,11 @@ function aaOpenCommunityGroups(){
  aaRememberPage();state.view="community-groups";state.communityGroupId="";render();window.scrollTo({top:0,behavior:"auto"});
 }
 function aaOpenCreateCommunityGroup(){
- if(!aaIsAutoArcadeMember()){openAuth("login");return}
+ if(!aaIsBingoMember()){openAuth("login");return}
  aaRememberPage();state.view="community-group-create";render();window.scrollTo({top:0,behavior:"auto"});
 }
 function aaCreateCommunityGroup(){
- if(!aaIsAutoArcadeMember()){openAuth("login");return}
+ if(!aaIsBingoMember()){openAuth("login");return}
  const name=String(document.getElementById("aaGroupName")?.value||"").trim();
  const desc=String(document.getElementById("aaGroupDesc")?.value||"").trim();
  const isPublic=String(document.getElementById("aaGroupPrivacy")?.value||"public")==="public";
@@ -9254,14 +9254,14 @@ function aaOpenCommunityGroup(id){
  state.communityGroupId=String(id);aaRememberPage();state.view="community-group";render();window.scrollTo({top:0,behavior:"auto"});
 }
 function aaJoinCommunityGroup(id){
- if(!aaIsAutoArcadeMember()){openAuth("login");return}
+ if(!aaIsBingoMember()){openAuth("login");return}
  const g=aaCommunityGroupById(id);if(!g)return;
  const uid=String(state.user.id);
  if(!aaCommunityIsMember(g,uid))g.members=[...(g.members||[]),uid];
  save();render();toast("You joined the group.");
 }
 function aaLeaveCommunityGroup(id){
- const g=aaCommunityGroupById(id);if(!g||!aaIsAutoArcadeMember())return;
+ const g=aaCommunityGroupById(id);if(!g||!aaIsBingoMember())return;
  const uid=String(state.user.id);
  if(aaCommunityIsOwner(g,uid)){toast("The group owner cannot leave. Transfer ownership or delete the group first.");return}
  g.members=(g.members||[]).filter(x=>String(x)!==uid);
@@ -9269,7 +9269,7 @@ function aaLeaveCommunityGroup(id){
  save();aaRememberPage();state.view="community-groups";state.communityGroupId="";render();toast("You left the group.");
 }
 function aaCommunityRemoveMember(groupId,memberId){
- const g=aaCommunityGroupById(groupId);if(!g||!aaIsAutoArcadeMember())return;
+ const g=aaCommunityGroupById(groupId);if(!g||!aaIsBingoMember())return;
  const uid=String(state.user.id);
  if(!aaCommunityIsAdmin(g,uid)){toast("Only a group admin can remove members.");return}
  if(String(memberId)===String(g.ownerId)){toast("The group owner cannot be removed.");return}
@@ -9280,7 +9280,7 @@ function aaCommunityRemoveMember(groupId,memberId){
  save();render();toast("Member removed.");
 }
 function aaCommunityAddMember(groupId){
- const g=aaCommunityGroupById(groupId);if(!g||!aaIsAutoArcadeMember())return;
+ const g=aaCommunityGroupById(groupId);if(!g||!aaIsBingoMember())return;
  if(!aaCommunityIsAdmin(g,state.user.id)){toast("Only a group admin can add members.");return}
  const value=String(document.getElementById("aaAddMemberId")?.value||"").trim();
  if(!value){toast("Enter a member ID or email.");return}
@@ -9292,7 +9292,7 @@ function aaCommunityAddMember(groupId){
  save();render();toast("Member added to this group.");
 }
 function aaCommunityToggleAdmin(groupId,memberId){
- const g=aaCommunityGroupById(groupId);if(!g||!aaIsAutoArcadeMember())return;
+ const g=aaCommunityGroupById(groupId);if(!g||!aaIsBingoMember())return;
  const uid=String(state.user.id);
  if(!aaCommunityIsOwner(g,uid)){toast("Only the group owner can manage admins.");return}
  if(String(memberId)===String(g.ownerId)){toast("The owner is always an admin.");return}
@@ -9302,14 +9302,14 @@ function aaCommunityToggleAdmin(groupId,memberId){
  save();render();
 }
 function aaDeleteCommunityGroup(id){
- const g=aaCommunityGroupById(id);if(!g||!aaIsAutoArcadeMember())return;
+ const g=aaCommunityGroupById(id);if(!g||!aaIsBingoMember())return;
  if(!aaCommunityIsOwner(g,state.user.id)){toast("Only the group owner can delete this group.");return}
  if(!confirm("Delete this group permanently?"))return;
  state.communityGroups=(state.communityGroups||[]).filter(x=>String(x.id)!==String(id));
  state.communityGroupId="";save();aaRememberPage();state.view="community-groups";render();toast("Group deleted.");
 }
 async function aaReportCommunityMember(groupId,memberId){
- if(!aaIsAutoArcadeMember()){openAuth("login");return}
+ if(!aaIsBingoMember()){openAuth("login");return}
  if(String(memberId)===String(state.user.id)){toast("You cannot report yourself.");return}
  const reason=prompt("Briefly tell Bingo why you are reporting this member:");
  if(!reason||!String(reason).trim())return;
@@ -9325,7 +9325,7 @@ function aaCommunityGroupsHTML(){
     <button class="btn" onclick="goBack()">← Back</button>
    </div>
    <div class="aa-room-reward"><b>Community control</b><br>Group owners and appointed admins can manage membership. Public-room members can report another member to Bingo moderation. Reports do not automatically remove a member; they are recorded for review.</div>
-   ${aaIsAutoArcadeMember()?`<button class="btn btn-gold" style="margin-top:10px" onclick="aaOpenCreateCommunityGroup()">+ Create My Group</button>`:`<button class="btn btn-gold" style="margin-top:10px" onclick="openAuth('login')">Log in to create a group</button>`}
+   ${aaIsBingoMember()?`<button class="btn btn-gold" style="margin-top:10px" onclick="aaOpenCreateCommunityGroup()">+ Create My Group</button>`:`<button class="btn btn-gold" style="margin-top:10px" onclick="openAuth('login')">Log in to create a group</button>`}
   </div>
   <div class="searchbar"><input class="field" placeholder="Search member groups..." value="${esc(state.communityGroupSearch||"")}" oninput="state.communityGroupSearch=this.value;render()"></div>
   <div class="aa-room-grid">${rows.map(g=>`<button class="aa-group-card" onclick='aaOpenCommunityGroup(${JSON.stringify(g.id)})'>
@@ -9711,10 +9711,10 @@ function aaDynamicAdCardHTML(){
 }
 
 function aaBottomSponsoredHTML(){
- return `<div id="auto-arcade-bottom-ad-area" class="aa-ad-region">${aaDynamicAdCardHTML()}</div>`;
+ return `<div id="bingo-bottom-ad-area" class="aa-ad-region">${aaDynamicAdCardHTML()}</div>`;
 }
 function aaRenderDynamicBottomAd(){
- const area=document.getElementById("auto-arcade-bottom-ad-area");
+ const area=document.getElementById("bingo-bottom-ad-area");
  if(area)area.innerHTML=aaDynamicAdCardHTML();
 }
 function aaRotateDynamicBottomAd(){
@@ -13155,7 +13155,7 @@ function aaOpenDualCamera(target){
 }
 async function aaInitDualCamera(){const st=document.getElementById('aaCamStatus');try{aaCamBackStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:true});document.getElementById('aaCamBack').srcObject=aaCamBackStream;try{aaCamFrontStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});document.getElementById('aaCamFront').srcObject=aaCamFrontStream;if(st)st.textContent='Dual camera ready.'}catch(e){document.getElementById('aaCamFront').style.display='none';if(st)st.textContent='This device allows one camera at a time. Back-camera recording is ready.'}}catch(e){if(st)st.textContent='Camera permission was not granted or the camera is unavailable.'}}
 let aaCamBackStream=null,aaCamFrontStream=null,aaCamRecorder=null,aaCamChunks=[],aaCamRAF=0;
-async function aaCameraRecordToggle(){const btn=document.getElementById('aaCamRecord');if(aaCamRecorder&&aaCamRecorder.state==='recording'){aaCamRecorder.stop();btn.textContent='● Record';return}if(!aaCamBackStream){toast('Camera is not ready.');return}const canvas=document.getElementById('aaCamCanvas'),back=document.getElementById('aaCamBack'),front=document.getElementById('aaCamFront');canvas.width=720;canvas.height=1280;const ctx=canvas.getContext('2d');const draw=()=>{ctx.drawImage(back,0,0,canvas.width,canvas.height);if(aaCamFrontStream&&front.readyState>=2){const w=Math.round(canvas.width*.29),h=Math.round(canvas.height*.23);ctx.drawImage(front,canvas.width-w-18,canvas.height-h-18,w,h)}aaCamRAF=requestAnimationFrame(draw)};draw();const out=canvas.captureStream(30);const at=aaCamBackStream.getAudioTracks()[0];if(at)out.addTrack(at);aaCamChunks=[];try{aaCamRecorder=new MediaRecorder(out,{mimeType:MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')?'video/webm;codecs=vp8,opus':'video/webm'})}catch(e){aaCamRecorder=new MediaRecorder(out)}aaCamRecorder.ondataavailable=e=>{if(e.data?.size)aaCamChunks.push(e.data)};aaCamRecorder.onstop=()=>{cancelAnimationFrame(aaCamRAF);const blob=new Blob(aaCamChunks,{type:aaCamRecorder.mimeType||'video/webm'}),url=URL.createObjectURL(blob),obj={type:'video',url,blob,name:`auto-arcade-${Date.now()}.webm`};state.v69Recorded=state.v69Recorded||{};state.v69Recorded[state.v69CameraTarget]=obj;const dest=state.v69CameraTarget;aaCloseDualCamera(false);aaRouteRecordedVideo(dest,obj);};aaCamRecorder.start(500);btn.textContent='■ Stop'}
+async function aaCameraRecordToggle(){const btn=document.getElementById('aaCamRecord');if(aaCamRecorder&&aaCamRecorder.state==='recording'){aaCamRecorder.stop();btn.textContent='● Record';return}if(!aaCamBackStream){toast('Camera is not ready.');return}const canvas=document.getElementById('aaCamCanvas'),back=document.getElementById('aaCamBack'),front=document.getElementById('aaCamFront');canvas.width=720;canvas.height=1280;const ctx=canvas.getContext('2d');const draw=()=>{ctx.drawImage(back,0,0,canvas.width,canvas.height);if(aaCamFrontStream&&front.readyState>=2){const w=Math.round(canvas.width*.29),h=Math.round(canvas.height*.23);ctx.drawImage(front,canvas.width-w-18,canvas.height-h-18,w,h)}aaCamRAF=requestAnimationFrame(draw)};draw();const out=canvas.captureStream(30);const at=aaCamBackStream.getAudioTracks()[0];if(at)out.addTrack(at);aaCamChunks=[];try{aaCamRecorder=new MediaRecorder(out,{mimeType:MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')?'video/webm;codecs=vp8,opus':'video/webm'})}catch(e){aaCamRecorder=new MediaRecorder(out)}aaCamRecorder.ondataavailable=e=>{if(e.data?.size)aaCamChunks.push(e.data)};aaCamRecorder.onstop=()=>{cancelAnimationFrame(aaCamRAF);const blob=new Blob(aaCamChunks,{type:aaCamRecorder.mimeType||'video/webm'}),url=URL.createObjectURL(blob),obj={type:'video',url,blob,name:`bingo-${Date.now()}.webm`};state.v69Recorded=state.v69Recorded||{};state.v69Recorded[state.v69CameraTarget]=obj;const dest=state.v69CameraTarget;aaCloseDualCamera(false);aaRouteRecordedVideo(dest,obj);};aaCamRecorder.start(500);btn.textContent='■ Stop'}
 function aaCloseDualCamera(stop=true){if(stop&&aaCamRecorder?.state==='recording'){try{aaCamRecorder.stop()}catch(e){}}[aaCamBackStream,aaCamFrontStream].forEach(s=>s?.getTracks?.().forEach(t=>t.stop()));aaCamBackStream=aaCamFrontStream=null;cancelAnimationFrame(aaCamRAF);document.getElementById('aaV69Camera')?.remove()}
 function aaRouteRecordedVideo(dest,obj){
  toast(`Video recorded for ${aaCameraDestinationLabel(dest)}.`);
@@ -13203,7 +13203,7 @@ function render(){
  app.innerHTML=`
  <header class="header"><div class="container header-inner">
   <div class="bingo-header-stack" id="bingoHeaderStack"><button class="brand bingo-brand-logo${aaBingoLogoIntroClass()}" id="bingoMainLogo" onclick="openBingoCockpit()" role="button" tabindex="0" aria-label="Open Bingo menu" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBingoCockpit()}">${bingoAppLogoHTML({className:"bingo-app-logo--header"})}</button><button type="button" id="bingoLogoCloseBtn" aria-label="Move the Bingo logo out of the way"><span class="bingo-logo-close-dot">&times;</span></button><div class="bingo-press-here" id="bingoPressHere" aria-hidden="true"><span class="bingo-press-here-arrow">▲</span>Press here</div></div>
-  <div class="top-actions aa-auth-actions">${state.isLoggedIn?`<button class="btn" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button><button class="btn" onclick="goAccount()">Profile</button><button class="btn btn-red" onclick="logoutAutoArcade()">Log Out</button>`:`<button class="btn" onclick="openAuth('login')">Log In</button><button class="btn btn-red" onclick="openAuth('register')">Sign Up</button>`}</div>
+  <div class="top-actions aa-auth-actions">${state.isLoggedIn?`<button class="btn" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button><button class="btn" onclick="goAccount()">Profile</button><button class="btn btn-red" onclick="logoutBingo()">Log Out</button>`:`<button class="btn" onclick="openAuth('login')">Log In</button><button class="btn btn-red" onclick="openAuth('register')">Sign Up</button>`}</div>
  </div></header>
  <main class="${feedHome?"":"container"}">
   ${aaPageGuideHTML()}
@@ -13299,7 +13299,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
           <div class="bcp-grid">
             <button class="bcp-btn ${state.view==="profile"||(state.view==="seller"&&aaIsOwnSeller(state.seller))?"active":""}" onclick="aaAssistantNavigate(goAccount)"><span class="bcp-ico">&#9673;</span><b>Profile</b></button>
             <button class="bcp-btn ${state.view==="edit-profile"?"active":""}" onclick="aaAssistantNavigate(aaOpenEditProfile)"><span class="bcp-ico">&#9998;</span><b>Edit Profile</b></button>
-            ${state.isLoggedIn?`<button class="bcp-btn bcp-btn-danger" onclick="aaAssistantCloseDrawer();logoutAutoArcade();"><span class="bcp-ico">&#9211;</span><b>Log Out</b></button>`:`<button class="bcp-btn" onclick="aaAssistantNavigate(()=>openAuth('login'))"><span class="bcp-ico">&#8618;</span><b>Sign Up / Log In</b></button>`}
+            ${state.isLoggedIn?`<button class="bcp-btn bcp-btn-danger" onclick="aaAssistantCloseDrawer();logoutBingo();"><span class="bcp-ico">&#9211;</span><b>Log Out</b></button>`:`<button class="bcp-btn" onclick="aaAssistantNavigate(()=>openAuth('login'))"><span class="bcp-ico">&#8618;</span><b>Sign Up / Log In</b></button>`}
           </div>
         </div>
 
@@ -13364,7 +13364,7 @@ function aaListingImages(c){
 function aaOpenPhotoLightbox(src,title,topicId){
  const old=document.getElementById("aaPhotoLightbox");if(old)old.remove();
  const box=document.createElement("div");box.id="aaPhotoLightbox";box.className="aa-lightbox";
- box.innerHTML=`<div class="aa-lightbox-inner"><button class="aa-lightbox-close" onclick="document.getElementById('aaPhotoLightbox')?.remove()">×</button><button class="btn aa-lightbox-download" onclick='aaLightboxDownload(${JSON.stringify(bingoSafeMediaUrl(src))},${JSON.stringify((title||"auto-arcade")+"-photo")},${JSON.stringify(topicId?String(topicId):"")})'>⬇ Download</button><img src="${bingoSafeMediaAttr(src)}" alt="${esc(title||'Vehicle photo')}"></div>`;
+ box.innerHTML=`<div class="aa-lightbox-inner"><button class="aa-lightbox-close" onclick="document.getElementById('aaPhotoLightbox')?.remove()">×</button><button class="btn aa-lightbox-download" onclick='aaLightboxDownload(${JSON.stringify(bingoSafeMediaUrl(src))},${JSON.stringify((title||"bingo")+"-photo")},${JSON.stringify(topicId?String(topicId):"")})'>⬇ Download</button><img src="${bingoSafeMediaAttr(src)}" alt="${esc(title||'Vehicle photo')}"></div>`;
  box.addEventListener("click",e=>{if(e.target===box)box.remove()});document.body.appendChild(box);
  document.addEventListener("keydown",aaPhotoLightboxKeyHandler);
 }
@@ -13449,7 +13449,7 @@ function aaOpenListingGallery(c,startIndex){
  requestAnimationFrame(()=>document.getElementById("aaBigPhoto_"+idx)?.scrollIntoView({block:"center",behavior:"auto"}));
 }
 
-function aaSafeFileName(s){return String(s||"auto-arcade").replace(/[^a-z0-9_-]+/gi,"-").replace(/^-+|-+$/g,"").slice(0,80)||"auto-arcade"}
+function aaSafeFileName(s){return String(s||"bingo").replace(/[^a-z0-9_-]+/gi,"-").replace(/^-+|-+$/g,"").slice(0,80)||"bingo"}
 function aaDownloadStampText(c){
  const username=aaListingUsername(c||state.selected||{});
  return {brand:"BINGO",username};
@@ -13523,7 +13523,7 @@ function detailsHTML(c){
 /* ---------- CHAT VENDOR ONLINE / OFFLINE PRESENCE ---------- */
 var aaPresenceChannel=null;var aaPresenceState={};
 function aaPresenceKey(){const u=state.user||{};return String(u.sellerId||u.id||u.email||u.phone||"").trim()}
-async function aaStartPresence(){if(!sb||!state.isLoggedIn)return;const key=aaPresenceKey();if(!key)return;try{if(aaPresenceChannel){try{await aaPresenceChannel.untrack()}catch(e){};try{sb.removeChannel(aaPresenceChannel)}catch(e){}}aaPresenceChannel=sb.channel("autoarcade-chat-presence",{config:{presence:{key}}});aaPresenceChannel.on("presence",{event:"sync"},()=>{aaPresenceState=aaPresenceChannel.presenceState()||{};render()}).on("presence",{event:"join"},()=>{aaPresenceState=aaPresenceChannel.presenceState()||{};render()}).on("presence",{event:"leave"},()=>{aaPresenceState=aaPresenceChannel.presenceState()||{};render()});aaPresenceChannel.subscribe(async status=>{if(status==="SUBSCRIBED"){await aaPresenceChannel.track({vendorKey:key,online_at:new Date().toISOString()});aaPresenceState=aaPresenceChannel.presenceState()||{};render()}})}catch(e){console.warn("Bingo presence unavailable",e)}}
+async function aaStartPresence(){if(!sb||!state.isLoggedIn)return;const key=aaPresenceKey();if(!key)return;try{if(aaPresenceChannel){try{await aaPresenceChannel.untrack()}catch(e){};try{sb.removeChannel(aaPresenceChannel)}catch(e){}}aaPresenceChannel=sb.channel("bingo-chat-presence",{config:{presence:{key}}});aaPresenceChannel.on("presence",{event:"sync"},()=>{aaPresenceState=aaPresenceChannel.presenceState()||{};render()}).on("presence",{event:"join"},()=>{aaPresenceState=aaPresenceChannel.presenceState()||{};render()}).on("presence",{event:"leave"},()=>{aaPresenceState=aaPresenceChannel.presenceState()||{};render()});aaPresenceChannel.subscribe(async status=>{if(status==="SUBSCRIBED"){await aaPresenceChannel.track({vendorKey:key,online_at:new Date().toISOString()});aaPresenceState=aaPresenceChannel.presenceState()||{};render()}})}catch(e){console.warn("Bingo presence unavailable",e)}}
 function aaVendorOnline(s){const keys=[s?.sellerId,s?.id,s?.phone,s?.email].filter(Boolean).map(String);if(!keys.length)return false;return Object.values(aaPresenceState||{}).some(a=>Array.isArray(a)&&a.some(p=>keys.includes(String(p?.vendorKey||""))))}
 function aaIsOnline(s){return aaVendorOnline(s)}
 function aaPresenceBadge(s){return `<span class="aa-presence ${aaVendorOnline(s)?"aa-online":"aa-offline"}"><i></i>${aaVendorOnline(s)?"Online":"Offline"}</span>`}
@@ -13568,8 +13568,8 @@ function aaProfileMiniCardHTML(c,isOwner){
 }
 
 
-const AA_FOLLOW_KEY="autoArcadeFollowedSellers";
-const AA_FOLLOW_STATS_KEY="autoArcadeFollowStatsV65";
+const AA_FOLLOW_KEY="bingoFollowedSellers";
+const AA_FOLLOW_STATS_KEY="bingoFollowStatsV65";
 let aaFollowFetchTimers={};
 let aaFollowFetchedAt={};
 
@@ -13637,9 +13637,9 @@ async function aaSyncFollowNetwork(ids=[]){
  if(!wanted.length)return;
  try{
   const [followersRes,followingRes,myFollowingRes]=await Promise.all([
-   sb.from("auto_arcade_follows").select("following_id").in("following_id",wanted),
-   sb.from("auto_arcade_follows").select("follower_id").in("follower_id",wanted),
-   me&&aaIsUuid(me)?sb.from("auto_arcade_follows").select("following_id").eq("follower_id",me):Promise.resolve({data:[],error:null})
+   sb.from("bingo_follows").select("following_id").in("following_id",wanted),
+   sb.from("bingo_follows").select("follower_id").in("follower_id",wanted),
+   me&&aaIsUuid(me)?sb.from("bingo_follows").select("following_id").eq("follower_id",me):Promise.resolve({data:[],error:null})
   ]);
   if(!followersRes.error&&!followingRes.error){
    const followersCount={},followingCount={};
@@ -13684,8 +13684,8 @@ async function aaToggleFollowSeller(id,name){
  if(sb&&!state.testMode&&aaIsUuid(mine)&&aaIsUuid(key)){
   try{
    const result=wasFollowing
-    ? await sb.from("auto_arcade_follows").delete().eq("follower_id",mine).eq("following_id",key)
-    : await sb.from("auto_arcade_follows").insert({follower_id:mine,following_id:key});
+    ? await sb.from("bingo_follows").delete().eq("follower_id",mine).eq("following_id",key)
+    : await sb.from("bingo_follows").insert({follower_id:mine,following_id:key});
    if(result.error)throw result.error;
    await aaSyncFollowNetwork([mine,key]);
   }catch(e){
@@ -13755,14 +13755,14 @@ function aaProfileSavedItemsHTML(){
 async function aaProfileFollowersLiveHTML(){
  /* Followers (who follows ME) has no locally-cached id list - only the
     aggregate count is kept client-side (aaFollowStats). This queries the
-    real auto_arcade_follows table directly; it is correct per the same
+    real bingo_follows table directly; it is correct per the same
     pattern aaSyncFollowNetwork already uses elsewhere, but - like every
     other live Supabase call in this delivery - it has not been run
     against a live project from this sandbox. See delivery report. */
  const me=String(state.user?.id||"");
  if(!sb||!me||!aaIsUuid(me))return `<div class="notice">Sign in to see who follows you.</div>`;
  try{
-  const {data,error}=await sb.from("auto_arcade_follows").select("follower_id").eq("following_id",me).limit(100);
+  const {data,error}=await sb.from("bingo_follows").select("follower_id").eq("following_id",me).limit(100);
   if(error)throw error;
   const ids=[...new Set((data||[]).map(r=>String(r.follower_id||"")).filter(Boolean))];
   if(!ids.length)return `<div class="notice">No followers yet.</div>`;
@@ -17384,7 +17384,7 @@ async function saveEditedProfile(){
 async function handleSaveAndShowPublicProfile(){return saveEditedProfile()}
 function viewMyPublicProfile(){goAccount()}
 
-async function logoutAutoArcade(){
+async function logoutBingo(){
  if(state.msgActiveCall)aaCallHangup();
  aaCallStopListeningForIncoming();
  try{if(sb)await sb.auth.signOut()}catch(e){console.warn("Logout warning",e)}
@@ -17637,7 +17637,7 @@ function aaMemberPresence(memberId){
 function aaGroupMessageMine(m){return !!state.user?.id&&String(m.authorId||"")===String(state.user.id)}
 async function aaSendCommunityGroupMessage(){
  const g=aaCommunityGroupById(state.communityGroupId);
- if(!g||!aaIsAutoArcadeMember()){openAuth("login");return}
+ if(!g||!aaIsBingoMember()){openAuth("login");return}
  if(!aaCommunityIsMember(g,state.user.id)){toast("Join the group before sending a message.");return}
  const el=document.getElementById("aaGroupChatInput"),body=String(el?.value||"").trim();
  if(!body){toast("Type a message first.");return}
@@ -19791,16 +19791,22 @@ async function aaPollBoostPayment(boostId,accessToken,targetType="vehicle",targe
     ("create_boost") plus the Safaricom callback at ?callback=1, and
     rejects anything else with "Unknown action." Calling boost_status
     here would guarantee a false "payment not confirmed" on every real
-    payment. Poll the auto_arcade_boosts row that function itself
-    writes to instead — its own callback flips status to "active" only
-    once Safaricom's payment is verified. This assumes RLS lets the
+    payment. Poll the bingo_boosts row that function itself writes to
+    instead — its own callback flips status to "active" only once
+    Safaricom's payment is verified. This assumes RLS lets the
     signed-in owner read their own row; if it doesn't, this behaves the
     same as before (times out to the same honest failure message),
-    never worse. */
+    never worse.
+    Table renamed from auto_arcade_boosts -> bingo_boosts (2026-09-27
+    legacy-naming migration); the live mpesa-boost Edge Function still
+    writes under the OLD name until it is redeployed, so this rename is
+    only safe because a compatibility view keeps "auto_arcade_boosts"
+    resolving to the same rows in the meantime - see
+    supabase/migrations/20260927_bingo_rename_boosts_and_follows.sql. */
  while(Date.now()-started<timeoutMs){
   await new Promise(r=>setTimeout(r,2000));
   try{
-   const {data,error:statusError}=await sb.from("auto_arcade_boosts").select("status,starts_at,ends_at").eq("id",String(boostId)).maybeSingle();
+   const {data,error:statusError}=await sb.from("bingo_boosts").select("status,starts_at,ends_at").eq("id",String(boostId)).maybeSingle();
    if(statusError||!data)continue;
    if(data.status==="active"){
     aaApplyConfirmedBoostLocally(targetType,targetId,undefined,{...extra,expiresAt:data.ends_at});
@@ -20036,7 +20042,7 @@ function aaApplyStudioGraphicFxPreview(){
  aaStudioApplyTextStyle();
 }
 
-const AA_CHAT_VAULT_KEY="autoArcadeMediaVaultV55";
+const AA_CHAT_VAULT_KEY="bingoMediaVaultV55";
 let aaChatComposeStyle={font:"",color:"",overlay:""};
 let aaPendingChatTif=null;
 
@@ -20165,7 +20171,7 @@ function aaCloseTopOverlay(){
  document.addEventListener("keydown",function(e){if(e.key==="Escape")aaCloseTopOverlay()});
  document.addEventListener("visibilitychange",function(){if(document.hidden&&typeof aaPauseAllFeedVideos==="function")aaPauseAllFeedVideos()});
 })();
-(function autoArcadeBoot(){
+(function bingoBoot(){
  const boot=()=>{
   aaInitSupabase();
   const root=document.getElementById("auto-arcade-widget");
@@ -20751,7 +20757,7 @@ function bingoSafeMediaAttr(value){
   <div id="aa92LiveGoalProgress" class="meta" style="margin-bottom:6px"></div>
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span id="aa92ConnStatus" class="badge">Checking…</span></div>
   <div class="aa92-social-grid">
-    <button type="button" class="aa92-social connected" data-social="autoarcade"><span class="aa92-social-icon">B</span><b>Bingo</b><small>Always available</small><i class="aa92-social-status on">ON</i></button>
+    <button type="button" class="aa92-social connected" data-social="bingo"><span class="aa92-social-icon">B</span><b>Bingo</b><small>Always available</small><i class="aa92-social-status on">ON</i></button>
     <button type="button" class="aa92-social" data-social="facebook"><span class="aa92-social-icon">f</span><b>Facebook</b><small>Tap to connect</small><i class="aa92-social-status">OFF</i></button>
     <button type="button" class="aa92-social" data-social="instagram"><span class="aa92-social-icon">◎</span><b>Instagram</b><small>Tap to connect</small><i class="aa92-social-status">OFF</i></button>
     <button type="button" class="aa92-social" data-social="youtube"><span class="aa92-social-icon">▶</span><b>YouTube</b><small>Tap to connect</small><i class="aa92-social-status">OFF</i></button>
@@ -21429,20 +21435,20 @@ function bingoSafeMediaAttr(value){
 (function(){
  const root=document.getElementById("auto-arcade-widget");if(!root)return;
  const $=(s,c=root)=>c.querySelector(s);
- const connected={autoarcade:true,facebook:false,instagram:false,youtube:false,tiktok:false};
- const selected={autoarcade:true,facebook:false,instagram:false,youtube:false,tiktok:false};
+ const connected={bingo:true,facebook:false,instagram:false,youtube:false,tiktok:false};
+ const selected={bingo:true,facebook:false,instagram:false,youtube:false,tiktok:false};
  try{Object.assign(connected,JSON.parse(localStorage.getItem("aa92_social_connections")||"null")||{})}catch(e){}
  function refresh(){
   root.querySelectorAll(".aa92-social").forEach(btn=>{
    const k=btn.dataset.social,st=btn.querySelector(".aa92-social-status"),sm=btn.querySelector("small");
-   if(k==="autoarcade"){btn.classList.add("connected");if(st){st.textContent="ON";st.classList.add("on")}return}
+   if(k==="bingo"){btn.classList.add("connected");if(st){st.textContent="ON";st.classList.add("on")}return}
    btn.classList.toggle("connected",!!connected[k]);
    if(st){st.textContent=connected[k]?(selected[k]?"ON":"READY"):"OFF";st.classList.toggle("on",!!connected[k]&&!!selected[k])}
    if(sm)sm.textContent=connected[k]?(selected[k]?"Selected for live":"Connected"):"Tap to connect";
   });
  }
  root.querySelectorAll(".aa92-social").forEach(btn=>btn.addEventListener("click",()=>{
-  const k=btn.dataset.social;if(k==="autoarcade")return;
+  const k=btn.dataset.social;if(k==="bingo")return;
   if(!connected[k]){
    if(!confirm(`Connect ${k} to Bingo Live Studio?\n\nThis website preview stores the connection choice locally. Production uses the platform's secure authorization flow.`))return;
    connected[k]=true;selected[k]=true;try{localStorage.setItem("aa92_social_connections",JSON.stringify(connected))}catch(e){}
@@ -21452,11 +21458,17 @@ function bingoSafeMediaAttr(value){
  async function openCamera(){const cam=$("#aa82Camera");if(cam?.classList.contains("open"))return true;($("#aa82CameraTool")||$("#aa82CameraTop"))?.click();await new Promise(r=>setTimeout(r,500));return !!cam?.classList.contains("open")}
  async function start(){
   if(!await openCamera()){alert("Camera did not open. Check HTTPS and camera/microphone permission.");return}
-  const dest=Object.keys(selected).filter(k=>selected[k]&&connected[k]);if(!dest.includes("autoarcade"))dest.unshift("autoarcade");
+  const dest=Object.keys(selected).filter(k=>selected[k]&&connected[k]);if(!dest.includes("bingo"))dest.unshift("bingo");
   $("#aa92ShareLive")?.classList.add("live");$("#aa92LiveState")?.classList.add("live");if($("#aa92LiveState"))$("#aa92LiveState").textContent="LIVE";$("#aa82LiveSwitch")?.classList.add("on");
   if(typeof window.aaLiveReceiveComment==="function")window.aaLiveReceiveComment({name:"Bingo",text:"Live started. Bingo watermark is active."});
   const payload={title:($("#aa92LiveTitle")?.value||"Bingo Live").trim(),destinations:dest,watermark:{text:"BINGO",position:"top-right"},source:"browser-camera"};
-  const endpoint=window.AUTO_ARCADE_LIVE_API||"/api/auto-arcade/live/start";
+  /* URL path deliberately left unchanged: no server route by any name is
+     defined in this repo (Hostinger serves static files only), so we
+     cannot confirm whether a real external streaming server has this
+     exact path deployed. Renaming the window override name is safe -
+     window.BINGO_LIVE_API is preferred going forward, window.AUTO_ARCADE_LIVE_API
+     is still honored so an existing operator override keeps working. */
+  const endpoint=window.BINGO_LIVE_API||window.AUTO_ARCADE_LIVE_API||"/api/auto-arcade/live/start";
   try{
    const res=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
    if(!res.ok)throw new Error();
@@ -21464,12 +21476,12 @@ function bingoSafeMediaAttr(value){
    $("#aa92BackendNote").className="aa92-backend-note ok";$("#aa92BackendNote").textContent=`Live distribution started: ${dest.join(", ")}. Bingo watermark enabled.`;
   }catch(e){
    $("#aa92BackendNote").className="aa92-backend-note warn";
-   $("#aa92BackendNote").textContent=`Bingo Live is running here. External multistream (${dest.filter(x=>x!=="autoarcade").join(", ")||"none selected"}) needs the Bingo streaming server endpoint.`;
+   $("#aa92BackendNote").textContent=`Bingo Live is running here. External multistream (${dest.filter(x=>x!=="bingo").join(", ")||"none selected"}) needs the Bingo streaming server endpoint.`;
   }
  }
  async function stop(){
   $("#aa92ShareLive")?.classList.remove("live");$("#aa92LiveState")?.classList.remove("live");if($("#aa92LiveState"))$("#aa92LiveState").textContent="READY";$("#aa82LiveSwitch")?.classList.remove("on");
-  try{await fetch(window.AUTO_ARCADE_LIVE_STOP_API||"/api/auto-arcade/live/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:window.aa92LiveSession||null})})}catch(e){}
+  try{await fetch(window.BINGO_LIVE_STOP_API||window.AUTO_ARCADE_LIVE_STOP_API||"/api/auto-arcade/live/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:window.aa92LiveSession||null})})}catch(e){}
   $("#aa92BackendNote").className="aa92-backend-note";$("#aa92BackendNote").textContent="Live stopped.";
  }
  $("#aa92ShareLive")?.addEventListener("click",start);$("#aa92StopLive")?.addEventListener("click",stop);
@@ -23460,7 +23472,7 @@ Only requested areas changed:
     let value=false;
     if(sb&&!state.testMode&&typeof aaIsUuid==='function'&&aaIsUuid(sid)&&aaIsUuid(me)){
       try{
-        const {data,error}=await sb.from('auto_arcade_follows').select('follower_id').eq('follower_id',sid).eq('following_id',me).maybeSingle();
+        const {data,error}=await sb.from('bingo_follows').select('follower_id').eq('follower_id',sid).eq('following_id',me).maybeSingle();
         value=!error&&!!data;
       }catch(e){value=false;}
     }
