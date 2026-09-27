@@ -14243,8 +14243,8 @@ function aaProfileFriendsDrawerHTML(){
   aaProfileFollowersLiveHTML().then(html=>{state._profileFollowersHTML=html;render()});
  }
  return `<div class="aa-agentdash-tabs" style="margin-bottom:10px">
-  <button class="btn ${tab==="following"?"btn-cyan":"btn-glass"}" onclick="state.profileFriendsTab='following';render()">Following</button>
-  <button class="btn ${tab==="followers"?"btn-cyan":"btn-glass"}" onclick="state.profileFriendsTab='followers';state._profileFollowersHTML=null;render()">Followers</button>
+  <button class="bingo-neon-micro ${tab==="following"?"bingo-neon-micro-cyan":"bingo-neon-micro-glass"}" onclick="state.profileFriendsTab='following';render()">Following</button>
+  <button class="bingo-neon-micro ${tab==="followers"?"bingo-neon-micro-cyan":"bingo-neon-micro-glass"}" onclick="state.profileFriendsTab='followers';state._profileFollowersHTML=null;render()">Followers</button>
  </div>${tab==="following"?aaProfileFollowingHTML():(state._profileFollowersHTML||"<div class=\"notice\">Loading…</div>")}`;
 }
 function aaProfileAnalyticsDrawerHTML(){
@@ -25574,6 +25574,77 @@ Preserve all existing onclick actions, routes, forms and button wording.
   filter:brightness(1.15);border-color:var(--tab-light)!important;
   box-shadow:0 0 10px rgba(var(--tab-rgb),.4)!important;
  }
+}
+
+/* ===== Sitewide tab/navigation flat-neon pass, part 2 (2026-09-28) —
+   continuing the same audit: three more tab groups found still bulky/
+   glossy/oversized, or with a dead "active" class doing nothing.
+   Cockpit (.bcp-*) and the Love/Comment/Share/Save/Report + comment
+   Like/Reply rows (.aa-icon-action/.bingo-neon-*) are not touched by
+   any selector below. The Profile Friends drawer's Following/Followers
+   toggle (previously bare .btn/.btn-cyan/.btn-glass, same bug as the
+   rest of this pass) was fixed directly in its own HTML to reuse the
+   existing bingo-neon-micro classes instead of a new CSS rule here,
+   since a rule scoped to ".aa-agentdash-tabs button" would have equal-
+   or-higher specificity than "#auto-arcade-widget .bingo-neon-action"
+   and could have silently overridden the Agent Dashboard's own already-
+   correct neon buttons, which share that same wrapper class. */
+
+/* A. Search page: category tabs (All/Vehicles/Property/...) and the
+   media-type filter (All/Videos/Photos). Already had a flat, non-
+   !important style that the sitewide glossy !important recipe was
+   silently winning over (same mechanism as the BGC popup in part 1),
+   and its "active" state was a solid filled red block rather than the
+   approved outline+glow. */
+#auto-arcade-widget .aa-media-tabs{background:none!important}
+#auto-arcade-widget .aa-media-tabs button{
+  --tab-light:#22c9ff!important;--tab-rgb:34,201,255!important;
+  border:1px solid rgba(34,201,255,.55)!important;
+  background:#0b1729!important;color:#e7edf6!important;
+  border-radius:8px!important;box-shadow:none!important;
+  min-height:30px!important;padding:7px 6px!important;
+  transform:none!important;font-size:9.5px!important;font-weight:800!important;
+}
+#auto-arcade-widget .aa-media-tabs button::after{content:none!important}
+#auto-arcade-widget .aa-media-tabs button.active{
+  background:#0d1b32!important;border-color:var(--tab-light)!important;
+  color:var(--tab-light)!important;box-shadow:0 0 10px rgba(var(--tab-rgb),.45)!important;
+}
+
+/* B. Auto Market: Spare Parts / Household Items toggle (browse page and
+   its own post form). Bare .btn with no local override at all, so it
+   rode the full glossy recipe - and its "active" class had no CSS
+   definition anywhere (.btn.active does not exist), so the two states
+   were not even visually distinguishable before this fix. */
+#auto-arcade-widget .aa-market-type-tabs button{
+  --tab-light:#f3be2b!important;--tab-rgb:243,190,43!important;
+  background:#0b1729!important;box-shadow:none!important;
+  min-height:34px!important;padding:8px 10px!important;
+  border-radius:10px!important;transform:none!important;
+  font-weight:800!important;font-size:11.5px!important;
+}
+#auto-arcade-widget .aa-market-type-tabs button::after{content:none!important}
+#auto-arcade-widget .aa-market-type-tabs button.active{
+  border-color:var(--tab-light)!important;color:var(--tab-light)!important;
+  box-shadow:0 0 10px rgba(var(--tab-rgb),.4)!important;
+}
+
+/* C. Bingo Chat Studio tools drawer (Emoji/Media/Effects/Fonts/Rooms/
+   More) - a deliberately styled "3D pressed" gradient/drop-shadow
+   button from an earlier, separate design pass, not a plain oversight.
+   The current directive asks for every remaining bulky/gradient/
+   oversized tab to be flattened with no stated exception for this
+   drawer, so it is brought in line the same way as everything else -
+   flat outline, glow on the active state, no filled gradient or drop
+   shadow, same minimum tap-target height as the other fixed tab bars. */
+#auto-arcade-widget .aa88-tool-tabs button{
+  --tab-light:#78aaff!important;--tab-rgb:120,170,255!important;
+  min-height:34px!important;background:#0b1729!important;
+  box-shadow:none!important;transform:none!important;
+}
+#auto-arcade-widget .aa88-tool-tabs button.active{
+  background:#0d1b32!important;border-color:#f4bd2a!important;
+  color:#f4bd2a!important;box-shadow:0 0 10px rgba(244,189,42,.45)!important;
 }
 </style>
 
