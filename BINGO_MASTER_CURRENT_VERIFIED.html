@@ -4357,7 +4357,7 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget #aaPropertyRecorded,#auto-arcade-widget #aaFoodRecorded{grid-template-columns:1fr}
 #auto-arcade-widget #aaPropertyRecorded video,#auto-arcade-widget #aaFoodRecorded video{width:100%;aspect-ratio:auto;object-fit:contain;max-height:360px;border-radius:10px;background:#000}
 #auto-arcade-widget .aa-sub-pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:5px 8px;font-size:9px;font-weight:900;background:#142139;border:1px solid #345071}
-#auto-arcade-widget .aa-sub-pill.active{color:#83f7b1;border-color:#2e9e65}.aa-sub-pill.expired{color:#ff9a9e;border-color:#8b3035}
+#auto-arcade-widget .aa-sub-pill.active{color:#83f7b1;border-color:#2e9e65}.aa-sub-pill.expired{color:#ff9a9e;border-color:#8b3035}.aa-sub-pill.draft{color:#f5b91e;border-color:#a67c1a}
 #auto-arcade-widget .aa-camera-overlay{position:fixed;inset:0;z-index:220;background:rgba(0,0,0,.92);display:flex;align-items:center;justify-content:center;padding:14px}
 #auto-arcade-widget .aa-camera-box{width:min(720px,100%);background:#071020;border:1px solid #33455f;border-radius:16px;padding:12px}
 #auto-arcade-widget .aa-camera-stage{position:relative;background:#000;border-radius:12px;overflow:hidden;aspect-ratio:9/16;max-height:70vh;margin:auto}
@@ -10587,20 +10587,58 @@ async function aaUpdateFoodBusiness(id,payload){
 }
 async function aaVerifyFoodBusiness(id){
  if(!sb||!id)return {data:null,error:new Error('Cannot verify saved business without database connection.')};
- const result=await sb.from('food_businesses').select('*').eq('id',id).eq('user_id',state.user.id).single();
+ const result=await sb.from('food_businesses').select('*').eq('id',id).eq('owner_id',state.user.id).single();
  if(result.error)return result;
  if(!result.data)return {data:null,error:new Error('The business was not found after saving.')};
  return result;
 }
+/* Live public.food_businesses uses owner_id (not user_id) and decomposes
+   what this app treats as one ordered media gallery into FOUR separate
+   columns - image_urls (array), video_url, cover_url, logo_url (one
+   each) - confirmed by a live-schema audit 2026-09-27. The app's
+   INTERNAL object shape keeps a single user_id/media[] shape as-is
+   (dozens of existing consumers across Feed/Wall/Profile/cards already
+   assume it, and it matches every other post type - Property, Vehicle -
+   in this codebase), so the translation to/from the live columns
+   happens only at this boundary (aaFoodColumnsToMedia for reads,
+   aaFoodMediaToColumns for writes in aaSubmitFood), not throughout the
+   app. Exact column types/nullability beyond the names above were not
+   independently confirmed (no live access from this sandbox) - treated
+   defensively as plain strings/string-arrays, the only shape their
+   names reasonably imply. logo_url has no corresponding concept
+   anywhere in the current media-picker UI and is never invented; reads
+   pass it through unused, writes never set it. */
+function aaFoodColumnsToMedia(row){
+ const images=(Array.isArray(row.image_urls)?row.image_urls:[]).filter(u=>typeof u==='string'&&u);
+ const cover=typeof row.cover_url==='string'&&row.cover_url?row.cover_url:null;
+ const ordered=cover?[cover,...images.filter(u=>u!==cover)]:images;
+ const media=ordered.map(u=>({type:'image',url:u}));
+ if(typeof row.video_url==='string'&&row.video_url)media.push({type:'video',url:row.video_url});
+ return media;
+}
+/* Mirrors aaMediaDraftSetCover's own convention (index 0 = cover) back
+   onto the live columns: the first image becomes cover_url (also kept
+   in image_urls - a featured-image pointer, not an exclusive slot,
+   since that is the safer assumption absent a confirmed live
+   definition), any other images fill image_urls in order, and the
+   first video (if any) becomes video_url. A gallery with a video at
+   index 0 but no image has no cover_url - there is no image to point
+   it at. */
+function aaFoodMediaToColumns(mediaArray){
+ const items=Array.isArray(mediaArray)?mediaArray:[];
+ const images=items.filter(m=>m&&m.type!=='video'&&m.url).map(m=>m.url);
+ const video=items.find(m=>m&&m.type==='video'&&m.url);
+ return {image_urls:images,video_url:video?video.url:null,cover_url:images[0]||null};
+}
 function aaMapFoodBusinessRow(row){
  return {
-  id:row.id,user_id:String(row.user_id||''),local_owner:false,_localOnly:false,kind:'food',
+  id:row.id,user_id:String(row.owner_id||''),local_owner:false,_localOnly:false,kind:'food',
   business_name:row.business_name||'',title:row.business_name||'',category:row.category||'',
   county:row.county||'',town:row.town||'',delivery_area:row.delivery_area||'',
   phone:row.phone||'',whatsapp:row.whatsapp||'',opening_hours:row.opening_hours||'',
   price_range:row.price_range||'',delivery_available:!!row.delivery_available,
-  description:row.description||'',media:Array.isArray(row.media)?row.media:[],
-  status:row.status||'inactive',subscription_expires_at:row.subscription_expires_at||null,
+  description:row.description||'',media:aaFoodColumnsToMedia(row),logo_url:row.logo_url||'',
+  status:row.status||'draft',subscription_expires_at:row.subscription_expires_at||null,
   created_at:row.created_at,createdAt:row.created_at
  };
 }
@@ -10616,9 +10654,9 @@ async function aaLoadFoods(){
  if(!sb||aaFoodsLoading)return;
  aaFoodsLoading=true;
  try{
-  const own=state.user?.id?await sb.from('food_businesses').select('*').eq('user_id',state.user.id):{data:[],error:null};
+  const own=state.user?.id?await sb.from('food_businesses').select('*').eq('owner_id',state.user.id):{data:[],error:null};
   if(own.error)throw own.error;
-  const pub=await sb.from('food_businesses').select('*').eq('status','active').gt('subscription_expires_at',new Date().toISOString());
+  const pub=await sb.from('food_businesses').select('*').eq('status','published').gt('subscription_expires_at',new Date().toISOString());
   if(pub.error)throw pub.error;
   const map=new Map();
   (own.data||[]).forEach(r=>map.set(String(r.id),r));
@@ -10634,7 +10672,13 @@ async function aaLoadFoods(){
 function aaPropertyMedia(p){return Array.isArray(p?.media)?p.media:[]}
 function aaFoodMedia(p){return Array.isArray(p?.media)?p.media:[]}
 function aaRemainingDays(exp){if(!exp)return 0;return Math.max(0,Math.ceil((new Date(exp).getTime()-Date.now())/86400000))}
-function aaFoodActive(f){return aaRemainingDays(f?.subscription_expires_at)>0&&String(f?.status||'').toLowerCase()!=='suspended'}
+/* Live status enum is draft/published/hidden/deleted - 'suspended' was
+   never a real value there (kept in this check anyway, harmless, in
+   case any locally-cached test-mode record still uses it). A business
+   is only ever "active/open for orders" once it is actually published
+   and hidden/deleted rows must never read as active regardless of a
+   stale subscription_expires_at. */
+function aaFoodActive(f){const s=String(f?.status||'').toLowerCase();return aaRemainingDays(f?.subscription_expires_at)>0&&s!=='suspended'&&s!=='hidden'&&s!=='deleted'}
 function aaOpenProperties(tab='browse'){if(tab==='post'&&!aaRequireMember({action:'post',mode:'register',destination:'/post-property'}))return;aaRememberPage();state.propertyTab=tab;state.view='properties';if(tab==='stays'&&!state.stayView)state.stayView='landing';aaLoadProperties();render();window.scrollTo(0,0)}
 function aaOpenFood(tab='browse'){if(tab==='post'&&!aaRequireMember({action:'post',mode:'register',destination:'/post-food'}))return;aaRememberPage();state.foodTab=tab;state.view='food';aaLoadFoods();render();window.scrollTo(0,0)}
 function aaMediaPreviewHTML(media,businessId){
@@ -11752,8 +11796,9 @@ function aaFoodPostHTML(){
 
   <div class="aa-food-section aa-food-section-submit">
    <div class="aa-food-section-title">7. Preview &amp; Submission</div>
-   <p class="notice">Review your details above before saving. Required fields are marked - everything else is optional but helps customers trust your business.</p>
-   <div class="details-actions aa-content-fit-row" style="margin-top:10px">${editItem?`<button class="btn btn-glass" type="button" ${busy?'disabled':''} onclick="aaCancelFoodEdit()">Cancel</button>`:''}<button class="btn btn-publish" type="submit" ${busy?'disabled':''} aria-busy="${busy?'true':'false'}">${busy?(state.foodPublishProgress||'Publishing…'):(editItem?'Save Changes':'Save Business')}</button></div>
+   <p class="notice">Review your details above before saving. Required fields are marked - everything else, including photos and video, is optional but helps customers trust your business.</p>
+   ${editItem?'':'<p class="notice">Saving creates a draft only visible to you. Customers only see it once you add photos and activate a 30-day subscription from My Food Business.</p>'}
+   <div class="details-actions aa-content-fit-row" style="margin-top:10px">${editItem?`<button class="btn btn-glass" type="button" ${busy?'disabled':''} onclick="aaCancelFoodEdit()">Cancel</button>`:''}<button class="btn btn-publish" type="submit" ${busy?'disabled':''} aria-busy="${busy?'true':'false'}">${busy?(state.foodPublishProgress||'Publishing…'):(editItem?'Save Changes':'Save as Draft')}</button></div>
   </div>
 
  </form></div>`;
@@ -11843,7 +11888,7 @@ async function aaSubmitFood(e){
    }
    const upload=newFiles.length?await aaUploadFoodMedia(newFiles,original.user_id,editId,(n,total)=>{state.foodPublishProgress=`Uploading file ${n} of ${total}…`;render()}):{media:[],paths:[],error:null};
    if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error));return}
-   const payload={...basePayload,media:[...keptMedia,...upload.media]};
+   const payload={...basePayload,...aaFoodMediaToColumns([...keptMedia,...upload.media])};
    state.foodPublishProgress='Saving listing…';render();
    const upd=await aaUpdateFoodBusiness(editId,payload);
    if(upd.error){
@@ -11872,11 +11917,24 @@ async function aaSubmitFood(e){
   }
   const businessId=aaNewFoodBusinessId();
   const userId=state.user.id;
+  /* Media is no longer required before saving - the live table permits
+     an empty image_urls array, and the form's own copy already said
+     "everything else is optional" while this gate silently contradicted
+     it. This is also what makes it possible to save business details
+     while Storage is unavailable: a photo/video-free draft never calls
+     aaUploadFoodMedia at all, so it can succeed independently of the
+     upload 502. Uploading is now conditional on files actually being
+     selected, exactly like the edit path already does. */
   const files=aaMediaDraftFilesForUpload('food');
-  if(!files.length){toast('Add at least one photo or video before saving.');return}
-  const upload=await aaUploadFoodMedia(files,userId,businessId,(n,total)=>{state.foodPublishProgress=`Uploading file ${n} of ${total}…`;render()});
-  if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error));return}
-  const payload={id:businessId,user_id:userId,...basePayload,media:upload.media,status:'inactive',subscription_expires_at:null};
+  const upload=files.length?await aaUploadFoodMedia(files,userId,businessId,(n,total)=>{state.foodPublishProgress=`Uploading file ${n} of ${total}…`;render()}):{media:[],paths:[],error:null};
+  if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error)+' Your entered details are kept - you can save without media now, or retry the upload.');return}
+  /* owner_id (not user_id) and image_urls/video_url/cover_url (not a
+     single media column) match the live public.food_businesses schema,
+     confirmed 2026-09-27 - see aaMapFoodBusinessRow/aaFoodMediaToColumns
+     for the full mapping. status starts as 'draft' (the live enum has
+     no 'inactive') - a draft is never publicly visible regardless of
+     subscription_expires_at. */
+  const payload={id:businessId,owner_id:userId,...basePayload,...aaFoodMediaToColumns(upload.media),status:'draft',subscription_expires_at:null};
   state.foodPublishProgress='Saving listing…';render();
   const ins=await aaInsertFoodBusiness(payload);
   if(ins.error){
@@ -11896,14 +11954,14 @@ async function aaSubmitFood(e){
   state.foodDraftMediaFor='';
   state.foodFormDraft={};
   state.foodFormDraftFor='';
-  /* Food businesses are created inactive (status:'inactive' above) and
-     only appear on the public Home Feed / Food Feed once a subscription
-     is activated - going to Home Feed right now would show the user
+  /* Food businesses are created as a draft (status:'draft' above) and
+     only appear on the public Home Feed / Food Feed once both published
+     and subscribed - going to Home Feed right now would show the user
      nothing and look like publishing silently failed. My Food Business
      is where the record is immediately visible, alongside the exact
      control that activates the subscription, so that stays the
      destination for Food specifically. */
-  toast('Food business saved. Activate a subscription to appear publicly.');
+  toast(files.length?'Food business saved. Activate a subscription to appear publicly.':'Draft saved. Add photos and activate a subscription when ready - customers cannot see this yet.');
   aaOpenFood('mine');
  }catch(err){
   /* Never seen before this fix: aaUploadFoodMedia/aaInsertFoodBusiness/
@@ -11932,7 +11990,7 @@ async function aaDeleteFoodBusiness(id){
   return;
  }
  if(!sb||!state.user?.id||String(item.user_id||'')!==String(state.user.id)){toast('You can only delete your own Food business.');return}
- const del=await sb.from('food_businesses').delete().eq('id',id).eq('user_id',state.user.id);
+ const del=await sb.from('food_businesses').delete().eq('id',id).eq('owner_id',state.user.id);
  if(del.error){toast('Could not delete business: '+String(del.error.message||del.error));return}
  if(Array.isArray(state.foodBusinesses))state.foodBusinesses=state.foodBusinesses.filter(x=>String(x.id)!==String(id));
  const paths=(Array.isArray(item.media)?item.media:[]).map(m=>m.storagePath).filter(Boolean);
@@ -12866,10 +12924,17 @@ function aaFoodMineHTML(a){
  if(!a.length)return `<div class="aa-v69-card"><p>You have not created a food business yet.</p><button class="btn btn-red" onclick="aaOpenFood('post')">Create Food Business</button></div>`;
  return a.map(f=>{
   const d=aaRemainingDays(f.subscription_expires_at),act=aaFoodActive(f);
+  /* A brand-new draft (never subscribed - status is still exactly
+     'draft', never activated) reads differently from a listing whose
+     paid subscription has since lapsed - both currently hit the same
+     act===false branch, but conflating "never published" with "expired"
+     is exactly the ambiguity the live schema fix is meant to remove. */
+  const isDraft=String(f.status||'').toLowerCase()==='draft';
+  const pillText=act?`${d} day${d===1?'':'s'} remaining`:(isDraft?'Draft · not published':'0 days · inactive');
   return `<div class="aa-v69-card">
    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
     <h3>${esc(f.business_name)}</h3>
-    <span class="aa-sub-pill ${act?'active':'expired'}">${act?`${d} day${d===1?'':'s'} remaining`:'0 days · inactive'}</span>
+    <span class="aa-sub-pill ${act?'active':(isDraft?'draft':'expired')}">${pillText}</span>
    </div>
    <div class="meta">${esc(f.category)} · ${esc(f.town)}, ${esc(f.county)}</div>
    <div class="aa-v69-media-grid">${aaMediaPreviewHTML(f.media,f.id)}</div>
@@ -13016,7 +13081,13 @@ function aaWatchFoodActivation(id){
   aaFoodActivationChannel=sb.channel("food_activation_"+id)
    .on("postgres_changes",{event:"UPDATE",schema:"public",table:"food_businesses",filter:"id=eq."+id},payload=>{
     const row=payload.new;
-    if(!row||row.status!=='active')return;
+    /* Whatever server-side process (the mpesa-food-subscription Edge
+       Function, not present in this repo, so not independently
+       verified) actually flips this row on successful payment MUST
+       write 'published', not the old 'active', for this listener to
+       ever fire again - flagged clearly in the delivery report as an
+       unconfirmed dependency this fix cannot verify from source alone. */
+    if(!row||row.status!=='published')return;
     try{sb.removeChannel(aaFoodActivationChannel)}catch(e){}
     aaFoodActivationChannel=null;aaFoodActivationId=null;
     const mapped=aaMapFoodBusinessRow(row);
