@@ -1,4 +1,37 @@
 -- ============================================================================
+-- PAUSED — DO NOT APPLY. A full live-schema comparison (2026-09-27)
+-- found this design still doesn't match the real objects, beyond the
+-- table name it got right:
+--   - live withdrawal status column is withdrawal_status; this file
+--     adds and writes a second column, status
+--   - live ledger entry_type values are commission / adjustment /
+--     reversal; this file's RPCs use credit / reserve / release
+--   - live ledger requires source_type and source_id; this file's
+--     inserts provide neither
+--   - live audit log columns are administrator_id / target_user_id;
+--     this file inserts actor_id / target_id
+--   - bingo_role_notifications does not exist live at all; both RPCs
+--     here insert into it unconditionally
+--   - this file's ledger section (create table if not exists + drop/
+--     create policy) runs its policy statements against the REAL,
+--     ALREADY-EXISTING live ledger table (the table itself already
+--     existing makes "create table if not exists" a no-op, but the
+--     drop-and-recreate-policy statements still execute) — touching
+--     live RLS on a table already in production use, on assumptions
+--     that turned out wrong elsewhere in this same file
+--
+-- Its local test passed because the disposable reproduction it was
+-- tested against didn't include these objects' real shape either —
+-- passing tests prove nothing when the reproduction itself is wrong.
+-- See 20260927_bingo_agent_commission_withdrawals_INSPECT_LIVE_THIRD.sql
+-- for the full-column/constraint/policy request needed before a
+-- correct replacement can be drafted. Left in place, unmodified,
+-- as a record of the reasoning (single source-of-truth minimum
+-- function, defensive/additive column handling, SECURITY DEFINER-
+-- only writes) the eventual correct version should keep.
+-- ============================================================================
+
+-- ============================================================================
 -- BINGO — Agent commission withdrawal WRITE PATH, designed against the
 -- REAL live table (public.bingo_agent_commission_withdrawals), per the
 -- 2026-09-27 live inspection:
