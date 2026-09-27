@@ -12611,7 +12611,7 @@ function aaFoodBasketHTML(){
   <button class="btn btn-publish" style="width:100%;margin-top:12px" ${busy?'disabled':''} onclick="aaSubmitFoodOrder()">${busy?'Placing order…':'Place Order'}</button>
  </div></div>`;
 }
-async function aaSubmitFoodOrder(){
+async async function aaSubmitFoodOrder(){
  if(!aaRequireMember({action:'food_order',mode:'register'}))return;
  const b=aaFoodBasketGet();
  if(!Object.keys(b.items).length){toast('Your order is empty.');return}
@@ -12633,10 +12633,10 @@ async function aaSubmitFoodOrder(){
    if(error)throw error;
    await aaLoadFoodOrders();
   }catch(e){
-   toast('Could not place the order online yet — saved locally instead: '+String(e?.message||e));
-   const list=aaV69Read('aa_v69_food_orders',[]);
-   list.unshift(order);
-   aaV69Write('aa_v69_food_orders',list);
+   state.foodOrderBusy=false;
+   render();
+   toast('Order was not placed. Please retry after the restaurant ordering service is available: '+String(e?.message||e));
+   return;
   }
  }
  state.foodOrderBusy=false;
@@ -12653,8 +12653,9 @@ async function aaLoadFoodOrders(){
   const orClauses=['customer_id.eq.'+state.user.id];
   if(ownedIds.length)orClauses.push('business_id.in.('+ownedIds.join(',')+')');
   const {data,error}=await sb.from('food_orders').select('*').or(orClauses.join(',')).order('created_at',{ascending:false}).limit(150);
-  if(!error&&Array.isArray(data))state._foodOrdersCache=data;
- }catch(e){}
+  if(error)throw error;
+  if(Array.isArray(data))state._foodOrdersCache=data;
+ }catch(e){console.warn('[Bingo Food] Could not load online orders:',e);}
 }
 function aaFoodOrdersAll(){
  if(state.testMode||!sb)return aaV69Read('aa_v69_food_orders',[]);
@@ -12672,10 +12673,9 @@ async function aaUpdateFoodOrderStatus(orderId,status){
  const biz=aaFoods().find(x=>String(x.id)===String(order.business_id));
  const allowed=await aaCanManageBusinessAction({businessType:'food_business',businessId:order.business_id,ownerId:biz?.user_id,permission:'manage_orders'});
  if(!allowed){toast('You do not have permission to update this order.');return}
- order.status=status;
- if(state.testMode||!sb){aaV69Write('aa_v69_food_orders',list);}
+ if(state.testMode||!sb){order.status=status;aaV69Write('aa_v69_food_orders',list);}
  else{
-  try{const {error}=await sb.from('food_orders').update({status}).eq('id',orderId);if(error)throw error;}
+  try{const {error}=await sb.from('food_orders').update({status}).eq('id',orderId);if(error)throw error;order.status=status;}
   catch(e){toast('Could not update the order online: '+String(e?.message||e));return}
  }
  save();render();
