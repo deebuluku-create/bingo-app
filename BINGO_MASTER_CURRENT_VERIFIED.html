@@ -45,13 +45,13 @@ html.bingo-preload #auto-arcade-widget{visibility:hidden!important}
 #auto-arcade-widget .aa-desty-avatar-ring{position:absolute;inset:-9px;border-radius:50%;border:3px solid var(--dgold);box-shadow:0 0 22px rgba(var(--dgoldrgb),.55),inset 0 0 14px rgba(var(--dgoldrgb),.35);pointer-events:none}
 #auto-arcade-widget .aa-desty-avatar{width:132px;height:132px;border-radius:50%;object-fit:cover;border:4px solid #05070f;position:relative;z-index:1;display:block}
 #auto-arcade-widget .aa-desty-mic-badge{--tab-light:var(--dg);--tab-rgb:var(--dgrgb);position:absolute;right:0;bottom:0;z-index:2;width:32px;height:32px;min-width:32px;min-height:32px;border-radius:50%!important;font-size:14px;padding:0!important;display:flex;align-items:center;justify-content:center}
+#auto-arcade-widget .aa-desty-mic-badge-status{width:auto;height:auto;min-width:0;min-height:0;background:#05070f;border:1px solid #1c2540;border-radius:99px;padding:2px 8px;font-size:9.5px;white-space:nowrap}
 #auto-arcade-widget .aa-desty-id{margin-top:8px}
 #auto-arcade-widget .aa-desty-id h2{margin:0 0 4px;font-size:21px;font-weight:700}
 #auto-arcade-widget .aa-desty-meta{font-size:12.5px;color:#a7b3c9;margin-top:2px}
 #auto-arcade-widget .aa-desty-stats{display:flex;justify-content:center;gap:26px;padding:4px 16px 14px;font-size:13.5px;color:#a7b3c9}
 #auto-arcade-widget .aa-desty-stats b{color:#fff;font-weight:700;margin-right:4px}
-#auto-arcade-widget .aa-desty-actions{display:flex;gap:10px;padding:0 14px 14px}
-#auto-arcade-widget .aa-desty-action{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 4px!important;font-size:12.5px!important;font-weight:700;white-space:nowrap;min-height:0!important}
+#auto-arcade-widget .aa-desty-actions{display:flex;flex-wrap:wrap;gap:10px;padding:0 14px 14px;justify-content:center}
 #auto-arcade-widget .aa-desty-action-green{--tab-light:var(--dg);--tab-rgb:var(--dgrgb)}
 #auto-arcade-widget .aa-desty-action-gold{--tab-light:var(--dgold);--tab-rgb:var(--dgoldrgb)}
 #auto-arcade-widget .aa-desty-agentbar{padding:0 14px 10px}
@@ -78,7 +78,6 @@ html.bingo-preload #auto-arcade-widget{visibility:hidden!important}
 @media(max-width:480px){
  #auto-arcade-widget .aa-desty-avatar-wrap,#auto-arcade-widget .aa-desty-avatar{width:104px;height:104px}
  #auto-arcade-widget .aa-desty-avatar-ring{inset:-8px}
- #auto-arcade-widget .aa-desty-action{font-size:11px!important;padding:9px 2px!important}
  #auto-arcade-widget .aa-desty-stats{gap:16px;font-size:12.5px}
  #auto-arcade-widget .aa-desty-topbar h1{font-size:14px}
  #auto-arcade-widget .aa-desty-badges{gap:10px}
@@ -12815,7 +12814,7 @@ function aaFoodMineHTML(a){
    <div class="aa-v69-media-grid">${aaMediaPreviewHTML(f.media,f.id)}</div>
    <div class="aa93-food-counter"><b>${Math.min(30,d)}</b><span>DAYS</span><small>${act?'Advertising active':'Advertising stopped'}</small></div>
    <div class="details-actions aa-content-fit-row" style="margin-top:12px">
-    <button class="btn btn-glass" onclick="aaOpenFoodBusinessProfile('${esc(f.id)}')">👁 Preview Profile</button>
+    <button class="bingo-neon-action bingo-neon-action-cyan" onclick="aaOpenFoodBusinessProfile('${esc(f.id)}')">👁 Preview Profile</button>
     <button class="btn btn-gold" onclick="aaStartFoodSubscription('${esc(f.id)}',1)">Renew / Pay KES 1,000</button>
     <button class="btn" onclick="aaCancelFoodSubscription('${esc(f.id)}')">Cancel Ad</button>
    </div>
@@ -13791,31 +13790,52 @@ function aaProfilePromoteDrawerHTML(sellerKey){
  const mine=(state.listings||[]).filter(c=>String(c.sellerId||c.userId||"")===String(state.user?.id||""));
  const props=(typeof aaProperties==="function"?aaProperties():[]).filter(p=>String(p.user_id||"")===String(state.user?.id||""));
  const foods=(typeof aaFoods==="function"?aaFoods():[]).filter(f=>String(f.user_id||"")===String(state.user?.id||""));
- const row=(label,items,kind)=>!items.length?"":`<div class="aa-owner-posts-head"><h3>${esc(label)}</h3></div>${items.map(it=>`<div class="details-actions aa-content-fit-row" style="margin-bottom:6px"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.title||it.business_name||"Untitled")}</span><button class="btn btn-gold" onclick='openContentBoost(${JSON.stringify(it)},"${kind}")'>Boost</button></div>`).join("")}`;
+ const row=(label,items,kind)=>!items.length?"":`<div class="aa-owner-posts-head"><h3>${esc(label)}</h3></div>${items.map(it=>`<div class="details-actions aa-content-fit-row" style="margin-bottom:6px"><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(it.title||it.business_name||"Untitled")}</span><button class="bingo-neon-action bingo-neon-action-gold" onclick='openContentBoost(${JSON.stringify(it)},"${kind}")'>📣 Boost</button></div>`).join("")}`;
  return `<p class="notice">Boosting increases visibility for a listing via the existing M-Pesa boost flow - nothing here changes what a boost costs or how it is paid for.</p>${row("Vehicles",mine,"vehicle")}${row("Properties",props,"property")}${row("Food Businesses",foods,"food_business")}${!mine.length&&!props.length&&!foods.length?'<div class="notice">Post something first to boost it.</div>':""}`;
 }
 function aaProfileRewardsDrawerHTML(){
  return `<div class="aa-room-reward"><b>${gold()?"★ GOLD MEMBER":"Community Gold Progress"}</b><br>Accepted Solution Room answers: ${aaAcceptedSolutionsFor(state.user?.id)}/${aaGoldAcceptedTarget()}. Outstanding Gold Members may qualify for annual Bingo recognition and rewards.</div>`;
 }
-const AA_DESTY_BADGES=[
+const AA_DESTY_BADGES_OWNER=[
  {key:"friends",icon:"👥",label:"Friends"},
  {key:"saved",icon:"☆",label:"Saved"},
- {key:"topics",icon:"💬",label:"Topics"},
  {key:"helpsell",icon:"🤝",label:"Help Sell"},
  {key:"trash",icon:"🗑",label:"Trash"},
  {key:"rewards",icon:"🏆",label:"Rewards"}
 ];
-function aaProfileDestyBadgesHTML(){
- return `<div class="aa-desty-badges">${AA_DESTY_BADGES.map(b=>`<button type="button" class="aa-desty-badge" onclick="aaProfileDrawerOpen('${b.key}')"><span class="aa-desty-badge-icon">${b.icon}</span><span>${esc(b.label)}</span></button>`).join("")}</div>`;
+/* No general "report this member's profile" function exists in this
+   codebase - reportListing()/reportHTML() are vehicle-listing-specific
+   and aaReportCommunityMember() needs a community-group context, neither
+   fits a bare profile view. Rather than fabricate a new report action,
+   this stays at 4 real badges for a visitor (Friends/Reviews/Share/
+   Block, all wired to existing functions) instead of forcing a 5th. */
+const AA_DESTY_BADGES_VISITOR=[
+ {key:"friends",icon:"👥",label:"Friends"},
+ {key:"reviews",icon:"★",label:"Reviews"},
+ {key:"share",icon:"↗",label:"Share"},
+ {key:"block",icon:"🚫",label:"Block"}
+];
+function aaProfileDestyBadgeClick(key,sellerKey,sellerName){
+ if(key==="reviews"){aaProfileDestySetTab("reviews");return}
+ if(key==="share"){state.shareTarget={id:sellerKey,title:sellerName||"Bingo profile"};render();return}
+ if(key==="block"){
+  if(typeof aaMsgBlockUser==="function")aaMsgBlockUser(sellerKey,sellerName);
+  else toast("Block is not available right now.");
+  return;
+ }
+ aaProfileDrawerOpen(key);
+}
+function aaProfileDestyBadgesHTML(own,sellerKey,sellerName){
+ const list=own?AA_DESTY_BADGES_OWNER:AA_DESTY_BADGES_VISITOR;
+ return `<div class="aa-desty-badges">${list.map(b=>`<button type="button" class="aa-desty-badge" onclick="aaProfileDestyBadgeClick('${b.key}',${JSON.stringify(sellerKey)},${JSON.stringify(sellerName||"")})"><span class="aa-desty-badge-icon">${b.icon}</span><span>${esc(b.label)}</span></button>`).join("")}</div>`;
 }
 function aaProfileDestyDrawerHTML(sellerKey){
  const key=state.profileDrawer;
  if(!key)return "";
- const titles={friends:"Friends",saved:"Saved Items",topics:"My Topics",helpsell:"Help Sell",trash:"Deleted Items · 30-day recovery",rewards:"Gold Rewards",promote:"Promote",analytics:"Analytics"};
+ const titles={friends:"Friends",saved:"Saved Items",helpsell:"Help Sell",trash:"Deleted Items · 30-day recovery",rewards:"Gold Rewards",promote:"Promote",analytics:"Analytics"};
  const bodies={
   friends:()=>aaProfileFriendsDrawerHTML(),
   saved:()=>aaProfileSavedItemsHTML(),
-  topics:()=>aaMyTopicsHTML(),
   helpsell:()=>`${aaHelpSellPendingRequestsHTML()}${aaMyHelpSellListingsHTML()}`,
   trash:()=>aaTrashHTML(),
   rewards:()=>aaProfileRewardsDrawerHTML(),
@@ -13823,31 +13843,42 @@ function aaProfileDestyDrawerHTML(sellerKey){
   analytics:()=>aaProfileAnalyticsDrawerHTML()
  };
  const body=(bodies[key]||(()=>""))();
+ if(!body&&!titles[key])return "";
  return `<div class="overlay" onclick="if(event.target===this)aaProfileDrawerClose()"><div class="modal aa-desty-drawer-modal"><button class="close" onclick="aaProfileDrawerClose()">×</button><h2 style="margin:0 0 10px">${esc(titles[key]||"")}</h2>${body}</div></div>`;
 }
-function aaProfileDestyTabContentHTML(s,cars,sellerKey,rs,avg,reviewList){
+function aaProfileDestyTopicsTabHTML(own,sellerKey){
+ if(own)return aaMyTopicsHTML()||`<div class="notice">No Bingo Wall posts yet. Tap + to write one.</div>`;
+ const mine=aaTopics().filter(t=>!t.hiddenFromPublic&&String(t.authorId||"")===sellerKey);
+ if(!mine.length)return `<div class="notice">This member has not posted on the Bingo Wall yet.</div>`;
+ return mine.map(t=>aaTopicPostCardHTML(t)).join("");
+}
+function aaProfileDestyTabContentHTML(own,s,cars,sellerKey,rs,avg,reviewList){
  const tab=aaProfileDestyTab();
- if(tab==="property")return aaOwnerPropertySectionHTML(sellerKey,s.name,true);
- if(tab==="food")return aaOwnerFoodSectionHTML(sellerKey,s.name,true);
- if(tab==="reviews")return `<div class="boost-summary"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div></div><div class="boost-summary" style="margin-top:10px"><b>Reviews</b>${reviewList}${state.isLoggedIn?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><label class="form-label">Your rating (optional)</label><select id="profileRating" class="field"><option value="0">No star rating</option><option value="5">★★★★★ 5</option><option value="4">★★★★☆ 4</option><option value="3">★★★☆☆ 3</option><option value="2">★★☆☆☆ 2</option><option value="1">★☆☆☆☆ 1</option></select><label class="form-label" style="margin-top:8px">Your review (optional)</label><textarea id="profileReview" class="field" rows="3" placeholder="Owner comments are allowed but do not count toward your profile rating."></textarea><button class="btn btn-red" style="width:100%;margin-top:8px" onclick='submitProfileReview(${JSON.stringify(sellerKey)})'>Submit Review</button></div>`:""}</div>`;
- return `<div class="aa-owner-posts-panel"><div class="aa-owner-posts-head"><h3>My Vehicle Posts</h3><span class="aa-owner-posts-count">${aaOwnActiveListings().length}/15 Active</span></div><div class="aa-owner-posts-note">Your published videos and photos are arranged below. Tap a post to open it, or use × to delete it.</div>${cars.length?`<div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,true)).join("")}</div>`:`<div class="notice">No active vehicle posts.</div>`}</div>`;
+ if(tab==="property")return aaOwnerPropertySectionHTML(sellerKey,s.name,own);
+ if(tab==="food")return aaOwnerFoodSectionHTML(sellerKey,s.name,own);
+ if(tab==="topics")return aaProfileDestyTopicsTabHTML(own,sellerKey);
+ if(tab==="reviews")return `<div class="boost-summary"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div></div><div class="boost-summary" style="margin-top:10px"><b>Reviews</b>${reviewList}${state.isLoggedIn?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><label class="form-label">Your rating (optional)</label><select id="profileRating" class="field"><option value="0">No star rating</option><option value="5">★★★★★ 5</option><option value="4">★★★★☆ 4</option><option value="3">★★★☆☆ 3</option><option value="2">★★☆☆☆ 2</option><option value="1">★☆☆☆☆ 1</option></select><label class="form-label" style="margin-top:8px">Your review (optional)</label><textarea id="profileReview" class="field" rows="3" placeholder="${own?"Owner comments are allowed but do not count toward your profile rating.":"Write a review about this profile..."}"></textarea><button class="btn btn-red" style="width:100%;margin-top:8px" onclick='submitProfileReview(${JSON.stringify(sellerKey)})'>Submit Review</button></div>`:`<div class="notice">Sign up / log in to submit a rating or review.</div>`}</div>`;
+ return `<div class="aa-owner-posts-panel"><div class="aa-owner-posts-head"><h3>${own?"My Vehicle Posts":"Vehicle Posts"}</h3>${own?`<span class="aa-owner-posts-count">${cars.length}/15 Active</span>`:""}</div>${own?`<div class="aa-owner-posts-note">Your published videos and photos are arranged below. Tap a post to open it, or use × to delete it.</div>`:""}${cars.length?`<div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,own)).join("")}</div>`:`<div class="notice">${own?"No active vehicle posts.":"No listings yet."}</div>`}</div>`;
 }
 function aaProfileDestyHTML(s,cars,sellerKey){
+ const own=aaIsOwnSeller(s);
  const rs=reviewSummary(sellerKey,s.name), avg=rs.average?rs.average.toFixed(1):"No rating yet";
  const reviewList=rs.reviews.length?rs.reviews.map(r=>{
   const ownerEntry=aaReviewIsOwnerEntry(r,sellerKey,s.name);
-  return `<div class="aa-review"><div><span class="aa-rating-stars">${starsHTML(r.rating)}</span>${r.rating?` <span style="font-size:9px;color:#7f8ba0">${r.rating}/5</span>`:""}${ownerEntry?` <span class="meta">(owner comment — not counted)</span>`:""}</div>${r.text?`<div style="font-size:11px;line-height:1.5;margin-top:4px">${esc(r.text)}</div>`:""}<div style="font-size:9px;color:#7f8ba0;margin-top:4px">${esc(r.author||"Bingo Member")}</div>${r.reply?`<div class="notice" style="margin-top:8px"><b>${esc(r.replyAuthor||s.name)} replied:</b><br>${esc(r.reply)}</div>`:""}${!ownerEntry?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><textarea id="reviewReply_${esc(String(r.id))}" class="field" rows="2" placeholder="Reply to this review..."></textarea><button class="btn" style="width:100%;margin-top:6px" onclick='replyToProfileReview(${JSON.stringify(String(r.id))})'>Reply</button></div>`:""}</div>`;
- }).join(""):`<div class="notice">No reviews yet.</div>`;
- const totalPosts=aaOwnActiveListings().length+(typeof aaProperties==="function"?aaProperties().filter(p=>String(p.user_id||"")===sellerKey).length:0)+(typeof aaFoods==="function"?aaFoods().filter(f=>String(f.user_id||"")===sellerKey).length:0);
+  const canReply=own&&!ownerEntry;
+  return `<div class="aa-review"><div><span class="aa-rating-stars">${starsHTML(r.rating)}</span>${r.rating?` <span style="font-size:9px;color:#7f8ba0">${r.rating}/5</span>`:""}${ownerEntry?` <span class="meta">(owner comment — not counted)</span>`:""}</div>${r.text?`<div style="font-size:11px;line-height:1.5;margin-top:4px">${esc(r.text)}</div>`:""}<div style="font-size:9px;color:#7f8ba0;margin-top:4px">${esc(r.author||"Bingo Member")}</div>${r.reply?`<div class="notice" style="margin-top:8px"><b>${esc(r.replyAuthor||s.name)} replied:</b><br>${esc(r.reply)}</div>`:""}${canReply?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><textarea id="reviewReply_${esc(String(r.id))}" class="field" rows="2" placeholder="Reply to this review..."></textarea><button class="btn" style="width:100%;margin-top:6px" onclick='replyToProfileReview(${JSON.stringify(String(r.id))})'>Reply</button></div>`:""}</div>`;
+ }).join(""):`<div class="notice">No reviews yet.${own?"":" Be the first logged-in member to review this profile."}</div>`;
+ const totalPosts=cars.length+(typeof aaProperties==="function"?aaProperties().filter(p=>String(p.user_id||p.sellerId||p.userId||"")===sellerKey).length:0)+(typeof aaFoods==="function"?aaFoods().filter(f=>String(f.user_id||"")===sellerKey).length:0);
  const st=aaFollowStats(sellerKey);
  const tab=aaProfileDestyTab();
- const TABS=[{key:"vehicles",icon:"▦",label:"Vehicles"},{key:"property",icon:"🏠",label:"Property"},{key:"food",icon:"🍽",label:"Food"},{key:"reviews",icon:"★",label:"Reviews"}];
+ const TABS=[{key:"vehicles",icon:"▦",label:"Vehicles"},{key:"property",icon:"🏠",label:"Property"},{key:"food",icon:"🍽",label:"Food"},{key:"topics",icon:"💬",label:"Topics"},{key:"reviews",icon:"★",label:"Reviews"}];
+ const following=own?false:aaIsFollowingSeller(sellerKey);
  return `<section class="aa-desty-profile" style="padding:0 0 105px">
   <div class="aa-desty-topbar">
    <button class="btn btn-glass" onclick="goBack()">← Back</button>
-   <h1>${esc(s.name||"My Profile")}</h1>
+   <h1>${esc(s.name||"Bingo Profile")}</h1>
    <div class="aa-desty-topicons">
-    <button type="button" onclick="aaProfileDrawerOpen('analytics')" aria-label="Analytics" title="Analytics">📊</button>
+    ${own?`<button type="button" onclick="aaProfileDrawerOpen('analytics')" aria-label="Analytics" title="Analytics">📊</button>`:""}
     <button type="button" onclick="aaProfileDrawerOpen('friends')" aria-label="Friends" title="Friends">👥</button>
    </div>
   </div>
@@ -13855,12 +13886,12 @@ function aaProfileDestyHTML(s,cars,sellerKey){
    <div class="aa-desty-avatar-wrap">
     <div class="aa-desty-avatar-ring"></div>
     <img class="aa-desty-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)">
-    <button type="button" class="aa-desty-mic-badge" onclick="if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio();" aria-label="Record Video" title="Record Video">🎙</button>
+    ${own?`<button type="button" class="aa-desty-mic-badge" onclick="if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio();" aria-label="Record Video" title="Record Video">🎙</button>`:`<span class="aa-desty-mic-badge aa-desty-mic-badge-status">${aaPresenceBadge(s)}</span>`}
    </div>
    <div class="aa-desty-id">
     <h2>${esc(s.name)}</h2>
     ${s.location?`<div class="aa-desty-meta">📍 ${esc(s.location)}</div>`:""}
-    <div class="aa-desty-meta">@${esc(state.user?.username||"member")}</div>
+    ${own?`<div class="aa-desty-meta">@${esc(state.user?.username||"member")}</div>`:""}
     ${aaMemberSinceHTML(s)}
    </div>
   </div>
@@ -13870,38 +13901,42 @@ function aaProfileDestyHTML(s,cars,sellerKey){
    <span><b>${aaCompact(st.following)}</b> Following</span>
   </div>
   <div class="aa-desty-actions">
-   <button type="button" class="aa-desty-action aa-desty-action-green" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">✎ Edit Profile</button>
-   <button type="button" class="aa-desty-action aa-desty-action-gold" onclick="aaProfileDrawerOpen('promote')">📣 Promote</button>
-   <button type="button" class="aa-desty-action aa-desty-action-gold" onclick="aaProfileDrawerOpen('analytics')">📊 Analytics</button>
+   ${own?`
+   <button type="button" class="bingo-neon-action bingo-neon-action-green aa-desty-action" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">✎ Edit Profile</button>
+   <button type="button" class="bingo-neon-action bingo-neon-action-gold aa-desty-action" onclick="aaProfileDrawerOpen('promote')">📣 Promote</button>
+   <button type="button" class="bingo-neon-action bingo-neon-action-cyan aa-desty-action" onclick="aaProfileDrawerOpen('analytics')">📊 Analytics</button>
+   `:`
+   <button type="button" class="bingo-neon-action ${following?"bingo-neon-action-gold":"bingo-neon-action-green"} aa-desty-action" onclick="aaToggleFollowSeller(${JSON.stringify(sellerKey)},${JSON.stringify((s.name||"this member").replace(/'/g,"\\'"))})">${following?"✓ Following":"+ Follow"}</button>
+   <button type="button" class="bingo-neon-action bingo-neon-action-purple aa-desty-action" onclick='contact("chat",${JSON.stringify(s)})'>💬 Message</button>
+   <button type="button" class="bingo-neon-action bingo-neon-action-gold aa-desty-action" onclick="state.shareTarget={id:${JSON.stringify(sellerKey)},title:${JSON.stringify(s.name||"Bingo profile")}};render()">↗ Share</button>
+   `}
   </div>
-  ${aaIsAgentRole()||typeof aaCanUseAgentDashboard==="function"&&aaCanUseAgentDashboard()?`<div class="aa-desty-agentbar">${aaAgentProfilePanelHTML()}</div>`:""}
-  ${aaProfileDestyBadgesHTML()}
+  ${own&&(aaIsAgentRole()||typeof aaCanUseAgentDashboard==="function"&&aaCanUseAgentDashboard())?`<div class="aa-desty-agentbar">${aaAgentProfilePanelHTML()}</div>`:""}
+  ${aaProfileDestyBadgesHTML(own,sellerKey,s.name)}
   <div class="aa-desty-tabs">${TABS.map(t=>`<button type="button" class="aa-desty-tab${tab===t.key?" is-active":""}" onclick="aaProfileDestySetTab('${t.key}')" aria-label="${esc(t.label)}" title="${esc(t.label)}">${t.icon}</button>`).join("")}</div>
-  <div class="aa-desty-tabcontent">${aaProfileDestyTabContentHTML(s,cars,sellerKey,rs,avg,reviewList)}</div>
-  <div class="aa-desty-postcta">
+  <div class="aa-desty-tabcontent">${aaProfileDestyTabContentHTML(own,s,cars,sellerKey,rs,avg,reviewList)}</div>
+  ${own?`<div class="aa-desty-postcta">
    <button type="button" class="aa-desty-cube" onclick="aaTogglePostToday()" aria-label="Create a post">+</button>
    <div class="aa-desty-postprompt">${state.postTodayOpen?"Choose what to post":"Share your next post"}</div>
    ${state.postTodayOpen?`<div class="aa-post-today-menu" style="position:static;margin-top:8px">${AA_POST_TODAY_OPTIONS.map(o=>`<button type="button" onclick="aaPostTodayRoute('${o.key}')">${esc(o.label)}</button>`).join("")}</div>`:""}
    ${state.postTodayTopicOpen?aaBingoTopicComposerHTML():""}
-  </div>
+  </div>`:""}
   ${aaProfileDestyDrawerHTML(sellerKey)}
   <nav class="aa-desty-bottomnav">
    <button type="button" onclick="goHome()" aria-label="Home">🏠</button>
    <button type="button" onclick="state.view='search';render();window.scrollTo(0,0)" aria-label="Search">🔍</button>
    <button type="button" class="aa-desty-bottomnav-post" onclick="aaTogglePostToday()" aria-label="Post">+</button>
-   <button type="button" onclick="goHome()" aria-label="Marketplace">🛒</button>
-   <button type="button" class="is-active" onclick="goAccount()" aria-label="Profile"><img src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="" onerror="aaProfileImgFallback(this)"></button>
+   <button type="button" onclick="aaOpenMarket()" aria-label="Marketplace">🛒</button>
+   <button type="button" class="${own?"is-active":""}" onclick="goAccount()" aria-label="My Profile"><img src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" alt="" onerror="aaProfileImgFallback(this)"></button>
   </nav>
  </section>`;
 }
-
 function sellerHTML(s,cars){
  const sellerKey=String(s?.sellerId||s?.userId||s?.id||"");
  const own=aaIsOwnSeller(s);
  if(own&&state.agentAddBusinessOpen)return `<section style="padding:20px 0 105px"><div class="modal" style="max-height:none">${aaAgentAddBusinessHTML()}</div></section>`;
  if(own&&state.agentModeActive)return aaAgentDashboardHTML();
- if(own)return aaProfileDestyHTML(s,cars,sellerKey);
- const rs=reviewSummary(sellerKey,s.name), avg=rs.average?rs.average.toFixed(1):"No rating yet";
+ return aaProfileDestyHTML(s,cars,sellerKey);
  const reviewList=rs.reviews.length?rs.reviews.map(r=>{
   const ownerEntry=aaReviewIsOwnerEntry(r,sellerKey,s.name);
   const canReply=own&&!ownerEntry;
@@ -15165,7 +15200,7 @@ async function aaLoadUserRole(){
     background and re-render only if either actually added something. */
  Promise.all([aaDeliverRoleNotifications(),aaDeliverModerationNotifications()])
   .then(([a,b])=>{if(a||b)render();})
-  .catch(()=>{});
+  .catch(e=>console.warn("Bingo: background notification delivery failed.",e));
 }
 async function aaDeliverModerationNotifications(){
  if(!sb||!state.user?.id)return;
