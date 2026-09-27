@@ -12065,11 +12065,17 @@ function aaNewFoodMenuItemId(){
  return `fooditem-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 function aaMapFoodMenuItemRow(row){
+ /* Live public.food_menu_items has no user_id column - ownership is
+    business_id -> food_businesses.owner_id (already mapped onto biz.user_id
+    by aaMapFoodBusinessRow). The real columns are item_name/price/
+    is_available, not name/price_kes/available - mapped here onto the same
+    internal field names the rest of the app already reads/writes, so
+    aaFoodMenuItemCardHTML, the basket, order flow etc. need no changes. */
  return {
-  id:row.id,business_id:String(row.business_id||''),user_id:String(row.user_id||''),
-  name:row.name||'',description:row.description||'',price_kes:Number(row.price_kes||0),
+  id:row.id,business_id:String(row.business_id||''),
+  name:row.item_name||'',description:row.description||'',price_kes:Number(row.price||0),
   preparation_type:row.preparation_type==='made_to_order'?'made_to_order':'ready_made',
-  available:row.available!==false,media:Array.isArray(row.media)?row.media:[],
+  available:row.is_available!==false,media:Array.isArray(row.media)?row.media:[],
   status:row.status==='published'?'published':'draft',
   category:row.category||'',delivery_option:row.delivery_option||'',
   dietary_tags:Array.isArray(row.dietary_tags)?row.dietary_tags:[],
@@ -12090,7 +12096,14 @@ async function aaLoadFoodMenuItems(businessId){
  if(!sb||aaFoodMenuItemsLoading[businessId])return;
  aaFoodMenuItemsLoading[businessId]=true;
  try{
-  const own=state.user?.id?await sb.from('food_menu_items').select('*').eq('business_id',businessId).eq('user_id',state.user.id):{data:[],error:null};
+  /* No user_id column exists on food_menu_items - ownership is
+     business_id -> food_businesses.owner_id, enforced live by RLS.
+     "own" here just means "everything for this business_id", which RLS
+     will naturally restrict to what this session is allowed to see
+     (drafts included, for the owner; published-only otherwise) - the
+     separate "pub" query below still runs so a non-owner reliably sees
+     published items even if RLS on the "own" attempt returns nothing. */
+  const own=state.user?.id?await sb.from('food_menu_items').select('*').eq('business_id',businessId):{data:[],error:null};
   if(own.error)throw own.error;
   const pub=await sb.from('food_menu_items').select('*').eq('business_id',businessId).eq('status','published');
   if(pub.error)throw pub.error;
@@ -12146,8 +12159,11 @@ async function aaUpdateFoodMenuItem(id,payload){
  return await sb.from('food_menu_items').update(payload).eq('id',id).select().single();
 }
 async function aaVerifyFoodMenuItem(id){
+ /* No user_id column on food_menu_items to filter by - the id alone is
+    already unique, and RLS (business_id -> food_businesses.owner_id)
+    is what actually governs whether this row is visible to this user. */
  if(!sb||!id)return {data:null,error:new Error('Cannot verify saved item without database connection.')};
- const result=await sb.from('food_menu_items').select('*').eq('id',id).eq('user_id',state.user.id).single();
+ const result=await sb.from('food_menu_items').select('*').eq('id',id).single();
  if(result.error)return result;
  if(!result.data)return {data:null,error:new Error('The food item was not found after saving.')};
  return result;
@@ -12214,8 +12230,9 @@ async function aaDeleteFoodMenuItemNow(id){
   aaOpenFoodMenu(businessId);
   return {ok:true};
  }
- if(!sb||!state.user?.id||String(item.user_id||'')!==String(state.user.id))return {ok:false,message:'You can only delete your own food items.'};
- const del=await sb.from('food_menu_items').delete().eq('id',id).eq('user_id',state.user.id);
+ const biz=aaFoods().find(x=>String(x.id)===String(businessId));
+ if(!sb||!state.user?.id||!biz||String(biz.user_id||'')!==String(state.user.id))return {ok:false,message:'You can only delete your own food items.'};
+ const del=await sb.from('food_menu_items').delete().eq('id',id);
  if(del.error)return {ok:false,message:'Could not delete food item: '+String(del.error.message||del.error)};
  const list=(state.foodMenuItemsByBusiness||{})[businessId]||[];
  state.foodMenuItemsByBusiness[businessId]=list.filter(x=>String(x.id)!==String(id));
@@ -12704,7 +12721,7 @@ async function aaFoodMenuProtoSave(root,status,opts){
    if(data.photoFile)newMedia.push({type:'image',url:URL.createObjectURL(data.photoFile),name:data.photoFile.name});
    if(data.videoFile)newMedia.push({type:'video',url:URL.createObjectURL(data.videoFile),name:data.videoFile.name});
    if(newMedia.length)media=newMedia;
-   const p={id:itemId,business_id:businessId,user_id:state.user?.id||'',
+   const p={id:itemId,business_id:businessId,
     name:data.name,description:data.description,price_kes:data.price,
     preparation_type:data.preparation_type||existing?.preparation_type||'ready_made',
     available:data.available,media,status,
@@ -12721,31 +12738,53 @@ async function aaFoodMenuProtoSave(root,status,opts){
    return;
   }
   if(!sb||!state.user?.id){toast('You must be logged in to save a food item.');return}
+  /* Live food_menu_items has no user_id column - "can this user edit
+     this item" is decided by business ownership (biz.user_id, already
+     mapped from food_businesses.owner_id), which aaOpenFoodItemForm
+     already checked before this screen could even open. Re-checked here
+     defensively against the business, not the item. */
+  if(String(biz.user_id||'')!==String(state.user.id)){toast('You can only edit your own food items.');return}
   let existingRow=null;
   if(editId){
    existingRow=aaFoodMenuItems(businessId).find(x=>String(x.id)===String(editId));
    if(!existingRow){toast('This food item could not be found.');return}
-   if(String(existingRow.user_id||'')!==String(state.user.id)){toast('You can only edit your own food items.');return}
   }
   const newFiles=[data.photoFile,data.videoFile].filter(Boolean);
   const upload=newFiles.length?await aaUploadFoodMenuItemMedia(newFiles,state.user.id,businessId,itemId,()=>{}):{media:[],paths:[],error:null};
   if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error));return}
   const existingMedia=Array.isArray(existingRow?.media)?existingRow.media:[];
   const media=newFiles.length?upload.media:existingMedia;
-  const basePayload={business_id:businessId,user_id:state.user.id,name:data.name,description:data.description,price_kes:data.price,available:data.available,media,status};
+  /* Real live columns: item_name (required), price, is_available - not
+     name/price_kes/available, and there is no user_id column at all. */
+  const basePayload={business_id:businessId,item_name:data.name,description:data.description,price:data.price,is_available:data.available,media,status};
   if(data.preparation_type)basePayload.preparation_type=data.preparation_type;
-  const AA_FOOD_ITEM_CORE_FIELDS=["business_id","user_id","name","description","price_kes","preparation_type","available","media","status"];
-  let extra={ingredients:data.ingredients,delicacy_tags:data.delicacy_tags,availability_notes:data.availability_notes};
-  let result;
+  const AA_FOOD_ITEM_CORE_FIELDS=["business_id","item_name","description","price","preparation_type","is_available","media","status"];
+  /* delicacy_tags is only "core" (non-droppable) when the owner actually
+     ticked something: Publish already requires at least one tag above,
+     and a Draft that has ticked values must not silently lose them
+     either - if the column is missing live, the whole save is blocked
+     below rather than quietly succeeding without the tags the owner
+     asked to save. An empty selection has nothing to lose, so it is
+     still allowed to degrade like ingredients/availability_notes. */
+  const delicacyRequired=data.delicacy_tags.length>0;
+  let extra={ingredients:data.ingredients,availability_notes:data.availability_notes};
+  if(delicacyRequired)basePayload.delicacy_tags=data.delicacy_tags;else extra.delicacy_tags=data.delicacy_tags;
+  let result,blockedField=null;
+  const droppedFields=[];
   for(let attempt=0;attempt<5;attempt++){
    const finalPayload={...basePayload,...extra};
    result=editId?await aaUpdateFoodMenuItem(editId,finalPayload):await aaInsertFoodMenuItem({id:itemId,...finalPayload});
    if(!result.error)break;
    const missing=aaMissingPropertyColumn(result.error);
+   if(missing==='delicacy_tags'&&delicacyRequired){blockedField='delicacy_tags';break}
    if(missing&&!AA_FOOD_ITEM_CORE_FIELDS.includes(missing)&&Object.prototype.hasOwnProperty.call(extra,missing)){
-    const rest={...extra};delete rest[missing];extra=rest;continue;
+    const rest={...extra};delete rest[missing];extra=rest;droppedFields.push(missing);continue;
    }
    break;
+  }
+  if(blockedField==='delicacy_tags'){
+   toast('Delicacy / Origin could not be saved - the required database column has not been added yet. Ask your developer to apply the pending migration, then try again. Nothing was saved.');
+   return;
   }
   if(result.error){
    if(upload.paths&&upload.paths.length)await aaDeleteUploadedFoodMedia(upload.paths);
@@ -12764,7 +12803,11 @@ async function aaFoodMenuProtoSave(root,status,opts){
    const oldPaths=existingMedia.map(m=>m.storagePath).filter(Boolean);
    if(oldPaths.length)await aaDeleteUploadedFoodMedia(oldPaths);
   }
-  toast(status==='draft'?'Food item saved as a draft.':'Food item published.');
+  /* Never silently report full success while a field the owner actually
+     entered could not be saved - name the exact field(s) dropped. */
+  const droppedWithValues=droppedFields.filter(f=>f==='ingredients'?!!data.ingredients:(Array.isArray(data.availability_notes)&&data.availability_notes.length));
+  const base=status==='draft'?'Food item saved as a draft.':'Food item published.';
+  toast(droppedWithValues.length?`${base} Note: ${droppedWithValues.join(', ')} could not be saved yet (pending database migration).`:base);
   aaFoodMenuProtoInstance=null;
   if(opts.addAnother)aaOpenFoodItemForm(businessId);else aaOpenFoodMenu(businessId);
  }finally{
@@ -13038,7 +13081,7 @@ function aaFoodItemDetailHTML(){
  if(!it)return `<div class="aa-v69-card"><p>This food item could not be found.</p><button class="btn" onclick="aaOpenFoodMenu('${esc(businessId)}')">View Restaurant Menu</button></div>`;
  const biz=aaFoods().find(x=>String(x.id)===String(businessId));
  const media=it.media?.[0];
- const own=String(it.user_id||'')===String(state.user?.id||'');
+ const own=String(biz?.user_id||'')===String(state.user?.id||'');
  return `<div class="aa-v69-card">
   <button class="btn" onclick="aaOpenFoodMenu('${esc(businessId)}')">← View Restaurant Menu</button>
   <div class="aa-food-item-media-preview" style="margin-top:12px;cursor:pointer" onclick="aaOpenFoodMediaViewer('${esc(businessId)}',0,'${esc(it.id)}')">
