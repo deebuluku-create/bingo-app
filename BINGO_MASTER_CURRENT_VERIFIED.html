@@ -1036,7 +1036,8 @@ Production mother file does not force production.
 /* Comment photo/video attachment - neon camera control, selection
    preview, and the rendered media on a posted comment (natural aspect
    ratio, never cropped). */
-#auto-arcade-widget .aa-comment-camera-btn{width:38px;height:38px;border-radius:50%!important;padding:0!important;display:flex;align-items:center;justify-content:center;font-size:17px;flex:0 0 auto}
+#auto-arcade-widget .aa-comment-camera-btn{width:30px;height:30px;min-width:0!important;min-height:0!important;border-radius:50%!important;padding:0!important;display:flex;align-items:center;justify-content:center;font-size:14px;flex:0 0 auto;background:linear-gradient(160deg,#0d1b32,#081120)!important;border:1px solid rgba(34,201,255,.5)!important;color:#dbe4f2!important;box-shadow:0 0 4px rgba(34,201,255,.2)!important}
+#auto-arcade-widget .aa-comment-camera-btn::after{content:none!important}
 #auto-arcade-widget .aa-comment-media-preview{display:flex;align-items:center;gap:8px;margin-top:6px;padding:6px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.03)}
 #auto-arcade-widget .aa-comment-media-preview img,#auto-arcade-widget .aa-comment-media-preview video{width:44px;height:44px;border-radius:8px;object-fit:cover;display:block;flex:0 0 auto}
 #auto-arcade-widget .aa-comment-media-preview .aa-comment-media-remove{margin-left:auto;padding:4px 12px!important}
@@ -3606,8 +3607,7 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
    portrait clips render tiny) plus a dark backdrop for its letterboxed
    bars rather than stretching or cropping to fill the box. */
 #auto-arcade-widget .aa-post-media video{width:100%;height:340px;object-fit:contain;background:#000;display:block}
-#auto-arcade-widget .aa-post-edit-btn{position:relative!important;margin-top:8px;padding:0 8px!important;font-size:10px!important;height:28px!important;min-height:28px!important}
-#auto-arcade-widget .aa-post-edit-btn::before{content:"";position:absolute!important;top:50%;left:0;transform:translateY(-50%);width:100%;height:44px;background:none!important}
+#auto-arcade-widget .aa-post-edit-btn{margin-top:8px}
 #auto-arcade-widget .aa-post-edited-tag{display:inline-block;margin-top:6px;margin-left:8px;font-size:10px;color:#7c8aa0;font-style:italic}
 #auto-arcade-widget .aa-post-media-counter{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:99px;z-index:2}
 /* One unified property/listing gallery - a single active photo or video
@@ -3649,31 +3649,19 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 /* Compact selectable "tabs", not filled buttons: dark/near-transparent
    background, wording in the reaction's own colour, a thin coloured
    underline for identity - kept visually secondary to the topic above. */
+/* .aa-reaction-btn now only supplies the reaction's own colour
+   (bridged into --tab-light/--tab-rgb, the variables the shared
+   .bingo-neon-micro recipe reads) plus typography/layout - shape,
+   background, border and glow all come from .bingo-neon-micro
+   (added alongside this class in aaSmartReactionsBarHTML), the same
+   flat compact pill every other secondary Wall control uses, instead
+   of this bar's previous one-off underlined-tab look. */
 #auto-arcade-widget .aa-reaction-btn{
   --rx1:255,47,176; --rx2:180,0,255;
-  position:relative!important;
-  border:none!important;
-  border-bottom:2px solid rgba(var(--rx1),.55)!important;
-  border-radius:5px 5px 2px 2px!important;
-  padding:0 8px!important;
-  height:23px;
-  min-height:23px;
+  --tab-rgb:var(--rx1);--tab-light:rgb(var(--rx1));
   cursor:pointer;
   color:rgb(var(--rx1))!important;
-  display:inline-flex;
-  align-items:center;
   gap:4px;
-  white-space:nowrap;
-  background:rgba(var(--rx1),.09)!important;
-  box-shadow:none!important;
-  transition:background .15s ease, border-color .15s ease, transform .12s ease;
-}
-/* Chip is visually 22-26px tall (compact, inline), but keeps a 44x44
-   invisible hit-slop centred on it so the touch target stays accessible. */
-#auto-arcade-widget .aa-reaction-btn::before{
-  content:"";position:absolute!important;top:50%;left:50%;
-  transform:translate(-50%,-50%);
-  width:44px;height:44px;background:none!important;
 }
 #auto-arcade-widget .aa-reaction-face{font-size:11px;line-height:1}
 #auto-arcade-widget .aa-reaction-label{font-size:11px;font-weight:700;color:inherit}
@@ -3686,22 +3674,20 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 @media(hover:hover){
   #auto-arcade-widget .aa-reaction-btn:hover{
     background:rgba(var(--rx1),.17)!important;
-    border-bottom-color:rgba(var(--rx1),.85)!important;
+    border-color:rgba(var(--rx1),.85)!important;
   }
 }
-#auto-arcade-widget .aa-reaction-btn:active{transform:translateY(1px)!important}
 #auto-arcade-widget .aa-reaction-btn:focus-visible{outline:2px solid rgb(var(--rx1))!important;outline-offset:2px}
 #auto-arcade-widget .aa-reaction-btn:disabled,
 #auto-arcade-widget .aa-reaction-btn[aria-disabled="true"]{opacity:.5!important;cursor:not-allowed}
 #auto-arcade-widget .aa-reaction-btn.is-selected{
   /* Selected + disabled (a reaction already sent) must still read as
      "selected", not as a greyed-out unavailable control - cancel the
-     generic :disabled dimming explicitly. Selection is shown by a bolder
-     label and a solid underline, not colour alone. */
+     generic :disabled dimming explicitly. Selection is shown by the
+     shared .bingo-neon-micro.is-checked flat colour fill (added
+     alongside this class), not by weight/underline alone. */
   opacity:1!important;
   cursor:default!important;
-  background:rgba(var(--rx1),.22)!important;
-  border-bottom:3px solid rgb(var(--rx1))!important;
   animation:aaReactionPop .28s ease;
 }
 #auto-arcade-widget .aa-reaction-btn.is-selected .aa-reaction-label{font-weight:900}
@@ -13830,7 +13816,7 @@ function aaFollowTopControlHTML(s){
  const own=String(state.user?.id||"")===id;
  if(own)return "";
  const following=aaIsFollowingSeller(id);
- return `<div class="aa-follow-top"><span role="button" tabindex="0" class="aa-follow-top-control ${following?"following":""}" onclick='event.preventDefault();event.stopPropagation();aaToggleFollowSeller(${JSON.stringify(id)},${JSON.stringify(String(s?.name||s?.sellerName||"this member"))})' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();event.stopPropagation();aaToggleFollowSeller(${JSON.stringify(id)},${JSON.stringify(String(s?.name||s?.sellerName||"this member"))})}'>${following?"FOLLOWING":"+ FOLLOW"}</span></div>`;
+ return `<div class="aa-follow-top"><span role="button" tabindex="0" class="bingo-neon-micro bingo-neon-micro-green${following?" is-active":""}" onclick='event.preventDefault();event.stopPropagation();aaToggleFollowSeller(${JSON.stringify(id)},${JSON.stringify(String(s?.name||s?.sellerName||"this member"))})' onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();event.stopPropagation();aaToggleFollowSeller(${JSON.stringify(id)},${JSON.stringify(String(s?.name||s?.sellerName||"this member"))})}'>${following?"FOLLOWING":"+ FOLLOW"}</span></div>`;
 }
 function aaFollowButtonHTML(s){
  return aaFollowTopControlHTML(s);
@@ -14289,7 +14275,7 @@ function aaSmartReactionsBarHTML(t){
  return `<div class="aa-neon-reactions" role="group" aria-label="React to this post">${AA_SMART_REACTION_TYPES.map(r=>{
   const count=aaSmartReactionCount(t,r.key);
   const active=aaHasMySmartReaction(t,r.key);
-  return `<button type="button" class="aa-reaction-btn aa-reaction-${r.key}${active?" is-selected":""}" ${active?"disabled":""} aria-pressed="${active?"true":"false"}" aria-label="${esc(r.label)} — ${count} reaction${count===1?"":"s"}${active?", already sent":""}" onclick='aaPressSmartReaction(${JSON.stringify(String(t.id))},${JSON.stringify(r.key)},${JSON.stringify(r.label)})'>
+  return `<button type="button" class="bingo-neon-micro aa-reaction-btn aa-reaction-${r.key}${active?" is-selected is-checked":""}" ${active?"disabled":""} aria-pressed="${active?"true":"false"}" aria-label="${esc(r.label)} — ${count} reaction${count===1?"":"s"}${active?", already sent":""}" onclick='aaPressSmartReaction(${JSON.stringify(String(t.id))},${JSON.stringify(r.key)},${JSON.stringify(r.label)})'>
    <span class="aa-reaction-face" aria-hidden="true">${r.emoji}</span><span class="aa-reaction-label">${esc(r.label)}</span><span class="aa-reaction-count">${count}</span>
   </button>`;
  }).join("")}</div>`;
@@ -14731,7 +14717,7 @@ function aaWallComposerCollapsedBarHTML(){
   <img class="aa-composer-bar-avatar" src="${bingoSafeMediaAttr(myPhoto)}" alt="" onerror="aaProfileImgFallback(this)">
   <button type="button" class="aa-composer-bar-input" onclick="aaFocusWallComposer()">Post your view today…</button>
   <button type="button" class="aa-composer-bar-icon" aria-label="Add photo or video" title="Add photo or video" onclick="aaFocusWallComposer(true)">📷</button>
-  <button type="button" class="btn btn-publish aa-composer-bar-post" onclick="aaFocusWallComposer()">POST</button>
+  <button type="button" class="bingo-neon-action bingo-neon-action-pink" onclick="aaFocusWallComposer()">POST</button>
  </div>`;
 }
 function aaFocusWallComposer(openMediaPicker){
@@ -14879,8 +14865,8 @@ function aaBingoTopicComposerHTML(){
   ${aaWriteWithStylePanelHTML()}
   ${mediaSectionHTML}
   <div class="details-actions" style="margin-top:8px">
-   <button class="btn btn-glass" type="button" onclick="aaCancelWallComposer()" ${busy?"disabled":""}>Cancel</button>
-   <button class="btn btn-publish" type="button" onclick="${saveAction}" ${busy?"disabled":""} aria-busy="${busy?"true":"false"}">${esc(saveLabel)}</button>
+   <button class="bingo-neon-action bingo-neon-action-glass" type="button" onclick="aaCancelWallComposer()" ${busy?"disabled":""}>Cancel</button>
+   <button class="bingo-neon-action bingo-neon-action-pink" type="button" onclick="${saveAction}" ${busy?"disabled":""} aria-busy="${busy?"true":"false"}">${esc(saveLabel)}</button>
   </div>
  </div>${state.impactAwardsPopupOpen?aaImpactAwardsPopupHTML():""}${state.impactAwardsRulesOpen?aaImpactAwardsRulesHTML():""}`;
 }
@@ -17310,7 +17296,7 @@ function aaTopicPostCardHTML(t){
  const wasEdited=t.updatedAt&&t.createdAt&&new Date(t.updatedAt).getTime()>new Date(t.createdAt).getTime()+1000;
  const mediaClickAttr=(mediaSrc&&!isVideo)?` onclick='aaOpenPhotoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})' style="cursor:zoom-in"`:'';
  return `<div class="aa-post-card" id="topic-card-${esc(t.id)}" style="margin-top:12px">
- <div class="aa-post-content">${t.title?`<div class="aa-post-title ${t.titleFmt?"":bingoStyledTextClass(t.style)}" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):"font-size:20px;font-weight:900;color:#f5b91e;text-shadow:0 0 10px rgba(245,185,30,.45)"}">${esc(t.title)}</div>`:""}${t.body?`<div class="aa-post-message ${t.bodyFmt?"":bingoStyledTextClass(t.style)}" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):"font-size:14.5px;color:#dfe6f0;line-height:1.5"}${t.title?"margin-top:8px":""}">${esc(t.body)}</div>`:""}${canEditTopic?`<button type="button" class="btn btn-glass aa-post-edit-btn" onclick='aaOpenEditTopic(${JSON.stringify(String(t.id))})'>✎ Edit Post</button>`:""}${wasEdited?`<span class="aa-post-edited-tag" title="${esc(new Date(t.updatedAt).toLocaleString("en-KE"))}">Edited</span>`:""}</div>
+ <div class="aa-post-content">${t.title?`<div class="aa-post-title ${t.titleFmt?"":bingoStyledTextClass(t.style)}" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):"font-size:20px;font-weight:900;color:#f5b91e;text-shadow:0 0 10px rgba(245,185,30,.45)"}">${esc(t.title)}</div>`:""}${t.body?`<div class="aa-post-message ${t.bodyFmt?"":bingoStyledTextClass(t.style)}" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):"font-size:14.5px;color:#dfe6f0;line-height:1.5"}${t.title?"margin-top:8px":""}">${esc(t.body)}</div>`:""}${canEditTopic?`<button type="button" class="bingo-neon-micro bingo-neon-micro-glass aa-post-edit-btn" onclick='aaOpenEditTopic(${JSON.stringify(String(t.id))})'>✎ Edit Post</button>`:""}${wasEdited?`<span class="aa-post-edited-tag" title="${esc(new Date(t.updatedAt).toLocaleString("en-KE"))}">Edited</span>`:""}</div>
  ${mediaSrc?`<div class="aa-post-media">${isVideo?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'><video src="${bingoSafeMediaAttr(mediaSrc)}" muted playsinline preload="metadata"></video><button type="button" class="aa-video-play-overlay" aria-label="Play video" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'>▶</button></div>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}"${mediaClickAttr}>`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
  <div class="aa-post-head" style="margin-top:12px">
   <img class="aa-post-avatar ${aaDecorationClassFor(t.authorId)}" src="${bingoSafeMediaAttr(aaProfilePhoto(author.photo))}" alt="" onerror="aaProfileImgFallback(this)" onclick='openSeller(${JSON.stringify(String(t.authorId||""))})' style="cursor:pointer">
@@ -17324,16 +17310,16 @@ function aaTopicPostCardHTML(t){
   <img src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" style="width:28px;height:28px;border-radius:50%;object-fit:cover" onerror="aaProfileImgFallback(this)">
   <input class="field" id="topicComment_${esc(t.id)}" placeholder="Write a comment..." style="flex:1" value="${esc(aaCommentDraftText[t.id]||"")}" oninput='aaCommentDraftInput(${JSON.stringify(String(t.id))},this.value)'>
   <input type="file" id="topicCommentMedia_${esc(t.id)}" accept="image/*,video/*" style="display:none" onchange='aaHandleCommentMediaChange(${JSON.stringify(String(t.id))})'>
-  <button type="button" class="btn aa-comment-camera-btn" title="Attach a photo or video" aria-label="Attach a photo or video" onclick="document.getElementById('topicCommentMedia_${esc(t.id)}').click()">📷</button>
-  <button class="btn btn-blue" style="border-radius:999px;padding:9px 20px" onclick='aaTopicComment(${JSON.stringify(String(t.id))})'>SEND</button>
+  <button type="button" class="aa-comment-camera-btn" title="Attach a photo or video" aria-label="Attach a photo or video" onclick="document.getElementById('topicCommentMedia_${esc(t.id)}').click()">📷</button>
+  <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaTopicComment(${JSON.stringify(String(t.id))})'>SEND</button>
  </div>
  ${aaCommentMediaPreviewHTML(t.id)}
  ${aaSmartReactionsBarHTML(t)}
  <div class="aa-icon-action-row" role="group" aria-label="Post actions">
-  ${aaIconActionBtn({rgb:"255,58,110",active:loved,label:"Love",activeLabel:"Loved",svg:AA_ICON_ACTION_SVG.heartOutline,activeSvg:AA_ICON_ACTION_SVG.heartFilled,onclick:`aaTopicLove(${JSON.stringify(String(t.id))})`})}
+  ${aaIconActionBtn({rgb:"255,47,176",active:loved,label:"Love",activeLabel:"Loved",svg:AA_ICON_ACTION_SVG.heartOutline,activeSvg:AA_ICON_ACTION_SVG.heartFilled,onclick:`aaTopicLove(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"96,165,250",label:"Comments",shortLabel:comments.length?String(comments.length):"Comments",svg:AA_ICON_ACTION_SVG.comment,onclick:`aaFocusTopicComment(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"34,201,255",label:"Share",svg:AA_ICON_ACTION_SVG.share,onclick:`aaTopicShare(${JSON.stringify(String(t.id))})`})}
-  ${aaIconActionBtn({rgb:"245,185,30",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
+  ${aaIconActionBtn({rgb:"243,190,43",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"171,71,255",label:"Report",svg:AA_ICON_ACTION_SVG.flag,onclick:`aaTopicReport(${JSON.stringify(String(t.id))})`})}
  </div>
  <div class="aa-top-comments-hd"><span>Top Comments</span>${comments.length>3?`<a onclick='aaOpenExactTopic(${JSON.stringify(String(t.id))})'>View all comments (${comments.length}) ›</a>`:""}</div>
@@ -17353,9 +17339,9 @@ function aaTopicPostCardHTML(t){
     ${commentMediaHTML}
     <div class="aa-comment-meta">
      <span>${c.createdAt?esc(new Date(c.createdAt).toLocaleString("en-KE",{hour:"2-digit",minute:"2-digit"})):""}</span>
-     <button type="button" onclick='aaTopicCommentLike(${JSON.stringify(String(t.id))},${JSON.stringify(String(c.id))})'>Like${c.likes?" ("+c.likes+")":""}</button>
-     <button type="button" onclick='aaTopicReplyTo(${JSON.stringify(String(t.id))},${JSON.stringify(String(c.authorName||""))})'>Reply</button>
-     ${canDeleteComment?`<button type="button" onclick='aaDeleteTopicComment(${JSON.stringify(String(t.id))},${JSON.stringify(String(c.id))})'>Delete</button>`:""}
+     <button type="button" class="bingo-neon-micro bingo-neon-micro-pink" onclick='aaTopicCommentLike(${JSON.stringify(String(t.id))},${JSON.stringify(String(c.id))})'>Like${c.likes?" ("+c.likes+")":""}</button>
+     <button type="button" class="bingo-neon-micro bingo-neon-micro-cyan" onclick='aaTopicReplyTo(${JSON.stringify(String(t.id))},${JSON.stringify(String(c.authorName||""))})'>Reply</button>
+     ${canDeleteComment?`<button type="button" class="bingo-neon-micro bingo-neon-micro-red" onclick='aaDeleteTopicComment(${JSON.stringify(String(t.id))},${JSON.stringify(String(c.id))})'>Delete</button>`:""}
     </div>
    </div>
   </div>`;
@@ -24808,6 +24794,7 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .bingo-neon-action-green{--tab-light:#1fd67a;--tab-rgb:31,214,122}
 #auto-arcade-widget .bingo-neon-action-red{--tab-light:var(--bingo-red,#ef1f2f);--tab-rgb:239,31,47}
 #auto-arcade-widget .bingo-neon-action-purple{--tab-light:#ab47ff;--tab-rgb:171,71,255}
+#auto-arcade-widget .bingo-neon-action-glass{--tab-light:#78aaff;--tab-rgb:120,170,255}
 
 #auto-arcade-widget .bingo-neon-micro{
  position:relative!important;isolation:isolate;
@@ -24834,6 +24821,7 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .bingo-neon-micro-green{--tab-light:#1fd67a;--tab-rgb:31,214,122}
 #auto-arcade-widget .bingo-neon-micro-red{--tab-light:var(--bingo-red,#ef1f2f);--tab-rgb:239,31,47}
 #auto-arcade-widget .bingo-neon-micro-purple{--tab-light:#ab47ff;--tab-rgb:171,71,255}
+#auto-arcade-widget .bingo-neon-micro-glass{--tab-light:#78aaff;--tab-rgb:120,170,255}
 @media(max-width:430px){
  #auto-arcade-widget .bingo-neon-action{font-size:10.5px!important;padding:0 10px!important}
 }
