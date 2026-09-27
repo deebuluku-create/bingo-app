@@ -42,13 +42,17 @@
 -- error (aaMissingPropertyColumn, the same pattern used for category/
 -- delivery_option/dietary_tags and for property_listings before that)
 -- and retries the same save with just the missing field(s) stripped, so
--- name/description/price_kes/preparation_type/available/media/status
--- keep saving normally today and nothing already saved by the previous
--- editor is overwritten or lost — the user's ingredients/Delicacy-Origin/
--- Pre-order-Delivery-Pickup selections simply stay visible in the form
--- and are retried on every save, and start persisting automatically the
--- moment this migration is applied, with no frontend code change needed
--- then.
+-- item_name/description/price/preparation_type/is_available/media/status
+-- (the real live column names - confirmed after this file was first
+-- drafted, when the save/load code was also found to be using the wrong
+-- names entirely; see the commit fixing that) keep saving normally
+-- today and nothing already saved by the previous editor is overwritten
+-- or lost. ingredients/availability_notes stay visible in the form and
+-- are retried on every save even before this migration lands. Delicacy/
+-- Origin is treated differently: whenever the owner has actually ticked
+-- a tag, the frontend refuses to save at all until this migration is
+-- applied, rather than silently publishing without it - see
+-- aaFoodMenuProtoSave's blockedField handling.
 -- ============================================================================
 
 alter table public.food_menu_items
