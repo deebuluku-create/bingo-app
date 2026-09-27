@@ -15257,7 +15257,7 @@ async function aaLoadMyWithdrawals(){
  const uid=String(state.user?.id||"");
  if(!sb||!uid){state.agentWithdrawalsMine=[];return []}
  try{
-  const {data,error}=await sb.from("bingo_agent_withdrawals").select("*").eq("agent_id",uid).order("requested_at",{ascending:false});
+  const {data,error}=await sb.from("bingo_agent_commission_withdrawals").select("*").eq("agent_id",uid).order("requested_at",{ascending:false});
   if(error)throw error;
   state.agentWithdrawalsMine=data||[];
  }catch(e){
@@ -16029,7 +16029,17 @@ async function aaRequestCommissionWithdrawal(){
  if(!sb)return;
  const available=Number(state.agentProgressBulletin?.commission_available||0);
  if(available<aaAgentWithdrawalMinimum()){toast(`Commission withdrawals open at KSh ${aaAgentWithdrawalMinimum().toLocaleString()}. Available: KSh ${available.toLocaleString()}.`);return}
- const {error}=await sb.rpc("bingo_agent_request_commission_withdrawal",{p_amount:available});
+ // The Payout Number field only exists in the DOM while the Withdrawals
+ // tab is open (see aaAgentWithdrawalsHTML). The bulletin card's own
+ // Request Commission Withdrawal button can be clicked without ever
+ // visiting that tab, so this falls back to the agent's account phone,
+ // and asks them to set one explicitly on the Withdrawals tab if
+ // neither is usable — the server also independently rejects a blank
+ // or too-short number either way.
+ const rawPhone=document.getElementById("aaAgentWithdrawalPhone")?.value||state.user?.phone||"";
+ const phone=normalizeKenyanPhone(rawPhone);
+ if(!phone){toast("Enter a valid registered M-Pesa payout number on the Withdrawals tab.");return}
+ const {error}=await sb.rpc("bingo_agent_request_commission_withdrawal",{p_amount:available,p_payout_phone:phone});
  if(error){toast("Withdrawal request failed: "+String(error.message||error));return}
  toast("Commission withdrawal request submitted.");
  await aaLoadAgentProgressBulletin();
@@ -16226,7 +16236,7 @@ async function aaAdminMarkAgentSalaryPaid(cycleId){
 async function aaLoadAgentWithdrawalsBackend(){
  if(!aaIsSuperUser()||!sb){state.agentWithdrawalsBackend=[];return}
  try{
-  const {data,error}=await sb.from("bingo_agent_withdrawals").select("*").in("status",["pending","approved"]).order("requested_at",{ascending:false});
+  const {data,error}=await sb.from("bingo_agent_commission_withdrawals").select("*").in("status",["pending","approved"]).order("requested_at",{ascending:false});
   if(error)throw error;
   state.agentWithdrawalsBackend=Array.isArray(data)?data:[];
  }catch(e){console.warn("Bingo: could not load Agent commission withdrawals.",String(e?.message||e));state.agentWithdrawalsBackend=[]}
@@ -16261,6 +16271,7 @@ function aaAgentWithdrawalsBackendHTML(){
  return list.map(w=>`<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:8px">
   <b style="font-size:12px">KSh ${money(w.amount)}</b> <span class="meta">· requested ${new Date(w.requested_at).toLocaleString()}</span>
   <span class="aa-sub-pill ${w.status==="approved"?"active":"expired"}" style="margin-left:6px">${esc(w.status.toUpperCase())}</span>
+  <div class="meta">Payout number: <b>${esc(w.payout_phone||"—")}</b></div>
   <div class="details-actions aa-content-fit-row" style="margin-top:6px">
    ${w.status==="pending"?`<button class="small-btn btn-success" onclick='aaReviewAgentWithdrawal(${JSON.stringify(w.id)},"approve")'>Approve</button><button class="small-btn btn-red" onclick='aaReviewAgentWithdrawal(${JSON.stringify(w.id)},"reject")'>Reject</button>`:""}
    ${w.status==="approved"?`<button class="small-btn btn-success" onclick='aaReviewAgentWithdrawal(${JSON.stringify(w.id)},"pay")'>Mark Paid</button>`:""}
@@ -16386,8 +16397,10 @@ function aaAgentWithdrawalsHTML(){
   <p class="notice" style="margin-top:0">Server-verified balance — requesting more than this figure is rejected by the backend, not just hidden here.</p>
   <div class="aa-boost-summary-row"><span>Available commission</span><b style="color:#f5b91e;font-size:15px">KES ${money(totals.available)}</b></div>
   <div class="notice">Minimum withdrawal is KES ${money(aaAgentWithdrawalMinimum())}. Reviewed and paid manually by the Super User after approval.</div>
+  <label class="form-label" style="margin-top:8px">Registered M-Pesa Payout Number</label>
+  <input class="field" id="aaAgentWithdrawalPhone" value="${esc(state.user?.phone||"")}" placeholder="07XXXXXXXX">
   <button class="bingo-neon-action bingo-neon-action-gold" style="margin-top:10px" onclick="aaRequestCommissionWithdrawal()" ${totals.available<aaAgentWithdrawalMinimum()?"disabled":""}>Request Withdrawal</button>
-  ${mine.length?`<div style="margin-top:12px"><b>Your requests</b>${mine.map(w=>`<div class="aa-boost-summary-row"><span>KES ${money(w.amount)} · ${new Date(w.requested_at).toLocaleDateString()}</span><b style="color:${w.status==='paid'?'#7ee787':'#f5b91e'}">${esc(String(w.status||"").toUpperCase())}</b></div>`).join("")}</div>`:""}
+  ${mine.length?`<div style="margin-top:12px"><b>Your requests</b>${mine.map(w=>`<div class="aa-boost-summary-row"><span>KES ${money(w.amount)} · ${esc(w.payout_phone||"")} · ${new Date(w.requested_at).toLocaleDateString()}</span><b style="color:${w.status==='paid'?'#7ee787':'#f5b91e'}">${esc(String(w.status||"").toUpperCase())}</b></div>`).join("")}</div>`:""}
  </div>`;
 }
 
