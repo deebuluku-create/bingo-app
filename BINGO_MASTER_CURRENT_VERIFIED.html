@@ -10279,12 +10279,15 @@ function aaValidatePropertyMediaFile(file){
  if(file.size>maxMb*1024*1024)return `"${file.name||'file'}" is larger than the ${maxMb}MB limit.`;
  return '';
 }
-function aaFriendlyStorageError(error){
+function aaFriendlyStorageError(error,bucketLabel='media'){
  const raw=String(error?.message||error||'');
- if(/failed to fetch/i.test(raw)||/networkerror/i.test(raw)||/load failed/i.test(raw)){
-  return 'Bingo could not connect to Property Storage. Check the internet connection, Supabase project URL, Storage bucket and access policy, then try again.';
- }
- // Never surface anything resembling an API key or JWT in a user-facing error.
+ const status=Number(error?.statusCode||error?.status||error?.originalError?.status||0);
+ const label=bucketLabel==='food'?'Food Storage':bucketLabel==='property'?'Property Storage':'Supabase Storage';
+ if(status===502||/\b502\b|bad gateway/i.test(raw))return label+' returned a server gateway error (502). The file was not confirmed saved. Keep your selected media and try again later. If this continues, contact Bingo support.';
+ if(status>=500)return label+' returned a server error ('+status+'). Your media was not confirmed saved; please retry later.';
+ if(status===401||status===403||/row.level security|permission denied|unauthorized|forbidden/i.test(raw))return label+' denied this upload. Please sign in again or contact Bingo support if your account owns this listing.';
+ if(status===413||/payload too large/i.test(raw))return 'The selected file exceeds the upload size limit.';
+ if(/failed to fetch|networkerror|load failed/i.test(raw))return label+' upload was interrupted or its server could not be reached. Keep the selected media and check your connection before retrying.';
  return raw.replace(/[?&]apikey=[^&\s]+/gi,'').replace(/eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_.-]+/g,'[hidden]');
 }
 let aaMediaDrafts={property:{items:[],removedPaths:[]},stay:{items:[],removedPaths:[]}};
@@ -10498,8 +10501,8 @@ async function aaUploadFoodMedia(files,userId,businessId,onProgress){
    let up;
    try{
     up=await sb.storage.from(AA_FOOD_MEDIA_BUCKET).upload(path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
-   }catch(networkError){throw new Error(aaFriendlyStorageError(networkError))}
-   if(up.error)throw new Error(aaFriendlyStorageError(up.error));
+   }catch(networkError){throw new Error(aaFriendlyStorageError(networkError,'food'))}
+   if(up.error)throw new Error(aaFriendlyStorageError(up.error,'food'));
    paths.push(path);
    const pub=sb.storage.from(AA_FOOD_MEDIA_BUCKET).getPublicUrl(path);
    const url=pub?.data?.publicUrl||'';
@@ -10508,7 +10511,7 @@ async function aaUploadFoodMedia(files,userId,businessId,onProgress){
   }
   return {media,paths,error:null};
  }catch(error){
-  return {media,paths,error:new Error(aaFriendlyStorageError(error))};
+  return {media,paths,error:new Error(aaFriendlyStorageError(error,'food'))};
  }
 }
 async function aaDeleteUploadedFoodMedia(paths){
@@ -11953,8 +11956,8 @@ async function aaUploadFoodMenuItemMedia(files,userId,businessId,itemId,onProgre
    let up;
    try{
     up=await sb.storage.from(AA_FOOD_MEDIA_BUCKET).upload(path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
-   }catch(networkError){throw new Error(aaFriendlyStorageError(networkError))}
-   if(up.error)throw new Error(aaFriendlyStorageError(up.error));
+   }catch(networkError){throw new Error(aaFriendlyStorageError(networkError,'food'))}
+   if(up.error)throw new Error(aaFriendlyStorageError(up.error,'food'));
    paths.push(path);
    const pub=sb.storage.from(AA_FOOD_MEDIA_BUCKET).getPublicUrl(path);
    const url=pub?.data?.publicUrl||'';
@@ -11963,7 +11966,7 @@ async function aaUploadFoodMenuItemMedia(files,userId,businessId,itemId,onProgre
   }
   return {media,paths,error:null};
  }catch(error){
-  return {media,paths,error:new Error(aaFriendlyStorageError(error))};
+  return {media,paths,error:new Error(aaFriendlyStorageError(error,'food'))};
  }
 }
 async function aaInsertFoodMenuItem(payload){
