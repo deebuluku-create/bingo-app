@@ -16011,7 +16011,7 @@ function aaAgentProgressBulletinHTML(s){
   ${toHalf?`<p>${toHalf.toLocaleString()} more clients unlock KSh ${money(AA_AGENT_HALF_SALARY)}.</p>`:""}
   ${toFull?`<p>${toFull.toLocaleString()} more clients unlock KSh ${money(AA_AGENT_FULL_SALARY)}.</p>`:`<p>Full salary target reached.</p>`}
   <p>Commission available: <b>KSh ${commissionAvailable.toLocaleString()}</b>. Withdrawals open at KSh ${AA_AGENT_WITHDRAWAL_MINIMUM.toLocaleString()}.</p>
-  ${commissionAvailable>=AA_AGENT_WITHDRAWAL_MINIMUM?`<button type="button" class="btn btn-gold" style="width:100%" onclick="aaRequestCommissionWithdrawal()">Request Commission Withdrawal</button>`:""}
+  ${commissionAvailable>=AA_AGENT_WITHDRAWAL_MINIMUM?`<button type="button" class="bingo-neon-action bingo-neon-action-gold" style="margin-top:4px" onclick="aaRequestCommissionWithdrawal()">Request Commission Withdrawal</button>`:""}
   <small>Cycle: ${esc(s.cycle_start_label||"")} – ${esc(s.cycle_end_label||"")} · Next update ${esc(s.next_update_label||"")}</small>
  </section>`;
 }
@@ -16343,7 +16343,7 @@ function aaAgentDashboardHTML(){
   ${aaAgentPerformanceHTML()}
   <div class="aa-agentdash-tabs">
    <button class="bingo-neon-action bingo-neon-action-gold" onclick="aaOpenAgentAddBusiness()">+ Add Business</button>
-   ${tabs.map(([k,label,color])=>`<button class="bingo-neon-action bingo-neon-action-${color}${view===k?" is-active":""}" onclick="state.agentDashView='${k}';${k==="commission"?"aaLoadMyCommissionLedger().then(render);":""}${k==="withdrawals"?"aaLoadMyWithdrawals().then(render);":""}render()">${label}</button>`).join("")}
+   ${tabs.map(([k,label,color])=>`<button class="bingo-neon-action bingo-neon-micro bingo-neon-action-${color}${view===k?" is-active":""}" onclick="state.agentDashView='${k}';${k==="commission"?"aaLoadMyCommissionLedger().then(render);":""}${k==="withdrawals"?"aaLoadMyWithdrawals().then(render);":""}render()">${label}</button>`).join("")}
   </div>
   ${view==="mine"?`<div class="boost-summary" style="margin-top:12px"><b>My Businesses</b>${!biz.length?'<p class="notice">No businesses onboarded yet. Tap + Add Business to start.</p>':`<div class="aa-agentdash-portfolio">${biz.map((b,i)=>{const c=pcColors[i%pcColors.length];return `<div class="aa-agentdash-pcard"><div class="aa-agentdash-pcard-media" style="--pc1:${c[0]};--pc2:${c[1]}">${esc(b._cat)}</div><div class="aa-agentdash-pcard-body"><b>${esc(b.title||b.name||"Business")}</b><div class="meta">${esc(b.businessClass||"Small")} · ${b.isBoosted?"Boosted":"Not boosted"}</div></div></div>`}).join("")}</div>`}</div>`:""}
   ${view==="commission"?aaAgentCommissionTabHTML():""}
@@ -16366,7 +16366,7 @@ function aaAgentWithdrawalsHTML(){
   <p class="notice" style="margin-top:0">Server-verified balance — requesting more than this figure is rejected by the backend, not just hidden here.</p>
   <div class="aa-boost-summary-row"><span>Available commission</span><b style="color:#f5b91e;font-size:15px">KES ${money(totals.available)}</b></div>
   <div class="notice">Minimum withdrawal is KES ${money(AA_AGENT_WITHDRAWAL_MINIMUM)}. Reviewed and paid manually by the Super User after approval.</div>
-  <button class="btn btn-gold" style="width:100%;margin-top:10px" onclick="aaRequestCommissionWithdrawal()" ${totals.available<AA_AGENT_WITHDRAWAL_MINIMUM?"disabled":""}>Request Withdrawal</button>
+  <button class="bingo-neon-action bingo-neon-action-gold" style="margin-top:10px" onclick="aaRequestCommissionWithdrawal()" ${totals.available<AA_AGENT_WITHDRAWAL_MINIMUM?"disabled":""}>Request Withdrawal</button>
   ${mine.length?`<div style="margin-top:12px"><b>Your requests</b>${mine.map(w=>`<div class="aa-boost-summary-row"><span>KES ${money(w.amount)} · ${new Date(w.requested_at).toLocaleDateString()}</span><b style="color:${w.status==='paid'?'#7ee787':'#f5b91e'}">${esc(String(w.status||"").toUpperCase())}</b></div>`).join("")}</div>`:""}
  </div>`;
 }
@@ -24978,7 +24978,7 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .aa-agentdash-metric b{display:block;font-size:15px;color:rgb(var(--m-rgb));font-weight:900}
 #auto-arcade-widget .aa-agentdash-metric span{display:block;font-size:8.3px;color:#8f9bb0;margin-top:2px;letter-spacing:.02em;text-transform:uppercase}
 @media(max-width:430px){#auto-arcade-widget .aa-agentdash-metrics{grid-template-columns:repeat(2,1fr)}}
-#auto-arcade-widget .aa-agentdash-tabs{display:flex;gap:7px;overflow-x:auto;padding:2px 1px 4px;margin-top:14px;scrollbar-width:none}
+#auto-arcade-widget .aa-agentdash-tabs{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:2px 1px 4px;margin-top:14px}
 #auto-arcade-widget .aa-agentdash-tabs::-webkit-scrollbar{display:none}
 #auto-arcade-widget .aa-agentdash-tabs>button{flex:none!important}
 #auto-arcade-widget .aa-agentdash-tabs.aa-agentdash-chips{flex-wrap:wrap;overflow-x:visible}
