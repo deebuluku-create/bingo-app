@@ -12607,7 +12607,7 @@ function aaFoodBasketHTML(){
   <div style="margin-top:10px">${rows||'<p class="notice">Your order is empty.</p>'}</div>
   <div class="aa-food-basket-total"><span>Total</span><b>KSh ${money(aaFoodBasketTotal())}</b></div>
   <label class="form-label" style="margin-top:10px">Delivery / pickup notes (optional)</label>
-  <textarea class="field" id="aaFoodOrderNote" rows="2" placeholder="Apartment, landmark, pickup time...">${esc(state.foodOrderNote||'')}</textarea>
+  <textarea class="field" id="aaFoodOrderNote" rows="2" placeholder="Apartment, landmark, pickup time..." oninput="state.foodOrderNote=this.value">${esc(state.foodOrderNote||'')}</textarea>
   <button class="btn btn-publish" style="width:100%;margin-top:12px" ${busy?'disabled':''} onclick="aaSubmitFoodOrder()">${busy?'Placing order…':'Place Order'}</button>
  </div></div>`;
 }
@@ -12658,17 +12658,30 @@ async function aaLoadFoodOrders(){
   if(ownedIds.length)orClauses.push('business_id.in.('+ownedIds.join(',')+')');
   const {data,error}=await sb.from('food_orders').select('*').or(orClauses.join(',')).order('created_at',{ascending:false}).limit(150);
   if(error)throw error;
-  if(Array.isArray(data))state._foodOrdersCache=data;
- }catch(e){console.warn('[Bingo Food] Could not load online orders:',e);}
+  /* A failed refresh must never silently keep showing the previous
+     successful load as if it were current - state._foodOrdersCache is
+     only replaced on a confirmed successful read; the stale flag below
+     is what the two order-list views check before trusting it. */
+  state._foodOrdersCache=Array.isArray(data)?data:[];
+  state._foodOrdersCacheStale=false;
+ }catch(e){
+  console.warn('[Bingo Food] Could not load online orders:',e);
+  state._foodOrdersCacheStale=true;
+ }
 }
 function aaFoodOrdersAll(){
  if(state.testMode||!sb)return aaV69Read('aa_v69_food_orders',[]);
  return state._foodOrdersCache||[];
 }
+function aaFoodOrdersStaleNoticeHTML(){
+ return state._foodOrdersCacheStale?'<div class="notice" style="margin-bottom:8px">⚠ Bingo could not refresh orders from the server just now - what you see below may be out of date. Pull to refresh or reopen this page to try again.</div>':'';
+}
 function aaFoodMyOrdersHTML(){
+ const stale=!!state._foodOrdersCacheStale;
+ const notice=aaFoodOrdersStaleNoticeHTML();
  const mine=aaFoodOrdersAll().filter(o=>String(o.customer_id||'')===String(state.user?.id||''));
- if(!mine.length)return `<div class="aa-v69-card"><p>You have not placed a food order yet.</p></div>`;
- return `<div class="aa-v69-grid">${mine.map(o=>`<div class="aa-v69-card"><div style="display:flex;justify-content:space-between;gap:8px"><h3 style="margin:0">${esc(o.business_name||'Restaurant')}</h3><span class="aa-sub-pill active">${esc(aaFoodOrderStatusLabel(o.status))}</span></div><div class="meta">${new Date(o.created_at).toLocaleString('en-KE',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>${(o.items||[]).map(it=>`<div class="aa-food-basket-row" style="padding:6px 0"><span>${it.qty}× ${esc(it.name)}</span><span>KSh ${money(it.price_kes*it.qty)}</span></div>`).join('')}<div class="aa-food-basket-total"><span>Total</span><b>KSh ${money(o.total_kes)}</b></div></div>`).join('')}</div>`;
+ if(!mine.length)return `<div class="aa-v69-card">${notice}<p>${stale?'Bingo could not check your orders right now.':'You have not placed a food order yet.'}</p></div>`;
+ return `${notice}<div class="aa-v69-grid">${mine.map(o=>`<div class="aa-v69-card"><div style="display:flex;justify-content:space-between;gap:8px"><h3 style="margin:0">${esc(o.business_name||'Restaurant')}</h3><span class="aa-sub-pill active">${esc(aaFoodOrderStatusLabel(o.status))}</span></div><div class="meta">${new Date(o.created_at).toLocaleString('en-KE',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}</div>${(o.items||[]).map(it=>`<div class="aa-food-basket-row" style="padding:6px 0"><span>${it.qty}× ${esc(it.name)}</span><span>KSh ${money(it.price_kes*it.qty)}</span></div>`).join('')}<div class="aa-food-basket-total"><span>Total</span><b>KSh ${money(o.total_kes)}</b></div></div>`).join('')}</div>`;
 }
 async function aaUpdateFoodOrderStatus(orderId,status){
  const list=aaFoodOrdersAll();
@@ -12679,16 +12692,27 @@ async function aaUpdateFoodOrderStatus(orderId,status){
  if(!allowed){toast('You do not have permission to update this order.');return}
  if(state.testMode||!sb){order.status=status;aaV69Write('aa_v69_food_orders',list);}
  else{
-  try{const {error}=await sb.from('food_orders').update({status}).eq('id',orderId);if(error)throw error;order.status=status;}
+  try{
+   /* .select() + checking the returned row is what actually proves the
+      update happened - a plain .update() with no error can still mean
+      zero rows changed (wrong id, or RLS silently filtered it out), and
+      that used to look identical to success. Only a confirmed returned
+      row is treated as success now. */
+   const {data,error}=await sb.from('food_orders').update({status}).eq('id',orderId).select('id,status').maybeSingle();
+   if(error)throw error;
+   if(!data)throw new Error('This order could not be found, or you no longer have permission to update it.');
+   order.status=data.status;
+  }
   catch(e){toast('Could not update the order online: '+String(e?.message||e));return}
  }
  save();render();
  toast('Order status updated to '+aaFoodOrderStatusLabel(status)+'.');
 }
 function aaFoodBusinessOrdersHTML(businessId){
+ const notice=aaFoodOrdersStaleNoticeHTML();
  const orders=aaFoodOrdersAll().filter(o=>String(o.business_id)===String(businessId));
- if(!orders.length)return `<div class="aa-v69-card"><p>No orders yet for this restaurant.</p></div>`;
- return `<div class="aa-v69-grid">${orders.map(o=>{
+ if(!orders.length)return `<div class="aa-v69-card">${notice}<p>${state._foodOrdersCacheStale?'Bingo could not check orders for this restaurant right now.':'No orders yet for this restaurant.'}</p></div>`;
+ return `${notice}<div class="aa-v69-grid">${orders.map(o=>{
   const idx=AA_FOOD_ORDER_STATUSES.findIndex(s=>s[0]===o.status);
   const next=AA_FOOD_ORDER_STATUSES[idx+1];
   return `<div class="aa-v69-card"><div style="display:flex;justify-content:space-between;gap:8px"><h3 style="margin:0">${esc(o.customer_name||'Bingo Member')}</h3><span class="aa-sub-pill active">${esc(aaFoodOrderStatusLabel(o.status))}</span></div><div class="meta">${new Date(o.created_at).toLocaleString('en-KE',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})}${o.note?' · '+esc(o.note):''}</div>${(o.items||[]).map(it=>`<div class="aa-food-basket-row" style="padding:6px 0"><span>${it.qty}× ${esc(it.name)}</span><span>KSh ${money(it.price_kes*it.qty)}</span></div>`).join('')}<div class="aa-food-basket-total"><span>Total</span><b>KSh ${money(o.total_kes)}</b></div>${next?`<button class="btn btn-publish" style="width:100%;margin-top:8px" onclick="aaUpdateFoodOrderStatus('${esc(o.id)}','${next[0]}')">Mark as ${esc(next[1])}</button>`:'<div class="notice" style="margin-top:8px">Order complete.</div>'}</div>`;
@@ -12752,12 +12776,10 @@ function aaFoodBusinessProfileHTML(){
   <div class="detail-grid" style="margin-top:14px">
    <div>
     ${aaListingMediaGalleryHTML(String(f.id),f.media,f.business_name)}
-    <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:10px">
+    <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap aa-foodprofile-actions" style="margin-top:10px">
      <button class="btn bingo-neon-action bingo-neon-action-gold" onclick="aaOpenFoodMenu('${esc(f.id)}')">🛒 Order Now</button>
      ${own?'':`${phone?`<a class="btn bingo-neon-action bingo-neon-action-cyan" href="tel:${esc(phone)}">☎ Call</a>`:''}${wa?`<button class="btn bingo-neon-action bingo-neon-action-green" onclick="window.open('https://wa.me/${esc(wa)}','_blank')">WhatsApp</button>`:''}<button class="btn bingo-neon-action bingo-neon-action-purple" onclick="if(!aaRequireMember({action:'message',targetId:'${esc(f.id)}'}))return;aaMsgOpenConversationWith('${esc(f.user_id||'')}','${esc((f.business_name||'Bingo Member').replace(/'/g,"\\'"))}','')">💬 Chat</button>`}
      <button class="btn bingo-neon-action bingo-neon-action-cyan" onclick="window.open('${esc(directionsUrl)}','_blank')">📍 Directions</button>
-    </div>
-    <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:8px">
      <button class="btn btn-glass" onclick="state.shareTarget={id:'${esc(f.id)}',title:${JSON.stringify(f.business_name||'')}};render()">↗ Share</button>
      <button class="btn ${isFav(f.id)?'btn-gold fav-on':'btn-glass'}" onclick='toggleFav(${JSON.stringify(String(f.id))})'>${isFav(f.id)?'★ Saved':'☆ Save'}</button>
     </div>
@@ -24405,6 +24427,18 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .aa-foodprofile-id{padding-bottom:4px;min-width:0}
 #auto-arcade-widget .aa-foodprofile-id h2{margin:0;font-size:19px;line-height:1.25;word-break:break-word}
 #auto-arcade-widget .aa-foodprofile-id .meta{font-size:10.5px;color:#9aa7bc;margin-top:3px}
+#auto-arcade-widget .aa-foodprofile-actions{gap:8px}
+@media(max-width:850px){
+ /* Below the desktop two-column breakpoint, .detail-grid's own left/right
+    columns stack - tighten the shared .detail-grid gap (used app-wide, so
+    only scoped to this page's own instance) and flatten the seam so the
+    info card (specs/description/owner controls) reads as a direct
+    continuation of the media+actions above it, not a second, visually
+    detached block. Desktop's two-column layout is completely untouched -
+    this only applies once the grid has already collapsed to one column. */
+ #auto-arcade-widget .aa-foodprofile-cover~.detail-grid{gap:6px}
+ #auto-arcade-widget .aa-foodprofile-cover~.detail-grid>div:last-child.modal{margin-top:0;border-top-left-radius:0;border-top-right-radius:0}
+}
 </style>
 
 <style id="bingo-change07-advertising-style">
