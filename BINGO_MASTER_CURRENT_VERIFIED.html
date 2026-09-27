@@ -14066,7 +14066,7 @@ function aaProfileDestyHTML(s,cars,sellerKey){
 function sellerHTML(s,cars){
  const sellerKey=String(s?.sellerId||s?.userId||s?.id||"");
  const own=aaIsOwnSeller(s);
- if(own&&state.agentAddBusinessOpen)return `<section style="padding:20px 0 105px"><div class="modal" style="max-height:none">${aaAgentAddBusinessHTML()}</div></section>`;
+ if(own&&state.agentAddBusinessOpen)return `<section class="aa-agentdash-shell" style="padding:20px 0 105px"><div class="modal" style="max-height:none">${aaAgentAddBusinessHTML()}</div></section>`;
  if(own&&state.agentModeActive)return aaAgentDashboardHTML();
  return aaProfileDestyHTML(s,cars,sellerKey);
  const reviewList=rs.reviews.length?rs.reviews.map(r=>{
@@ -16323,12 +16323,12 @@ function aaAgentDashboardHTML(){
  const biz=aaAgentBusinesses(uid);
  const view=state.agentDashView||"mine";
  const tabs=[
-  ["mine","My Businesses","cyan"],
-  ["managed","Managed","purple"],
-  ["invitations",`Invitations${state.agentInvitations?.length?` (${state.agentInvitations.length})`:""}`,"pink"],
+  ["mine","My Businesses","gold"],
+  ["managed","Managed","gold"],
+  ["invitations",`Invitations${state.agentInvitations?.length?` (${state.agentInvitations.length})`:""}`,"gold"],
   ["commission","Commission","gold"],
-  ["withdrawals","Withdrawals","green"],
-  ["moderation","Moderation","red"]
+  ["withdrawals","Withdrawals","gold"],
+  ["moderation","Moderation","gold"]
  ];
  const pcColors=[["#233a6b","#0d1228"],["#3a2166","#0d1228"],["#1d4a44","#0d1228"],["#4a2a1d","#0d1228"]];
  return `<section class="aa-agentdash-shell"><div class="modal" style="max-height:none">
@@ -16380,16 +16380,16 @@ function aaAgentAddBusinessHTML(){
   <label class="form-label">Number of Employees</label>
   <input class="field" id="aaAgentEmployeeCount" type="number" min="0" placeholder="e.g. 4">
   <div class="aa-agentdash-tabs aa-agentdash-chips" style="margin-top:10px">
-   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("vehicle-sale")'>Vehicle</button>
-   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("property")'>Property</button>
-   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("stay")'>Bingo Stays</button>
-   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("food")'>Food / Restaurant</button>
-   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("fashion")'>Fashion</button>
-   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("furniture")'>Furniture</button>
-   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("electronics")'>Electronics</button>
-   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("beauty")'>Beauty</button>
-   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("agriculture")'>Agriculture</button>
-   <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaAgentRouteAddBusiness("other")'>Other</button>
+   <button class="bingo-neon-action bingo-neon-micro bingo-neon-action-gold" onclick='aaAgentRouteAddBusiness("vehicle-sale")'>Vehicle</button>
+   <button class="bingo-neon-action bingo-neon-micro bingo-neon-action-gold" onclick='aaAgentRouteAddBusiness("property")'>Property</button>
+   <button class="bingo-neon-action bingo-neon-micro bingo-neon-action-gold" onclick='aaAgentRouteAddBusiness("stay")'>Bingo Stays</button>
+   <button class="bingo-neon-action bingo-neon-micro bingo-neon-action-gold" onclick='aaAgentRouteAddBusiness("food")'>Food / Restaurant</button>
+   <button class="bingo-neon-action bingo-neon-micro bingo-neon-action-gold" onclick='aaAgentRouteAddBusiness("fashion")'>Fashion</button>
+   <button class="bingo-neon-action bingo-neon-micro bingo-neon-action-gold" onclick='aaAgentRouteAddBusiness("furniture")'>Furniture</button>
+   <button class="bingo-neon-action bingo-neon-micro bingo-neon-action-gold" onclick='aaAgentRouteAddBusiness("electronics")'>Electronics</button>
+   <button class="bingo-neon-action bingo-neon-micro bingo-neon-action-gold" onclick='aaAgentRouteAddBusiness("beauty")'>Beauty</button>
+   <button class="bingo-neon-action bingo-neon-micro bingo-neon-action-gold" onclick='aaAgentRouteAddBusiness("agriculture")'>Agriculture</button>
+   <button class="bingo-neon-action bingo-neon-micro bingo-neon-action-gold" onclick='aaAgentRouteAddBusiness("other")'>Other</button>
   </div>
   <button class="btn btn-glass" style="width:100%;margin-top:8px" onclick="state.agentAddBusinessOpen=false;render()">Cancel</button>
  </div>`;
@@ -24979,6 +24979,8 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .aa-agentdash-metric span{display:block;font-size:8.3px;color:#8f9bb0;margin-top:2px;letter-spacing:.02em;text-transform:uppercase}
 @media(max-width:430px){#auto-arcade-widget .aa-agentdash-metrics{grid-template-columns:repeat(2,1fr)}}
 #auto-arcade-widget .aa-agentdash-tabs{display:flex;flex-wrap:wrap;align-items:center;gap:7px;padding:2px 1px 4px;margin-top:14px}
+#auto-arcade-widget .aa-agentdash-shell .bingo-neon-action,#auto-arcade-widget .aa-agentdash-shell .bingo-neon-micro{background:#0a1526!important;box-shadow:0 0 5px rgba(var(--tab-rgb),.22)!important}
+#auto-arcade-widget .aa-agentdash-shell .bingo-neon-action.is-active,#auto-arcade-widget .aa-agentdash-shell .bingo-neon-micro.is-active{background:rgba(var(--tab-rgb),.16)!important;box-shadow:0 0 7px rgba(var(--tab-rgb),.4)!important}
 #auto-arcade-widget .aa-agentdash-tabs::-webkit-scrollbar{display:none}
 #auto-arcade-widget .aa-agentdash-tabs>button{flex:none!important}
 #auto-arcade-widget .aa-agentdash-tabs.aa-agentdash-chips{flex-wrap:wrap;overflow-x:visible}
