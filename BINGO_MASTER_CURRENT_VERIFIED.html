@@ -15958,7 +15958,17 @@ const AA_AGENT_MONTHLY_TARGET=1000;
 const AA_AGENT_HALF_TARGET=500;
 const AA_AGENT_FULL_SALARY=35000;
 const AA_AGENT_HALF_SALARY=17500;
-const AA_AGENT_WITHDRAWAL_MINIMUM=10000;
+// Fallback only, used before the server-verified value has loaded (or if
+// it never loads). Once state.agentProgressBulletin.withdrawal_minimum is
+// present, aaAgentWithdrawalMinimum() below always prefers it — the server
+// (_bingo_agent_withdrawal_minimum() via bingo_agent_progress_bulletin) is
+// the single source of truth, so this number can never again drift out of
+// sync with what the backend actually enforces.
+const AA_AGENT_WITHDRAWAL_MINIMUM=50;
+function aaAgentWithdrawalMinimum(){
+ const v=state.agentProgressBulletin?.withdrawal_minimum??state.agentWithdrawalMinimum;
+ return v==null?AA_AGENT_WITHDRAWAL_MINIMUM:Number(v);
+}
 function aaAgentSalaryTier(count){
  const n=Math.max(0,Number(count||0));
  if(n>=AA_AGENT_MONTHLY_TARGET)return {tier:"full",amount:AA_AGENT_FULL_SALARY,label:"FULL SALARY"};
@@ -16010,15 +16020,15 @@ function aaAgentProgressBulletinHTML(s){
   <p><b>${pct.toFixed(1)}%</b> complete. You are <b>${esc(String(s.pace_status||"calculating").replace("_"," "))}</b>.</p>
   ${toHalf?`<p>${toHalf.toLocaleString()} more clients unlock KSh ${money(AA_AGENT_HALF_SALARY)}.</p>`:""}
   ${toFull?`<p>${toFull.toLocaleString()} more clients unlock KSh ${money(AA_AGENT_FULL_SALARY)}.</p>`:`<p>Full salary target reached.</p>`}
-  <p>Commission available: <b>KSh ${commissionAvailable.toLocaleString()}</b>. Withdrawals open at KSh ${AA_AGENT_WITHDRAWAL_MINIMUM.toLocaleString()}.</p>
-  ${commissionAvailable>=AA_AGENT_WITHDRAWAL_MINIMUM?`<button type="button" class="bingo-neon-action bingo-neon-action-gold" style="margin-top:4px" onclick="aaRequestCommissionWithdrawal()">Request Commission Withdrawal</button>`:""}
+  <p>Commission available: <b>KSh ${commissionAvailable.toLocaleString()}</b>. Withdrawals open at KSh ${aaAgentWithdrawalMinimum().toLocaleString()}.</p>
+  ${commissionAvailable>=aaAgentWithdrawalMinimum()?`<button type="button" class="bingo-neon-action bingo-neon-action-gold" style="margin-top:4px" onclick="aaRequestCommissionWithdrawal()">Request Commission Withdrawal</button>`:""}
   <small>Cycle: ${esc(s.cycle_start_label||"")} – ${esc(s.cycle_end_label||"")} · Next update ${esc(s.next_update_label||"")}</small>
  </section>`;
 }
 async function aaRequestCommissionWithdrawal(){
  if(!sb)return;
  const available=Number(state.agentProgressBulletin?.commission_available||0);
- if(available<AA_AGENT_WITHDRAWAL_MINIMUM){toast(`Commission withdrawals open at KSh ${AA_AGENT_WITHDRAWAL_MINIMUM.toLocaleString()}. Available: KSh ${available.toLocaleString()}.`);return}
+ if(available<aaAgentWithdrawalMinimum()){toast(`Commission withdrawals open at KSh ${aaAgentWithdrawalMinimum().toLocaleString()}. Available: KSh ${available.toLocaleString()}.`);return}
  const {error}=await sb.rpc("bingo_agent_request_commission_withdrawal",{p_amount:available});
  if(error){toast("Withdrawal request failed: "+String(error.message||error));return}
  toast("Commission withdrawal request submitted.");
@@ -16220,6 +16230,16 @@ async function aaLoadAgentWithdrawalsBackend(){
   if(error)throw error;
   state.agentWithdrawalsBackend=Array.isArray(data)?data:[];
  }catch(e){console.warn("Bingo: could not load Agent commission withdrawals.",String(e?.message||e));state.agentWithdrawalsBackend=[]}
+ // The Super User is usually not themselves an active Agent, so
+ // state.agentProgressBulletin (the Agent-side source of the minimum)
+ // is never populated for them. bingo_agent_commission_summary works
+ // for any authenticated caller and returns the same server-confirmed
+ // withdrawal_minimum, purely so this admin view never quotes a stale
+ // hardcoded figure either. See aaAgentWithdrawalMinimum().
+ try{
+  const {data:summary,error:summaryError}=await sb.rpc("bingo_agent_commission_summary");
+  if(!summaryError&&summary?.withdrawal_minimum!=null)state.agentWithdrawalMinimum=Number(summary.withdrawal_minimum);
+ }catch(e){console.warn("Bingo: could not load Agent withdrawal minimum.",String(e?.message||e))}
 }
 async function aaReviewAgentWithdrawal(id,action){
  if(!aaIsSuperUser()||!sb)return;
@@ -16365,8 +16385,8 @@ function aaAgentWithdrawalsHTML(){
   <b>Withdrawals</b>
   <p class="notice" style="margin-top:0">Server-verified balance — requesting more than this figure is rejected by the backend, not just hidden here.</p>
   <div class="aa-boost-summary-row"><span>Available commission</span><b style="color:#f5b91e;font-size:15px">KES ${money(totals.available)}</b></div>
-  <div class="notice">Minimum withdrawal is KES ${money(AA_AGENT_WITHDRAWAL_MINIMUM)}. Reviewed and paid manually by the Super User after approval.</div>
-  <button class="bingo-neon-action bingo-neon-action-gold" style="margin-top:10px" onclick="aaRequestCommissionWithdrawal()" ${totals.available<AA_AGENT_WITHDRAWAL_MINIMUM?"disabled":""}>Request Withdrawal</button>
+  <div class="notice">Minimum withdrawal is KES ${money(aaAgentWithdrawalMinimum())}. Reviewed and paid manually by the Super User after approval.</div>
+  <button class="bingo-neon-action bingo-neon-action-gold" style="margin-top:10px" onclick="aaRequestCommissionWithdrawal()" ${totals.available<aaAgentWithdrawalMinimum()?"disabled":""}>Request Withdrawal</button>
   ${mine.length?`<div style="margin-top:12px"><b>Your requests</b>${mine.map(w=>`<div class="aa-boost-summary-row"><span>KES ${money(w.amount)} · ${new Date(w.requested_at).toLocaleDateString()}</span><b style="color:${w.status==='paid'?'#7ee787':'#f5b91e'}">${esc(String(w.status||"").toUpperCase())}</b></div>`).join("")}</div>`:""}
  </div>`;
 }
@@ -16511,7 +16531,7 @@ function aaSuperUserDashboardHTML(){
   </div>
   <div class="boost-summary" style="margin-top:14px">
    <b>Agent Commission Withdrawals</b>
-   <p class="notice" style="margin-top:0">Requests of KSh 10,000 or more against an Agent's server-verified commission balance.</p>
+   <p class="notice" style="margin-top:0">Requests of KSh ${money(aaAgentWithdrawalMinimum())} or more against an Agent's server-verified commission balance.</p>
    ${aaAgentWithdrawalsBackendHTML()}
   </div>
   <div class="boost-summary" style="margin-top:14px">
