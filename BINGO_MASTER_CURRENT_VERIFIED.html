@@ -5852,6 +5852,14 @@ async function aaLoadAuthenticatedProfile(authUser){
  if(md.location&&!state.user.location)state.user.location=md.location;
  if(md.bio&&!state.user.bio)state.user.bio=md.bio;
  if(md.photo_url&&!state.user.photo_url)state.user.photo_url=md.photo_url;
+ /* profiles and bingo_user_roles are independent reads keyed only on
+    authUser.id - neither depends on the other's result, but this used
+    to await the profiles select fully before even starting the role
+    select, adding a full extra sequential network round trip to every
+    login/signup/session-restore for no reason. Kick the role fetch off
+    now and only await it once the profile data (which IS a real
+    dependency below) has already been applied. */
+ const roleFetchPromise=aaLoadUserRole();
  if(sb){
   try{
    const {data,error}=await sb.from("profiles").select("*").eq("id",authUser.id).maybeSingle();
@@ -5877,7 +5885,7 @@ async function aaLoadAuthenticatedProfile(authUser){
  aaMigrateLegacyOwnListings();
  aaSyncOwnProfileToListings();
  if(state.seller && aaIsOwnSeller(state.seller))state.seller=aaOwnerProfileSeller();
- await aaLoadUserRole();
+ await roleFetchPromise;
  if(state.userRole?.role==="super_user")state.view="super-admin";
  save();
 }
@@ -6174,8 +6182,19 @@ async function fastLoginContinue(){
   const {data,error}=await aaAuthWithTimeout(sb.auth.signInWithPassword({email,password}),20000,"This is taking too long. Please check your connection and try again.");
   if(error)throw error;
   if(!data?.user)throw new Error("Login could not be completed.");
+  /* Set the same de-dupe guard aaOnAuthenticatedSession uses BEFORE
+     loading the profile here, so the onAuthStateChange SIGNED_IN
+     listener - which also fires for this very signInWithPassword call -
+     sees the guard already set and skips re-running the whole
+     profile+role fetch a second time in the background. */
+  aaHandledAuthedUserId=data.user.id;
   await aaLoadAuthenticatedProfile(data.user);
-  await persistProfile();
+  /* persistProfile() here only re-writes the same profile row
+     aaLoadAuthenticatedProfile just read, to backfill defaults
+     (username, show_phone) - it never carries new information the user
+     is waiting to see confirmed, so it no longer blocks the redirect;
+     it still runs, just in the background. */
+  persistProfile();
   recordDailyVisit();
   aaStartPresence();
   aaCallListenForIncoming();
@@ -14874,8 +14893,14 @@ async function aaLoadUserRole(){
   console.warn("Bingo: could not verify account role — defaulting to member.",String(e?.message||e));
   state.userRole={role:"member",territory:"",agent_since:null,agent_status:"inactive"};
  }
- await aaDeliverRoleNotifications();
- await aaDeliverModerationNotifications();
+ /* Delivering pending role/moderation notices into the inbox is a
+    background side-effect, not something the signed-in redirect should
+    ever wait on - these used to be two more sequential awaited round
+    trips on every login/signup/session-restore. Fire them in the
+    background and re-render only if either actually added something. */
+ Promise.all([aaDeliverRoleNotifications(),aaDeliverModerationNotifications()])
+  .then(([a,b])=>{if(a||b)render();})
+  .catch(()=>{});
 }
 async function aaDeliverModerationNotifications(){
  if(!sb||!state.user?.id)return;
@@ -14888,6 +14913,7 @@ async function aaDeliverModerationNotifications(){
   });
   save();
   await sb.from("bingo_moderation_notifications").update({delivered:true}).in("id",data.map(n=>n.id));
+  return true;
  }catch(e){console.warn("Bingo: moderation notification delivery skipped.",String(e?.message||e))}
 }
 async function aaDeliverRoleNotifications(){
@@ -14901,6 +14927,7 @@ async function aaDeliverRoleNotifications(){
   });
   save();
   await sb.from("bingo_role_notifications").update({delivered:true}).in("id",data.map(n=>n.id));
+  return true;
  }catch(e){console.warn("Bingo: role notification delivery skipped.",String(e?.message||e))}
 }
 async function aaFindUserByEmail(email){
@@ -16978,10 +17005,17 @@ async function handleProfilePhotoUpload(event){
  });
 }
 function editProfileHTML(){
- return `<section style="padding:20px 0 105px"><div class="modal" style="max-height:none;width:min(470px,100%)"><button class="btn" style="margin-bottom:14px" onclick="goAccount()">← Back to My Profile</button><h2 style="margin:0 0 6px">Edit My Profile</h2><p>This is the same profile form used when you create an Bingo account.</p>${aaUnifiedProfileFields('edit')}<button class="btn btn-red" style="width:100%;margin-top:12px" onclick="saveEditedProfile()">Save Profile</button></div></section>`;
+ const busy=!!state.editProfileBusy;
+ return `<section style="padding:20px 0 105px"><div class="modal" style="max-height:none;width:min(470px,100%)"><button class="btn" style="margin-bottom:14px" onclick="goAccount()">← Back to My Profile</button><h2 style="margin:0 0 6px">Edit My Profile</h2><p>This is the same profile form used when you create an Bingo account.</p>${aaUnifiedProfileFields('edit')}<button class="btn btn-red" style="width:100%;margin-top:12px" ${busy?'disabled':''} onclick="saveEditedProfile()">${busy?'Saving…':'Save Profile'}</button></div></section>`;
 }
 async function saveEditedProfile(){
  if(!state.isLoggedIn){openAuth("login");return}
+ /* No busy guard existed here at all - unlike login/signup's authBusy,
+    a rapid double-click (or a slow connection plus an impatient retap)
+    could fire two concurrent persistProfile() writes, each with its own
+    toast and its own goHome() scheduled. Same disable+relabel pattern
+    already used for the login/signup buttons. */
+ if(state.editProfileBusy)return;
  const f=id=>String(document.getElementById(id)?.value||"").trim();
  const accountType=f("pAccountType")||"individual";
  const first=f("pFirst"),last=f("pLast"),companyName=f("pCompany"),username=aaNormalizeUsername(f("pUsername"));
@@ -16993,13 +17027,36 @@ async function saveEditedProfile(){
  if(!phone){toast("Please enter a valid Kenyan phone / WhatsApp number.");return}
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){toast("Please enter a valid email address.");return}
  if(!location||!bio){toast("Please complete your location and bio.");return}
+ state.editProfileBusy=true;render();
  Object.assign(state.user,{accountType,firstName:first,lastName:last,companyName,username,phone,showPhone,email,location,bio});
  aaSyncOwnProfileToListings();
  save();
- const profileSaveResult=await persistProfile();
- if(profileSaveResult?.ok===false){toast("Profile saved on this device, but the online profile could not be updated. Please try again.");return}
- toast("Profile updated successfully.");
- goHome();
+ try{
+  const profileSaveResult=await persistProfile();
+  if(profileSaveResult?.ok===false){
+   /* state.user already carries the entered values (Object.assign above,
+      then save() to local storage) even though the online write failed -
+      nothing typed is lost, and the form re-renders from that same
+      state.user, so the user can just press Save again once reconnected. */
+   toast("Profile saved on this device, but the online profile could not be updated. Please try again.");
+   return;
+  }
+  toast("Profile updated successfully.");
+  /* goAccount() is wrapped by the unsaved-changes form guard (see the
+     confirmDiscard IIFE above aaFormGuardFields), which compares the
+     edit-profile fields against a baseline snapshot and blocks
+     navigation with a confirm() prompt if they differ - exactly what
+     just happened here on purpose. Left alone, a successful save would
+     immediately hit the user with "You have unsaved changes - discard
+     them?" for changes that are already saved. Clearing the guard's
+     baseline first tells it this form is clean, so the redirect that
+     follows a confirmed successful save is actually prompt, not gated
+     behind a confusing, incorrect prompt. */
+  aaFormGuardBaseline=null;aaFormGuardLastView=null;
+  goAccount();
+ }finally{
+  state.editProfileBusy=false;render();
+ }
 }
 async function handleSaveAndShowPublicProfile(){return saveEditedProfile()}
 function viewMyPublicProfile(){goAccount()}
