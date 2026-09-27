@@ -1012,12 +1012,20 @@ Production mother file does not force production.
 #auto-arcade-widget .aa-gallery-thumb{border:2px solid transparent;background:#091326;border-radius:10px;padding:0;overflow:hidden;aspect-ratio:4/3}
 #auto-arcade-widget .aa-gallery-thumb.active{border-color:var(--gold)}
 #auto-arcade-widget .aa-gallery-thumb img{width:100%;height:100%;object-fit:cover;display:block}
-#auto-arcade-widget .aa-lightbox{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.96);display:flex;align-items:center;justify-content:center;padding:18px}
-#auto-arcade-widget .aa-lightbox-inner{position:relative;width:min(1100px,100%);height:min(86vh,850px);display:flex;align-items:center;justify-content:center}
-#auto-arcade-widget .aa-lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:12px}
-#auto-arcade-widget .aa-lightbox-close{position:absolute;right:0;top:0;z-index:3;border:1px solid #53627c;background:#071020;color:#fff;border-radius:999px;width:42px;height:42px;font-size:24px}
-#auto-arcade-widget .aa-lightbox-download{position:absolute;left:0;top:0;z-index:3}
-#auto-arcade-widget .aa-video-lightbox-inner video{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;border-radius:12px;background:#000}
+/* aaOpenPhotoLightbox/aaOpenVideoLightbox mount their overlay on
+   document.body (same convention every other dynamically-created
+   overlay in this file uses — Media Vault, Camera, Studio, etc.), not
+   inside #auto-arcade-widget. The scoped selector alone never matched
+   that body-mounted node, so the lightbox rendered unstyled, in normal
+   document flow, instead of as a full-screen viewer. Adding the
+   unscoped selector alongside the existing scoped one fixes this
+   without touching the mounting code or any other overlay. */
+#auto-arcade-widget .aa-lightbox,.aa-lightbox{position:fixed;inset:0;z-index:150;background:rgba(0,0,0,.96);display:flex;align-items:center;justify-content:center;padding:18px}
+#auto-arcade-widget .aa-lightbox-inner,.aa-lightbox-inner{position:relative;width:min(1100px,100%);height:min(86vh,850px);display:flex;align-items:center;justify-content:center}
+#auto-arcade-widget .aa-lightbox img,.aa-lightbox img{max-width:100%;max-height:100%;object-fit:contain;border-radius:12px}
+#auto-arcade-widget .aa-lightbox-close,.aa-lightbox-close{position:absolute;right:0;top:0;z-index:3;border:1px solid #53627c;background:#071020;color:#fff;border-radius:999px;width:42px;height:42px;font-size:24px}
+#auto-arcade-widget .aa-lightbox-download,.aa-lightbox-download{position:absolute;left:0;top:0;z-index:3}
+#auto-arcade-widget .aa-video-lightbox-inner video,.aa-video-lightbox-inner video{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;border-radius:12px;background:#000}
 /* Feed-thumbnail poster + neon play/fullscreen overlay - tapping this
    (never the raw <video>, which has no controls in this state) is the
    only way to open the full-screen viewer, so the feed thumbnail never
