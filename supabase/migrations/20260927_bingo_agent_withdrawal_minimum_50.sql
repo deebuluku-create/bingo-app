@@ -1,4 +1,24 @@
 -- ============================================================================
+-- PAUSED — DO NOT APPLY. Superseded by a live-schema correction
+-- (2026-09-27): a read-only inspection of the live project found the
+-- real table is public.bingo_agent_commission_withdrawals (amount
+-- >= 10000, payout_phone required), not public.bingo_agent_withdrawals
+-- as this file (and the frontend currently in this repo) assumed.
+-- Neither that table name nor payout_phone appear anywhere in this
+-- git repository, on any branch — this file's target table does not
+-- exist live, so applying it would either no-op destructively (the
+-- DO block that drops/re-adds the amount CHECK finds nothing to act
+-- on) or, if run as part of the full base script it depends on,
+-- create a second, parallel, disconnected withdrawal system next to
+-- the one actually in production. See
+-- 20260927_bingo_agent_commission_withdrawals_INSPECT_LIVE_SECOND.sql
+-- for what's needed to draft a correct replacement. Left in place,
+-- unmodified, only as a record of the reasoning (single
+-- source-of-truth helper function, additive-only changes) that the
+-- reconciled version should reuse once the real schema is known.
+-- ============================================================================
+
+-- ============================================================================
 -- BINGO — AGENT COMMISSION WITHDRAWAL MINIMUM: 10,000 -> 50 (KES)
 --
 -- Confirmed business rule: an Agent may request a commission withdrawal

@@ -1,4 +1,15 @@
--- READ-ONLY. Run this FIRST, against the live project, before applying
+-- SUPERSEDED (2026-09-27): this script's premise was that the live
+-- table is public.bingo_agent_withdrawals. A live inspection found
+-- the real table is public.bingo_agent_commission_withdrawals
+-- instead (amount >= 10000, payout_phone required) — this script's
+-- own queries would simply return "does not exist" against the real
+-- live project. Use
+-- 20260927_bingo_agent_commission_withdrawals_INSPECT_LIVE_SECOND.sql
+-- instead. Left in place, unmodified, only as a record of what was
+-- checked and why it was wrong.
+--
+-- READ-ONLY. (Original text below, no longer the right script to run.)
+-- Run this FIRST, against the live project, before applying
 -- 20260927_bingo_agent_withdrawal_minimum_50.sql.
 --
 -- Why: the repo's supabase/bingo_change_agent_1000_target_salary_
