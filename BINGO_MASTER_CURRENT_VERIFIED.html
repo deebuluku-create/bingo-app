@@ -26789,6 +26789,18 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 #auto-arcade-widget .msg-search:focus,#auto-arcade-widget .msg-input:focus{border-color:var(--msg-accent);box-shadow:0 0 0 3px rgba(var(--msg-accent-rgb),.16)}
 #auto-arcade-widget .msg-conversation-list,#auto-arcade-widget .msg-tab-body{flex:1;min-height:0;overflow-y:auto}
 #auto-arcade-widget .msg-conv-row{all:unset;display:flex;align-items:center;gap:9px;width:100%;box-sizing:border-box;padding:10px 12px;background:none!important;border:0!important;border-bottom:1px solid rgba(var(--msg-accent-rgb),.10)!important;border-radius:0!important;box-shadow:none!important;cursor:pointer;text-align:left;color:var(--msg-text)}
+/* Chat-list row = .msg-conv-row button + its "⋯"/restore controls in one
+   flex line. Letting the row button shrink (flex-basis 0, min-width 0)
+   keeps those trailing controls inside the column instead of pushing
+   them past the edge of the 330px peek drawer. */
+#auto-arcade-widget .msg-conversation-list>[role=listitem]{min-width:0;padding-right:8px}
+#auto-arcade-widget .msg-conversation-list>[role=listitem]>.msg-conv-row{flex:1 1 0;min-width:0;width:auto}
+/* All/Unread/Archived/Trash/Select measured 343px in a 329px column, so
+   "Select" sat half-clipped behind the row's scroll edge. Slightly
+   tighter chips fit all five in one line; wrapping stays as a fallback
+   for longer labels ("Cancel") or larger system fonts. */
+#auto-arcade-widget .msg-sidebar .msg-filter-row{gap:6px;flex-wrap:wrap}
+#auto-arcade-widget .msg-sidebar .msg-filter{padding:8px 10px}
 #auto-arcade-widget .msg-conv-row:hover{background:rgba(var(--msg-accent-rgb),.06)!important}
 #auto-arcade-widget .msg-conv-row.is-selected{background:linear-gradient(90deg,rgba(var(--msg-accent-rgb),.18),transparent)!important;border-left:3px solid var(--msg-accent)!important;padding-left:9px}
 #auto-arcade-widget .msg-conv-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
