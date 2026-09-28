@@ -9424,11 +9424,25 @@ function aaOpenCategoryTile(slug){
  if(route){aaCloseMarketCategoriesDrawer();route();return}
  state.allCatComingSoonSlug=slug;render();
 }
+/* Real, live counts only - no fabricated numbers. Used by Admin Mode
+   (super users only) so the tile can show "N live" next to a real-routed
+   category instead of the demo module's old fake per-item admin editor. */
+function aaCategoryLiveCount(slug){
+ if(slug==="vehicles")return (state.listings||[]).filter(x=>String(x.status||"published")!=="deleted").length;
+ if(slug==="properties")return (typeof aaProperties==="function"?aaProperties():[]).length;
+ if(slug==="food"||slug==="restaurants")return (typeof aaFoods==="function"?aaFoods():[]).filter(aaFoodActive).length;
+ if(slug==="jobs")return (state.jobs||[]).length;
+ if(slug==="cvs")return (state.candidates||[]).length;
+ return null;
+}
+function aaToggleAllCatAdminMode(){if(!aaIsSuperUser())return;state.allCatAdminMode=!state.allCatAdminMode;render()}
 function aaMarketCategoriesDrawerHTML(){
  if(!state.marketCategoriesDrawerOpen)return "";
  const q=(state.allCatSearch||"").toLowerCase().trim();
  const list=AA_ALL_CATEGORIES.filter(c=>!q||c.name.toLowerCase().includes(q));
  const comingSoon=state.allCatComingSoonSlug?AA_ALL_CATEGORIES.find(c=>c.slug===state.allCatComingSoonSlug):null;
+ const isAdmin=aaIsSuperUser();
+ const adminOn=isAdmin&&state.allCatAdminMode;
  if(comingSoon){
   return `<div class="overlay"><div class="modal aa-market-categories-modal">
    <button class="close" onclick="aaCloseMarketCategoriesDrawer()">×</button>
@@ -9442,9 +9456,13 @@ function aaMarketCategoriesDrawerHTML(){
   <button class="close" onclick="aaCloseMarketCategoriesDrawer()">×</button>
   <h2>All Categories</h2>
   <p class="notice">Browse every Bingo marketplace category. Categories already live on Bingo open straight away; the rest are shown honestly as not yet available.</p>
-  <input class="field" style="margin-bottom:10px" placeholder="Search categories..." value="${esc(state.allCatSearch||"")}" oninput="state.allCatSearch=this.value;render()">
+  <div class="bcp-header" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+   <input class="field" style="flex:1;min-width:160px" placeholder="Search categories..." value="${esc(state.allCatSearch||"")}" oninput="state.allCatSearch=this.value;render()">
+   ${isAdmin?`<button type="button" class="btn ${adminOn?"btn-gold active":"btn-glass"}" onclick="aaToggleAllCatAdminMode()">${adminOn?"✓ ":""}Admin Mode</button>`:""}
+  </div>
+  ${adminOn?`<p class="notice">Admin Mode: showing real live listing counts for each connected category. No demo or placeholder data.</p>`:""}
   <div class="bcp-grid">
-   ${list.length?list.map(c=>`<button class="bcp-btn" onclick="aaOpenCategoryTile('${c.slug}')"><span class="bcp-ico">${c.ageRestricted?"🔞":"▤"}</span><b>${esc(c.name)}</b><small style="display:block;font-weight:400;font-size:9px;opacity:.75">${c.ageRestricted?"18+":c.subs.length+" subcategories"}${!AA_CATEGORY_REAL_ROUTES[c.slug]?" · Coming soon":""}</small></button>`).join(""):`<div class="notice">No categories match your search.</div>`}
+   ${list.length?list.map((c,i)=>{const live=adminOn?aaCategoryLiveCount(c.slug):null;return `<button type="button" class="aa-catpill aa-catpill-c${i%6}" onclick="aaOpenCategoryTile('${c.slug}')"><b>${esc(c.name)}</b><small>${c.ageRestricted?"18+":c.subs.length+" subcategories"}${!AA_CATEGORY_REAL_ROUTES[c.slug]?" · Coming soon":live!==null?` · ${live} live`:""}</small></button>`}).join(""):`<div class="notice">No categories match your search.</div>`}
   </div>
  </div></div>`;
 }
@@ -24215,6 +24233,28 @@ function bingoSafeMediaAttr(value){
 @media(max-width:300px){
   .bcp-grid{grid-template-columns:repeat(1,minmax(0,1fr))!important}
 }
+
+/* All Categories directory: neon pill tiles (Screenshot B), cycling
+   through the same neon palette used elsewhere on Bingo rather than one
+   flat gold outline like the rest of the Cockpit's bcp-btn grid. */
+#auto-arcade-widget button.aa-catpill{
+  display:block!important;
+  text-align:left!important;
+  padding:9px 12px!important;
+  border-radius:999px!important;
+  border:1.5px solid var(--catpill-c,var(--bcp-gold-soft))!important;
+  background:rgba(10,20,36,.9)!important;
+  color:var(--bcp-text)!important;
+  box-shadow:0 0 8px -2px var(--catpill-c,transparent)!important;
+}
+.aa-catpill b{display:block;font-size:11px;font-weight:800;line-height:1.2}
+.aa-catpill small{display:block;font-size:9px;font-weight:400;opacity:.72;margin-top:1px}
+.aa-catpill-c0{--catpill-c:#22d3ee}
+.aa-catpill-c1{--catpill-c:#f472b6}
+.aa-catpill-c2{--catpill-c:#4ade80}
+.aa-catpill-c3{--catpill-c:#f5b91e}
+.aa-catpill-c4{--catpill-c:#a78bfa}
+.aa-catpill-c5{--catpill-c:#fb923c}
 
 /* ---- Buttons ---- */
 .bcp-btn{
