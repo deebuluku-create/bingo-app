@@ -4954,6 +4954,7 @@ function aaOwnerProfileSeller(){
   phone:u.phone||"",
   email:u.email||"",
   photo:aaProfilePhoto(u.photo_url),
+  cover:String(u.cover_url||""),coverPos:aaCoverPos(u.cover_position),
   bio:u.bio||"Bingo member.",
   location:u.location||"",
   showPhone:u.showPhone!==false,
@@ -5585,6 +5586,7 @@ function aaProfileFromRow(row,id,fallback){
   phone:r.phone||f.phone||"",
   email:r.email||f.email||"",
   photo:aaProfilePhoto(r.photo_url||r.avatar_url||f.photo),
+  cover:String(r.cover_url||f.cover||""),coverPos:r.cover_position!=null?aaCoverPos(r.cover_position):aaCoverPos(f.coverPos),
   bio:r.bio||f.bio||"Bingo member.",
   location:r.town||r.location||f.location||"",
   showPhone:r.show_phone!==false,
@@ -6000,6 +6002,8 @@ async function aaLoadAuthenticatedProfile(authUser){
     state.user.location=data.town||data.location||state.user.location||"";
     state.user.bio=data.bio||state.user.bio||"";
     state.user.photo_url=data.photo_url||data.avatar_url||state.user.photo_url||"";
+    if("cover_url" in data)state.user.cover_url=data.cover_url||"";
+    if(data.cover_position!=null)state.user.cover_position=aaCoverPos(data.cover_position);
     state.user.memberSince=state.user.memberSince||data.created_at||"";
     if(typeof data.show_phone==="boolean")state.user.showPhone=data.show_phone;
    }
@@ -6423,6 +6427,80 @@ function aaProcessProfileImage(file,done){
  reader.onerror=function(){toast("This profile image could not be read.");done?.("")};
  reader.readAsDataURL(file);
 }
+/* ===== Profile cover photo (owner only) =====
+   Stored like the avatar: image -> profile-images/<uid>/cover-<time>.jpg,
+   URL + vertical focus saved on the owner's profiles row (cover_url,
+   cover_position). Written by a SEPARATE update after the normal profile
+   save, so a project without those columns yet never breaks the rest of
+   the profile save - the owner is told exactly what could not be saved. */
+function aaCoverPos(v){const n=Number(v);return Number.isFinite(n)?Math.max(0,Math.min(100,Math.round(n))):35}
+function aaCoverEditorHTML(){
+ const u=state.user||{};const url=String(u.cover_url||"");const pos=aaCoverPos(u.cover_position);
+ return `<div class="aa-cover-editor"><div class="aa-cover-editor-title">Cover photo <small>shown across the top of your profile</small></div>
+  <div class="aa-cover-preview${url?"":" is-empty"}" id="aaCoverPreview">${url?`<img id="aaCoverPreviewImg" src="${bingoSafeMediaAttr(url)}" alt="Cover preview" style="object-position:50% ${pos}%">`:`<span>No cover photo yet</span>`}</div>
+  ${url?`<label class="aa-cover-pos">Adjust position <input type="range" min="0" max="100" value="${pos}" oninput="aaSetCoverPosition(this.value)" aria-label="Cover photo vertical position"></label>`:""}
+  <div class="aa-cover-actions"><label for="coverPhotoInput" class="btn">${url?"Replace Cover Photo":"Choose Cover Photo"}</label>${url?`<button type="button" class="btn btn-glass" onclick="aaRemoveCoverPhoto()">Remove</button>`:""}</div>
+  <input type="file" id="coverPhotoInput" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="handleCoverPhotoUpload(event)">
+  ${state.coverSyncNote?`<p class="notice aa-cover-note">${esc(state.coverSyncNote)}</p>`:""}
+ </div>`;
+}
+function aaProcessCoverImage(file,done){
+ if(!file){done("");return}
+ if(!["image/jpeg","image/png","image/webp"].includes(file.type)){toast("Cover photo must be a JPG, PNG or WebP image.");done("");return}
+ if(file.size>12*1024*1024){toast("Please choose a cover photo smaller than 12 MB.");done("");return}
+ const reader=new FileReader();
+ reader.onload=function(){
+  const img=new Image();
+  img.onload=function(){
+   const scale=Math.min(1,1600/Math.max(1,img.width));
+   const w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));
+   const c=document.createElement("canvas");c.width=w;c.height=h;c.getContext("2d").drawImage(img,0,0,w,h);
+   done(c.toDataURL("image/jpeg",.85));
+  };
+  img.onerror=function(){toast("This cover image could not be processed.");done("")};
+  img.src=reader.result;
+ };
+ reader.onerror=function(){toast("This cover image could not be read.");done("")};
+ reader.readAsDataURL(file);
+}
+function handleCoverPhotoUpload(event){
+ const file=event.target.files?.[0];event.target.value="";
+ if(!file||!state.isLoggedIn)return;
+ aaProcessCoverImage(file,function(data){
+  if(!data)return;
+  state.user.cover_url=data;if(state.user.cover_position==null)state.user.cover_position=35;
+  state.coverSyncNote="";save();render();
+ });
+}
+function aaSetCoverPosition(v){
+ state.user.cover_position=aaCoverPos(v);
+ const img=document.getElementById("aaCoverPreviewImg");if(img)img.style.objectPosition=`50% ${state.user.cover_position}%`;
+}
+function aaRemoveCoverPhoto(){state.user.cover_url="";state.coverSyncNote="";save();render()}
+function aaRemoveProfilePhoto(){state.user.photo_url="";aaSyncOwnProfileToListings();save();render()}
+async function aaPersistCover(){
+ const u=state.user||{};
+ if(state.testMode||!sb||!u.id)return {ok:true,local:true};
+ let url=String(u.cover_url||"");
+ if(url.startsWith("data:image/")){
+  const blob=aaDataUrlToBlob(url);
+  if(!blob)return {ok:false,stage:"upload",message:"the image could not be prepared"};
+  try{
+   const path=`${u.id}/cover-${Date.now()}.jpg`;
+   const up=await sb.storage.from("profile-images").upload(path,blob,{upsert:true,contentType:"image/jpeg"});
+   if(up.error)throw up.error;
+   url=sb.storage.from("profile-images").getPublicUrl(path)?.data?.publicUrl||"";
+   if(!url)throw new Error("no public URL returned");
+  }catch(e){return {ok:false,stage:"upload",message:String(e?.message||e)}}
+ }
+ try{
+  const r=await sb.from("profiles").update({cover_url:url||null,cover_position:aaCoverPos(u.cover_position)}).eq("id",u.id).select("id");
+  if(r.error)return {ok:false,stage:/column|schema cache/i.test(r.error.message||"")?"column":"write",message:r.error.message};
+  if(!r.data||!r.data.length)return {ok:false,stage:"write",message:"no profile row was updated"};
+ }catch(e){return {ok:false,stage:"write",message:String(e?.message||e)}}
+ u.cover_url=url;save();
+ return {ok:true};
+}
 function handleSignupPhoto(event){
  const file=event.target.files?.[0];
  if(!file)return;
@@ -6446,7 +6524,7 @@ function aaUnifiedProfileFields(mode){
  const location=register?(d.location??u.location??""):(u.location||"");
  const bio=register?(d.bio??u.bio??""):(u.bio||"");
  const photo=aaProfilePhoto(register?(state.pendingProfilePhoto||u.photo_url):u.photo_url);
- return `<div class="aa-unified-profile"><div style="text-align:center;margin:15px 0 20px"><div style="width:90px;height:90px;border-radius:50%;margin:0 auto 10px;overflow:hidden;background:#2a2d3d;border:2px solid #0073aa;display:flex;align-items:center;justify-content:center"><img id="${register?'aaSignupPhotoPreview':'profile-photo-preview'}" src="${photo}" style="width:100%;height:100%;object-fit:cover"></div><label for="${register?'aProfilePhoto':'profilePhotoInput'}" class="btn" style="display:inline-block">Choose Profile Photo</label><input type="file" id="${register?'aProfilePhoto':'profilePhotoInput'}" accept="image/jpeg,image/png" style="display:none" onchange="${register?'handleSignupPhoto(event)':'handleProfilePhotoUpload(event)'}"></div><div class="form-grid"><select id="${p}AccountType" class="field full"><option value="individual" ${accountType==='individual'?'selected':''}>Individual Account</option><option value="company" ${accountType==='company'?'selected':''}>Company / Business Account</option></select><input id="${p}First" class="field" placeholder="First name" value="${esc(first)}"><input id="${p}Last" class="field" placeholder="Last name" value="${esc(last)}"><input id="${p}Company" class="field full" placeholder="Company / Business name" value="${esc(company)}"><input id="${p}Username" class="field full" placeholder="Username e.g. @dawoodcars" value="${esc(username)}"><div class="aa-password-note full">Your @username is shown on downloaded media and can be used to search your public profile.</div><input id="${p}Phone" class="field" type="tel" placeholder="Phone / WhatsApp number" value="${esc(phone)}"><label class="full" style="display:flex;align-items:center;gap:8px;font-size:11px"><input id="${p}ShowPhone" type="checkbox" ${(register?(d.showPhone??u.showPhone):u.showPhone)!==false?'checked':''}> Display my phone number publicly</label><input id="${p}Email" class="field" type="email" placeholder="Email address" value="${esc(email)}"><select id="${p}Location" class="field full"><option value="">Location / County</option>${kenyaCounties.map(c=>`<option ${location===c?'selected':''}>${esc(c)}</option>`).join('')}</select><textarea id="${p}Bio" class="field full" rows="3" placeholder="My Bio">${esc(bio)}</textarea>${register?`<input id="aPassword" class="field aa-password-field" type="password" autocomplete="new-password" placeholder="Create password"><input id="aConfirmPassword" class="field aa-password-field" type="password" autocomplete="new-password" placeholder="Confirm password"><div class="aa-password-note full">Password: at least 6 characters, including uppercase, lowercase and a number.</div><label class="full" style="display:flex;align-items:flex-start;gap:8px;font-size:11px"><input id="aAgreePolicies" type="checkbox"> <span>I agree to the Bingo Terms & Conditions, Privacy Policy and Marketplace Rules.</span></label>`:''}</div></div>`;
+ return `<div class="aa-unified-profile"><div style="text-align:center;margin:15px 0 20px"><div style="width:90px;height:90px;border-radius:50%;margin:0 auto 10px;overflow:hidden;background:#2a2d3d;border:2px solid #0073aa;display:flex;align-items:center;justify-content:center"><img id="${register?'aaSignupPhotoPreview':'profile-photo-preview'}" src="${photo}" style="width:100%;height:100%;object-fit:cover"></div><label for="${register?'aProfilePhoto':'profilePhotoInput'}" class="btn" style="display:inline-block">Choose Profile Photo</label>${!register&&state.user?.photo_url?`<button type="button" class="btn btn-glass aa-photo-remove" style="margin-left:6px" onclick="aaRemoveProfilePhoto()">Remove</button>`:''}<input type="file" id="${register?'aProfilePhoto':'profilePhotoInput'}" accept="image/jpeg,image/png" style="display:none" onchange="${register?'handleSignupPhoto(event)':'handleProfilePhotoUpload(event)'}"></div>${register?'':aaCoverEditorHTML()}<div class="form-grid"><select id="${p}AccountType" class="field full"><option value="individual" ${accountType==='individual'?'selected':''}>Individual Account</option><option value="company" ${accountType==='company'?'selected':''}>Company / Business Account</option></select><input id="${p}First" class="field" placeholder="First name" value="${esc(first)}"><input id="${p}Last" class="field" placeholder="Last name" value="${esc(last)}"><input id="${p}Company" class="field full" placeholder="Company / Business name" value="${esc(company)}"><input id="${p}Username" class="field full" placeholder="Username e.g. @dawoodcars" value="${esc(username)}"><div class="aa-password-note full">Your @username is shown on downloaded media and can be used to search your public profile.</div><input id="${p}Phone" class="field" type="tel" placeholder="Phone / WhatsApp number" value="${esc(phone)}"><label class="full" style="display:flex;align-items:center;gap:8px;font-size:11px"><input id="${p}ShowPhone" type="checkbox" ${(register?(d.showPhone??u.showPhone):u.showPhone)!==false?'checked':''}> Display my phone number publicly</label><input id="${p}Email" class="field" type="email" placeholder="Email address" value="${esc(email)}"><select id="${p}Location" class="field full"><option value="">Location / County</option>${kenyaCounties.map(c=>`<option ${location===c?'selected':''}>${esc(c)}</option>`).join('')}</select><textarea id="${p}Bio" class="field full" rows="3" placeholder="My Bio">${esc(bio)}</textarea>${register?`<input id="aPassword" class="field aa-password-field" type="password" autocomplete="new-password" placeholder="Create password"><input id="aConfirmPassword" class="field aa-password-field" type="password" autocomplete="new-password" placeholder="Confirm password"><div class="aa-password-note full">Password: at least 6 characters, including uppercase, lowercase and a number.</div><label class="full" style="display:flex;align-items:flex-start;gap:8px;font-size:11px"><input id="aAgreePolicies" type="checkbox"> <span>I agree to the Bingo Terms & Conditions, Privacy Policy and Marketplace Rules.</span></label>`:''}</div></div>`;
 }
 async function aaSendPasswordReset(){
  if(!sb){state.authError="Password reset service is not ready. Please refresh and try again.";render();return}
@@ -14770,9 +14848,9 @@ function aaProfileDestyHTML(s,cars,sellerKey){
     ${own?`<button type="button" class="bp-neon bp-round bp-menu-btn" onclick="aaBpToggleMenu()" aria-label="${state.profileMenuOpen?"Close":"Open"} account tools" aria-controls="bpAccountDrawer" aria-expanded="${!!state.profileMenuOpen}">☰</button>`:""}
    </div>
   </header>
-  <div class="bp-cover" role="img" aria-label="Profile cover">
-   <div class="bp-cover-words">Good People<br>Good Energy <span>♡</span></div>
-   <div class="bp-cover-tags" aria-hidden="true"><span>CREATE</span><span>INSPIRE</span><span>CONNECT</span></div>
+  <div class="bp-cover${s.cover?" has-photo":""}"${s.cover?"":` role="img" aria-label="No cover photo"`}>
+   ${s.cover?`<img class="bp-cover-img" src="${bingoSafeMediaAttr(s.cover)}" alt="${esc(s.name||"Member")} cover photo" style="object-position:50% ${aaCoverPos(s.coverPos)}%" onerror="this.remove()">`:""}
+   ${own&&!s.cover?`<button type="button" class="bp-neon bp-micro bp-cover-add" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">＋ Add cover photo</button>`:""}
   </div>
   <section class="bp-identity">
    <div class="bp-identity-top">
@@ -14781,7 +14859,6 @@ function aaProfileDestyHTML(s,cars,sellerKey){
      <button type="button" class="bp-neon bp-micro bp-stat-tab${peopleTab?"":" is-active"}" aria-pressed="${!peopleTab}" onclick="state.profileDrawer=null;aaBpSetTab('posts');aaBpScrollToTabs()"><b>${aaCompact(items.length)}</b> Posts</button>
      <button type="button" class="bp-neon bp-micro bp-cyan bp-stat-tab${peopleTab==="followers"?" is-active":""}" aria-pressed="${peopleTab==="followers"}" onclick="aaBpOpenPeople(${esc(JSON.stringify(sellerKey))},'followers')"><b>${aaCompact(st.followers)}</b> Followers</button>
      <button type="button" class="bp-neon bp-micro bp-pink bp-stat-tab${peopleTab==="following"?" is-active":""}" aria-pressed="${peopleTab==="following"}" onclick="aaBpOpenPeople(${esc(JSON.stringify(sellerKey))},'following')"><b>${aaCompact(st.following)}</b> Following</button>
-     ${own?`<button type="button" class="bp-neon bp-micro bp-green bp-create${state.postTodayOpen?" is-active":""}" aria-expanded="${!!state.postTodayOpen}" onclick="aaTogglePostToday()">＋ Create</button>`:""}
     </nav>
    </div>
    <div class="bp-details">
@@ -14801,13 +14878,14 @@ function aaProfileDestyHTML(s,cars,sellerKey){
     </div>`}
    </div>
    ${own?"":`<div class="bp-highlights">${Hs.map(hl).join("")}</div>`}
-   ${own&&state.postTodayOpen?`<div class="aa-post-today-menu bp-post-menu">${AA_POST_TODAY_OPTIONS.map(o=>`<button type="button" onclick="aaPostTodayRoute('${o.key}')">${esc(o.label)}</button>`).join("")}</div>`:""}
-   ${own&&state.postTodayTopicOpen?aaBingoTopicComposerHTML():""}
-   <div class="bp-quote"><b>♛</b>Be your own kind of beautiful ♡</div>
   </section>
   <div class="bp-tabs" id="bpTabs" role="tablist" aria-label="Profile content">${TABS.map(([k,i,l])=>`<button type="button" class="bp-neon bp-micro ${tabTone[k]}${tab===k?" is-active":""}" role="tab" aria-selected="${tab===k}" onclick="aaBpSetTab('${k}')">${i} ${l}</button>`).join("")}</div>
+  ${own?`<div class="bp-create-row">
+   <button type="button" class="bp-neon bp-micro bp-green bp-create${state.postTodayOpen||state.postTodayTopicOpen?" is-active":""}" aria-expanded="${!!(state.postTodayOpen||state.postTodayTopicOpen)}" onclick="aaTogglePostToday()">＋ Create Post</button>
+   ${state.postTodayOpen?`<div class="aa-post-today-menu bp-post-menu">${AA_POST_TODAY_OPTIONS.map(o=>`<button type="button" onclick="aaPostTodayRoute('${o.key}')">${esc(o.label)}</button>`).join("")}</div>`:""}
+   ${state.postTodayTopicOpen?aaBingoTopicComposerHTML():""}
+  </div>`:""}
   <div class="bp-tabcontent">${aaBpTabContentHTML(own,s,cars,sellerKey)}</div>
-  ${own?`<div class="bp-postcta"><button type="button" class="bp-neon bp-micro bp-green bp-create" onclick="state.postTodayOpen=true;render();window.scrollTo({top:0,behavior:'smooth'})">＋ Create</button><div>SHARE YOUR NEXT POST</div></div>`:""}
  </main>
  ${own?aaBpMenuHTML():""}
  </div>
@@ -18318,6 +18396,17 @@ async function saveEditedProfile(){
    toast("Profile saved on this device, but the online profile could not be updated. Please try again.");
    return;
   }
+  const coverResult=await aaPersistCover();
+  if(!coverResult.ok){
+   state.coverSyncNote=coverResult.stage==="column"
+    ?"Your profile was saved, but the cover photo is only on this device: the online profile has no cover field yet (pending review migration)."
+    :coverResult.stage==="upload"
+    ?`Your profile was saved, but the cover photo could not be uploaded: ${coverResult.message}`
+    :`Your profile was saved, but the cover photo could not be saved online: ${coverResult.message}`;
+   toast(state.coverSyncNote);
+   return;
+  }
+  state.coverSyncNote="";
   toast("Profile updated successfully.");
   /* goAccount() is wrapped by the unsaved-changes form guard (see the
      confirmDiscard IIFE above aaFormGuardFields), which compares the
@@ -28103,6 +28192,25 @@ html body #auto-arcade-widget .aa-wall-author:not(#bingo-flat-guard){display:fle
 #auto-arcade-widget .aa-wall-kind{align-self:flex-start;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#22c9ff;border:1px solid rgba(34,201,255,.5);border-radius:6px;padding:0 6px;margin-bottom:3px}
 #auto-arcade-widget .bp-more-row{display:flex;justify-content:center;margin:10px 0 4px}
 #auto-arcade-widget .aa-topic-post-view{max-width:720px;margin:0 auto}
+
+/* ===== Profile cover photo + tab/create order (directive 28 Sep) ===== */
+#auto-arcade-widget .bp-cover.has-photo{background:#0b1628}
+#auto-arcade-widget .bp-cover-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+html body #auto-arcade-widget .bp-page .bp-cover .bp-cover-add:not(#bingo-flat-guard){position:absolute!important;right:14px;bottom:12px;left:auto;top:auto;z-index:2}
+#auto-arcade-widget .bp-tabs{margin:6px 16px 8px}
+#auto-arcade-widget .bp-create-row{margin:0 16px 12px;display:grid;gap:8px;justify-items:start}
+#auto-arcade-widget .bp-create-row .bp-post-menu{margin:0;justify-self:stretch}
+#auto-arcade-widget .bp-create-row>.aa-v69-card,#auto-arcade-widget .bp-create-row>div:not(.bp-post-menu){justify-self:stretch}
+#auto-arcade-widget .aa-cover-editor{margin:0 0 16px;padding:12px;border:1px solid #234663;border-radius:12px;background:#0b1628}
+#auto-arcade-widget .aa-cover-editor-title{font-weight:700;font-size:13px;margin-bottom:8px}
+#auto-arcade-widget .aa-cover-editor-title small{display:block;font-weight:500;font-size:11px;color:#9fb2c8}
+#auto-arcade-widget .aa-cover-preview{position:relative;aspect-ratio:16/5;border-radius:10px;overflow:hidden;background:linear-gradient(130deg,#393446,#182a42 55%,#101b2a);border:1px solid #334961}
+#auto-arcade-widget .aa-cover-preview img{width:100%;height:100%;object-fit:cover;display:block}
+#auto-arcade-widget .aa-cover-preview.is-empty{display:flex;align-items:center;justify-content:center;color:#9fb2c8;font-size:12px}
+#auto-arcade-widget .aa-cover-pos{display:flex;align-items:center;gap:8px;font-size:12px;color:#cbd5e1;margin-top:8px}
+#auto-arcade-widget .aa-cover-pos input{flex:1}
+#auto-arcade-widget .aa-cover-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+#auto-arcade-widget .bp-quote{display:none}
 </style>
 
 </body>

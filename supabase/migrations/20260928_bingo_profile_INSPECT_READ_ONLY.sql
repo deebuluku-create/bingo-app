@@ -83,3 +83,18 @@ order by table_name, column_name;
 -- 7. Profile image storage
 select id, public, file_size_limit, allowed_mime_types
 from storage.buckets where id in ('profile-images','avatars','covers');
+
+-- 8. Cover photo support (profile directive, 28 Sep): do these columns exist?
+select column_name, data_type, is_nullable, column_default
+from information_schema.columns
+where table_schema='public' and table_name='profiles'
+  and column_name in ('cover_url','cover_position','photo_url','avatar_url')
+order by column_name;
+
+-- 9. profile-images Storage policies: are writes limited to the owner's own
+--    folder (first path segment = auth.uid())? The cover uses <uid>/cover-*.jpg
+select policyname, cmd, roles, qual, with_check
+from pg_policies
+where schemaname='storage' and tablename='objects'
+  and (qual ilike '%profile-images%' or with_check ilike '%profile-images%')
+order by cmd, policyname;
