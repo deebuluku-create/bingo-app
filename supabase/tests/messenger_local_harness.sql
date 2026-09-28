@@ -50,12 +50,15 @@ alter table public.conversations enable row level security;
 alter table public.conversation_members enable row level security;
 alter table public.messages enable row level security;
 -- REPORTED: members INSERT only user_id = auth.uid(); SELECT only own row
-create policy cm_insert_self on public.conversation_members for insert to authenticated with check (user_id = auth.uid());
+create policy conversation_members_insert_own on public.conversation_members for insert to authenticated with check (user_id = auth.uid());
 create policy cm_select_self on public.conversation_members for select to authenticated using (user_id = auth.uid());
+-- ASSUMED: members may update their own row (archived / blocked flags)
+create policy cm_update_own on public.conversation_members for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
 -- ASSUMED (not reported): conversations/messages readable & writable by members
 create policy conv_select_member on public.conversations for select to authenticated
  using (exists(select 1 from public.conversation_members m where m.conversation_id = conversations.id and m.user_id = auth.uid()));
-create policy conv_insert_any on public.conversations for insert to authenticated with check (true);
+-- ASSUMED name: live allows clients to create empty conversations
+create policy conversations_insert_authenticated on public.conversations for insert to authenticated with check (true);
 create policy msg_select_member on public.messages for select to authenticated
  using (exists(select 1 from public.conversation_members m where m.conversation_id = messages.conversation_id and m.user_id = auth.uid()));
 create policy msg_insert_member on public.messages for insert to authenticated
