@@ -13641,31 +13641,35 @@ function aaFoodBusinessProfileHTML(){
   <button class="btn btn-glass" onclick="goBack()">← Back</button>
   ${aaAdSlotHTML('food-profile-top')}
   <div class="aa-foodprofile-cover" style="margin-top:12px">${coverMedia&&coverMedia.type!=='video'?`<img src="${bingoSafeMediaAttr(coverMedia.url)}" alt="">`:''}</div>
-  <div class="aa-foodprofile-head">
-   <div class="aa-foodprofile-logo">${esc(initials)}</div>
-   <div class="aa-foodprofile-id">
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h2>${esc(f.business_name)}</h2>${aaFoodActive(f)?'<span class="badge badge-green">OPEN FOR ORDERS</span>':'<span class="badge badge-red">INACTIVE</span>'}</div>
-    <div class="meta">${ratingHTML}</div>
+  <div class="aa-foodprofile-topband">
+   <div class="aa-foodprofile-head">
+    <div class="aa-foodprofile-logo">${esc(initials)}</div>
+    <div class="aa-foodprofile-id">
+     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h2>${esc(f.business_name)}</h2>${aaFoodActive(f)?'<span class="badge badge-green">OPEN FOR ORDERS</span>':'<span class="badge badge-red">INACTIVE</span>'}</div>
+     <div class="meta">${ratingHTML}</div>
+    </div>
+   </div>
+   <div class="aa-foodprofile-strip">
+    <div class="aa-foodprofile-chip"><span>Cuisine</span><b>${esc(f.category||'Restaurant')}</b></div>
+    <div class="aa-foodprofile-chip"><span>Location</span><b>${esc(addr||'—')}</b></div>
+    <div class="aa-foodprofile-chip"><span>Hours</span><b>${esc(f.opening_hours||'—')}</b></div>
+    ${f.price_range?`<div class="aa-foodprofile-chip"><span>Price Range</span><b>${esc(f.price_range)}</b></div>`:''}
+    <div class="aa-foodprofile-chip"><span>Delivery</span><b>${f.delivery_available?'Available':'Pickup only'} · ${esc(f.delivery_area||'—')}</b></div>
    </div>
   </div>
   ${(f.media||[]).length>1?aaListingMediaGalleryHTML(String(f.id),f.media,f.business_name):''}
-  <div class="aa-foodprofile-strip">
-   <div class="aa-foodprofile-chip"><span>Cuisine</span><b>${esc(f.category||'Restaurant')}</b></div>
-   <div class="aa-foodprofile-chip"><span>Location</span><b>${esc(addr||'—')}</b></div>
-   <div class="aa-foodprofile-chip"><span>Hours</span><b>${esc(f.opening_hours||'—')}</b></div>
-   ${f.price_range?`<div class="aa-foodprofile-chip"><span>Price Range</span><b>${esc(f.price_range)}</b></div>`:''}
-   <div class="aa-foodprofile-chip"><span>Delivery</span><b>${f.delivery_available?'Available':'Pickup only'} · ${esc(f.delivery_area||'—')}</b></div>
-  </div>
-  <div class="desc">${esc(f.description||'')}</div>
-  <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap aa-foodprofile-actions" style="margin-top:10px">
-   <button class="btn bingo-neon-action bingo-neon-action-gold" onclick="aaOpenFoodMenu('${esc(f.id)}')">🛒 Order Now</button>
-   ${own?'':`${phone?`<a class="btn bingo-neon-action bingo-neon-action-cyan" href="tel:${esc(phone)}">☎ Call</a>`:''}${wa?`<button class="btn bingo-neon-action bingo-neon-action-green" onclick="window.open('https://wa.me/${esc(wa)}','_blank')">WhatsApp</button>`:''}<button class="btn bingo-neon-action bingo-neon-action-purple" onclick="if(!aaRequireMember({action:'message',targetId:'${esc(f.id)}'}))return;aaMsgOpenConversationWith('${esc(f.user_id||'')}','${esc((f.business_name||'Bingo Member').replace(/'/g,"\\'"))}','')">💬 Chat</button>`}
-   <button class="btn bingo-neon-action bingo-neon-action-cyan" onclick="window.open('${esc(directionsUrl)}','_blank')">📍 Directions</button>
-   <button class="btn btn-glass" onclick="state.shareTarget={id:${esc(JSON.stringify(String(f.id)))},title:${esc(JSON.stringify(f.business_name||''))}};render()">↗ Share</button>
-   <button class="btn ${isFav(f.id)?'btn-gold fav-on':'btn-glass'}" onclick='toggleFav(${JSON.stringify(String(f.id))})'>${isFav(f.id)?'★ Saved':'☆ Save'}</button>
-   ${own||!f.user_id?'':`<button class="btn ${following?'btn-gold':'btn-glass'}" onclick="aaToggleFollowSeller('${esc(f.user_id)}',${esc(JSON.stringify(f.business_name||''))})">${following?'✓ Following':'+ Follow'}</button>
-   <button class="btn btn-glass" style="color:var(--red)" onclick="aaOpenModeration('food_business','${esc(f.id)}','${esc(f.user_id||'')}')">⚑ Report</button>`}
-   ${own?`<button class="btn btn-glass" onclick="aaEditFoodBusiness('${esc(f.id)}')">✎ Edit Business</button>`:''}
+  <div class="aa-foodprofile-actionband">
+   <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap aa-foodprofile-actions">
+    <button class="btn bingo-neon-action bingo-neon-action-gold" onclick="aaOpenFoodMenu('${esc(f.id)}')">🛒 Order Now</button>
+    ${own?'':`${phone?`<a class="btn bingo-neon-action bingo-neon-action-cyan" href="tel:${esc(phone)}">☎ Call</a>`:''}${wa?`<button class="btn bingo-neon-action bingo-neon-action-green" onclick="window.open('https://wa.me/${esc(wa)}','_blank')">WhatsApp</button>`:''}<button class="btn bingo-neon-action bingo-neon-action-purple" onclick="if(!aaRequireMember({action:'message',targetId:'${esc(f.id)}'}))return;aaMsgOpenConversationWith('${esc(f.user_id||'')}','${esc((f.business_name||'Bingo Member').replace(/'/g,"\\'"))}','')">💬 Chat</button>`}
+    <button class="btn bingo-neon-action bingo-neon-action-cyan" onclick="window.open('${esc(directionsUrl)}','_blank')">📍 Directions</button>
+    <button class="btn btn-glass" onclick="state.shareTarget={id:${esc(JSON.stringify(String(f.id)))},title:${esc(JSON.stringify(f.business_name||''))}};render()">↗ Share</button>
+    <button class="btn ${isFav(f.id)?'btn-gold fav-on':'btn-glass'}" onclick='toggleFav(${JSON.stringify(String(f.id))})'>${isFav(f.id)?'★ Saved':'☆ Save'}</button>
+    ${own||!f.user_id?'':`<button class="btn ${following?'btn-gold':'btn-glass'}" onclick="aaToggleFollowSeller('${esc(f.user_id)}',${esc(JSON.stringify(f.business_name||''))})">${following?'✓ Following':'+ Follow'}</button>
+    <button class="btn btn-glass" style="color:var(--red)" onclick="aaOpenModeration('food_business','${esc(f.id)}','${esc(f.user_id||'')}')">⚑ Report</button>`}
+   </div>
+   <div class="desc aa-foodprofile-desc">${esc(f.description||'')}</div>
+   ${own?`<button class="btn btn-glass aa-foodprofile-edit" onclick="aaEditFoodBusiness('${esc(f.id)}')">✎ Edit Business</button>`:''}
   </div>
   ${aaHelpSellBlockHTML("food_business",f.id,f.user_id||"")}
   ${aaAdminControlsHTML("food_business",f.id,f.user_id||"")}
@@ -26272,13 +26276,28 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .aa-foodprofile-id{padding-bottom:4px;min-width:0}
 #auto-arcade-widget .aa-foodprofile-id h2{margin:0;font-size:19px;line-height:1.25;word-break:break-word}
 #auto-arcade-widget .aa-foodprofile-id .meta{font-size:10.5px;color:#9aa7bc;margin-top:3px}
-/* Single horizontal strip (wraps on narrow screens) - not the 2-column
-   .specs grid used elsewhere, which would sit in a separate side column;
-   this instead flows full-width under the gallery, in one row. */
-#auto-arcade-widget .aa-foodprofile-strip{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+/* Identity (avatar/name/rating) and the info chips read as one header
+   band - side by side on wide screens, the chips wrapping onto their
+   own row(s) once the row can no longer fit both, down to a full
+   single-column stack on phones. aa-foodprofile-head keeps its own
+   width (name/rating shouldn't stretch); the chip strip takes the rest. */
+#auto-arcade-widget .aa-foodprofile-topband{display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px 20px}
+#auto-arcade-widget .aa-foodprofile-topband .aa-foodprofile-head{flex:0 1 auto;min-width:220px}
+#auto-arcade-widget .aa-foodprofile-topband .aa-foodprofile-strip{flex:999 1 320px}
+/* Not the 2-column .specs grid used elsewhere (which sits in a side
+   column) - flex-wrap chips that flow in one band. */
+#auto-arcade-widget .aa-foodprofile-strip{display:flex;flex-wrap:wrap;gap:8px;margin:0}
 #auto-arcade-widget .aa-foodprofile-chip{background:#111b30;border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:11px;flex:1 1 150px;min-width:0}
 #auto-arcade-widget .aa-foodprofile-chip span{display:block;color:#7f8ba0;font-size:9px;margin-bottom:2px}
 #auto-arcade-widget .aa-foodprofile-chip b{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* Actions + description + Edit Business share one band too - buttons
+   left, description filling the middle, Edit Business trailing on
+   desktop; each drops to its own full-width row once the band can't
+   fit them side by side. */
+#auto-arcade-widget .aa-foodprofile-actionband{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:10px}
+#auto-arcade-widget .aa-foodprofile-actionband .aa-foodprofile-actions{margin-top:0}
+#auto-arcade-widget .aa-foodprofile-desc{flex:2 1 240px;min-width:0;margin:0}
+#auto-arcade-widget .aa-foodprofile-edit{flex:0 0 auto;margin-left:auto}
 #auto-arcade-widget .aa-foodprofile-actions{gap:8px}
 @media(max-width:850px){
  /* Below the desktop two-column breakpoint, .detail-grid's own left/right
