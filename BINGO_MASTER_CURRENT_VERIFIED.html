@@ -971,8 +971,11 @@ Production mother file does not force production.
 #auto-arcade-widget .aa-ad-bottom{position:absolute;left:0;right:0;bottom:0;z-index:2;padding:20px 16px 28px;background:linear-gradient(180deg,transparent,rgba(0,0,0,.95));color:#fff}
 #auto-arcade-widget .aa-search-page{padding:14px 0 100px}
 #auto-arcade-widget .aa-media-tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0 14px}
-#auto-arcade-widget .aa-media-tabs button{border:1px solid var(--line);background:var(--panel);color:#cbd5e1;border-radius:10px;padding:10px;font-size:10px;font-weight:900}
-#auto-arcade-widget .aa-media-tabs button.active{background:var(--red);border-color:var(--red);color:#fff}
+/* Base matches the approved compact flat-neon tab (the !important pass
+   "A. Search page" further down is what enforces it over the sitewide
+   glossy button recipe); no padded/filled variant remains in this file. */
+#auto-arcade-widget .aa-media-tabs button{border:1px solid rgba(34,201,255,.55);background:#0b1729;color:#e7edf6;border-radius:8px;padding:7px 6px;min-height:30px;font-size:9.5px;font-weight:800}
+#auto-arcade-widget .aa-media-tabs button.active{background:#0d1b32;border-color:#22c9ff;color:#22c9ff;box-shadow:0 0 10px rgba(34,201,255,.45)}
 #auto-arcade-widget .aa-comment-box{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.18);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(1.5px)}
 #auto-arcade-widget .aa-comment-sheet{width:min(560px,100%);max-height:72vh;overflow:auto;background:rgba(8,16,31,.58);border:1px solid rgba(245,185,30,.28);border-radius:18px 18px 0 0;padding:16px;backdrop-filter:blur(10px) saturate(1.12);box-shadow:0 -14px 45px rgba(0,0,0,.30)}
 #auto-arcade-widget .aa-comment-item{padding:9px 0;border-bottom:1px solid rgba(255,255,255,.12);font-size:11px;color:#eef3fb;text-shadow:0 1px 4px rgba(0,0,0,.55)}
@@ -10018,6 +10021,8 @@ function aaPageGuideHTML(){
     the vertical space an open conversation needs to fill the usable
     screen on mobile, matching how it's already skipped on Home. */
  if(state.view==="inbox")return "";
+ /* the profile has its own full header (name, subtitle, search, menu) */
+ if(state.view==="seller"&&state.isLoggedIn&&!state.agentModeActive&&!state.agentAddBusinessOpen)return "";
  const info=aaPageGuideInfo();if(!info)return "";
  return `<div class="aa-page-guide">
    <div class="aa-page-guide-copy">
@@ -14235,7 +14240,7 @@ function aaFeedFollowButtonHTML(c){
    #00FF00/#FFD700, per instruction to keep Bingo's approved palette. */
 function aaProfileDestyTab(){return state.profileTab2||"vehicles"}
 function aaProfileDestySetTab(key){state.profileTab2=key;render()}
-function aaProfileDrawerOpen(key){state.profileDrawer=(state.profileDrawer===key)?null:key;render();if(state.profileDrawer)window.scrollTo(0,0)}
+function aaProfileDrawerOpen(key){state.profileDrawer=(state.profileDrawer===key)?null:key;state.profileMenuOpen=false;render()}
 function aaProfileDrawerClose(){state.profileDrawer=null;render()}
 
 function aaProfileSavedItemsHTML(){
@@ -14338,7 +14343,7 @@ const AA_DESTY_BADGES_VISITOR=[
  {key:"block",icon:"🚫",label:"Block"}
 ];
 function aaProfileDestyBadgeClick(key,sellerKey,sellerName){
- if(key==="reviews"){aaProfileDestySetTab("reviews");return}
+ if(key==="reviews"){aaProfileDrawerOpen("reviews");return}
  if(key==="share"){state.shareTarget={id:sellerKey,title:sellerName||"Bingo profile"};render();return}
  if(key==="block"){
   if(typeof aaMsgBlockUser==="function")aaMsgBlockUser(sellerKey,sellerName);
@@ -14354,7 +14359,7 @@ function aaProfileDestyBadgesHTML(own,sellerKey,sellerName){
 function aaProfileDestyDrawerHTML(sellerKey){
  const key=state.profileDrawer;
  if(!key)return "";
- const titles={friends:"Friends",saved:"Saved Items",helpsell:"Help Sell",trash:"Deleted Items · 30-day recovery",rewards:"Gold Rewards",promote:"Promote",analytics:"Analytics"};
+ const titles={friends:"Friends",saved:"Saved Items",helpsell:"Help Sell",trash:"Deleted Items · 30-day recovery",rewards:"Gold Rewards",promote:"Promotions",analytics:"Insights",reviews:"Ratings & Reviews"};
  const bodies={
   friends:()=>aaProfileFriendsDrawerHTML(),
   saved:()=>aaProfileSavedItemsHTML(),
@@ -14362,7 +14367,8 @@ function aaProfileDestyDrawerHTML(sellerKey){
   trash:()=>aaTrashHTML(),
   rewards:()=>aaProfileRewardsDrawerHTML(),
   promote:()=>aaProfilePromoteDrawerHTML(sellerKey),
-  analytics:()=>aaProfileAnalyticsDrawerHTML()
+  analytics:()=>aaProfileAnalyticsDrawerHTML(),
+  reviews:()=>state.__bpReviewsHTML||""
  };
  const body=(bodies[key]||(()=>""))();
  if(!body&&!titles[key])return "";
@@ -14382,75 +14388,236 @@ function aaProfileDestyTabContentHTML(own,s,cars,sellerKey,rs,avg,reviewList){
  if(tab==="reviews")return `<div class="boost-summary"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div></div><div class="boost-summary" style="margin-top:10px"><b>Reviews</b>${reviewList}${state.isLoggedIn?`<div style="border-top:1px solid var(--line);margin-top:10px;padding-top:10px"><label class="form-label">Your rating (optional)</label><select id="profileRating" class="field"><option value="0">No star rating</option><option value="5">★★★★★ 5</option><option value="4">★★★★☆ 4</option><option value="3">★★★☆☆ 3</option><option value="2">★★☆☆☆ 2</option><option value="1">★☆☆☆☆ 1</option></select><label class="form-label" style="margin-top:8px">Your review (optional)</label><textarea id="profileReview" class="field" rows="3" placeholder="${own?"Owner comments are allowed but do not count toward your profile rating.":"Write a review about this profile..."}"></textarea><button class="btn btn-red" style="width:100%;margin-top:8px" onclick='submitProfileReview(${JSON.stringify(sellerKey)})'>Submit Review</button></div>`:`<div class="notice">Sign up / log in to submit a rating or review.</div>`}</div>`;
  return `<div class="aa-owner-posts-panel"><div class="aa-owner-posts-head"><h3>${own?"My Vehicle Posts":"Vehicle Posts"}</h3>${own?`<span class="aa-owner-posts-count">${cars.length}/15 Active</span>`:""}</div>${own?`<div class="aa-owner-posts-note">Your published videos and photos are arranged below. Tap a post to open it, or use × to delete it.</div>`:""}${cars.length?`<div class="seller-listings">${cars.map(c=>aaProfileMiniCardHTML(c,own)).join("")}</div>`:`<div class="notice">${own?"No active vehicle posts.":"No listings yet."}</div>`}</div>`;
 }
+/* ===== Bingo profile (approved "Destyjenner"-style layout) =====
+   Owner and visitor profile for view "seller" (sellerHTML -> here; guests
+   still get the limited guest view from bingo-fix07). Every value shown
+   comes from the existing loaders - nothing is copied from the reference
+   image:
+     name / photo / location / bio / username / member since  -> seller profile (profiles row)
+     crown           -> aaCrownBadgeHTML (server-awarded crown status only)
+     online          -> aaVendorOnline (presence channel)
+     Posts           -> this member's vehicles + properties + food listings
+     Followers/Following -> aaFollowStats (bingo_follows)
+     Call / WhatsApp -> callSeller / contact('whatsapp') (Share Number permission rules)
+     Chat            -> contact('chat') -> Messenger (Request to Communicate rules)
+     Follow          -> aaToggleFollowSeller (bingo_follows)
+   Not shown because no real data exists: verification badge (no public
+   verification field), cover photo (no cover column - a Bingo gradient is
+   used), social handles (not stored), stories, tagged posts, liked posts. */
+function aaBpItems(s,cars,sellerKey){
+ const items=[];
+ (cars||[]).forEach(c=>{
+  const video=aaMediaType(c)==="video"?aaVideoUrl(c):"";
+  items.push({kind:"vehicle",id:String(c.id),title:c.title||"Vehicle",img:(Array.isArray(c.images)&&c.images[0])||c.image||"",video,at:c.createdAt||"",open:`openDetails(state.listings.find(x=>String(x.id)===${JSON.stringify(String(c.id))}))`});
+ });
+ (typeof aaOwnerPropertyListings==="function"?aaOwnerPropertyListings(sellerKey):[]).forEach(p=>{
+  const m=aaPropertyCoverMedia(p);const imgM=(Array.isArray(p.media)?p.media:[]).find(x=>x.type!=="video");
+  items.push({kind:"property",id:String(p.id),title:p.title||"Property",img:imgM?imgM.url:"",video:m&&m.type==="video"?m.url:"",at:p.created_at||p.createdAt||"",open:`openPropertyDetail(${JSON.stringify(String(p.id))})`});
+ });
+ (typeof aaOwnerFoodListings==="function"?aaOwnerFoodListings(sellerKey):[]).forEach(f=>{
+  const media=aaFoodMedia(f);const imgM=media.find(x=>x.type!=="video");const vid=media.find(x=>x.type==="video");
+  items.push({kind:"food",id:String(f.id),title:f.business_name||f.name||"Food business",img:imgM?imgM.url:"",video:vid?vid.url:"",at:f.created_at||"",open:`aaOpenFoodBusinessProfile(${JSON.stringify(String(f.id))})`});
+ });
+ return items.sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));
+}
+function aaBpTileHTML(it,own){
+ const label={vehicle:"Vehicle",property:"Property",food:"Food"}[it.kind];
+ const media=it.img?`<img src="${bingoSafeMediaAttr(it.img)}" alt="${esc(it.title)}" loading="lazy" onerror="this.style.display='none'">`
+  :it.video?`<video src="${bingoSafeMediaAttr(it.video)}" muted playsinline preload="metadata"></video>`
+  :`<span class="bp-tile-empty">${esc(it.title)}</span>`;
+ return `<div class="bp-tile" role="listitem">
+  <button type="button" class="bp-tile-open" onclick='${it.open}' aria-label="Open ${esc(label)}: ${esc(it.title)}">${media}${it.video?`<span class="bp-tile-play" aria-hidden="true">▶</span>`:""}<span class="bp-tile-kind">${label}</span></button>
+  ${own&&it.kind==="vehicle"?`<button type="button" class="bp-tile-x" aria-label="Delete ${esc(it.title)}" title="Delete post" onclick='aaSoftDeleteListing(${JSON.stringify(it.id)})'>×</button><button type="button" class="bp-tile-boost" onclick='openContentBoost(state.listings.find(x=>String(x.id)===${JSON.stringify(it.id)}),"vehicle")'>Boost</button>`:""}
+ </div>`;
+}
+function aaBpTab(){return ["posts","reels","tagged","saved","liked"].includes(state.profileTab3)?state.profileTab3:"posts"}
+function aaBpSetTab(k){state.profileTab3=k;render()}
+function aaBpTabContentHTML(own,s,cars,sellerKey){
+ const tab=aaBpTab();
+ const items=aaBpItems(s,cars,sellerKey);
+ const grid=list=>list.length?`<div class="bp-grid" role="list">${list.map(it=>aaBpTileHTML(it,own)).join("")}</div>`:"";
+ if(tab==="posts"){
+  const wall=typeof aaProfileDestyTopicsTabHTML==="function"?aaProfileDestyTopicsTabHTML(own,sellerKey):"";
+  return (grid(items)||`<div class="bp-empty">${own?"You have not published any listings yet. Tap + to share your first post.":"This member has not published any listings yet."}</div>`)+`<div class="bp-subhead">Bingo Wall posts</div>${wall}`;
+ }
+ if(tab==="reels"){const v=items.filter(it=>it.video);return grid(v)||`<div class="bp-empty">${own?"No video posts yet. Record one in Live Studio or add a video to a listing.":"No video posts yet."}</div>`}
+ if(tab==="tagged")return `<div class="bp-empty">Tagging members in posts is not available on Bingo yet, so there are no tagged posts to show.</div>`;
+ if(tab==="saved")return own?`<div class="bp-saved">${aaProfileSavedItemsHTML()}</div>`:`<div class="bp-empty">Saved items are private to their owner.</div>`;
+ return `<div class="bp-empty">${own?"Liked posts are not recorded on Bingo yet.":"Liked posts are private."}</div>`;
+}
+/* Right-hand menu (desktop column; drawer opened by ••• on phones). Each
+   entry is a real destination; entries with no destination yet are shown
+   disabled with "Not available yet" rather than as a working button. */
+function aaBpMenuEntries(){
+ const unread=typeof aaUnreadMessageCount==="function"?aaUnreadMessageCount():0;
+ const ownThen=key=>`aaBpMenuGo('${key}')`;
+ const agent=typeof aaCanUseAgentDashboard==="function"&&aaCanUseAgentDashboard();
+ return [
+  {icon:"👤",label:"My Profile",run:"goAccount()"},
+  {icon:"✎",label:"Edit Profile",run:"state.view='edit-profile';render();window.scrollTo(0,0)"},
+  {icon:"▦",label:"Posts",run:ownThen("posts")},
+  {icon:"▶",label:"Reels",run:ownThen("reels")},
+  {icon:"◎",label:"Stories",na:"Stories are not built yet"},
+  {icon:"⏺",label:"Live Studio",run:"if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio()"},
+  {icon:"👥",label:"Friends",run:ownThen("friends")},
+  {icon:"✉",label:"Messages",badge:unread,run:"openInbox()"},
+  {icon:"📞",label:"Calls",run:"aaMsgOpenInbox();aaMsgSetActiveTab('calls')"},
+  {icon:"🎥",label:"Video Calls",run:"aaMsgOpenInbox();aaMsgSetActiveTab('calls')",note:"Call log"},
+  {icon:"👪",label:"Groups",run:"aaOpenCommunityGroups()"},
+  {icon:"☆",label:"Saved",run:ownThen("saved")},
+  agent?{icon:"💰",label:"Wallet & Earnings",run:"aaSwitchToAgent()",note:"Agent earnings"}:{icon:"💰",label:"Wallet & Earnings",na:"No wallet exists yet"},
+  {icon:"🎛",label:"Creator Tools",run:"if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio()",note:"In Live Studio"},
+  {icon:"📊",label:"Analytics",run:ownThen("analytics"),cls:"is-green"},
+  {icon:"▣",label:"QR Code",na:"Profile QR codes are not built yet"},
+  {icon:"⚙",label:"Settings",na:"No settings screen yet - use Edit Profile"},
+  {icon:"?",label:"Help & Support",run:"aaBpOpenPolicies()",note:"Bingo policies"}
+ ];
+}
+/* Menu entries about MY content switch to my own profile first. */
+function aaBpMenuGo(key){
+ state.profileMenuOpen=false;
+ if(!(state.view==="seller"&&state.seller&&aaIsOwnSeller(state.seller)))goAccount();
+ if(key==="posts"||key==="reels"){aaBpSetTab(key);aaBpScrollToTabs();return}
+ if(["friends","saved","analytics"].includes(key)){aaProfileDrawerOpen(key);return}
+ render();
+}
+function aaBpScrollToTabs(){requestAnimationFrame(()=>document.getElementById("bpTabs")?.scrollIntoView({block:"start",behavior:"smooth"}))}
+function aaBpOpenPolicies(){state.profileMenuOpen=false;if(typeof window.aaOpenBingoPolicies==="function")window.aaOpenBingoPolicies();else render()}
+/* Shared profile links: this site's own address + #seller-<member id>
+   (the old DOMAIN constant still points at a previous product domain). */
+function aaBpProfileUrl(id){
+ const base=/^https?:$/.test(location.protocol)?location.origin+location.pathname:"https://bingo-app.co.ke/";
+ return base+"#seller-"+encodeURIComponent(id);
+}
+function aaBpOpenHashProfile(){
+ const m=/^#seller-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(location.hash||"");
+ if(!m||typeof openSeller!=="function")return false;
+ if(state.view==="seller"&&String(state.seller?.sellerId||state.seller?.id||"")===m[1])return true;
+ openSeller(m[1]);return true;
+}
+window.addEventListener("hashchange",aaBpOpenHashProfile);
+window.addEventListener("load",()=>setTimeout(aaBpOpenHashProfile,1200));
+async function aaBpShare(platform){
+ const me=String(state.user?.id||"");if(!me)return;
+ const url=aaBpProfileUrl(me);const text=`${aaOwnProfileName?aaOwnProfileName():"My"} on Bingo`;
+ if(platform==="whatsapp"){window.open("https://wa.me/?text="+encodeURIComponent(text+" "+url),"_blank","noopener");return}
+ if(platform==="facebook"){window.open("https://www.facebook.com/sharer/sharer.php?u="+encodeURIComponent(url),"_blank","noopener");return}
+ if(platform==="copy"){try{await navigator.clipboard.writeText(url);toast("Profile link copied.")}catch(e){toast(url)}return}
+ /* TikTok and Instagram have no web share link: use the device share sheet, else copy */
+ try{if(navigator.share){await navigator.share({title:"Bingo",text,url});return}await navigator.clipboard.writeText(url);toast(`Link copied - paste it into ${platform==="tiktok"?"TikTok":"Instagram"}.`)}catch(e){if(e?.name!=="AbortError")toast(url)}
+}
+function aaBpMenuHTML(){
+ if(!state.isLoggedIn)return "";
+ const me=aaResolveMemberMeta(String(state.user?.id||""),"");
+ return `<aside class="bp-menu" aria-label="Account menu">
+  <div class="bp-menu-head"><button type="button" class="bp-icon" onclick="state.profileMenuOpen=false;render()" aria-label="Close menu">×</button></div>
+  <button type="button" class="bp-menu-me" onclick="goAccount()"><img src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(aaMemberDisplayName(me))}</b>${state.user?.username?`<small>@${esc(state.user.username)}</small>`:""}</span></button>
+  <nav class="bp-menu-list">${aaBpMenuEntries().map(e=>e.na
+   ?`<div class="bp-menu-item is-na" aria-disabled="true" title="${esc(e.na)}"><span class="bp-menu-ico">${e.icon}</span><span class="bp-menu-label">${esc(e.label)}</span><small>Not available yet</small></div>`
+   :`<button type="button" class="bp-menu-item${e.cls?" "+e.cls:""}" onclick="state.profileMenuOpen=false;${esc(e.run)}"><span class="bp-menu-ico">${e.icon}</span><span class="bp-menu-label">${esc(e.label)}</span>${e.badge?`<span class="bp-menu-badge">${e.badge>99?"99+":e.badge}</span>`:e.note?`<small>${esc(e.note)}</small>`:""}</button>`).join("")}
+   <button type="button" class="bp-menu-item is-logout" onclick="state.profileMenuOpen=false;logoutBingo()"><span class="bp-menu-ico">⏻</span><span class="bp-menu-label">Log Out</span></button>
+  </nav>
+  <div class="bp-share"><b>Quick Share Profile</b><div class="bp-share-row">
+   ${[["whatsapp","WhatsApp","🟢"],["tiktok","TikTok","♪"],["instagram","Instagram","◎"],["facebook","Facebook","f"],["copy","Copy link","⧉"]].map(([k,l,i])=>`<button type="button" class="bp-share-btn" onclick="aaBpShare('${k}')" aria-label="Share on ${l}" title="${l}">${i}</button>`).join("")}
+  </div></div>
+ </aside>`;
+}
 function aaProfileDestyHTML(s,cars,sellerKey){
  const own=aaIsOwnSeller(s);
  const rs=reviewSummary(sellerKey,s.name), avg=rs.average?rs.average.toFixed(1):"No rating yet";
  const reviewList=rs.reviews.length?rs.reviews.map(r=>{
   const ownerEntry=aaReviewIsOwnerEntry(r,sellerKey,s.name);
   const canReply=own&&!ownerEntry;
-  return `<div class="aa-review"><div><span class="aa-rating-stars">${starsHTML(r.rating)}</span>${r.rating?` <span style="font-size:9px;color:#7f8ba0">${r.rating}/5</span>`:""}${ownerEntry?` <span class="meta">(owner comment — not counted)</span>`:""}</div>${r.text?`<div style="font-size:11px;line-height:1.5;margin-top:4px">${esc(r.text)}</div>`:""}<div style="font-size:9px;color:#7f8ba0;margin-top:4px">${esc(r.author||"Bingo Member")}</div>${r.reply?`<div class="notice" style="margin-top:8px"><b>${esc(r.replyAuthor||s.name)} replied:</b><br>${esc(r.reply)}</div>`:""}${canReply?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><textarea id="reviewReply_${esc(String(r.id))}" class="field" rows="2" placeholder="Reply to this review..."></textarea><button class="btn" style="width:100%;margin-top:6px" onclick='replyToProfileReview(${JSON.stringify(String(r.id))})'>Reply</button></div>`:""}</div>`;
+  return `<div class="aa-review"><div><span class="aa-rating-stars">${starsHTML(r.rating)}</span>${r.rating?` <span style="font-size:9px;color:#7f8ba0">${r.rating}/5</span>`:""}${ownerEntry?` <span class="meta">(owner comment — not counted)</span>`:""}</div>${r.text?`<div style="font-size:12px;line-height:1.5;margin-top:4px">${esc(r.text)}</div>`:""}<div style="font-size:10px;color:#7f8ba0;margin-top:4px">${esc(r.author||"Bingo Member")}</div>${r.reply?`<div class="notice" style="margin-top:8px"><b>${esc(r.replyAuthor||s.name)} replied:</b><br>${esc(r.reply)}</div>`:""}${canReply?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><textarea id="reviewReply_${esc(String(r.id))}" class="field" rows="2" placeholder="Reply to this review..."></textarea><button class="btn" style="width:100%;margin-top:6px" onclick='replyToProfileReview(${JSON.stringify(String(r.id))})'>Reply</button></div>`:""}</div>`;
  }).join(""):`<div class="notice">No reviews yet.${own?"":" Be the first logged-in member to review this profile."}</div>`;
- const totalPosts=cars.length+(typeof aaProperties==="function"?aaProperties().filter(p=>String(p.user_id||p.sellerId||p.userId||"")===sellerKey).length:0)+(typeof aaFoods==="function"?aaFoods().filter(f=>String(f.user_id||"")===sellerKey).length:0);
+ const prevTab=state.profileTab2;state.profileTab2="reviews";
+ state.__bpReviewsHTML=aaProfileDestyTabContentHTML(own,s,cars,sellerKey,rs,avg,reviewList);
+ state.profileTab2=prevTab;
+ const items=aaBpItems(s,cars,sellerKey);
  const st=aaFollowStats(sellerKey);
- const tab=aaProfileDestyTab();
- const TABS=[{key:"vehicles",icon:"▦",label:"Vehicles"},{key:"property",icon:"🏠",label:"Property"},{key:"food",icon:"🍽",label:"Food"},{key:"topics",icon:"💬",label:"Topics"},{key:"reviews",icon:"★",label:"Reviews"}];
  const following=own?false:aaIsFollowingSeller(sellerKey);
- return `<section class="aa-desty-profile" style="padding:0 0 105px">
-  <div class="aa-desty-topbar">
-   <button class="btn btn-glass" onclick="goBack()">← Back</button>
-   <h1>${esc(s.name||"Bingo Profile")}</h1>
-   <div class="aa-desty-topicons">
-    ${own?`<button type="button" onclick="aaProfileDrawerOpen('analytics')" aria-label="Analytics" title="Analytics">📊</button>`:""}
-    <button type="button" onclick="aaProfileDrawerOpen('friends')" aria-label="Friends" title="Friends">👥</button>
+ const online=aaVendorOnline(s);
+ const crown=typeof aaCrownBadgeHTML==="function"?aaCrownBadgeHTML(sellerKey,"full"):"";
+ const username=own?(state.user?.username||""):(typeof aaSellerUsername==="function"?String(aaSellerUsername(s)||"").replace(/^@/,""):"");
+ const reqState=!own&&typeof aaMsgRequestState==="function"?aaMsgRequestState(sellerKey):"none";
+ const blocked=!own&&(reqState==="blocked_by_me"||reqState==="blocked_by_them"||(typeof aaMsgIsBlockedBy==="function"&&aaMsgIsBlockedBy(sellerKey)));
+ const phoneHidden=s.showPhone===false;
+ const sJson=JSON.stringify(s).replace(/'/g,"&#39;");
+ const nameJs=JSON.stringify(String(s.name||"this member"));
+ const subtitle=own?"Your profile · posts, followers and account tools":`${s.gold?"Gold member":"Bingo member"}${s.location?" · "+s.location:""}`;
+ const contactBtn=(ic,label,onclick,disabled,title)=>`<button type="button" class="bp-contact" ${disabled?"disabled":""} onclick='${onclick}' title="${esc(title||label)}"><span class="bp-contact-ico">${ic}</span><span>${label}</span></button>`;
+ const H=own?[
+  {key:"new",label:"New",ring:"gold",icon:"+",run:"aaTogglePostToday()"},
+  {key:"friends",label:"Friends",ring:"purple",icon:"👥"},{key:"saved",label:"Saved",ring:"white",icon:"☆"},
+  {key:"helpsell",label:"Help Sell",ring:"yellow",icon:"🤝"},{key:"trash",label:"Trash",ring:"teal",icon:"🗑"},
+  {key:"rewards",label:"Rewards",ring:"red",icon:"🏆"}]
+  :[{key:"friends",label:"Friends",ring:"purple",icon:"👥"},{key:"reviews",label:"Reviews",ring:"yellow",icon:"★"},
+  {key:"share",label:"Share",ring:"teal",icon:"↗"},{key:"block",label:blocked&&reqState==="blocked_by_me"?"Blocked":"Block",ring:"red",icon:"🚫"}];
+ const tab=aaBpTab();
+ const TABS=[["posts","▦","Posts"],["reels","▶","Reels"],["tagged","＠","Tagged"],["saved","☆","Saved"],["liked","♡","Liked"]];
+ return `<section class="bp-page${state.profileMenuOpen?" is-menu-open":""}${state.isLoggedIn?" has-menu":""}">
+ <div class="bp-layout">
+ <div class="bp-main">
+  <header class="bp-topbar">
+   <button type="button" class="bp-icon" onclick="goBack()" aria-label="Back">←</button>
+   <div class="bp-topbar-title"><h1>${esc(s.name||"Bingo Profile")}${crown}</h1><p>${esc(subtitle)}</p></div>
+   <button type="button" class="bp-icon" onclick="aaOpenSearch()" aria-label="Search">🔍</button>
+   ${state.isLoggedIn?`<button type="button" class="bp-icon bp-more" onclick="state.profileMenuOpen=!state.profileMenuOpen;render()" aria-label="Open menu" aria-expanded="${!!state.profileMenuOpen}">•••</button>`:""}
+  </header>
+  <div class="bp-cover" role="img" aria-label="Profile cover">
+   <div class="bp-cover-art" aria-hidden="true"></div>
+   <div class="bp-cover-text"><span class="bp-cover-kicker">See listings · Boost adverts</span><strong>Good People, Good Energy</strong><span class="bp-cover-sub">CREATE · INSPIRE · CONNECT</span></div>
+   <div class="bp-avatar-wrap">
+    <span class="bp-avatar-ring" aria-hidden="true"></span>
+    <img class="bp-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||"Bingo member")}" onerror="aaProfileImgFallback(this)">
+    ${online?`<span class="bp-online" title="Online"></span>`:""}
    </div>
   </div>
-  <div class="aa-desty-hero">
-   <div class="aa-desty-avatar-wrap">
-    <div class="aa-desty-avatar-ring"></div>
-    <img class="aa-desty-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)">
-    ${own?`<button type="button" class="aa-desty-mic-badge" onclick="if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio();" aria-label="Record Video" title="Record Video">🎙</button>`:`<span class="aa-desty-mic-badge aa-desty-mic-badge-status">${aaPresenceBadge(s)}</span>`}
+  <div class="bp-identity">
+   <h2>${esc(s.name||"Bingo Member")}${crown}</h2>
+   <div class="bp-meta">${username?`<span>@${esc(username)}</span>`:""}${s.location?`<span>📍 ${esc(s.location)}</span>`:own?`<span class="bp-muted">📍 Add your location</span>`:""}${aaMemberSinceHTML(s)?`<span>${aaMemberSinceHTML(s).replace(/<[^>]+>/g,"")}</span>`:""}</div>
+   <p class="bp-bio${s.bio&&s.bio!=="Bingo member."?"":" bp-muted"}">${s.bio&&s.bio!=="Bingo member."?esc(s.bio):own?"Add a short bio so buyers know who you are.":"This member has not written a bio yet."}</p>
+   <button type="button" class="bp-rating" onclick="aaProfileDrawerOpen('reviews')"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b>${avg}</b> <span>(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></button>
+  </div>
+  <div class="bp-statsrow">
+   <div class="bp-stats">
+    <button type="button" onclick="aaBpSetTab('posts');aaBpScrollToTabs()"><b>${aaCompact(items.length)}</b><span>Posts</span></button>
+    <button type="button" onclick="aaProfileDrawerOpen('friends')"><b>${aaCompact(st.followers)}</b><span>Followers</span></button>
+    <button type="button" onclick="aaProfileDrawerOpen('friends')"><b>${aaCompact(st.following)}</b><span>Following</span></button>
    </div>
-   <div class="aa-desty-id">
-    <h2>${esc(s.name)}</h2>
-    ${s.location?`<div class="aa-desty-meta">📍 ${esc(s.location)}</div>`:""}
-    ${own?`<div class="aa-desty-meta">@${esc(state.user?.username||"member")}</div>`:""}
-    ${aaMemberSinceHTML(s)}
-   </div>
+   ${own?"":`<div class="bp-contacts">
+    ${contactBtn("📞","Call",`callSeller(${sJson})`,blocked||phoneHidden,blocked?"Blocked":phoneHidden?"This member does not share a phone number":"Call")}
+    ${contactBtn("💬","Chat",`contact("chat",${sJson})`,blocked,blocked?"Blocked":"Chat")}
+    ${contactBtn("🟢","WhatsApp",`contact("whatsapp",${sJson})`,blocked||phoneHidden,blocked?"Blocked":phoneHidden?"This member does not share a phone number":"WhatsApp")}
+    ${contactBtn(following?"✓":"＋",following?"Following":"Follow",`aaToggleFollowSeller(${JSON.stringify(sellerKey)},${nameJs})`,blocked,following?"Unfollow":"Follow")}
+   </div>`}
   </div>
-  <div class="aa-desty-stats">
-   <span><b>${aaCompact(totalPosts)}</b> Posts</span>
-   <span><b>${aaCompact(st.followers)}</b> Followers</span>
-   <span><b>${aaCompact(st.following)}</b> Following</span>
-  </div>
-  <div class="aa-desty-actions">
-   ${own?`
-   <button type="button" class="bingo-neon-action bingo-neon-action-green aa-desty-action" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">✎ Edit Profile</button>
-   <button type="button" class="bingo-neon-action bingo-neon-action-gold aa-desty-action" onclick="aaProfileDrawerOpen('promote')">📣 Promote</button>
-   <button type="button" class="bingo-neon-action bingo-neon-action-cyan aa-desty-action" onclick="aaProfileDrawerOpen('analytics')">📊 Analytics</button>
-   `:`
-   <button type="button" class="bingo-neon-action ${following?"bingo-neon-action-gold":"bingo-neon-action-green"} aa-desty-action" onclick="aaToggleFollowSeller(${JSON.stringify(sellerKey)},${JSON.stringify((s.name||"this member").replace(/'/g,"\\'"))})">${following?"✓ Following":"+ Follow"}</button>
-   <button type="button" class="bingo-neon-action bingo-neon-action-purple aa-desty-action" onclick='contact("chat",${JSON.stringify(s)})'>💬 Message</button>
-   <button type="button" class="bingo-neon-action bingo-neon-action-gold aa-desty-action" onclick="state.shareTarget={id:${JSON.stringify(sellerKey)},title:${JSON.stringify(s.name||"Bingo profile")}};render()">↗ Share</button>
-   `}
-  </div>
-  ${own&&(aaIsAgentRole()||typeof aaCanUseAgentDashboard==="function"&&aaCanUseAgentDashboard())?`<div class="aa-desty-agentbar">${aaAgentProfilePanelHTML()}</div>`:""}
-  ${aaProfileDestyBadgesHTML(own,sellerKey,s.name)}
-  <div class="aa-desty-tabs">${TABS.map(t=>`<button type="button" class="aa-desty-tab${tab===t.key?" is-active":""}" onclick="aaProfileDestySetTab('${t.key}')" aria-label="${esc(t.label)}" title="${esc(t.label)}">${t.icon}</button>`).join("")}</div>
-  <div class="aa-desty-tabcontent">${aaProfileDestyTabContentHTML(own,s,cars,sellerKey,rs,avg,reviewList)}</div>
-  ${own?`<div class="aa-desty-postcta">
-   <button type="button" class="aa-desty-cube" onclick="aaTogglePostToday()" aria-label="Create a post">+</button>
-   <div class="aa-desty-postprompt">${state.postTodayOpen?"Choose what to post":"Share your next post"}</div>
-   ${state.postTodayOpen?`<div class="aa-post-today-menu" style="position:static;margin-top:8px">${AA_POST_TODAY_OPTIONS.map(o=>`<button type="button" onclick="aaPostTodayRoute('${o.key}')">${esc(o.label)}</button>`).join("")}</div>`:""}
-   ${state.postTodayTopicOpen?aaBingoTopicComposerHTML():""}
+  ${own?`<div class="bp-owner-actions">
+   <button type="button" class="bp-btn" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">✎ Edit Profile</button>
+   <button type="button" class="bp-btn" onclick="aaProfileDrawerOpen('promote')">📣 Promotions</button>
+   <button type="button" class="bp-btn" onclick="aaProfileDrawerOpen('analytics')">📊 Insights</button>
   </div>`:""}
-  ${aaProfileDestyDrawerHTML(sellerKey)}
-  <nav class="aa-desty-bottomnav">
-   <button type="button" onclick="goHome()" aria-label="Home">🏠</button>
-   <button type="button" onclick="state.view='search';render();window.scrollTo(0,0)" aria-label="Search">🔍</button>
-   <button type="button" class="aa-desty-bottomnav-post" onclick="aaTogglePostToday()" aria-label="Post">+</button>
-   <button type="button" onclick="aaOpenMarket()" aria-label="Marketplace">🛒</button>
-   <button type="button" class="${own?"is-active":""}" onclick="goAccount()" aria-label="My Profile"><img src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" alt="" onerror="aaProfileImgFallback(this)"></button>
-  </nav>
+  ${own&&(aaIsAgentRole()||typeof aaCanUseAgentDashboard==="function"&&aaCanUseAgentDashboard())?`<div class="aa-desty-agentbar">${aaAgentProfilePanelHTML()}</div>`:""}
+  <div class="bp-highlights" role="list">${H.map(h=>`<button type="button" class="bp-hl bp-ring-${h.ring}" role="listitem" onclick="${h.run?h.run:`aaProfileDestyBadgeClick('${h.key}',${esc(JSON.stringify(sellerKey))},${esc(nameJs)})`}"><span class="bp-hl-circle">${h.icon}</span><span class="bp-hl-label">${esc(h.label)}</span></button>`).join("")}</div>
+  ${own&&state.postTodayOpen?`<div class="aa-post-today-menu bp-post-menu">${AA_POST_TODAY_OPTIONS.map(o=>`<button type="button" onclick="aaPostTodayRoute('${o.key}')">${esc(o.label)}</button>`).join("")}</div>`:""}
+  ${own&&state.postTodayTopicOpen?aaBingoTopicComposerHTML():""}
+  <div class="bp-quote">“All Kenyans, One Market.” <span aria-hidden="true">♡</span></div>
+  <nav class="bp-tabs" id="bpTabs" aria-label="Profile content">${TABS.map(([k,i,l])=>`<button type="button" class="bp-tab${tab===k?" is-active":""}" onclick="aaBpSetTab('${k}')" aria-pressed="${tab===k}"><span aria-hidden="true">${i}</span> ${l}</button>`).join("")}</nav>
+  <div class="bp-tabcontent">${aaBpTabContentHTML(own,s,cars,sellerKey)}</div>
+  ${own?`<div class="bp-postcta"><button type="button" class="bp-cube" onclick="aaTogglePostToday();window.scrollTo({top:0,behavior:'smooth'})" aria-label="Create a post">+</button><div>SHARE YOUR NEXT POST</div></div>`:""}
+ </div>
+ ${aaBpMenuHTML()}
+ </div>
+ ${state.profileMenuOpen?`<div class="bp-scrim" onclick="state.profileMenuOpen=false;render()"></div>`:""}
+ ${aaProfileDestyDrawerHTML(sellerKey)}
+ ${typeof window.aaBingoAccountPanelHTML==="function"?window.aaBingoAccountPanelHTML():""}
+ <nav class="bp-bottomnav" aria-label="Main">
+  <button type="button" onclick="goHome()" aria-label="Home">🏠<span>Home</span></button>
+  <button type="button" onclick="aaOpenSearch()" aria-label="Search">🔍<span>Search</span></button>
+  <button type="button" class="bp-bottomnav-post" onclick="${state.isLoggedIn?"goAccount();state.postTodayOpen=true;render()":"openAuth('login')"}" aria-label="Post">＋</button>
+  <button type="button" onclick="aaOpenMarket()" aria-label="Market">🛒<span>Market</span></button>
+  <button type="button" class="${own?"is-active":""}" onclick="goAccount()" aria-label="My Profile">👤<span>Profile</span></button>
+ </nav>
  </section>`;
 }
 function sellerHTML(s,cars){
@@ -24982,6 +25149,12 @@ window.aaOpenBingoPolicies=function(){
  window.state.bingoAccountPanel="policies";
  if(typeof window.render==="function")window.render();
 };
+/* lets the profile page (view "seller") show these panels too */
+window.aaBingoAccountPanelHTML=function(){
+ if(window.state?.bingoAccountPanel==="notifications")return notificationsHTML();
+ if(window.state?.bingoAccountPanel==="policies")return policiesHTML();
+ return "";
+};
 window.aaCloseBingoAccountPanel=function(){
  window.state.bingoAccountPanel="";
  if(typeof window.render==="function")window.render();
@@ -27444,6 +27617,152 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 #auto-arcade-widget .bm-requests{border:1px solid rgba(var(--bm-gold-rgb),.35);border-radius:14px;padding:6px;margin-bottom:6px;background:rgba(var(--bm-gold-rgb),.05)}
 #auto-arcade-widget .bm-requests h4{margin:4px 6px 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#fcd34d}
 #auto-arcade-widget .bm-request-bar:not(.bm-danger-text) span{color:var(--bm-text)}
+/* ===== Bingo profile (approved reference layout) =====
+   Dark navy, gold accents, restrained glows; every control uses the
+   approved compact flat-neon language (1px accent border, dark fill, no
+   gloss/under-glow), overriding the sitewide glossy button recipe the
+   same way the approved .bgc-/.aa-media-tabs flat-neon pass does.
+   Cockpit (.bcp-*) and the Wall like/comment rows are not touched. */
+#auto-arcade-widget .bp-page{
+  --bp-bg:#050b16;--bp-card:#0a1426;--bp-line:rgba(148,163,184,.16);--bp-text:#eef2f8;--bp-muted:#94a3b8;
+  --bp-gold:#f3be2b;--bp-gold-rgb:243,190,43;--bp-cyan:#22c9ff;--bp-cyan-rgb:34,201,255;
+  color:var(--bp-text);padding:0 0 92px;
+}
+#auto-arcade-widget .bp-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start;max-width:1120px;margin:0 auto}
+#auto-arcade-widget .bp-page:not(.has-menu) .bp-layout{grid-template-columns:minmax(0,1fr);max-width:760px}
+#auto-arcade-widget .bp-main{min-width:0;background:var(--bp-bg);border:1px solid rgba(var(--bp-gold-rgb),.28);border-radius:22px;overflow:hidden}
+/* flat-neon base for every button on this page */
+#auto-arcade-widget .bp-page button{
+  --tab-light:var(--bp-gold);--tab-rgb:var(--bp-gold-rgb);
+  border:1px solid rgba(var(--tab-rgb),.5)!important;background:#0b1729!important;color:var(--bp-text)!important;
+  border-radius:12px!important;box-shadow:none!important;text-shadow:none!important;transform:none!important;font-family:inherit;
+}
+#auto-arcade-widget .bp-page button::after{content:none!important}
+@media(hover:hover){#auto-arcade-widget .bp-page button:not([disabled]):hover{border-color:var(--tab-light)!important;box-shadow:0 0 9px rgba(var(--tab-rgb),.35)!important}}
+#auto-arcade-widget .bp-page button[disabled]{opacity:.45;cursor:not-allowed}
+#auto-arcade-widget .bp-page button:focus-visible{outline:2px solid var(--bp-gold);outline-offset:2px}
+/* top bar */
+#auto-arcade-widget .bp-topbar{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(var(--bp-gold-rgb),.35)}
+#auto-arcade-widget .bp-icon{width:38px;height:38px;min-width:38px;padding:0!important;display:inline-flex;align-items:center;justify-content:center;font-size:15px;border-radius:50%!important}
+#auto-arcade-widget .bp-topbar-title{flex:1;min-width:0}
+#auto-arcade-widget .bp-topbar-title h1{margin:0;font-size:17px;font-weight:800;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#auto-arcade-widget .bp-topbar-title p{margin:2px 0 0;font-size:12px;color:var(--bp-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* cover + avatar */
+#auto-arcade-widget .bp-cover{position:relative;height:210px;margin:12px 12px 0;border-radius:18px;border:1px solid rgba(var(--bp-gold-rgb),.55);overflow:visible;
+  background:radial-gradient(circle at 20% 20%,rgba(236,72,153,.35),transparent 45%),radial-gradient(circle at 85% 30%,rgba(34,201,255,.28),transparent 45%),linear-gradient(135deg,#1b1030,#0b1a33 55%,#241a05)}
+#auto-arcade-widget .bp-cover-art{position:absolute;inset:0;border-radius:18px;background:repeating-linear-gradient(115deg,rgba(255,255,255,.035) 0 2px,transparent 2px 18px);pointer-events:none}
+#auto-arcade-widget .bp-cover-text{position:absolute;right:16px;top:18px;text-align:right;display:flex;flex-direction:column;gap:4px;max-width:62%}
+#auto-arcade-widget .bp-cover-kicker{font-size:11px;font-weight:700;color:#fcd34d;letter-spacing:.04em}
+#auto-arcade-widget .bp-cover-text strong{font-size:24px;line-height:1.1;font-weight:900;color:#fff;font-family:Georgia,serif;font-style:italic}
+#auto-arcade-widget .bp-cover-sub{font-size:11px;letter-spacing:.3em;color:#c4b5fd;font-weight:800}
+#auto-arcade-widget .bp-avatar-wrap{position:absolute;left:22px;bottom:-54px;width:118px;height:118px}
+#auto-arcade-widget .bp-avatar-ring{position:absolute;inset:-6px;border-radius:50%;background:conic-gradient(#f3be2b,#ec4899,#8b5cf6,#22c9ff,#10b981,#f3be2b);filter:drop-shadow(0 0 10px rgba(243,190,43,.45))}
+#auto-arcade-widget .bp-avatar{position:relative;width:118px;height:118px;border-radius:50%;object-fit:cover;border:4px solid var(--bp-bg);background:#0d1b32;display:block}
+#auto-arcade-widget .bp-online{position:absolute;right:8px;bottom:8px;width:18px;height:18px;border-radius:50%;background:#10b981;border:3px solid var(--bp-bg);box-shadow:0 0 8px rgba(16,185,129,.7)}
+/* identity */
+#auto-arcade-widget .bp-identity{padding:64px 18px 6px}
+#auto-arcade-widget .bp-identity h2{margin:0;font-size:22px;font-weight:900;display:flex;align-items:center;gap:6px}
+#auto-arcade-widget .bp-meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font-size:13px;color:#cbd5e1}
+#auto-arcade-widget .bp-bio{margin:10px 0 0;font-size:14px;line-height:1.5;color:#e2e8f0;max-width:60ch}
+#auto-arcade-widget .bp-muted{color:var(--bp-muted)!important;font-style:italic}
+#auto-arcade-widget .bp-page .bp-rating{margin-top:10px;padding:6px 10px!important;font-size:12px;display:inline-flex;align-items:center;gap:6px}
+/* stats + contacts */
+#auto-arcade-widget .bp-statsrow{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;padding:12px 18px}
+#auto-arcade-widget .bp-stats{flex:1 1 280px;display:grid;grid-template-columns:repeat(3,1fr);border:1px solid rgba(var(--bp-gold-rgb),.45);border-radius:16px;background:linear-gradient(180deg,rgba(var(--bp-gold-rgb),.06),transparent);overflow:hidden}
+#auto-arcade-widget .bp-page .bp-stats button{border:0!important;border-right:1px solid var(--bp-line)!important;border-radius:0!important;background:transparent!important;padding:12px 6px!important;display:flex;flex-direction:column;align-items:center;gap:2px}
+#auto-arcade-widget .bp-page .bp-stats button:last-child{border-right:0!important}
+#auto-arcade-widget .bp-stats b{font-size:22px;font-weight:900;color:#fff}
+#auto-arcade-widget .bp-stats span{font-size:12px;color:var(--bp-muted)}
+#auto-arcade-widget .bp-contacts{display:flex;gap:10px;flex:0 1 auto;flex-wrap:wrap}
+#auto-arcade-widget .bp-page .bp-contact{--tab-light:var(--bp-cyan);--tab-rgb:var(--bp-cyan-rgb);display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 4px!important;min-width:62px;font-size:11px;font-weight:700;border:0!important;background:transparent!important}
+#auto-arcade-widget .bp-contact-ico{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:1px solid rgba(var(--bp-cyan-rgb),.55);background:#0b1729}
+#auto-arcade-widget .bp-contact:not([disabled]):hover .bp-contact-ico{box-shadow:0 0 10px rgba(var(--bp-cyan-rgb),.45)}
+/* owner actions */
+#auto-arcade-widget .bp-owner-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:4px 18px 10px}
+#auto-arcade-widget .bp-page .bp-btn{padding:10px 8px!important;font-size:13px;font-weight:800;color:var(--bp-gold)!important;min-height:42px}
+/* highlights */
+#auto-arcade-widget .bp-highlights{display:flex;gap:14px;overflow-x:auto;padding:8px 18px 12px;scrollbar-width:none}
+#auto-arcade-widget .bp-page .bp-hl{display:flex;flex-direction:column;align-items:center;gap:6px;border:0!important;background:transparent!important;padding:2px!important;min-width:70px}
+#auto-arcade-widget .bp-hl-circle{width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;background:#0b1729;border:2px solid var(--ring);box-shadow:0 0 12px color-mix(in srgb,var(--ring) 45%,transparent)}
+#auto-arcade-widget .bp-hl-label{font-size:12px;font-weight:700;color:#e2e8f0}
+#auto-arcade-widget .bp-ring-gold{--ring:#f3be2b}#auto-arcade-widget .bp-ring-purple{--ring:#a855f7}#auto-arcade-widget .bp-ring-white{--ring:#e5e7eb}
+#auto-arcade-widget .bp-ring-yellow{--ring:#facc15}#auto-arcade-widget .bp-ring-teal{--ring:#14b8a6}#auto-arcade-widget .bp-ring-red{--ring:#ef4444}
+#auto-arcade-widget .bp-ring-gold .bp-hl-circle{font-size:28px;color:var(--bp-gold)}
+#auto-arcade-widget .bp-post-menu{margin:0 18px 10px;position:static}
+#auto-arcade-widget .bp-quote{margin:4px 18px 12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(var(--bp-gold-rgb),.35);background:linear-gradient(90deg,rgba(var(--bp-gold-rgb),.08),rgba(168,85,247,.08));font-family:Georgia,serif;font-style:italic;font-size:15px;text-align:center;color:#fde68a}
+/* content tabs + grid */
+#auto-arcade-widget .bp-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:0 12px 10px;border-bottom:1px solid var(--bp-line);position:relative}
+#auto-arcade-widget .bp-page .bp-tab{--tab-light:var(--bp-cyan);--tab-rgb:var(--bp-cyan-rgb);padding:8px 4px!important;min-height:36px;font-size:12px;font-weight:700;border-color:rgba(var(--bp-cyan-rgb),.3)!important;border-radius:10px!important;white-space:nowrap}
+#auto-arcade-widget .bp-page .bp-tab.is-active{border-color:var(--bp-cyan)!important;color:var(--bp-cyan)!important;box-shadow:0 0 10px rgba(var(--bp-cyan-rgb),.4)!important}
+#auto-arcade-widget .bp-tabcontent{padding:12px}
+#auto-arcade-widget .bp-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+#auto-arcade-widget .bp-tile{position:relative;aspect-ratio:1/1;border-radius:8px;overflow:hidden;background:#0d1b32}
+#auto-arcade-widget .bp-page .bp-tile-open{position:absolute;inset:0;width:100%;height:100%;padding:0!important;border:0!important;border-radius:0!important;background:#0d1b32!important;display:block}
+#auto-arcade-widget .bp-tile img,#auto-arcade-widget .bp-tile video{width:100%;height:100%;object-fit:cover;display:block}
+#auto-arcade-widget .bp-tile-empty{display:flex;align-items:center;justify-content:center;height:100%;padding:8px;font-size:12px;color:var(--bp-muted);text-align:center}
+#auto-arcade-widget .bp-tile-play{position:absolute;right:6px;top:6px;font-size:12px;background:rgba(0,0,0,.55);border-radius:6px;padding:2px 6px;color:#fff}
+#auto-arcade-widget .bp-tile-kind{position:absolute;left:6px;bottom:6px;font-size:10px;font-weight:800;background:rgba(5,11,22,.75);border:1px solid rgba(var(--bp-gold-rgb),.45);border-radius:6px;padding:1px 6px;color:#fde68a}
+#auto-arcade-widget .bp-page .bp-tile-x{position:absolute;top:6px;left:6px;width:26px;height:26px;padding:0!important;border-radius:50%!important;font-size:15px;line-height:1;--tab-light:#ef4444;--tab-rgb:239,68,68;color:#fecaca!important;z-index:2}
+#auto-arcade-widget .bp-page .bp-tile-boost{position:absolute;right:6px;bottom:6px;padding:2px 8px!important;font-size:10px;font-weight:800;color:var(--bp-gold)!important;border-radius:8px!important;z-index:2}
+#auto-arcade-widget .bp-empty{padding:26px 12px;text-align:center;color:var(--bp-muted);font-size:14px;line-height:1.5}
+#auto-arcade-widget .bp-subhead{margin:18px 2px 8px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#fcd34d}
+#auto-arcade-widget .bp-postcta{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 0 22px;font-size:12px;font-weight:900;letter-spacing:.12em;color:#86efac}
+#auto-arcade-widget .bp-page .bp-cube{--tab-light:#22c55e;--tab-rgb:34,197,94;width:64px;height:64px;border-radius:18px!important;font-size:32px;color:#86efac!important;box-shadow:0 0 14px rgba(34,197,94,.35)!important}
+/* right menu */
+#auto-arcade-widget .bp-menu{position:sticky;top:12px;background:var(--bp-card);border:1px solid rgba(var(--bp-gold-rgb),.3);border-radius:20px;padding:12px;max-height:calc(100dvh - 24px);overflow-y:auto}
+#auto-arcade-widget .bp-menu-head{display:none;justify-content:flex-end}
+#auto-arcade-widget .bp-page .bp-menu-me{display:flex;align-items:center;gap:10px;width:100%;padding:8px!important;text-align:left;margin-bottom:8px}
+#auto-arcade-widget .bp-menu-me img{width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid var(--bp-gold)}
+#auto-arcade-widget .bp-menu-me span{display:flex;flex-direction:column;min-width:0;font-size:14px}
+#auto-arcade-widget .bp-menu-me small{color:var(--bp-muted);font-size:12px}
+#auto-arcade-widget .bp-menu-list{display:flex;flex-direction:column;gap:4px}
+#auto-arcade-widget .bp-page .bp-menu-item,#auto-arcade-widget .bp-menu-item.is-na{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px!important;text-align:left;font-size:14px;font-weight:600;border-color:transparent!important;background:transparent!important;border-radius:10px!important}
+#auto-arcade-widget .bp-page .bp-menu-item:hover{background:rgba(148,163,184,.08)!important}
+#auto-arcade-widget .bp-menu-ico{width:22px;text-align:center}
+#auto-arcade-widget .bp-menu-label{flex:1}
+#auto-arcade-widget .bp-menu-item small{font-size:11px;color:var(--bp-muted);font-weight:500}
+#auto-arcade-widget .bp-menu-item.is-na{color:var(--bp-muted);opacity:.7;cursor:not-allowed}
+#auto-arcade-widget .bp-menu-badge{background:#ef4444;color:#fff;border-radius:999px;font-size:11px;font-weight:800;padding:1px 7px}
+#auto-arcade-widget .bp-page .bp-menu-item.is-green{color:#86efac!important;border-color:rgba(34,197,94,.45)!important}
+#auto-arcade-widget .bp-page .bp-menu-item.is-logout{color:#fca5a5!important;border-color:rgba(239,68,68,.45)!important;margin-top:6px}
+#auto-arcade-widget .bp-share{margin-top:12px;padding-top:10px;border-top:1px solid var(--bp-line);font-size:13px}
+#auto-arcade-widget .bp-share-row{display:flex;gap:8px;margin-top:8px}
+#auto-arcade-widget .bp-page .bp-share-btn{width:40px;height:40px;padding:0!important;border-radius:50%!important;font-size:15px;--tab-light:var(--bp-cyan);--tab-rgb:var(--bp-cyan-rgb)}
+#auto-arcade-widget .bp-scrim{display:none}
+/* bottom nav */
+@media(min-width:1100px){#auto-arcade-widget .bp-page .bp-bottomnav{position:static;left:auto;transform:none;margin:14px auto 12px}#auto-arcade-widget .bp-page{padding-bottom:10px}}
+#auto-arcade-widget .bp-bottomnav{position:fixed;left:50%;transform:translateX(-50%);bottom:10px;z-index:40;display:flex;gap:6px;align-items:center;padding:6px 10px;background:rgba(5,11,22,.94);border:1px solid rgba(var(--bp-gold-rgb),.35);border-radius:20px;width:min(460px,calc(100% - 20px));justify-content:space-around}
+#auto-arcade-widget .bp-page .bp-bottomnav button{border-color:transparent!important;background:transparent!important;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 8px!important;font-size:18px;position:relative}
+#auto-arcade-widget .bp-bottomnav button span{font-size:10px;color:var(--bp-muted)}
+#auto-arcade-widget .bp-bottomnav button.is-active::before{content:"";position:absolute;top:0;right:8px;width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e}
+#auto-arcade-widget .bp-page .bp-bottomnav-post{width:46px;height:46px;border-radius:14px!important;border-color:rgba(34,197,94,.6)!important;color:#86efac!important;font-size:24px}
+/* phone / tablet: the menu becomes a right drawer opened by ••• */
+@media(max-width:1099px){
+  #auto-arcade-widget .bp-layout,#auto-arcade-widget .bp-page:not(.has-menu) .bp-layout{grid-template-columns:minmax(0,1fr);max-width:760px}
+  #auto-arcade-widget .bp-menu{position:fixed;top:0;right:0;bottom:0;width:min(330px,88vw);max-height:none;border-radius:0;z-index:60;transform:translateX(105%);transition:transform .2s ease}
+  #auto-arcade-widget .bp-page.is-menu-open .bp-menu{transform:none}
+  #auto-arcade-widget .bp-menu-head{display:flex}
+  #auto-arcade-widget .bp-page.is-menu-open .bp-scrim{display:block;position:fixed;inset:0;background:rgba(3,8,18,.6);z-index:55}
+}
+@media(min-width:1100px){#auto-arcade-widget .bp-more{display:none!important}}
+@media(max-width:600px){
+  /* full-bleed: the page container keeps a small side gutter on phones */
+  #auto-arcade-widget main.container > section.bp-page{margin-left:calc(50% - 50vw)!important;margin-right:calc(50% - 50vw)!important;width:100vw!important;max-width:100vw!important}
+  #auto-arcade-widget .bp-main{border-radius:0;border-left:0;border-right:0}
+  #auto-arcade-widget .bp-cover{height:170px;margin:10px 10px 0}
+  #auto-arcade-widget .bp-cover-text strong{font-size:19px}
+  #auto-arcade-widget .bp-avatar-wrap,#auto-arcade-widget .bp-avatar{width:96px;height:96px}
+  #auto-arcade-widget .bp-avatar-wrap{bottom:-44px;left:16px}
+  #auto-arcade-widget .bp-identity{padding:54px 14px 4px}
+  #auto-arcade-widget .bp-statsrow{padding:10px 14px}
+  #auto-arcade-widget .bp-contacts{width:100%;justify-content:space-between}
+  #auto-arcade-widget .bp-owner-actions{padding:4px 14px 10px;gap:8px}
+  #auto-arcade-widget .bp-page .bp-btn{font-size:12px;padding:9px 4px!important}
+  #auto-arcade-widget .bp-tabs{padding:0 8px 10px;gap:4px}
+  #auto-arcade-widget .bp-page .bp-tab{font-size:11px;padding:7px 2px!important}
+  #auto-arcade-widget .bp-tabcontent{padding:8px 6px}
+}
+
 
 /* -- tablet: details panel becomes a drawer -- */
 @media(max-width:1180px){
