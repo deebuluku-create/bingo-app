@@ -18134,11 +18134,11 @@ function jobsHTML(){
    <div class="tagline">Connect automotive employers with qualified candidates across Kenya.</div>
   </div>
 
-  <div class="tabs">
-   <button class="btn ${tab==="jobs"?"btn-red":""}" onclick="state.jobsTab='jobs';render()">Find Jobs</button>
-   <button class="btn ${tab==="candidates"?"btn-red":""}" onclick="state.jobsTab='candidates';render()">Candidates / CVs</button>
-   <button class="btn ${tab==="cv"||tab==="mycv"?"btn-red":""}" onclick="state.jobsTab='cv';render()">My CV</button>
-   <button class="btn ${tab==="vacancy"?"btn-red":""}" onclick="state.editingJobId=null;state.jobsTab='vacancy';render()">Post Vacancy</button><button class="btn ${tab==="myjobs"?"btn-red":""}" onclick="state.jobsTab='myjobs';render()">My Jobs</button>
+  <div class="tabs aa-jobs-tabs" role="group" aria-label="Jobs and CVs sections">
+   <button class="btn${tab==="jobs"?" is-active":""}" aria-pressed="${tab==="jobs"}" onclick="state.jobsTab='jobs';render()">Find Jobs</button>
+   <button class="btn${tab==="candidates"?" is-active":""}" aria-pressed="${tab==="candidates"}" onclick="state.jobsTab='candidates';render()">Candidates / CVs</button>
+   <button class="btn${tab==="cv"||tab==="mycv"?" is-active":""}" aria-pressed="${tab==="cv"||tab==="mycv"}" onclick="state.jobsTab='cv';render()">My CV</button>
+   <button class="btn${tab==="vacancy"?" is-active":""}" aria-pressed="${tab==="vacancy"}" onclick="state.editingJobId=null;state.jobsTab='vacancy';render()">Post Vacancy</button><button class="btn${tab==="myjobs"?" is-active":""}" aria-pressed="${tab==="myjobs"}" onclick="state.jobsTab='myjobs';render()">My Jobs</button>
    <button class="btn" onclick="openInbox()">Inbox</button>
   </div>
 
@@ -27785,6 +27785,9 @@ html body #auto-arcade-widget :is(button,.btn,a.btn,[role="button"]):is(.active,
 /* Phone: tab rows of 4+ text buttons wrap into a 3-column grid instead of
    clipping labels such as "Candidates / CVs". */
 @media (max-width:520px){html body #auto-arcade-widget .tabs:has(> .btn:nth-child(4)):not(#bingo-flat-guard){display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:6px!important}html body #auto-arcade-widget .tabs:has(> .btn:nth-child(4)) > .btn{white-space:normal!important;overflow-wrap:anywhere;min-width:0!important;width:auto!important}}
+/* Jobs & CVs section tabs: gold outline at rest, cyan tinted + glow when selected. */
+html body #auto-arcade-widget .aa-jobs-tabs > .btn:not(#bingo-flat-guard){font-size:11.5px!important;line-height:1.15!important}
+html body #auto-arcade-widget .aa-jobs-tabs > .btn.is-active:not(#bingo-flat-guard){--tab-light:#22c9ff;--tab-rgb:34,201,255}
 html body #auto-arcade-widget .aa-agentdash-tabs .bingo-neon-micro:not(#bingo-flat-guard){min-height:28px!important;padding:5px 10px!important;font-size:11px!important}
 /* Legibility floor (approved .micro = 26px / 12px text). */
 html body #auto-arcade-widget .bingo-neon-micro:not(#bingo-flat-guard){min-height:26px!important;padding:4px 9px!important;font-size:11px!important;line-height:1.2!important}
