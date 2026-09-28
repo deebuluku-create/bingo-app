@@ -19057,15 +19057,6 @@ function aaCallOverlayHTML(){
   </div>
  </div>`;
 }
-/* Far-left icon rail, added per the supplied Bingo Chat Messenger
-   reference. Every button here reuses a real, already-existing
-   mechanism (aaMsgSetActiveTab for Chats/Calls/Contacts/Settings; the
-   existing Archive/Trash inbox filters for those two) - the reference's
-   own "Groups" and "Saved" rail items are left out rather than wired to
-   invented functionality, since no groups/saved-messages feature exists
-   in this app to point them at. Desktop/tablet only (>700px); the
-   existing horizontal Chats/Calls/Contacts/Settings tabs already cover
-   this compactly on phone, where there is no room for a persistent rail. */
 /* ============================================================
    BINGO MESSENGER (single Messenger for every Inbox / Message / Chat
    entry point). Layout, controls and palette follow the approved
@@ -19074,32 +19065,83 @@ function aaCallOverlayHTML(){
    conversation, right-hand details panel. Buttons keep Bingo's compact
    flat-neon treatment (the app-wide --tab-light/--tab-rgb bridge).
 
-   ---- Live data, and exactly what it relies on ----
-   One-to-one messages use the LIVE public.messages table through the
-   four columns the pre-existing seller chat (aaSyncSellerChatMessages /
-   sendSellerChat) already read and wrote on the live project:
-     id, sender_id, recipient_id, body, created_at
-   Nothing else about that table is assumed. The live conversations /
-   conversation_members tables are deliberately NOT called: their columns
-   have not been inspected (run
-   supabase/migrations/20260928_bingo_messenger_INSPECT_LIVE.sql and send
-   the output). Until then a direct conversation is derived from the
-   (sender, recipient) pair, so no conversation row is needed to talk.
-   The never-applied bingo_conversations / bingo_conversation_participants
-   / bingo_messages draft tables are no longer called at all.
+   ---- Live database contract ----
+   public.messages - columns CONFIRMED on the live project (2026-09-28):
+     id, conversation_id, sender_id, message, deleted, created_at
+   (there is no recipient_id and no body column).
+   public.conversations / public.conversation_members - their columns
+   have NOT been inspected from here. Before Messenger reads or writes
+   them it asks PostgREST whether each column it would use exists: a
+   zero-row select of an unknown column fails with 42703, an existing
+   one returns [] whatever the RLS policy. Nothing is written until
+   every column it needs is confirmed; otherwise sending stops with the
+   exact reason (Messenger > Settings > Message sync). The member-id
+   column of conversation_members is taken from AA_MSG_DB.members.userCol
+   if set, else the first of userCandidates that exists.
+
+   A conversation row (and its two member rows) is created only when the
+   first message is sent, never just by opening a chat. RLS is not
+   relaxed or assumed: any refusal is surfaced as-is.
 
    Per-member conversation state (read position, mute, archive, trash,
-   starred messages) has no attested live column, so it stays on this
-   device, as it already did.
+   starred messages) has no live column, so it stays on this device.
    ============================================================ */
-const AA_MSG_LIVE_TABLE="messages";
-const AA_MSG_LIVE_COLS="id,sender_id,recipient_id,body,created_at";
+const AA_MSG_DB={
+ messages:{table:"messages",cols:"id,conversation_id,sender_id,message,deleted,created_at"},
+ conversations:{table:"conversations",idCol:"id"},
+ members:{table:"conversation_members",convCol:"conversation_id",userCol:"",userCandidates:["user_id","member_id","profile_id"]}
+};
+const AA_MSG_LIVE_TABLE=AA_MSG_DB.messages.table;
+const AA_MSG_LIVE_COLS=AA_MSG_DB.messages.cols;
 const AA_MSG_MEDIA_BUCKET="message-media";
 var aaMsgLiveStatus="idle",aaMsgLiveError="";
+var aaMsgContract=null,aaMsgContractPromise=null;
 function aaMsgIsUuid(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v||""))}
-/* One conversation per member pair, whichever entry point opened it: an
-   already-cached direct conversation with that member wins (keeps its
-   history), otherwise the deterministic "dm_<memberId>" id. */
+function aaMsgSetLiveError(e,context){
+ aaMsgLiveStatus="error";
+ aaMsgLiveError=(context?context+": ":"")+String(e?.message||e)+(e?.code?` (${e.code})`:"");
+ console.warn("Bingo Messenger:",aaMsgLiveError);
+}
+/* true = column exists, false = PostgREST says it does not, throws for
+   anything that is not an answer about the column (missing table,
+   permission, network). */
+async function aaMsgProbeColumns(table,cols){
+ const {error}=await sb.from(table).select(cols).limit(0);
+ if(!error)return true;
+ if(error.code==="42703"||/column .* does not exist/i.test(error.message||""))return false;
+ throw error;
+}
+async function aaMsgResolveContract(){
+ if(aaMsgContract)return aaMsgContract;
+ if(!sb)return {ok:false,problems:["Supabase is not available in this browser session"]};
+ if(aaMsgContractPromise)return aaMsgContractPromise;
+ aaMsgContractPromise=(async()=>{
+  const c={ok:false,problems:[],memberUserCol:""};
+  let transient=false;
+  try{
+   if(!await aaMsgProbeColumns(AA_MSG_DB.messages.table,AA_MSG_DB.messages.cols))c.problems.push(`messages is missing one of: ${AA_MSG_DB.messages.cols}`);
+   if(!await aaMsgProbeColumns(AA_MSG_DB.conversations.table,AA_MSG_DB.conversations.idCol))c.problems.push("conversations has no id column");
+   if(!await aaMsgProbeColumns(AA_MSG_DB.members.table,AA_MSG_DB.members.convCol))c.problems.push("conversation_members has no conversation_id column");
+   const candidates=AA_MSG_DB.members.userCol?[AA_MSG_DB.members.userCol]:AA_MSG_DB.members.userCandidates;
+   for(const col of candidates){if(await aaMsgProbeColumns(AA_MSG_DB.members.table,col)){c.memberUserCol=col;break}}
+   if(!c.memberUserCol)c.problems.push(`conversation_members has none of: ${candidates.join(", ")}`);
+  }catch(e){c.problems.push(`${String(e?.message||e)}${e?.code?` (${e.code})`:""}`);transient=true}
+  c.ok=!c.problems.length;
+  if(!transient)aaMsgContract=c;
+  aaMsgContractPromise=null;
+  if(!c.ok){aaMsgLiveStatus="error";aaMsgLiveError="Live schema check failed - "+c.problems.join("; ")}
+  return c;
+ })();
+ return aaMsgContractPromise;
+}
+/* Local ids: a conversation already known to the live database uses its
+   live id; a chat opened but not yet sent in uses "dm_<memberId>" and
+   gains .liveId when its first message creates the live rows. */
+function aaMsgLocalIdForLive(liveId){
+ liveId=String(liveId||"");
+ const c=aaMsgConversations().find(x=>String(x.liveId||"")===liveId||x.id===liveId);
+ return c?c.id:"";
+}
 function aaMsgDirectConvId(otherId){
  otherId=String(otherId||"");
  const me=aaMsgMyId();
@@ -19125,22 +19167,45 @@ function aaMsgEnsureDirectConv(otherId,name,photo){
  }
  return id;
 }
-/* Merge live rows into one conversation's cache. The optimistic local
-   copy of a message this device sent (client id "c_...") is replaced by
-   its server row instead of appearing twice. Returns true if anything
-   changed. */
+/* Attach a live conversation to the local list. participants = every
+   member id we could see (member rows, else message senders). */
+function aaMsgAdoptLiveConversation(liveId,participants){
+ liveId=String(liveId);
+ const me=aaMsgMyId();
+ const others=[...new Set(participants.map(String))].filter(x=>x&&x!==me);
+ const list=aaMsgConversations();
+ let conv=list.find(c=>String(c.liveId||"")===liveId||c.id===liveId);
+ if(!conv&&others.length===1)conv=list.find(c=>c.type!=="group"&&!c.liveId&&(c.participantIds||[]).map(String).includes(others[0]));
+ if(conv){
+  conv.liveId=liveId;
+  if(others.length>1){conv.type="group";conv.groupName=conv.groupName||"Group chat"}
+  const merged=[...new Set([...(conv.participantIds||[]).map(String),me,...others])];
+  if(merged.length!==(conv.participantIds||[]).length)conv.participantIds=merged;
+  aaMsgSaveConversations(list);
+  return conv.id;
+ }
+ const created={id:liveId,liveId,type:others.length>1?"group":"direct",groupName:others.length>1?"Group chat":"",createdAt:new Date().toISOString(),updatedAt:new Date(0).toISOString(),participantIds:[me,...others],participantNames:{},participantPhotos:{}};
+ list.unshift(created);aaMsgSaveConversations(list);
+ return created.id;
+}
+/* Merge live rows (confirmed messages columns) into one conversation's
+   cache. The optimistic copy of a message this device sent (client id
+   "c_...") is replaced by its live row instead of appearing twice; a row
+   with deleted set is removed. Returns true if anything changed. */
 function aaMsgMergeRows(conversationId,rows){
  if(!rows||!rows.length)return false;
  const all=aaMsgAllMessages();
- const arr=all[conversationId]||[];
+ let arr=all[conversationId]||[];
  let changed=false;
  rows.forEach(row=>{
   const id=String(row.id);
+  if(row.deleted){const before=arr.length;arr=arr.filter(m=>String(m.id)!==id);if(arr.length!==before)changed=true;return}
   if(arr.some(m=>String(m.id)===id))return;
   const t=new Date(row.created_at).getTime();
-  const i=arr.findIndex(m=>String(m.id).startsWith("c_")&&String(m.senderId)===String(row.sender_id)&&String(m.body||"")===String(row.body||"")&&Math.abs(new Date(m.createdAt).getTime()-t)<120000);
-  if(i>-1){arr[i]={...arr[i],id,createdAt:row.created_at||arr[i].createdAt,_pending:false,_failed:false,_synced:true}}
-  else arr.push({id,conversationId,senderId:String(row.sender_id),recipientId:String(row.recipient_id||""),body:String(row.body||""),type:"text",createdAt:row.created_at,_synced:true});
+  const text=String(row.message??"");
+  const i=arr.findIndex(m=>String(m.id).startsWith("c_")&&String(m.senderId)===String(row.sender_id)&&String(m.body||"")===text&&Math.abs(new Date(m.createdAt).getTime()-t)<300000);
+  if(i>-1)arr[i]={...arr[i],id,createdAt:row.created_at||arr[i].createdAt,_pending:false,_failed:false,_sent:true,_synced:true};
+  else arr.push({id,conversationId,senderId:String(row.sender_id),body:text,type:"text",createdAt:row.created_at,_synced:true});
   changed=true;
  });
  if(!changed)return false;
@@ -19153,81 +19218,134 @@ function aaMsgMergeRows(conversationId,rows){
  if(conv&&last&&new Date(last.createdAt)>new Date(conv.updatedAt||0)){conv.updatedAt=last.createdAt;aaMsgSaveConversations(list)}
  return true;
 }
-/* Inbox: every live message this account sent or received, grouped by
-   the other member into direct conversations. */
+async function aaMsgMyLiveConversationIds(contract){
+ const M=AA_MSG_DB.members,U=contract.memberUserCol;
+ const {data,error}=await sb.from(M.table).select(M.convCol).eq(U,aaMsgMyId());
+ if(error)throw error;
+ return [...new Set((data||[]).map(r=>String(r[M.convCol])).filter(Boolean))];
+}
+/* Inbox: every live conversation this member belongs to, its visible
+   members, and its latest messages. */
 async function aaMsgFetchConversationsFromSupabase(){
  if(!sb||!state.user?.id||!aaMsgIsUuid(aaMsgMyId()))return false;
- const me=aaMsgMyId();
+ const contract=await aaMsgResolveContract();
+ if(!contract.ok)return false;
+ const me=aaMsgMyId(),M=AA_MSG_DB.members,U=contract.memberUserCol;
  try{
-  const {data,error}=await sb.from(AA_MSG_LIVE_TABLE).select(AA_MSG_LIVE_COLS).or(`sender_id.eq.${me},recipient_id.eq.${me}`).order("created_at",{ascending:false}).limit(500);
-  if(error)throw error;
-  const byOther={};
-  (data||[]).forEach(r=>{
-   const other=String(r.sender_id)===me?String(r.recipient_id||""):String(r.sender_id||"");
-   if(!other||other===me)return;
-   (byOther[other]=byOther[other]||[]).push(r);
-  });
+  const ids=await aaMsgMyLiveConversationIds(contract);
   let changed=false;
-  Object.entries(byOther).forEach(([other,rows])=>{
-   const id=aaMsgEnsureDirectConv(other,"","");
-   if(aaMsgMergeRows(id,rows.reverse()))changed=true;
-  });
-  const baselineKey="aa_msg_live_baseline_"+me;
-  if(!aaMsgReadLS(baselineKey,false)){
-   Object.keys(byOther).forEach(other=>aaMsgMarkRead(aaMsgDirectConvId(other)));
-   aaMsgWriteLS(baselineKey,true);
-   changed=true;
+  if(ids.length){
+   const {data:members,error:mErr}=await sb.from(M.table).select(`${M.convCol},${U}`).in(M.convCol,ids);
+   if(mErr)console.warn("Bingo Messenger: other members' rows are not readable; naming conversations from message senders instead.",mErr.message);
+   const {data:rows,error}=await sb.from(AA_MSG_LIVE_TABLE).select(AA_MSG_LIVE_COLS).in("conversation_id",ids).order("created_at",{ascending:false}).limit(500);
+   if(error)throw error;
+   const byConv={};ids.forEach(id=>byConv[id]={members:[],rows:[]});
+   (members||[]).forEach(r=>{const k=String(r[M.convCol]);if(byConv[k])byConv[k].members.push(String(r[U]))});
+   (rows||[]).forEach(r=>{const k=String(r.conversation_id);if(byConv[k])byConv[k].rows.push(r)});
+   Object.entries(byConv).forEach(([liveId,x])=>{
+    const participants=x.members.length?x.members:x.rows.map(r=>String(r.sender_id));
+    const localId=aaMsgAdoptLiveConversation(liveId,participants);
+    if(aaMsgMergeRows(localId,x.rows.reverse()))changed=true;
+   });
+   const baselineKey="aa_msg_live_baseline_"+me;
+   if(!aaMsgReadLS(baselineKey,false)){ids.forEach(id=>{const l=aaMsgLocalIdForLive(id);if(l)aaMsgMarkRead(l)});aaMsgWriteLS(baselineKey,true);changed=true}
   }
   aaMsgLiveStatus="ok";aaMsgLiveError="";
+  aaMsgLiveSubscribe(ids);
   return changed;
- }catch(e){
-  aaMsgLiveStatus="error";aaMsgLiveError=String(e?.message||e);
-  console.warn("Bingo Messenger: live messages could not be loaded - showing this device's copy only.",aaMsgLiveError);
-  return false;
- }
+ }catch(e){aaMsgSetLiveError(e,"Loading conversations");return false}
 }
 async function aaMsgSyncFromSupabase(conversationId){
  if(!sb||!state.user?.id)return;
  const conv=aaMsgConversations().find(c=>c.id===conversationId);
- if(!conv||conv.type==="group")return;
- const me=aaMsgMyId(),them=aaMsgOtherParticipantId(conv);
- if(!aaMsgIsUuid(me)||!aaMsgIsUuid(them))return;
+ if(!conv?.liveId)return;
+ const contract=await aaMsgResolveContract();
+ if(!contract.ok)return;
  try{
-  const {data,error}=await sb.from(AA_MSG_LIVE_TABLE).select(AA_MSG_LIVE_COLS)
-   .or(`and(sender_id.eq.${me},recipient_id.eq.${them}),and(sender_id.eq.${them},recipient_id.eq.${me})`)
-   .order("created_at",{ascending:true}).limit(300);
+  const {data,error}=await sb.from(AA_MSG_LIVE_TABLE).select(AA_MSG_LIVE_COLS).eq("conversation_id",conv.liveId).order("created_at",{ascending:true}).limit(300);
   if(error)throw error;
   aaMsgLiveStatus="ok";aaMsgLiveError="";
   if(aaMsgMergeRows(conversationId,data||[])){
    if(state.msgActiveConversationId===conversationId&&state.view==="inbox")aaMsgMarkRead(conversationId);
    render();
   }
- }catch(e){aaMsgLiveStatus="error";aaMsgLiveError=String(e?.message||e);console.warn("Bingo Messenger: could not load this conversation from the live messages table.",aaMsgLiveError)}
+ }catch(e){aaMsgSetLiveError(e,"Loading this conversation")}
 }
-/* Realtime: one channel per signed-in member for rows addressed to them.
-   Works only if public.messages is in the supabase_realtime publication
-   (unverified - the inspection script checks it), so a 20 s refresh
-   while Messenger is open covers the case where it is not. */
-var aaMsgLiveChannel=null,aaMsgLiveChannelUser="",aaMsgPollTimer=null;
-function aaMsgLiveSubscribe(){
- if(!sb||!state.user?.id)return;
+/* Find the live one-to-one conversation shared with this member, or
+   create it (conversation row with a client-generated id, then this
+   member's own row, then the other member's row). */
+async function aaMsgEnsureLiveConversation(conv){
+ if(conv.liveId)return conv.liveId;
+ const contract=await aaMsgResolveContract();
+ if(!contract.ok)throw new Error(aaMsgLiveError||contract.problems.join("; "));
+ const me=aaMsgMyId(),other=aaMsgOtherParticipantId(conv),M=AA_MSG_DB.members,C=AA_MSG_DB.conversations,U=contract.memberUserCol;
+ if(!aaMsgIsUuid(me)||!aaMsgIsUuid(other))throw new Error("This member has no Bingo account id, so a live conversation cannot be created.");
+ const mine=await aaMsgMyLiveConversationIds(contract);
+ if(mine.length){
+  const {data:shared,error}=await sb.from(M.table).select(M.convCol).in(M.convCol,mine).eq(U,other);
+  if(error)throw error;
+  const candidates=(shared||[]).map(r=>String(r[M.convCol]));
+  if(candidates.length){
+   // prefer a two-member conversation over a group containing this member
+   const {data:counts}=await sb.from(M.table).select(`${M.convCol},${U}`).in(M.convCol,candidates);
+   const size=id=>(counts||[]).filter(r=>String(r[M.convCol])===id).length;
+   const liveId=candidates.find(id=>size(id)===2)||candidates[0];
+   aaMsgAttachLiveId(conv.id,liveId);
+   return liveId;
+  }
+ }
+ let liveId=(typeof crypto!=="undefined"&&crypto.randomUUID)?crypto.randomUUID():"";
+ let {error:cErr}=liveId?await sb.from(C.table).insert({[C.idCol]:liveId}):{error:{code:"22P02"}};
+ if(cErr&&(cErr.code==="22P02"||/invalid input syntax/i.test(cErr.message||""))){
+  // id is not a uuid column: let the database assign it
+  const res=await sb.from(C.table).insert({}).select(C.idCol).single();
+  cErr=res.error;liveId=res.data?String(res.data[C.idCol]):"";
+ }
+ if(cErr)throw Object.assign(new Error("Creating the conversation was refused: "+cErr.message),{code:cErr.code});
+ const {error:m1}=await sb.from(M.table).insert({[M.convCol]:liveId,[U]:me});
+ if(m1)throw Object.assign(new Error("Adding you to the new conversation was refused: "+m1.message),{code:m1.code});
+ const {error:m2}=await sb.from(M.table).insert({[M.convCol]:liveId,[U]:other});
+ if(m2)throw Object.assign(new Error("Adding the other member to the new conversation was refused: "+m2.message),{code:m2.code});
+ aaMsgAttachLiveId(conv.id,liveId);
+ aaMsgLiveSubscribe();
+ return liveId;
+}
+function aaMsgAttachLiveId(localId,liveId){
+ const list=aaMsgConversations();
+ const c=list.find(x=>x.id===localId);
+ if(c){c.liveId=String(liveId);aaMsgSaveConversations(list)}
+}
+/* Realtime: new messages in this member's live conversations, and new
+   member rows naming this member (a conversation someone else started).
+   postgres_changes only fires if the table is in the supabase_realtime
+   publication and RLS lets this member read the row, so a 20 s refresh
+   while Messenger is open backs it up. */
+var aaMsgLiveChannel=null,aaMsgLiveChannelKey="",aaMsgPollTimer=null;
+function aaMsgLiveSubscribe(ids){
+ if(!sb||!state.user?.id||!aaMsgContract?.ok)return;
  const me=aaMsgMyId();
  if(!aaMsgIsUuid(me))return;
- if(aaMsgLiveChannel&&aaMsgLiveChannelUser===me)return;
+ const liveIds=(ids||aaMsgConversations().map(c=>c.liveId).filter(Boolean)).map(String).filter(aaMsgIsUuid).slice(0,100).sort();
+ const key=me+"|"+liveIds.join(",");
+ if(aaMsgLiveChannel&&aaMsgLiveChannelKey===key)return;
  if(aaMsgLiveChannel){try{sb.removeChannel(aaMsgLiveChannel)}catch(e){}}
- aaMsgLiveChannelUser=me;
+ aaMsgLiveChannelKey=key;
+ const U=aaMsgContract.memberUserCol,M=AA_MSG_DB.members;
  try{
-  aaMsgLiveChannel=sb.channel("bingo_dm_inbox_"+me)
-   .on("postgres_changes",{event:"INSERT",schema:"public",table:AA_MSG_LIVE_TABLE,filter:"recipient_id=eq."+me},payload=>{
-    const r=payload?.new;
-    if(!r||String(r.recipient_id)!==me)return;
-    const id=aaMsgEnsureDirectConv(String(r.sender_id),"","");
-    if(aaMsgMergeRows(id,[r])){
-     if(state.msgActiveConversationId===id&&state.view==="inbox")aaMsgMarkRead(id);
-     render();
-    }
-   })
-   .subscribe();
+  let ch=sb.channel("bingo_messenger_"+me+"_"+Date.now());
+  if(liveIds.length)ch=ch.on("postgres_changes",{event:"INSERT",schema:"public",table:AA_MSG_LIVE_TABLE,filter:`conversation_id=in.(${liveIds.join(",")})`},payload=>{
+   const r=payload?.new;if(!r)return;
+   const localId=aaMsgLocalIdForLive(r.conversation_id);
+   if(!localId){aaMsgFetchConversationsFromSupabase().then(c=>{if(c)render()});return}
+   if(aaMsgMergeRows(localId,[r])){
+    if(state.msgActiveConversationId===localId&&state.view==="inbox")aaMsgMarkRead(localId);
+    render();
+   }
+  });
+  ch=ch.on("postgres_changes",{event:"INSERT",schema:"public",table:M.table,filter:`${U}=eq.${me}`},()=>{
+   aaMsgFetchConversationsFromSupabase().then(c=>{if(c)render()});
+  });
+  aaMsgLiveChannel=ch.subscribe();
  }catch(e){console.warn("Bingo Messenger: realtime subscription unavailable; relying on refresh.",e)}
 }
 function aaMsgEnsurePolling(){
@@ -19239,9 +19357,7 @@ function aaMsgEnsurePolling(){
   },20000);
  }else if(aaMsgPollTimer){clearInterval(aaMsgPollTimer);aaMsgPollTimer=null}
 }
-/* Kept under their original names - other flows call these. The live
-   channel is per member (not per conversation), so there is nothing to
-   tear down when a conversation closes. */
+/* Kept under their original names - other flows call these. */
 function aaMsgRealtimeSubscribe(conversationId){aaMsgLiveSubscribe()}
 function aaMsgRealtimeUnsubscribe(){}
 /* The retired seller chat kept its thread in state.inbox (type
@@ -19259,8 +19375,10 @@ function aaMsgImportLegacyInbox(){
   const all=aaMsgAllMessages();
   const arr=all[id]||[];
   const lid="legacy_"+String(m.id);
-  if(!arr.some(x=>x.id===lid||(m.backendSynced==="1"&&String(x.id)===String(m.id).replace(/^db_/,"")))){
-   arr.push({id:lid,conversationId:id,senderId:m.from==="You"?me:other,body:String(m.text||""),type:"text",createdAt:m.createdAt||new Date().toISOString(),_synced:m.backendSynced==="1",_localOnly:m.backendSynced!=="1"});
+  if(!arr.some(x=>x.id===lid)){
+   /* The old seller chat wrote recipient_id/body, which live messages
+      does not have, so these copies were never on the server. */
+   arr.push({id:lid,conversationId:id,senderId:m.from==="You"?me:other,body:String(m.text||""),type:"text",createdAt:m.createdAt||new Date().toISOString(),_localOnly:true});
    arr.sort((a,b)=>new Date(a.createdAt)-new Date(b.createdAt));
    all[id]=arr;aaMsgSaveAllMessages(all);
   }
@@ -19363,19 +19481,20 @@ async function aaMsgPushLive(conversationId,clientId){
  const conv=aaMsgConversations().find(c=>c.id===conversationId);
  const msg=(aaMsgAllMessages()[conversationId]||[]).find(m=>m.id===clientId);
  if(!conv||!msg)return;
- const them=aaMsgOtherParticipantId(conv);
- if(!sb||conv.type==="group"||!aaMsgIsUuid(them)||!aaMsgIsUuid(aaMsgMyId())){
+ if(!sb||!aaMsgIsUuid(aaMsgMyId())||(conv.type==="group"&&!conv.liveId)){
   aaMsgPatchLocal(conversationId,clientId,{_pending:false,_localOnly:true});render();return;
  }
  try{
-  const {error}=await sb.from(AA_MSG_LIVE_TABLE).insert({sender_id:aaMsgMyId(),recipient_id:them,body:msg.body,created_at:msg.createdAt});
+  const liveId=await aaMsgEnsureLiveConversation(conv);
+  const {error}=await sb.from(AA_MSG_LIVE_TABLE).insert({conversation_id:liveId,sender_id:aaMsgMyId(),message:msg.body});
   if(error)throw error;
   aaMsgLiveStatus="ok";aaMsgLiveError="";
   aaMsgPatchLocal(conversationId,clientId,{_pending:false,_failed:false,_sent:true});
+  aaMsgSyncFromSupabase(conversationId);
  }catch(e){
-  aaMsgLiveStatus="error";aaMsgLiveError=String(e?.message||e);
-  console.warn("Bingo Messenger: message could not be saved to the live messages table.",aaMsgLiveError);
+  aaMsgSetLiveError(e,"Sending");
   aaMsgPatchLocal(conversationId,clientId,{_pending:false,_failed:true});
+  toast("Message not sent: "+aaMsgLiveError);
  }
  render();
 }
@@ -19715,7 +19834,7 @@ function aaBmSavedColumnHTML(){
 }
 function aaMsgSettingsPaneHTML(){
  const blocked=aaMsgReadLS(AA_MSG_LS_BLOCKS,[]).filter(b=>String(b.blockerId)===aaMsgMyId());
- const status=aaMsgLiveStatus==="ok"?`<span class="bm-online-text">Connected to live messages</span>`:aaMsgLiveStatus==="error"?`<span class="bm-danger-text">Live messages unavailable: ${esc(aaMsgLiveError.slice(0,120))}</span>`:`<span>Not checked yet</span>`;
+ const status=aaMsgLiveStatus==="ok"?`<span class="bm-online-text">Connected to live messages</span>`:aaMsgLiveStatus==="error"?`<span class="bm-danger-text">Live messages unavailable: ${esc(aaMsgLiveError.slice(0,300))}</span>`:`<span>Not checked yet</span>`;
  return `${aaBmListHeaderHTML("Settings",null,false)}
  <div class="bm-list-body bm-settings">
   <h4>Blocked accounts (${blocked.length})</h4>
@@ -19725,7 +19844,7 @@ function aaMsgSettingsPaneHTML(){
    return `<div class="bm-conv-row is-static">${aaMsgThreadAvatarHTML(String(b.blockedId),name,"sm")}<span class="bm-conv-copy"><span class="bm-conv-name">${esc(name)}</span></span><button type="button" class="bm-chip-btn" onclick="aaMsgUnblockUser('${esc(String(b.blockedId))}')">Unblock</button></div>`;
   }).join("")}
   <h4>Message sync</h4>
-  <div class="bm-settings-note">${status}<br>Read position, mute, archive, trash and starred messages are kept on this device.</div>
+  <div class="bm-settings-note">${status}${aaMsgContract?.ok?`<br>Live tables: messages, conversations, conversation_members (member column: ${esc(aaMsgContract.memberUserCol)})`:""}<br>Read position, mute, archive, trash and starred messages are kept on this device.</div>
  </div>`;
 }
 function aaBmListColumnHTML(tab){
@@ -20631,60 +20750,6 @@ async function requestBoostPayment(opts){
   console.error("M-Pesa STK Push error",e);
   aaSetMpesaButtonState("failed","M-Pesa error",String(e?.message||"M-Pesa payment could not be started."));
  }
-}
-async function aaSyncSellerChatMessages(c){
- if(!sb||!state.isLoggedIn||state.testMode||!state.user?.id||!c)return;
- const sellerId=aaConnectionKey(c);if(!sellerId)return;
- try{
-  const me=String(state.user.id),them=String(sellerId);
-  const [sentRes,recvRes]=await Promise.all([
-   sb.from("messages").select("id,sender_id,recipient_id,body,created_at").eq("sender_id",me).eq("recipient_id",them).order("created_at",{ascending:true}).limit(200),
-   sb.from("messages").select("id,sender_id,recipient_id,body,created_at").eq("sender_id",them).eq("recipient_id",me).order("created_at",{ascending:true}).limit(200)
-  ]);
-  const rows=[...(sentRes.data||[]),...(recvRes.data||[])].sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
-  if(!rows.length)return;
-  const keep=(state.inbox||[]).filter(m=>!(m.type==="seller_chat"&&String(m.sellerId||"")===String(sellerId)&&String(m.backendSynced||"")==="1"));
-  const mapped=rows.map(r=>({
-   id:"db_"+String(r.id||r.created_at||Math.random()),
-   type:"seller_chat",
-   sellerId:String(sellerId),
-   candidateName:c.sellerName||c.name||"Seller",
-   text:String(r.body||""),
-   from:String(r.sender_id)===me?"You":(c.sellerName||c.name||"Seller"),
-   senderId:String(r.sender_id||""),
-   recipientId:String(r.recipient_id||""),
-   backendSynced:"1",
-   archived:false,blocked:false,reported:false,
-   createdAt:r.created_at||new Date().toISOString()
-  }));
-  state.inbox=[...keep,...mapped];
-  save();
-  if(state.view==="chat")render();
- }catch(e){console.warn("Chat sync unavailable:",e?.message||e)}
-}
-function aaChatMessagesFor(c){
- const key=aaConnectionKey(c);
- return (state.inbox||[]).filter(m=>m.type==="seller_chat"&&String(m.sellerId||"")===key&&!m.archived&&!m.blocked);
-}
-async function sendSellerChat(){
- const c=state.selected;if(!c)return;
- if(!state.isLoggedIn){openAuth("login");return}
- const input=document.getElementById("aaSellerMessage"),text=String(input?.value||"").trim();
- if(!text&&!aaPendingChatTif){toast("Write a message or attach a TIF/TIFF file first.");return}
- const sellerId=aaConnectionKey(c);
- const attachment=aaPendingChatTif?{name:aaPendingChatTif.name,size:aaPendingChatTif.size,type:aaPendingChatTif.type}:null;
- const message={id:"chat_"+Date.now(),type:"seller_chat",sellerId,candidateName:c.sellerName||c.name||"Seller",text:text||"Shared a lossless graphic.",from:"You",senderId:String(state.user?.id||""),recipientId:String(sellerId||""),source:state.solutionRoomId?"Solution Room":"Bingo",chatStyle:{...aaChatComposeStyle},attachment,archived:false,blocked:false,reported:false,createdAt:new Date().toISOString()};
- state.inbox.push(message);save();
- if(sb&&sellerId&&state.user?.id&&!state.testMode){
-  try{
-   const backendBody=attachment?(message.text+" [Attachment: "+attachment.name+"]"):message.text;
-   await sb.from("messages").insert({sender_id:state.user.id,recipient_id:sellerId,body:backendBody,created_at:new Date().toISOString()})
-  }catch(e){console.warn("Messages backend unavailable; local inbox copy retained.",e)}
- }
- aaPendingChatTif=null;
- if(input)input.value="";
- render();
- requestAnimationFrame(()=>{const box=document.querySelector("#auto-arcade-widget .aa-chat-stream-modern");if(box)box.scrollTop=box.scrollHeight});
 }
 
 
