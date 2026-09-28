@@ -9354,35 +9354,97 @@ function aaMarketHTML(){
  const cats=household?["All","Furniture","Kitchen Appliances","Home Electronics","General Electronics","Home Decor","Bedding","Lighting","Small Appliances","Storage & Organization"]:["All","Engine & Drivetrain","Bodywork & Trim","Brakes & Suspension","Electrical & Lighting","Interior & Accessories"];
  return `<section class="aa-market-page"><div class="aa-market-head"><div><button class="btn" onclick="goBack()">← Back</button><h2 style="margin:10px 0 2px">Auto Market · ${household?"Household Items":"Spare Parts"}</h2><div class="notice">${household?"Search furniture, appliances, electronics, decor, lighting, bedding, storage and other home goods by location or seller.":"Search by vehicle compatibility, OEM/part number, location or store."}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="bingo-neon-action bingo-neon-action-cyan" onclick="aaOpenMarketCategoriesDrawer()"><span aria-hidden="true">▤</span> Categories</button><button class="btn btn-red" onclick="aaOpenSparePost('${household?"household":"spare_parts"}')">＋ ${household?"Post Household Item":"Post Spare Part"}</button></div></div><div class="aa-market-type-tabs"><button class="btn ${!household?'active':''}" onclick="aaSetMarketType('spare_parts')">Spare Parts</button><button class="btn ${household?'active':''}" onclick="aaSetMarketType('household')">Household Items</button></div><div class="aa-market-filters"><input class="field" placeholder="${household?"Search household item, brand...":"Search part, make, model, OEM..."}" value="${esc(state.marketSearch||'')}" oninput="state.marketSearch=this.value"><select class="select" onchange="state.marketCategory=this.value;render()">${cats.map(x=>`<option ${x===state.marketCategory?'selected':''}>${esc(x)}</option>`).join('')}</select><select class="select" onchange="state.marketCounty=this.value;render()"><option>All Kenya</option>${kenyaCounties.map(x=>`<option ${x===state.marketCounty?'selected':''}>${esc(x)}</option>`).join('')}</select><input class="field" placeholder="Town / area" value="${esc(state.marketTown||'')}" oninput="state.marketTown=this.value"></div>${rows.length?`<div class="aa-market-grid">${rows.map(aaPartCardHTML).join('')}</div>`:`<div class="empty">No ${household?'household items':'spare parts'} match this search.</div>`}</section>`
 }
-/* Marketplace > Categories panel (Cockpit restoration, Consolidated
-   Directives 28 Sep 2026): the Cockpit's own Categories button opens this
-   directly, consolidating "Restaurant and food browsing/registration,
-   food listings, property listings, Bingo Properties and Bingo Stays"
-   under Categories rather than as separate Cockpit buttons - every item
-   below is a real, existing route, reused as-is. Food Menu/Restaurant
-   Orders reuse the already-merged aaCockpitGo('menu'/'orders') helper
-   (it already handles zero/one/many-businesses correctly and the
-   logged-out gate) instead of duplicating that logic here. */
-function aaOpenMarketCategoriesDrawer(){state.marketCategoriesDrawerOpen=true;render()}
-function aaCloseMarketCategoriesDrawer(){state.marketCategoriesDrawerOpen=false;render()}
+/* Marketplace > Categories panel (Categories/Food Restoration directive,
+   28 Sep 2026): restores the full "All Categories" directory (all 30
+   catalogue categories, search, subcategory counts) in place of the
+   earlier 8-item Cockpit shortcut list. Food is now also its own direct
+   Cockpit button (see the bcp Marketplace section) rather than living only
+   inside this drawer. A tapped category opens a real, existing route
+   (AA_CATEGORY_REAL_ROUTES) when one exists; every other category is real
+   catalogue metadata with an honest "coming soon" panel instead of
+   invented listings - see AA_ALL_CATEGORIES above aaOpenMarketCategoriesDrawer.
+   Bingo Stays remains reachable one tap deeper, as a tab on the real
+   Properties page it already has (aaPropertyNavHTML); Food Menu/Restaurant
+   Orders/Promotions remain reachable via the owner's "Manage my
+   restaurant"/"Boost Listing" entries rather than this public directory. */
+function aaOpenMarketCategoriesDrawer(){state.marketCategoriesDrawerOpen=true;state.allCatComingSoonSlug=null;render()}
+function aaCloseMarketCategoriesDrawer(){state.marketCategoriesDrawerOpen=false;state.allCatComingSoonSlug=null;render()}
+/* The full Bingo marketplace catalogue (names/subcategories/age-restriction),
+   independent of the orphaned #bgcCatGrid demo module elsewhere in this file
+   (that module's own item data is hardcoded placeholder content - "Temporary
+   editable ... demo listing", picsum.photos images, "Demo value" fields, and
+   its edit form is literally labelled "Front-end demo only" - confirmed
+   identical across every branch's history, so there is no real version to
+   recover). Only categories with an AA_CATEGORY_REAL_ROUTES entry open a real,
+   existing, backend-connected page; every other category is real catalogue
+   metadata but has no page to route to yet, so it opens an honest "coming
+   soon" panel instead of inventing listings. */
+const AA_ALL_CATEGORIES=[
+ {name:"Vehicles / Auto",slug:"vehicles",subs:["Cars","SUVs","Vans","Pickups","Trucks","Buses","Matatus"]},
+ {name:"Properties",slug:"properties",subs:["House","Apartment","Bedsitter","Maisonette","Villa","Office","Shop","Warehouse"]},
+ {name:"Agriculture",slug:"agriculture",subs:["Farm Produce","Seeds","Fertilizer","Animal Feed","Irrigation","Farming Supplies"]},
+ {name:"Farm Equipment",slug:"farm-equipment",subs:["Tractors","Water Pumps","Ploughs","Harvesting Equipment","Irrigation Equipment","Generators","Farm Tools"]},
+ {name:"Food & Drinks",slug:"food",subs:["Prepared Meals","Fresh Food","Groceries","Fresh Produce","Meat","Fish","Drinks","Catering","Snacks"]},
+ {name:"Restaurants",slug:"restaurants",subs:["African","Seafood","Fast Food","Indian","Italian","Cafe","Fine Dining"]},
+ {name:"Pastries & Bakeries",slug:"pastries-bakeries",subs:["Cakes","Bread","Cookies","Doughnuts","Cupcakes","Pastries","Wedding Cakes"]},
+ {name:"Hotels & Accommodation",slug:"hotels-accommodation",subs:["Hotels","Apartments","BnBs","Guest Houses","Resorts","Lodges"]},
+ {name:"Liquor Stores",slug:"liquor-stores",ageRestricted:true,subs:["Wine","Beer","Spirits","Cider","Mixers","Gift Packs"]},
+ {name:"Fashion & Clothing",slug:"fashion",subs:["Men","Women","Kids","Shoes","Bags","Jewellery","Watches","Traditional Wear"]},
+ {name:"Furniture & Home",slug:"furniture",subs:["Sofas","Beds","Dining Sets","Tables","Chairs","Office Furniture","Cabinets","Home Decor"]},
+ {name:"Electronics",slug:"electronics",subs:["TVs","Audio","Cameras","Gaming","Home Electronics","Smart Devices"]},
+ {name:"Beauty & Personal Care",slug:"beauty",subs:["Hair","Barbers","Nails","Skincare","Cosmetics","Spa","Massage","Beauty Products","Salons"]},
+ {name:"Jobs",slug:"jobs",subs:["Full Time","Part Time","Contract","Casual","Internship","Remote","Temporary"]},
+ {name:"CVs / Job Seekers",slug:"cvs",subs:["Administration","Sales","Hospitality","Driving","Technology","Creative","Trades"]},
+ {name:"Services",slug:"services",subs:["Mechanics","Plumbers","Electricians","Cleaning","Moving","Photography","Graphic Design","IT Services","Repair Services"]},
+ {name:"Phones & Accessories",slug:"phones",subs:["Smartphones","Feature Phones","Tablets","Chargers","Cases","Earphones","Power Banks","Phone Parts"]},
+ {name:"Computers & Accessories",slug:"computers",subs:["Laptops","Desktops","Monitors","Printers","Keyboards","Mice","Storage","Computer Parts","Networking"]},
+ {name:"Home Appliances",slug:"home-appliances",subs:["Refrigerators","Cookers","Microwaves","Washing Machines","Fans","Air Conditioners","Blenders"]},
+ {name:"Motorcycles & Bicycles",slug:"motorcycles-bicycles",subs:["Motorcycles","Scooters","Bicycles","Electric Bikes","Delivery Bikes"]},
+ {name:"Spare Parts & Accessories",slug:"spare-parts",subs:["Vehicle Parts","Motorcycle Parts","Tyres","Rims","Batteries","Lights","Body Parts","Engine Parts"]},
+ {name:"Construction & Hardware",slug:"construction-hardware",subs:["Building Materials","Tools","Cement","Steel","Timber","Plumbing Materials","Electrical Materials","Doors","Windows","Roofing"]},
+ {name:"Land & Plots",slug:"land-plots",subs:["Residential Plot","Commercial Plot","Agricultural Land","Industrial Land","Beach Plot"]},
+ {name:"Commercial Property",slug:"commercial-property",subs:["Office","Shop","Warehouse","Industrial","Restaurant Space","Hotel Property","Commercial Land"]},
+ {name:"Pets & Animals",slug:"pets",subs:["Dogs","Cats","Birds","Fish","Pet Supplies","Pet Services"]},
+ {name:"Livestock",slug:"livestock",subs:["Cattle","Goats","Sheep","Poultry","Rabbits"]},
+ {name:"Events & Entertainment",slug:"events",subs:["Events","Venues","Entertainment Services","DJs","MCs","Photography","Decor","Event Equipment","Outside Catering"]},
+ {name:"Sports & Fitness",slug:"sports-fitness",subs:["Sports Equipment","Gym Equipment","Fitness Services","Sportswear","Outdoor Equipment"]},
+ {name:"Health & Wellness",slug:"health-wellness",subs:["Wellness Services","Fitness / Wellness Centres","Personal Care","Non-restricted Wellness Products"]},
+ {name:"Other Marketplace Items",slug:"other",subs:["General","Collectibles","Office Items","Miscellaneous"]}
+];
+const AA_CATEGORY_REAL_ROUTES={
+ vehicles:()=>aaOpenMarket(),
+ properties:()=>aaOpenProperties('browse'),
+ food:()=>aaOpenFood('browse'),
+ restaurants:()=>aaOpenFood('browse'),
+ jobs:()=>openJobs('jobs'),
+ cvs:()=>openJobs('candidates')
+};
+function aaOpenCategoryTile(slug){
+ const route=AA_CATEGORY_REAL_ROUTES[slug];
+ if(route){aaCloseMarketCategoriesDrawer();route();return}
+ state.allCatComingSoonSlug=slug;render();
+}
 function aaMarketCategoriesDrawerHTML(){
  if(!state.marketCategoriesDrawerOpen)return "";
- const items=[
-  {label:"Food",ico:"🍽",onclick:"aaCloseMarketCategoriesDrawer();aaOpenFood('browse')"},
-  {label:"Food Menu",ico:"📋",onclick:"aaCloseMarketCategoriesDrawer();aaCockpitGo('menu')"},
-  {label:"Restaurant Orders",ico:"🧾",onclick:"aaCloseMarketCategoriesDrawer();aaCockpitGo('orders')"},
-  {label:"Properties",ico:"🏠",onclick:"aaCloseMarketCategoriesDrawer();aaOpenProperties('browse')"},
-  {label:"Bingo Stays",ico:"🏖️",onclick:"aaCloseMarketCategoriesDrawer();aaOpenProperties('stays')"},
-  {label:"Vehicles &amp; Auto Market",ico:"🚗",onclick:"aaCloseMarketCategoriesDrawer();aaOpenMarket()"},
-  {label:"Jobs &amp; CVs",ico:"🧑‍💼",onclick:"aaCloseMarketCategoriesDrawer();openJobs('myjobs')"},
-  {label:"Promotions",ico:"⚡",onclick:"aaCloseMarketCategoriesDrawer();aaTriggerBannerBoost()"}
- ];
+ const q=(state.allCatSearch||"").toLowerCase().trim();
+ const list=AA_ALL_CATEGORIES.filter(c=>!q||c.name.toLowerCase().includes(q));
+ const comingSoon=state.allCatComingSoonSlug?AA_ALL_CATEGORIES.find(c=>c.slug===state.allCatComingSoonSlug):null;
+ if(comingSoon){
+  return `<div class="overlay"><div class="modal aa-market-categories-modal">
+   <button class="close" onclick="aaCloseMarketCategoriesDrawer()">×</button>
+   <button class="btn btn-glass" style="margin-bottom:8px" onclick="state.allCatComingSoonSlug=null;render()">← All Categories</button>
+   <h2>${esc(comingSoon.name)}</h2>
+   <p class="notice">${esc(comingSoon.name)} browsing is not live yet on Bingo. This category is not going to show placeholder or invented listings - real listings will appear here once this section is connected to the marketplace.</p>
+   <div class="bcp-grid">${comingSoon.subs.map(s=>`<span class="badge">${esc(s)}</span>`).join(" ")}</div>
+  </div></div>`;
+ }
  return `<div class="overlay"><div class="modal aa-market-categories-modal">
   <button class="close" onclick="aaCloseMarketCategoriesDrawer()">×</button>
-  <h2>Marketplace &gt; Categories</h2>
-  <p class="notice">Browse or manage food, property, stays, vehicles, jobs and promotions from here.</p>
+  <h2>All Categories</h2>
+  <p class="notice">Browse every Bingo marketplace category. Categories already live on Bingo open straight away; the rest are shown honestly as not yet available.</p>
+  <input class="field" style="margin-bottom:10px" placeholder="Search categories..." value="${esc(state.allCatSearch||"")}" oninput="state.allCatSearch=this.value;render()">
   <div class="bcp-grid">
-   ${items.map(x=>`<button class="bcp-btn" onclick="${x.onclick}"><span class="bcp-ico">${x.ico}</span><b>${x.label}</b></button>`).join("")}
+   ${list.length?list.map(c=>`<button class="bcp-btn" onclick="aaOpenCategoryTile('${c.slug}')"><span class="bcp-ico">${c.ageRestricted?"🔞":"▤"}</span><b>${esc(c.name)}</b><small style="display:block;font-weight:400;font-size:9px;opacity:.75">${c.ageRestricted?"18+":c.subs.length+" subcategories"}${!AA_CATEGORY_REAL_ROUTES[c.slug]?" · Coming soon":""}</small></button>`).join(""):`<div class="notice">No categories match your search.</div>`}
   </div>
  </div></div>`;
 }
@@ -12051,7 +12113,9 @@ function aaFoodHTML(){
  const mine=all.filter(x=>String(x.user_id||'')===String(state.user?.id||'')||x.local_owner);
  if(tab==='post'||tab==='mine')return aaFoodWorkspaceHTML(tab,mine,tab==='post'?aaFoodPostHTML():aaFoodMineHTML(mine));
  if(tab==='orders')return `<section class="aa-owner-ws" style="padding:18px 0 105px"><div class="aa-owner-ws-head"><button type="button" class="btn btn-glass" onclick="goBack()">← Back</button><div><small>Your activity</small><h2>My Food Orders</h2></div></div>${aaFoodMyOrdersHTML()}</section>`;
- return `<section style="padding:18px 0 105px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 style="margin:0">Food</h2>${state.isLoggedIn&&mine.length?`<button type="button" class="btn btn-glass aa-cp-link" onclick="aaCockpitGo('food')">Manage my restaurant ›</button>`:''}</div><p class="notice" style="margin-top:8px">Restaurants and food businesses run on a paid monthly advertising subscription (KES 1,000 / 30 days via M-Pesa).</p>${aaFoodListHTML(visible)}</section>`;
+ const fq=(state.foodBrowseSearch||'').toLowerCase().trim();
+ const filtered=visible.filter(f=>!fq||[f.business_name,f.county,f.town,f.delivery_area].some(v=>String(v||'').toLowerCase().includes(fq)));
+ return `<section style="padding:18px 0 105px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 style="margin:0">Food</h2>${state.isLoggedIn?`<button type="button" class="btn btn-glass aa-cp-link" onclick="aaCockpitGo('food')">${mine.length?'Manage my restaurant ›':'List your restaurant ›'}</button>`:''}</div><p class="notice" style="margin-top:8px">Restaurants and food businesses run on a paid monthly advertising subscription (KES 1,000 / 30 days via M-Pesa).</p><input class="field" style="margin-top:10px" placeholder="Search restaurant name, county, town or delivery area..." value="${esc(state.foodBrowseSearch||'')}" oninput="state.foodBrowseSearch=this.value;render()">${fq&&!filtered.length?`<div class="empty" style="margin-top:10px">No restaurants match "${esc(state.foodBrowseSearch)}".</div>`:aaFoodListHTML(filtered)}</section>`;
 }
 /* Owner-only Food Business workspace, reached from the Cockpit. Uses the
    approved Food Menu layout (bingo-food-menu-proto): a section rail on
@@ -14071,6 +14135,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
           <div class="bcp-section-label">Marketplace</div>
           <div class="bcp-grid">
             <button class="bcp-btn ${state.marketCategoriesDrawerOpen?"active":""}" onclick="aaAssistantCloseDrawer();aaOpenMarketCategoriesDrawer();"><span class="bcp-ico">&#9638;</span><b>Categories</b></button>
+            <button class="bcp-btn ${state.view==="food"&&(state.foodTab||"browse")==="browse"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenFood('browse'))"><span class="bcp-ico">&#127860;</span><b>Food</b></button>
             <button class="bcp-btn" onclick="aaAssistantNavigate(aaTriggerBannerBoost)"><span class="bcp-ico">&#9889;</span><b>Boost Listing</b></button>
             <button class="bcp-btn ${state.view==="jobs"?"active":""}" onclick="aaAssistantNavigate(()=>openJobs('jobs'))"><span class="bcp-ico">&#9635;</span><b>Jobs &amp; CV</b></button>
           </div>
