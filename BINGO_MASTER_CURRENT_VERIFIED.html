@@ -18285,21 +18285,21 @@ function aaMsgIsBlockedBy(otherUserId){
  const me=aaMsgMyId();
  return all.some(b=>(String(b.blockerId)===me&&String(b.blockedId)===String(otherUserId))||(String(b.blockerId)===String(otherUserId)&&String(b.blockedId)===me));
 }
-function aaMsgBlockUser(otherUserId,otherUserName){
+async function aaMsgBlockUser(otherUserId,otherUserName){
  if(!state.isLoggedIn){openAuth("login");return}
- if(!confirm(`Block ${otherUserName||"this user"}? They will no longer be able to message or call you, and you will not be able to message or call them.`))return;
- const all=aaMsgReadLS(AA_MSG_LS_BLOCKS,[]);
+ if(!confirm(`Block ${otherUserName||"this user"}? Neither of you will be able to message the other, and you will not be able to call them.`))return;
+ const ok=await aaMsgRequestCall(AA_MSG_REQ.rpcBlock,{p_other:String(otherUserId)},"Blocked. This does not delete your existing message history.");
+ if(!ok)return;
+ const all=aaMsgReadLS(AA_MSG_LS_BLOCKS,[]).filter(b=>!(String(b.blockerId)===aaMsgMyId()&&String(b.blockedId)===String(otherUserId)));
  all.push({blockerId:aaMsgMyId(),blockedId:String(otherUserId),createdAt:new Date().toISOString()});
  aaMsgWriteLS(AA_MSG_LS_BLOCKS,all);
- if(sb){sb.from("bingo_blocks").insert({blocker_id:aaMsgMyId(),blocked_id:String(otherUserId)}).then(()=>{},()=>{});}
- toast("Blocked. This does not delete your existing message history.");
  render();
 }
-function aaMsgUnblockUser(otherUserId){
+async function aaMsgUnblockUser(otherUserId){
+ const ok=await aaMsgRequestCall(AA_MSG_REQ.rpcUnblock,{p_other:String(otherUserId)},"Unblocked. A new Request to Communicate is needed before messaging.");
+ if(!ok)return;
  const all=aaMsgReadLS(AA_MSG_LS_BLOCKS,[]).filter(b=>!(String(b.blockerId)===aaMsgMyId()&&String(b.blockedId)===String(otherUserId)));
  aaMsgWriteLS(AA_MSG_LS_BLOCKS,all);
- if(sb){sb.from("bingo_blocks").delete().eq("blocker_id",aaMsgMyId()).eq("blocked_id",String(otherUserId)).then(()=>{},()=>{});}
- toast("Unblocked.");
  render();
 }
 function aaMsgBlockedAccountsHTML(){
@@ -19244,7 +19244,7 @@ async function aaMsgFetchConversationsFromSupabase(){
   else if(aaMsgRpcMissing(mrErr)){aaMsgMembersRpcMissing=true;console.warn("Bingo Messenger: bingo_my_conversation_members() is not deployed; naming conversations from message senders.")}
   else throw mrErr;
   const ids=memberRows?[...new Set(memberRows.map(r=>String(r.conversation_id)))]:await aaMsgMyLiveConversationIds(contract);
-  let changed=false;
+  let changed=await aaMsgLoadRequests();
   if(ids.length){
    const {data:rows,error}=await sb.from(AA_MSG_LIVE_TABLE).select(AA_MSG_LIVE_COLS).in("conversation_id",ids).order("created_at",{ascending:false}).limit(500);
    if(error)throw error;
@@ -19353,6 +19353,81 @@ function aaMsgEnsurePolling(){
 /* Kept under their original names - other flows call these. */
 function aaMsgRealtimeSubscribe(conversationId){aaMsgLiveSubscribe()}
 function aaMsgRealtimeUnsubscribe(){}
+/* ---- Request to Communicate (Bingo rule: private messaging starts only
+   after the recipient accepts). The record is the live table
+   public.bingo_communication_requests, readable by its two members only;
+   every change goes through server functions, and the server refuses to
+   start a conversation or accept a message without an accepted request
+   (supabase/migrations/20260928_bingo_messenger_communication_requests_
+   REVIEW_NOT_APPLIED.sql). This UI only mirrors that state. */
+const AA_MSG_REQ={table:"bingo_communication_requests",cols:"requester_id,recipient_id,status,blocked_by,updated_at",
+ rpcRequest:"bingo_request_communication",rpcRespond:"bingo_respond_communication_request",rpcBlock:"bingo_block_member",rpcUnblock:"bingo_unblock_member"};
+var aaMsgRequestsMissing=false,aaMsgRequestsLoaded=false;
+function aaMsgRequestRows(){return state.msgRequests||aaMsgReadLS("aa_msg_requests_"+aaMsgMyId(),[])}
+async function aaMsgLoadRequests(){
+ if(!sb||!aaMsgIsUuid(aaMsgMyId()))return false;
+ const {data,error}=await sb.from(AA_MSG_REQ.table).select(AA_MSG_REQ.cols).order("updated_at",{ascending:false}).limit(500);
+ if(error){
+  if(error.code==="42P01"||error.code==="PGRST205"||/relation .* does not exist|could not find the table/i.test(error.message||"")){aaMsgRequestsMissing=true;aaMsgRequestsLoaded=true;return false}
+  throw error;
+ }
+ aaMsgRequestsMissing=false;aaMsgRequestsLoaded=true;
+ const next=(data||[]).map(r=>({requester_id:String(r.requester_id),recipient_id:String(r.recipient_id),status:r.status,blocked_by:r.blocked_by?String(r.blocked_by):"",updated_at:r.updated_at}));
+ const changed=JSON.stringify(next)!==JSON.stringify(aaMsgRequestRows());
+ state.msgRequests=next;aaMsgWriteLS("aa_msg_requests_"+aaMsgMyId(),next);
+ return changed;
+}
+/* none | pending_out | pending_in | accepted | declined_out (they declined
+   mine) | declined_in (I declined theirs) | blocked_by_me | blocked_by_them */
+function aaMsgRequestState(otherId){
+ otherId=String(otherId||"");const me=aaMsgMyId();
+ const r=aaMsgRequestRows().find(x=>(x.requester_id===me&&x.recipient_id===otherId)||(x.requester_id===otherId&&x.recipient_id===me));
+ if(!r)return "none";
+ if(r.status==="accepted")return "accepted";
+ if(r.status==="blocked")return r.blocked_by===me?"blocked_by_me":"blocked_by_them";
+ if(r.status==="pending")return r.requester_id===me?"pending_out":"pending_in";
+ return r.requester_id===me?"declined_out":"declined_in";
+}
+function aaMsgIncomingRequests(){const me=aaMsgMyId();return aaMsgRequestRows().filter(r=>r.status==="pending"&&r.recipient_id===me)}
+async function aaMsgRequestCall(fn,args,okText){
+ if(!sb){toast("Messaging is not available right now.");return false}
+ const {error}=await sb.rpc(fn,args);
+ if(error){
+  if(aaMsgRpcMissing(error)){toast("Requests to Communicate are not available yet: the server functions are not deployed.");return false}
+  toast(String(error.message||"The request could not be completed."));
+  await aaMsgLoadRequests().catch(()=>{});render();return false;
+ }
+ await aaMsgLoadRequests().catch(()=>{});
+ if(okText)toast(okText);
+ render();return true;
+}
+function aaMsgSendCommRequest(otherId){return aaMsgRequestCall(AA_MSG_REQ.rpcRequest,{p_recipient:String(otherId)},"Request to Communicate sent.")}
+function aaMsgRespondCommRequest(otherId,accept){return aaMsgRequestCall(AA_MSG_REQ.rpcRespond,{p_requester:String(otherId),p_accept:!!accept},accept?"Request accepted. You can now message each other.":"Request declined.")}
+function aaMsgRequestBarHTML(conv){
+ const otherId=aaMsgOtherParticipantId(conv);
+ const name=esc(aaMsgConversationDisplayName(conv));
+ const st=aaMsgRequestState(otherId);
+ const bar=(text,buttons,cls)=>`<div class="bm-trash-bar bm-request-bar${cls?" "+cls:""}" data-request-state="${st}"><span>${text}</span>${buttons||""}</div>`;
+ const btn=(label,onclick,danger)=>`<button type="button" class="bm-chip-btn${danger?" bm-danger":""}" onclick="${onclick}">${label}</button>`;
+ const id=esc(otherId);
+ if(!sb||aaMsgRequestsMissing)return bar("Private messaging needs an accepted Request to Communicate, and that service is not available yet.","","bm-danger-text");
+ if(!aaMsgRequestsLoaded)return bar("Checking whether you can message "+name+"…");
+ if(st==="none")return bar(`You can message ${name} once they accept a Request to Communicate.`,btn("Send Request to Communicate",`aaMsgSendCommRequest('${id}')`));
+ if(st==="pending_out")return bar(`Request sent. You can message ${name} once they accept.`);
+ if(st==="pending_in")return bar(`${name} wants to message you.`,btn("Accept",`aaMsgRespondCommRequest('${id}',true)`)+btn("Decline",`aaMsgRespondCommRequest('${id}',false)`,true));
+ if(st==="declined_out")return bar(`${name} declined your Request to Communicate.`,"","bm-danger-text");
+ if(st==="declined_in")return bar(`You declined ${name}'s request.`,btn("Send Request to Communicate",`aaMsgSendCommRequest('${id}')`));
+ if(st==="blocked_by_me")return bar(`You blocked ${name}.`,btn("Unblock",`aaMsgUnblockUser('${id}')`),"bm-danger-text");
+ return bar("You cannot message this account.","","bm-danger-text");
+}
+function aaMsgIncomingRequestsHTML(){
+ const list=aaMsgIncomingRequests();
+ if(!list.length)return "";
+ return `<div class="bm-requests"><h4>Requests to Communicate (${list.length})</h4>${list.map(r=>{
+  const meta=aaResolveMemberMeta(r.requester_id,"");const name=aaMemberDisplayName(meta);const id=esc(r.requester_id);
+  return `<div class="bm-conv-row is-static bm-request-row" role="listitem">${aaMsgThreadAvatarHTML(r.requester_id,name,"sm")}<span class="bm-conv-copy"><span class="bm-conv-name">${esc(name)}</span><span class="bm-conv-preview">wants to message you</span></span><span class="bm-row-actions"><button type="button" class="bm-chip-btn bm-chip-sm" onclick="aaMsgRespondCommRequest('${id}',true)">Accept</button><button type="button" class="bm-chip-btn bm-chip-sm bm-danger" onclick="aaMsgRespondCommRequest('${id}',false)">Decline</button></span></div>`;
+ }).join("")}</div>`;
+}
 /* The retired seller chat kept its thread in state.inbox (type
    "seller_chat"). Copy those messages into their Messenger conversation
    once, so nobody loses history when the old screen goes away. */
@@ -19422,6 +19497,7 @@ function aaMsgOpenConversation(id){
  window.scrollTo(0,0);
  aaMsgLiveSubscribe();
  aaMsgSyncFromSupabase(id);
+ if(sb&&!aaMsgRequestsLoaded)aaMsgLoadRequests().then(()=>render()).catch(e=>aaMsgSetLiveError(e,"Loading requests"));
 }
 function aaMsgBack(){state.msgActiveConversationId=null;aaMsgResetPanels();render()}
 function aaMsgToggleSidebarPeek(){state.msgNavDrawerOpen=!state.msgNavDrawerOpen;render()}
@@ -19497,6 +19573,7 @@ function aaMsgCanSendTo(conversationId){
  if(!conv){toast("Conversation not found.");return null}
  const otherId=aaMsgOtherParticipantId(conv);
  if((otherId&&aaMsgIsBlockedBy(otherId))||conv.liveBlocked){toast("You cannot send messages in this conversation.");return null}
+ if(conv.type!=="group"&&aaMsgRequestState(otherId)!=="accepted"){toast("You can message this member once they accept a Request to Communicate.");render();return null}
  return conv;
 }
 async function aaMsgSend(conversationId){
@@ -19741,6 +19818,7 @@ function aaBmChatsColumnHTML(){
  ${aaBmSearchHTML("Search chats...")}
  <div class="bm-pills">${pill("all","All",base.length)}${pill("unread","Unread",unreadList.length)}${pill("groups","Groups",groupList.length)}</div>
  <div class="bm-list-body" role="list">
+  ${aaMsgIncomingRequestsHTML()}
   ${list.length?list.map(x=>aaBmConvRowHTML(x.c)).join(""):`<div class="bm-empty">${String(state.msgInboxSearch||"").trim()?"No chats match your search.":filter==="unread"?"You're all caught up.":filter==="groups"?"No group chats yet.":"No conversations yet.<br>Tap + or open any profile and tap Message."}</div>`}
  </div>`;
 }
@@ -19826,7 +19904,9 @@ function aaBmSavedColumnHTML(){
  </div>`;
 }
 function aaMsgSettingsPaneHTML(){
- const blocked=aaMsgReadLS(AA_MSG_LS_BLOCKS,[]).filter(b=>String(b.blockerId)===aaMsgMyId());
+ const me=aaMsgMyId();
+ const blockedIds=[...new Set([...aaMsgRequestRows().filter(r=>r.status==="blocked"&&r.blocked_by===me).map(r=>r.requester_id===me?r.recipient_id:r.requester_id),...aaMsgBlockedIds()])];
+ const blocked=blockedIds.map(id=>({blockedId:id}));
  const status=aaMsgLiveStatus==="ok"?`<span class="bm-online-text">Connected to live messages</span>`:aaMsgLiveStatus==="error"?`<span class="bm-danger-text">Live messages unavailable: ${esc(aaMsgLiveError.slice(0,300))}</span>`:`<span>Not checked yet</span>`;
  return `${aaBmListHeaderHTML("Settings",null,false)}
  <div class="bm-list-body bm-settings">
@@ -19974,6 +20054,7 @@ function aaMsgConversationPaneHTML(conv){
  const recording=aaMsgVoiceRecorder&&aaMsgVoiceRecorder.state==="recording";
  const tool=(ic,label,onclick)=>`<button type="button" class="bm-tool" onclick="${onclick}" aria-label="${label}" title="${label}">${aaBmIcon(ic)}</button>`;
  const composer=p.deletedAt?`<div class="bm-trash-bar"><span>This conversation is in Trash. It is removed for good in ${aaMsgTrashDaysLeft(id)} days unless restored.</span><button type="button" class="bm-chip-btn" onclick="aaMsgRestore('${esc(id)}')">Restore</button><button type="button" class="bm-chip-btn bm-danger" onclick="aaMsgPermanentDelete('${esc(id)}')">Delete permanently</button></div>`
+  :(conv.type!=="group"&&aaMsgRequestState(otherId)!=="accepted")?aaMsgRequestBarHTML(conv)
   :blocked?`<div class="bm-trash-bar bm-danger-text">You cannot message this account.</div>`
   :`<footer class="bm-composer">
    <div class="bm-tools">
@@ -20097,7 +20178,7 @@ function aaMsgConversationInfoHTML(conv){
  const name=aaMsgConversationDisplayName(conv);
  const online=otherId?aaVendorOnline({id:otherId}):false;
  const p=aaMsgMyPState(conv.id);
- const blocked=otherId?aaMsgBlockedIds().includes(String(otherId)):false;
+ const blocked=otherId?(aaMsgRequestState(otherId)==="blocked_by_me"||aaMsgBlockedIds().includes(String(otherId))):false;
  const counts=aaBmInfoCounts(conv);
  const since=meta?.memberSince?new Date(meta.memberSince):null;
  const row=(ic,label,value,onclick,cls)=>`<button type="button" class="bm-info-row${cls?" "+cls:""}" onclick="${onclick}"><span class="bm-info-row-l">${aaBmIcon(ic)}<span>${label}</span></span><span class="bm-info-row-v">${value}${aaBmIcon("chevron","bm-ico-xs")}</span></button>`;
@@ -27360,6 +27441,9 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 #auto-arcade-widget .bm-settings-note{font-size:12px;color:var(--bm-muted);padding:4px 6px;line-height:1.5}
 #auto-arcade-widget .bm-page .bm-picker-row{width:100%;margin-top:6px;text-align:left;display:flex;align-items:center;gap:10px}
 #auto-arcade-widget .bm-scrim{display:none}
+#auto-arcade-widget .bm-requests{border:1px solid rgba(var(--bm-gold-rgb),.35);border-radius:14px;padding:6px;margin-bottom:6px;background:rgba(var(--bm-gold-rgb),.05)}
+#auto-arcade-widget .bm-requests h4{margin:4px 6px 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#fcd34d}
+#auto-arcade-widget .bm-request-bar:not(.bm-danger-text) span{color:var(--bm-text)}
 
 /* -- tablet: details panel becomes a drawer -- */
 @media(max-width:1180px){

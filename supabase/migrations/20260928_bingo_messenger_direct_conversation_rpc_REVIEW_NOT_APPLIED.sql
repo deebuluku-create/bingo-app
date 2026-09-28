@@ -10,6 +10,8 @@
 --
 --   bingo_get_or_create_direct_conversation(p_other_user uuid) -> uuid
 --     caller must be signed in; recipient must be a real, different user;
+--     the pair must have an ACCEPTED Request to Communicate
+--     (public.bingo_communication_requests - apply that file first);
 --     returns the existing two-member conversation of the pair, or creates
 --     the conversation + BOTH member rows in one transaction (all or
 --     nothing); a per-pair advisory lock stops concurrent duplicates.
@@ -40,6 +42,9 @@ begin;
 do $$
 declare missing text; required text; id_type text;
 begin
+  if to_regclass('public.bingo_communication_requests') is null then
+    raise exception 'Apply 20260928_bingo_messenger_communication_requests first - conversations may only start after an accepted request';
+  end if;
   select string_agg(c, ', ') into missing
   from unnest(array['conversation_id','user_id','archived','blocked','joined_at']) c
   where not exists (select 1 from information_schema.columns
@@ -72,6 +77,7 @@ as $$
 declare
   v_me   uuid := auth.uid();
   v_conv uuid;
+  v_req  text;
 begin
   if v_me is null then
     raise exception 'not authenticated' using errcode = '28000';
@@ -81,6 +87,21 @@ begin
   end if;
   if not exists (select 1 from auth.users u where u.id = p_other_user) then
     raise exception 'recipient not found' using errcode = 'P0002';
+  end if;
+
+  -- Bingo rule: private messaging starts only after the recipient accepts
+  -- a Request to Communicate
+  select r.status into v_req from public.bingo_communication_requests r
+  where least(r.requester_id, r.recipient_id) = least(v_me, p_other_user)
+    and greatest(r.requester_id, r.recipient_id) = greatest(v_me, p_other_user);
+  if v_req is distinct from 'accepted' then
+    raise exception '%', case coalesce(v_req, 'none')
+      when 'none'     then 'request to communicate required'
+      when 'pending'  then 'request to communicate is pending'
+      when 'rejected' then 'request to communicate was declined'
+      when 'blocked'  then 'messaging is blocked between these members'
+      else 'request to communicate not accepted' end
+      using errcode = '42501';
   end if;
 
   -- one creator at a time per pair (order-independent key): A->B and B->A
@@ -100,10 +121,6 @@ begin
   limit 1;
 
   if v_conv is not null then
-    if exists (select 1 from public.conversation_members
-               where conversation_id = v_conv and blocked) then
-      raise exception 'conversation is blocked' using errcode = '42501';
-    end if;
     return v_conv;
   end if;
 

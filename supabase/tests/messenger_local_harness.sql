@@ -70,4 +70,4 @@ $$ begin perform pg_notify('rt', json_build_object('table',TG_TABLE_NAME,'row',r
 create trigger _rt_msg after insert on public.messages for each row execute function public._rt_notify();
 create trigger _rt_cm after insert on public.conversation_members for each row execute function public._rt_notify();
 
-insert into auth.users values ('aaaaaaaa-1111-4111-8111-111111111111'),('bbbbbbbb-2222-4222-8222-222222222222'),('cccccccc-3333-4333-8333-333333333333');
+insert into auth.users values ('aaaaaaaa-1111-4111-8111-111111111111'),('bbbbbbbb-2222-4222-8222-222222222222'),('cccccccc-3333-4333-8333-333333333333'),('dddddddd-4444-4444-8444-444444444444'),('eeeeeeee-5555-4555-8555-555555555555');

@@ -2,7 +2,7 @@
 # Full-flow test of the reviewed application order on a SCRATCH Postgres 16
 # (socket /tmp, port 54329, user postgres, trust auth). Never run against live.
 #   harness (replica of the reported live contract)
-#   -> 1. direct_conversation_rpc  -> 2. membership_lockdown  -> 3. revoke_truncate
+#   -> 1. communication_requests -> 2. direct_conversation_rpc -> 3. membership_lockdown -> 4. revoke_truncate
 # Every client check runs under the real Postgres roles anon / authenticated
 # with a Supabase-style JWT sub, so RLS and grants are genuinely enforced.
 T=$(cd "$(dirname "$0")" && pwd); M=$T/../migrations
@@ -27,13 +27,18 @@ ok "...and C can then read the messages" "$(as $C "select message from public.me
 $PSQL -c "truncate public.messages, public.conversation_members, public.conversations"
 
 echo "== apply in the reviewed order"
-$PSQL -f $M/20260928_bingo_messenger_direct_conversation_rpc_REVIEW_NOT_APPLIED.sql >/dev/null && echo "1 rpc applied"
-$PSQL -f $M/20260928_bingo_messenger_membership_lockdown_REVIEW_NOT_APPLIED.sql >/dev/null && echo "2 lockdown applied"
-$PSQL -f $M/20260928_bingo_messaging_revoke_truncate_REVIEW_NOT_APPLIED.sql >/dev/null && echo "3 truncate revoke applied"
+ok "RPC file refuses to install before the requests file" "$($PSQL -f $M/20260928_bingo_messenger_direct_conversation_rpc_REVIEW_NOT_APPLIED.sql 2>&1 | grep -c 'Apply 20260928_bingo_messenger_communication_requests first')" "1"
+$PSQL -f $M/20260928_bingo_messenger_communication_requests_REVIEW_NOT_APPLIED.sql >/dev/null && echo "1 requests applied"
+$PSQL -f $M/20260928_bingo_messenger_direct_conversation_rpc_REVIEW_NOT_APPLIED.sql >/dev/null && echo "2 rpc applied"
+$PSQL -f $M/20260928_bingo_messenger_membership_lockdown_REVIEW_NOT_APPLIED.sql >/dev/null && echo "3 lockdown applied"
+$PSQL -f $M/20260928_bingo_messaging_revoke_truncate_REVIEW_NOT_APPLIED.sql >/dev/null && echo "4 truncate revoke applied"
 ok "lockdown is re-runnable" "$($PSQL -f $M/20260928_bingo_messenger_membership_lockdown_REVIEW_NOT_APPLIED.sql >/dev/null 2>&1 && echo ok)" "ok"
 echo "   policies now:"; $PSQL -F' ' -c "select '   '||tablename, policyname, cmd from pg_policies where schemaname='public' order by 1,3,2"
 
 echo "== A starts a chat with B; B receives and replies"
+ok "A cannot start before B accepts" "$(as $A "select public.bingo_get_or_create_direct_conversation('$B')" | grep -c 'request to communicate required')" "1"
+ok "A sends a Request to Communicate" "$(as $A "select public.bingo_request_communication('$B')" | tail -1)" "pending"
+ok "B accepts" "$(as $B "select public.bingo_respond_communication_request('$A', true)" | tail -1)" "accepted"
 CID=$(as $A "select public.bingo_get_or_create_direct_conversation('$B')" | tail -1)
 ok "A gets a conversation id" "$(echo $CID | grep -cE '^[0-9a-f-]{36}$')" "1"
 ok "RPC created conversation + both members" "$(count)" "1/2/0"
@@ -65,6 +70,7 @@ ok "A still reads the conversation row" "$(as $A "select count(*) from public.co
 echo "== TRUNCATE"
 for r in anon $A; do for t in conversations conversation_members messages; do
   ok "$( [ $r = anon ] && echo anon || echo authenticated ) cannot TRUNCATE $t" "$(as $r "truncate public.$t" | grep -c 'permission denied')" "1"; done; done
-ok "rows intact after TRUNCATE attempts" "$(count)" "2/4/2"
+ok "rows intact after TRUNCATE attempts" "$(count)" "1/2/2"
+ok "requests table: no TRUNCATE for authenticated" "$(as $A "truncate public.bingo_communication_requests" | grep -c 'permission denied')" "1"
 echo "   grants now (anon/authenticated):"; $PSQL -F' ' -c "select '   '||table_name, grantee, string_agg(privilege_type, ',' order by privilege_type) from information_schema.role_table_grants where table_schema='public' and table_name in ('conversations','conversation_members','messages') and grantee in ('anon','authenticated') group by 1,2 order by 1,2"
 echo "RESULT: $pass passed, $fail failed"

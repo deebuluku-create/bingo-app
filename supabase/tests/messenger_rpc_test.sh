@@ -22,8 +22,12 @@ echo "== contract confirms client limits (no migration yet)"
 r=$(as $A "insert into public.conversations default values returning id" | tail -1); CID0=$r
 ok "client cannot add another user as member" "$(as $A "insert into public.conversation_members(conversation_id,user_id) values ('$CID0','$B')" | grep -c 'row-level security')" "1"
 
-echo "== apply proposed migration"
-$PSQL -f $M/20260928_bingo_messenger_direct_conversation_rpc_REVIEW_NOT_APPLIED.sql >/dev/null && echo applied
+echo "== apply proposed migrations (requests first, then the conversation RPC)"
+$PSQL -f $M/20260928_bingo_messenger_communication_requests_REVIEW_NOT_APPLIED.sql >/dev/null && echo "requests applied"
+$PSQL -f $M/20260928_bingo_messenger_direct_conversation_rpc_REVIEW_NOT_APPLIED.sql >/dev/null && echo "rpc applied"
+ok "RPC refuses pairs without an accepted request" "$(as $A "select public.bingo_get_or_create_direct_conversation('$B')" | grep -c 'request to communicate required')" "1"
+# test setup (as the owner, not a client): accepted requests for the pairs exercised below
+$PSQL -c "insert into public.bingo_communication_requests(requester_id,recipient_id,status,responded_at) values ('$A','$B','accepted',now()),('$A','$C','accepted',now()),('$C','eeeeeeee-5555-4555-8555-555555555555','accepted',now())"
 $PSQL -c "delete from public.conversations"   # drop the stray row from the limit check
 
 echo "== A creates, B receives and replies"
@@ -57,16 +61,15 @@ ok "FINDING: C CAN self-join A-B via the live INSERT policy (0 = insert succeede
 $PSQL -c "delete from public.conversation_members where conversation_id='$CID' and user_id='$C'"
 ok "A cannot spoof sender" "$(as $A "insert into public.messages(conversation_id,sender_id,message) values ('$CID','$B','spoof')" | grep -c 'row-level security')" "1"
 ok "self as recipient rejected" "$(as $A "select public.bingo_get_or_create_direct_conversation('$A')" | grep -c 'invalid recipient')" "1"
-ok "unknown recipient rejected" "$(as $A "select public.bingo_get_or_create_direct_conversation('dddddddd-4444-4444-8444-444444444444')" | grep -c 'recipient not found')" "1"
+ok "unknown recipient rejected" "$(as $A "select public.bingo_get_or_create_direct_conversation('ffffffff-6666-4666-8666-666666666666')" | grep -c 'recipient not found')" "1"
 ok "unauthenticated (no sub) rejected" "$($PSQL -c "begin; set local role authenticated; select public.bingo_get_or_create_direct_conversation('$B'); commit;" 2>&1 | grep -c 'not authenticated')" "1"
-$PSQL -c "update public.conversation_members set blocked=true where conversation_id='$CAC' and user_id='$C'"
-ok "blocked pair: reuse refused" "$(as $A "select public.bingo_get_or_create_direct_conversation('$C')" | grep -c 'blocked')" "1"
-$PSQL -c "update public.conversation_members set blocked=false where conversation_id='$CAC'"
+ok "blocked pair: reuse refused" "$(as $C "select public.bingo_block_member('$A')" >/dev/null; as $A "select public.bingo_get_or_create_direct_conversation('$C')" | grep -c 'blocked')" "1"
+as $C "select public.bingo_unblock_member('$A')" >/dev/null; $PSQL -c "insert into public.bingo_communication_requests(requester_id,recipient_id,status,responded_at) values ('$A','$C','accepted',now())"
 
 echo "== failure rollback"
 before="$($PSQL -c "select (select count(*) from public.conversations)||'/'||(select count(*) from public.conversation_members)")"
 $PSQL -c "create function public._fail_second() returns trigger language plpgsql as \$\$ begin if new.user_id='$C' then raise exception 'injected failure on second member'; end if; return new; end \$\$; create trigger _fail before insert on public.conversation_members for each row execute function public._fail_second();"
-$PSQL -c "insert into auth.users values ('eeeeeeee-5555-4555-8555-555555555555')"
+true  # E and the accepted C-E request are seeded above
 ok "injected failure surfaces" "$(as $C "select public.bingo_get_or_create_direct_conversation('eeeeeeee-5555-4555-8555-555555555555')" | grep -c 'injected failure')" "1"
 ok "nothing left behind (conversations/members)" "$($PSQL -c "select (select count(*) from public.conversations)||'/'||(select count(*) from public.conversation_members)")" "$before"
 $PSQL -c "drop trigger _fail on public.conversation_members; drop function public._fail_second();"

@@ -15,7 +15,10 @@
 --   20260928_bingo_messaging_revoke_truncate_REVIEW_NOT_APPLIED.sql
 -- Client operations the Messenger performs:
 --   rpc  bingo_my_conversation_members()
---   rpc  bingo_get_or_create_direct_conversation(p_other_user)   (first message to someone)
+--   select requester_id,recipient_id,status,blocked_by,updated_at from bingo_communication_requests (own rows)
+--   rpc  bingo_request_communication(p_recipient) / bingo_respond_communication_request(p_requester, p_accept)
+--   rpc  bingo_block_member(p_other) / bingo_unblock_member(p_other)
+--   rpc  bingo_get_or_create_direct_conversation(p_other_user)   (first message; needs an accepted request)
 --   select conversation_id from conversation_members where user_id = auth.uid()   (fallback)
 --   select id,conversation_id,sender_id,message,deleted,created_at from messages where conversation_id in (...)
 --   insert into messages (conversation_id, sender_id, message)
