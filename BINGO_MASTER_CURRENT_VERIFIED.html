@@ -6054,8 +6054,11 @@ function aaRouteAfterAuthenticatedEntry(){
  state.memberEntranceOpen=true;render();
  const reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
  setTimeout(()=>{
+  /* Land back on Home, not the old Member Central business-management
+     grid - that screen is not the approved Cockpit and must not appear
+     as a second landing surface after login (Consolidated Directives,
+     28 Sep 2026). The Cockpit is reached deliberately, via the logo. */
   state.memberEntranceOpen=false;
-  if(state.view==="home")state.view="member-central";
   render();
   window.scrollTo(0,0);
  },reduced?250:1100);
@@ -6143,7 +6146,13 @@ function aaOpenMemberCentral(){
  /* refresh the counts shown on the owner cards (loaders are no-ops offline) */
  Promise.allSettled([typeof aaLoadFoods==="function"&&aaLoadFoods(),typeof aaLoadProperties==="function"&&aaLoadProperties()]).then(()=>{if(state.view==="member-central")render()});
 }
-function aaOpenCockpit(){aaOpenMemberCentral()}
+/* Named "Cockpit" and used as the "‹ Cockpit" breadcrumb from owner
+   business workspaces (Food/Properties rails) - must resolve to the
+   actual approved Cockpit drawer, not the old Member Central grid. */
+function aaOpenCockpit(){
+ if(typeof aaAssistantOpenDrawer==="function"){aaAssistantOpenDrawer();return}
+ aaOpenMemberCentral();
+}
 function aaCockpitOwnerFoods(){
  const me=String(state.user?.id||"");
  return typeof aaFoods==="function"?aaFoods().filter(x=>(me&&String(x.user_id||"")===me)||x.local_owner):[];
@@ -9320,7 +9329,39 @@ function aaPartCardHTML(p){
 function aaMarketHTML(){
  const type=state.marketListingType||"spare_parts",household=type==="household",rows=aaPartFiltered();
  const cats=household?["All","Furniture","Kitchen Appliances","Home Electronics","General Electronics","Home Decor","Bedding","Lighting","Small Appliances","Storage & Organization"]:["All","Engine & Drivetrain","Bodywork & Trim","Brakes & Suspension","Electrical & Lighting","Interior & Accessories"];
- return `<section class="aa-market-page"><div class="aa-market-head"><div><button class="btn" onclick="goBack()">← Back</button><h2 style="margin:10px 0 2px">Auto Market · ${household?"Household Items":"Spare Parts"}</h2><div class="notice">${household?"Search furniture, appliances, electronics, decor, lighting, bedding, storage and other home goods by location or seller.":"Search by vehicle compatibility, OEM/part number, location or store."}</div></div><button class="btn btn-red" onclick="aaOpenSparePost('${household?"household":"spare_parts"}')">＋ ${household?"Post Household Item":"Post Spare Part"}</button></div><div class="aa-market-type-tabs"><button class="btn ${!household?'active':''}" onclick="aaSetMarketType('spare_parts')">Spare Parts</button><button class="btn ${household?'active':''}" onclick="aaSetMarketType('household')">Household Items</button></div><div class="aa-market-filters"><input class="field" placeholder="${household?"Search household item, brand...":"Search part, make, model, OEM..."}" value="${esc(state.marketSearch||'')}" oninput="state.marketSearch=this.value"><select class="select" onchange="state.marketCategory=this.value;render()">${cats.map(x=>`<option ${x===state.marketCategory?'selected':''}>${esc(x)}</option>`).join('')}</select><select class="select" onchange="state.marketCounty=this.value;render()"><option>All Kenya</option>${kenyaCounties.map(x=>`<option ${x===state.marketCounty?'selected':''}>${esc(x)}</option>`).join('')}</select><input class="field" placeholder="Town / area" value="${esc(state.marketTown||'')}" oninput="state.marketTown=this.value"></div>${rows.length?`<div class="aa-market-grid">${rows.map(aaPartCardHTML).join('')}</div>`:`<div class="empty">No ${household?'household items':'spare parts'} match this search.</div>`}</section>`
+ return `<section class="aa-market-page"><div class="aa-market-head"><div><button class="btn" onclick="goBack()">← Back</button><h2 style="margin:10px 0 2px">Auto Market · ${household?"Household Items":"Spare Parts"}</h2><div class="notice">${household?"Search furniture, appliances, electronics, decor, lighting, bedding, storage and other home goods by location or seller.":"Search by vehicle compatibility, OEM/part number, location or store."}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="bingo-neon-action bingo-neon-action-cyan" onclick="aaOpenMarketCategoriesDrawer()"><span aria-hidden="true">▤</span> Categories</button><button class="btn btn-red" onclick="aaOpenSparePost('${household?"household":"spare_parts"}')">＋ ${household?"Post Household Item":"Post Spare Part"}</button></div></div><div class="aa-market-type-tabs"><button class="btn ${!household?'active':''}" onclick="aaSetMarketType('spare_parts')">Spare Parts</button><button class="btn ${household?'active':''}" onclick="aaSetMarketType('household')">Household Items</button></div><div class="aa-market-filters"><input class="field" placeholder="${household?"Search household item, brand...":"Search part, make, model, OEM..."}" value="${esc(state.marketSearch||'')}" oninput="state.marketSearch=this.value"><select class="select" onchange="state.marketCategory=this.value;render()">${cats.map(x=>`<option ${x===state.marketCategory?'selected':''}>${esc(x)}</option>`).join('')}</select><select class="select" onchange="state.marketCounty=this.value;render()"><option>All Kenya</option>${kenyaCounties.map(x=>`<option ${x===state.marketCounty?'selected':''}>${esc(x)}</option>`).join('')}</select><input class="field" placeholder="Town / area" value="${esc(state.marketTown||'')}" oninput="state.marketTown=this.value"></div>${rows.length?`<div class="aa-market-grid">${rows.map(aaPartCardHTML).join('')}</div>`:`<div class="empty">No ${household?'household items':'spare parts'} match this search.</div>`}</section>`
+}
+/* Marketplace > Categories panel (Cockpit restoration, Consolidated
+   Directives 28 Sep 2026): the Cockpit's own Categories button opens this
+   directly, consolidating "Restaurant and food browsing/registration,
+   food listings, property listings, Bingo Properties and Bingo Stays"
+   under Categories rather than as separate Cockpit buttons - every item
+   below is a real, existing route, reused as-is. Food Menu/Restaurant
+   Orders reuse the already-merged aaCockpitGo('menu'/'orders') helper
+   (it already handles zero/one/many-businesses correctly and the
+   logged-out gate) instead of duplicating that logic here. */
+function aaOpenMarketCategoriesDrawer(){state.marketCategoriesDrawerOpen=true;render()}
+function aaCloseMarketCategoriesDrawer(){state.marketCategoriesDrawerOpen=false;render()}
+function aaMarketCategoriesDrawerHTML(){
+ if(!state.marketCategoriesDrawerOpen)return "";
+ const items=[
+  {label:"Food",ico:"🍽",onclick:"aaCloseMarketCategoriesDrawer();aaOpenFood('browse')"},
+  {label:"Food Menu",ico:"📋",onclick:"aaCloseMarketCategoriesDrawer();aaCockpitGo('menu')"},
+  {label:"Restaurant Orders",ico:"🧾",onclick:"aaCloseMarketCategoriesDrawer();aaCockpitGo('orders')"},
+  {label:"Properties",ico:"🏠",onclick:"aaCloseMarketCategoriesDrawer();aaOpenProperties('browse')"},
+  {label:"Bingo Stays",ico:"🏖️",onclick:"aaCloseMarketCategoriesDrawer();aaOpenProperties('stays')"},
+  {label:"Vehicles &amp; Auto Market",ico:"🚗",onclick:"aaCloseMarketCategoriesDrawer();aaOpenMarket()"},
+  {label:"Jobs &amp; CVs",ico:"🧑‍💼",onclick:"aaCloseMarketCategoriesDrawer();openJobs('myjobs')"},
+  {label:"Promotions",ico:"⚡",onclick:"aaCloseMarketCategoriesDrawer();aaTriggerBannerBoost()"}
+ ];
+ return `<div class="overlay"><div class="modal aa-market-categories-modal">
+  <button class="close" onclick="aaCloseMarketCategoriesDrawer()">×</button>
+  <h2>Marketplace &gt; Categories</h2>
+  <p class="notice">Browse or manage food, property, stays, vehicles, jobs and promotions from here.</p>
+  <div class="bcp-grid">
+   ${items.map(x=>`<button class="bcp-btn" onclick="${x.onclick}"><span class="bcp-ico">${x.ico}</span><b>${x.label}</b></button>`).join("")}
+  </div>
+ </div></div>`;
 }
 function aaSparePostHTML(){
  const household=(state.marketFormType||"spare_parts")==="household";
@@ -13955,42 +13996,41 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
       </div>
 
       <div class="bcp-body">
+        <!-- Cockpit restoration (Consolidated Directives, 28 Sep 2026):
+             this document explicitly supersedes the flat 9-item "Browse
+             Bingo" grid from the earlier same-day Categories doc (its own
+             Figure 1 is that exact grid, captioned "NOT the requested
+             final appearance") and restores the original MAIN/MARKETPLACE/
+             MEDIA & COMMUNITY/ACCOUNT/BOOST section layout, with three
+             explicit corrections: (1) Edit Profile is no longer a
+             top-level Account button - reached from the owner's own
+             profile page instead, where a "Edit Profile" action already
+             exists; (2) Food/Property/Stays browsing+registration move
+             under Marketplace's Categories entry rather than sitting as
+             their own Cockpit buttons; (3) a distinct branded Bingo tab is
+             added, reusing the existing logo-entry destination rather
+             than a new route. -->
+        <button type="button" class="bcp-bingo-tab" onclick="aaAssistantCloseDrawer();goHome();" aria-label="Bingo Home">
+          ${bingoAppLogoHTML({className:"bcp-bingo-tab-logo"})}<b>Bingo</b>
+        </button>
+
         <div class="bcp-section">
           <div class="bcp-section-label">Main</div>
           <div class="bcp-grid">
             <button class="bcp-btn btn-blue ${state.view==="home"?"active":""}" onclick="aaAssistantNavigate(goHome)"><span class="bcp-ico">&#8962;</span><b>Home</b></button>
             <button class="bcp-btn btn-glass ${state.view==="search"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenSearch('videos'))"><span class="bcp-ico">&#8981;</span><b>Search</b></button>
-            <!-- Post entry point removed from the Cockpit per the current
-                 posting-roadmap redesign - aaDU1OpenCreate/openPostVehicle
-                 and everything they lead to (POST ABOUT, all posting forms)
-                 are untouched and still fully reachable from within each
-                 module (Post Vehicle, Post Property, Post Food, etc.).
-                 Only this Cockpit shortcut is disconnected, deliberately,
-                 for now. -->
+            <button class="bcp-btn btn-publish" onclick="aaAssistantCloseDrawer();if(typeof window.aaDU1OpenCreate==='function')window.aaDU1OpenCreate();else openPostVehicle();"><span class="bcp-ico">&#10133;</span><b>Post</b></button>
             <button class="bcp-btn" onclick="aaAssistantNavigate(openInbox)"><span class="bcp-ico">&#128172;</span><b>Chats</b></button>
             <button class="bcp-btn" onclick="aaAssistantNavigate(goHome)"><span class="bcp-ico">&#9638;</span><b>Feed</b></button>
           </div>
         </div>
 
-        ${state.isLoggedIn?`<div class="bcp-section">
-          <div class="bcp-section-label">My Business</div>
-          <div class="bcp-grid">
-            <button class="bcp-btn" onclick="aaAssistantNavigate(()=>aaCockpitGo('food'))"><span class="bcp-ico">&#127869;</span><b>Food Business</b></button>
-            <button class="bcp-btn" onclick="aaAssistantNavigate(()=>aaCockpitGo('menu'))"><span class="bcp-ico">&#128203;</span><b>Food Menu</b></button>
-            <button class="bcp-btn" onclick="aaAssistantNavigate(()=>aaCockpitGo('orders'))"><span class="bcp-ico">&#129534;</span><b>Orders</b></button>
-            <button class="bcp-btn" onclick="aaAssistantNavigate(()=>aaCockpitGo('properties'))"><span class="bcp-ico">&#127968;</span><b>Properties &amp; Stays</b></button>
-          </div>
-        </div>`:""}
-
         <div class="bcp-section">
           <div class="bcp-section-label">Marketplace</div>
           <div class="bcp-grid">
-            <button class="bcp-btn ${state.view==="market"||state.view==="spare-add"||state.view==="spare-details"?"active":""}" onclick="aaAssistantCloseDrawer();if(typeof window.bgcOpenGrid==='function')window.bgcOpenGrid();else aaAssistantNavigate(aaOpenMarket);"><span class="bcp-ico">&#9638;</span><b>Categories</b></button>
+            <button class="bcp-btn ${state.marketCategoriesDrawerOpen?"active":""}" onclick="aaAssistantCloseDrawer();aaOpenMarketCategoriesDrawer();"><span class="bcp-ico">&#9638;</span><b>Categories</b></button>
             <button class="bcp-btn" onclick="aaAssistantNavigate(aaTriggerBannerBoost)"><span class="bcp-ico">&#9889;</span><b>Boost Listing</b></button>
             <button class="bcp-btn ${state.view==="jobs"?"active":""}" onclick="aaAssistantNavigate(()=>openJobs('jobs'))"><span class="bcp-ico">&#9635;</span><b>Jobs &amp; CV</b></button>
-            <button class="bcp-btn ${state.view==="properties"&&state.propertyTab!=="stays"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenProperties('browse'))"><span class="bcp-ico">&#9637;</span><b>Property</b></button>
-            <button class="bcp-btn ${state.view==="properties"&&state.propertyTab==="stays"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenProperties('stays'))"><span class="bcp-ico">&#127958;</span><b>Stays</b></button>
-            <button class="bcp-btn ${state.view==="food"||state.view==="food-profile"||state.view==="food-menu"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenFood('browse'))"><span class="bcp-ico">&#127860;</span><b>Food</b></button>
           </div>
         </div>
 
@@ -14007,7 +14047,6 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
           <div class="bcp-section-label">Account</div>
           <div class="bcp-grid">
             <button class="bcp-btn ${state.view==="profile"||(state.view==="seller"&&aaIsOwnSeller(state.seller))?"active":""}" onclick="aaAssistantNavigate(goAccount)"><span class="bcp-ico">&#9673;</span><b>Profile</b></button>
-            <button class="bcp-btn ${state.view==="edit-profile"?"active":""}" onclick="aaAssistantNavigate(aaOpenEditProfile)"><span class="bcp-ico">&#9998;</span><b>Edit Profile</b></button>
             ${state.isLoggedIn?`<button class="bcp-btn bcp-btn-danger" onclick="aaAssistantCloseDrawer();logoutBingo();"><span class="bcp-ico">&#9211;</span><b>Log Out</b></button>`:`<button class="bcp-btn" onclick="aaAssistantNavigate(()=>openAuth('login'))"><span class="bcp-ico">&#8618;</span><b>Sign Up / Log In</b></button>`}
           </div>
         </div>
@@ -14019,7 +14058,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
     </div>
   </nav>
  </div>`}
- ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.propertyMediaViewerOpen?aaPropertyMediaViewerHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.foodBasketOpen?aaFoodBasketHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.propertyMediaViewerOpen?aaPropertyMediaViewerHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.foodBasketOpen?aaFoodBasketHTML():""}${state.marketCategoriesDrawerOpen?aaMarketCategoriesDrawerHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   if(state.view==="inbox"){if(!aaMsgAdTimer&&!aaMsgAdStarting){aaMsgAdStarting=true;aaStartMsgAdTimer();setTimeout(()=>{aaMsgAdStarting=false},15000)}}else{aaStopMsgAdTimer();aaMsgAdStarting=false}
@@ -19634,15 +19673,25 @@ async function aaMsgResolveContract(){
  if(aaMsgContractPromise)return aaMsgContractPromise;
  aaMsgContractPromise=(async()=>{
   const c={ok:false,problems:[],memberUserCol:AA_MSG_DB.members.userCol};
-  let transient=false;
+  /* aaMsgProbeColumns rethrows anything that isn't Postgrest's own
+     "column does not exist" answer (42703) - a request that never
+     reached Postgrest at all (offline, CORS rejected, wrong project
+     URL: surfaces as a plain "TypeError: Failed to fetch") is not a
+     schema problem and must not be reported as one. Keep it separate
+     from real column-mismatch problems so the banner names the actual
+     failure instead of always saying "Live schema check failed". */
+  let networkError=null;
   try{
    if(!await aaMsgProbeColumns(AA_MSG_DB.messages.table,AA_MSG_DB.messages.cols))c.problems.push(`messages is missing one of: ${AA_MSG_DB.messages.cols}`);
    if(!await aaMsgProbeColumns(AA_MSG_DB.members.table,AA_MSG_DB.members.cols))c.problems.push(`conversation_members is missing one of: ${AA_MSG_DB.members.cols}`);
-  }catch(e){c.problems.push(`${String(e?.message||e)}${e?.code?` (${e.code})`:""}`);transient=true}
-  c.ok=!c.problems.length;
-  if(!transient)aaMsgContract=c;
+  }catch(e){networkError=e}
+  c.ok=!c.problems.length&&!networkError;
+  if(!networkError)aaMsgContract=c;
   aaMsgContractPromise=null;
-  if(!c.ok){aaMsgLiveStatus="error";aaMsgLiveError="Live schema check failed - "+c.problems.join("; ")}
+  if(networkError){
+   aaMsgLiveStatus="error";
+   aaMsgLiveError="Cannot reach the live database (network/CORS) - "+String(networkError?.message||networkError)+(networkError?.code?` (${networkError.code})`:"");
+  }else if(!c.ok){aaMsgLiveStatus="error";aaMsgLiveError="Live schema check failed - "+c.problems.join("; ")}
   return c;
  })();
  return aaMsgContractPromise;
@@ -20011,10 +20060,15 @@ function aaMsgOpenConversation(id){
  if(sb&&!aaMsgRequestsLoaded)aaMsgLoadRequests().then(()=>render()).catch(e=>aaMsgSetLiveError(e,"Loading requests"));
 }
 function aaMsgBack(){state.msgActiveConversationId=null;aaMsgResetPanels();render()}
-function aaMsgToggleSidebarPeek(){state.msgNavDrawerOpen=!state.msgNavDrawerOpen;render()}
 function aaBmToggleNav(){state.msgNavDrawerOpen=!state.msgNavDrawerOpen;state.msgConversationInfoOpen=false;render()}
 function aaBmOpenInfo(){state.msgConversationInfoOpen=true;state.msgNavDrawerOpen=false;state.msgOptionsMenuOpen=false;render()}
 function aaBmCloseDrawers(){state.msgConversationInfoOpen=false;state.msgNavDrawerOpen=false;state.msgOptionsMenuOpen=false;render()}
+/* The chat-list wing (rail tabs + search/filters/conversation list) is
+   its own independent toggle, open by default so the list is the first
+   thing a visitor sees - closing it frees its grid track for the
+   conversation pane (see .bm-shell.is-list-closed), it does not overlay
+   the conversation the way the narrower-viewport rail/info drawers do. */
+function aaBmToggleList(){state.msgListDrawerOpen=state.msgListDrawerOpen===false?true:false;render()}
 /* Read position is a timestamp, not a message id: a message id changes
    when its optimistic local copy is replaced by the live row, which made
    an id-based marker fall off the list and count everything as unread. */
@@ -20241,6 +20295,7 @@ function aaMsgSetActiveTab(tab){
  state.msgActiveTab=tab;
  state.msgInboxSearch="";
  state.msgNavDrawerOpen=false;
+ state.msgListDrawerOpen=true;
  if(tab==="chats")state.msgInboxFilter=state.msgInboxFilter||"all";
  render();
 }
@@ -20445,7 +20500,7 @@ function aaMsgInboxHTML(){
  const tab=aaBmTab();
  const activeConv=state.msgActiveConversationId?aaMsgConversations().find(c=>c.id===state.msgActiveConversationId):null;
  if(state.msgActiveConversationId&&!activeConv)state.msgActiveConversationId=null;
- const cls=["bm-shell",activeConv?"is-conv-open":"is-list-only",state.msgNavDrawerOpen?"is-nav-open":"",state.msgConversationInfoOpen?"is-info-open":""].filter(Boolean).join(" ");
+ const cls=["bm-shell",activeConv?"is-conv-open":"is-list-only",state.msgNavDrawerOpen?"is-nav-open":"",state.msgListDrawerOpen===false?"is-list-closed":"is-list-open",state.msgConversationInfoOpen?"is-info-open":""].filter(Boolean).join(" ");
  return `<section class="bm-page">
  <div class="${cls}">
   ${aaBmRailHTML(tab)}
@@ -20459,7 +20514,8 @@ function aaMsgInboxHTML(){
  </section>`;
 }
 function aaMsgNoConversationPaneHTML(){
- return `<div class="bm-no-conv">${aaBmWatermarkHTML()}<div class="bm-no-conv-card">${aaBmIcon("chats","bm-ico-xl")}<h3>Your messages</h3><p>Select a conversation, or start a new one.</p><button type="button" class="bm-chip-btn" onclick="aaMsgOpenNewMessagePicker()">${aaBmIcon("newChat")} New Chat</button></div></div>`;
+ return `<button type="button" class="bm-icon-btn bm-list-toggle bm-no-conv-list-toggle" onclick="aaBmToggleList()" aria-label="${state.msgListDrawerOpen===false?"Show chat list":"Hide chat list"}" title="${state.msgListDrawerOpen===false?"Show chat list":"Hide chat list"}">${aaBmIcon("menu")}</button>
+ <div class="bm-no-conv">${aaBmWatermarkHTML()}<div class="bm-no-conv-card">${aaBmIcon("chats","bm-ico-xl")}<h3>Your messages</h3><p>Select a conversation, or start a new one.</p><button type="button" class="bm-chip-btn" onclick="aaMsgOpenNewMessagePicker()">${aaBmIcon("newChat")} New Chat</button></div></div>`;
 }
 const AA_BM_WATERMARK=["Good Vibes","God is merciful","Thank you Jesus","Blessed me","God is watching","Omshanti Omshanti","Nyasaye","Ngai witu"];
 function aaBmWatermarkHTML(){return `<div class="bm-watermark" aria-hidden="true">${[...AA_BM_WATERMARK,...AA_BM_WATERMARK,...AA_BM_WATERMARK].map(w=>`<span>${esc(w)}</span>`).join("")}</div>`}
@@ -20597,6 +20653,7 @@ function aaMsgConversationPaneHTML(conv){
   </footer>`;
  return `<header class="bm-chat-head">
   <button type="button" class="bm-icon-btn bm-back" onclick="aaMsgBack()" aria-label="Back to chats">${aaBmIcon("back")}</button>
+  <button type="button" class="bm-icon-btn bm-list-toggle" onclick="aaBmToggleList()" aria-label="${state.msgListDrawerOpen===false?"Show chat list":"Hide chat list"}" title="${state.msgListDrawerOpen===false?"Show chat list":"Hide chat list"}">${aaBmIcon("menu")}</button>
   <button type="button" class="bm-head-person" onclick="aaBmOpenInfo()" aria-label="Conversation details">
    ${aaBmConvAvatarHTML(conv,"sm")}
    <span class="bm-head-copy"><span class="bm-head-name">${esc(name)}${otherId?aaCrownBadgeHTML(otherId):""}</span><span class="bm-head-presence${online?" is-online":""}">${online?`<span class="bm-live-dot"></span>`:""}${esc(presence)}</span></span>
@@ -24014,6 +24071,20 @@ function bingoSafeMediaAttr(value){
   gap:16px!important;
 }
 .bcp-section{min-width:0!important}
+/* Special Bingo tab (Consolidated Directives, section 3): a distinct
+   branded entry, gold/cyan glow, sitting above the Main section - reuses
+   the existing logo-entry destination (goHome, matching what the header
+   logo itself already opens onto) rather than a new/duplicate route. */
+.bcp-bingo-tab{
+  all:unset;display:flex;align-items:center;gap:10px;cursor:pointer;
+  width:100%;box-sizing:border-box;padding:10px 14px;margin-bottom:4px;
+  border-radius:14px;background:linear-gradient(120deg,rgba(243,190,43,.14),rgba(34,201,255,.10));
+  border:1px solid rgba(243,190,43,.5);
+  box-shadow:0 0 14px rgba(243,190,43,.18),0 0 22px rgba(34,201,255,.10);
+}
+.bcp-bingo-tab:hover{box-shadow:0 0 18px rgba(243,190,43,.3),0 0 28px rgba(34,201,255,.18)}
+.bcp-bingo-tab-logo{height:26px;max-height:26px;width:auto}
+.bcp-bingo-tab b{color:var(--bcp-gold);font-size:13px;letter-spacing:.04em}
 .bcp-section-label{
   margin:0 0 8px 2px!important;
   font-size:10px!important;
@@ -25237,19 +25308,6 @@ No other mother-snippet functions are changed.
 })();
 </script>
 
-<script id="bingo-change05-logo-routes-member-central">
-(function(){
-  var prevOpenBingoCockpit=window.openBingoCockpit;
-  window.openBingoCockpit=function(){
-    try{
-      if(window.state&&window.state.isLoggedIn){
-        if(typeof window.aaOpenMemberCentral==="function"){window.aaOpenMemberCentral();return}
-      }
-    }catch(e){}
-    if(typeof prevOpenBingoCockpit==="function")return prevOpenBingoCockpit();
-  };
-})();
-</script>
 
 
 <script id="bingo-fix03-chat-id-sync">
@@ -27671,10 +27729,27 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
   display:flex;justify-content:center;padding:10px 12px 14px;
 }
 #auto-arcade-widget .bm-shell{
-  position:relative;display:grid;grid-template-columns:84px 320px minmax(0,1fr) 320px;
+  position:relative;display:grid;grid-template-columns:84px 320px minmax(0,1fr);
   width:min(1480px,100%);height:calc(100dvh - var(--bm-top,74px) - 24px);min-height:540px;
   background:var(--bm-bg);color:var(--bm-text);font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   border:1px solid rgba(var(--bm-cyan-rgb),.22);border-radius:20px;overflow:hidden;
+}
+/* The chat-list wing and the details wing each open and close on their
+   own (Messenger implementation brief, 28 Sep 2026): closing one frees
+   its grid track so the conversation pane reflows into the space,
+   rather than the conversation staying a fixed width underneath an
+   overlay. Both default states below come straight from the state
+   flags' own defaults - the list starts open (msgListDrawerOpen is only
+   ever explicitly false), the details wing starts closed (only ever
+   explicitly true) - so a first-time visitor sees list+conversation. */
+#auto-arcade-widget .bm-shell.is-list-open.is-info-open{grid-template-columns:84px 320px minmax(0,1fr) 320px}
+#auto-arcade-widget .bm-shell.is-list-closed{grid-template-columns:84px minmax(0,1fr)}
+#auto-arcade-widget .bm-shell.is-list-closed.is-info-open{grid-template-columns:84px minmax(0,1fr) 320px}
+@media(min-width:701px){
+  #auto-arcade-widget .bm-shell.is-list-closed .bm-list{display:none}
+}
+@media(min-width:1181px){
+  #auto-arcade-widget .bm-shell:not(.is-info-open) .bm-info{display:none}
 }
 #auto-arcade-widget .bm-shell *{box-sizing:border-box}
 #auto-arcade-widget .bm-ico{width:20px;height:20px;flex:0 0 auto;display:block}
@@ -27781,6 +27856,15 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 #auto-arcade-widget .bm-chat{background:var(--bm-chat);display:flex;flex-direction:column;min-width:0;min-height:0;position:relative}
 #auto-arcade-widget .bm-chat-head{position:relative;display:flex;align-items:center;gap:10px;min-height:64px;padding:0 16px;border-bottom:1px solid var(--bm-line);background:rgba(11,19,43,.85);z-index:3}
 #auto-arcade-widget .bm-back{display:none}
+/* Reopens the chat-list wing from the chat header once it has been
+   collapsed - .bm-back (phone's "back to chats") takes this same header
+   slot below 701px instead, so the two are never both visible. */
+#auto-arcade-widget .bm-list-toggle{display:none}
+@media(min-width:701px){#auto-arcade-widget .bm-list-toggle{display:inline-flex}}
+/* aaMsgNoConversationPaneHTML has no header row of its own to host this
+   button in, so it floats over the empty-state card's top-left corner
+   instead (.bm-chat is already position:relative). */
+#auto-arcade-widget .bm-no-conv-list-toggle{position:absolute;top:14px;left:14px;z-index:2}
 #auto-arcade-widget .bm-shell .bm-head-person{display:flex;align-items:center;gap:12px;min-width:0;flex:1;padding:4px!important;background:transparent!important;border-color:transparent!important;text-align:left}
 #auto-arcade-widget .bm-head-copy{display:flex;flex-direction:column;min-width:0;gap:2px}
 #auto-arcade-widget .bm-head-name{font-size:16px;font-weight:700;color:#fff;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -28032,7 +28116,15 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 
 /* -- tablet: details panel becomes a drawer -- */
 @media(max-width:1180px){
-  #auto-arcade-widget .bm-shell{grid-template-columns:84px 300px minmax(0,1fr)}
+  /* Info is always an overlay at this width regardless of open/closed -
+     it never reserves a grid track here, so both is-info-open combos
+     collapse onto the same 3-column (list open) / 2-column (list
+     closed) definition as their plain counterparts, at matching
+     specificity so this tier's rule (not the base ≥1181px one) wins. */
+  #auto-arcade-widget .bm-shell.is-list-open,
+  #auto-arcade-widget .bm-shell.is-list-open.is-info-open{grid-template-columns:84px 300px minmax(0,1fr)}
+  #auto-arcade-widget .bm-shell.is-list-closed,
+  #auto-arcade-widget .bm-shell.is-list-closed.is-info-open{grid-template-columns:84px minmax(0,1fr)}
   #auto-arcade-widget .bm-info{position:absolute;top:0;right:0;bottom:0;width:min(340px,92%);z-index:30;transform:translateX(105%);transition:transform .2s ease;box-shadow:-12px 0 32px rgba(0,0,0,.5)}
   #auto-arcade-widget .bm-shell.is-info-open .bm-info{transform:none}
   #auto-arcade-widget .bm-info-close{display:inline-flex!important}
@@ -28040,7 +28132,12 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 }
 /* -- small tablet: the rail becomes the navigation drawer -- */
 @media(max-width:900px){
-  #auto-arcade-widget .bm-shell{grid-template-columns:300px minmax(0,1fr)}
+  /* Rail is an overlay here too, so it never reserves a track either -
+     list open/closed is the only grid state left to size for. */
+  #auto-arcade-widget .bm-shell.is-list-open,
+  #auto-arcade-widget .bm-shell.is-list-open.is-info-open{grid-template-columns:300px minmax(0,1fr)}
+  #auto-arcade-widget .bm-shell.is-list-closed,
+  #auto-arcade-widget .bm-shell.is-list-closed.is-info-open{grid-template-columns:minmax(0,1fr)}
   #auto-arcade-widget .bm-rail{position:absolute;top:0;left:0;bottom:0;width:96px;z-index:30;transform:translateX(-105%);transition:transform .2s ease;box-shadow:12px 0 32px rgba(0,0,0,.5)}
   #auto-arcade-widget .bm-shell.is-nav-open .bm-rail{transform:none}
   #auto-arcade-widget .bm-nav-toggle{display:inline-flex}
