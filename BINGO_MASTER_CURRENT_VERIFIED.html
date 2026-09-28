@@ -5335,7 +5335,7 @@ function aaRememberPage(){
    solutionRoomId:state.solutionRoomId||"",
    communityGroupId:state.communityGroupId||"",
    foodTab:state.foodTab||null,propertyTab:state.propertyTab||null,stayView:state.stayView||null,
-   foodProfileId:state.foodProfileId||null,foodMenuBusinessId:state.foodMenuBusinessId||null
+   foodProfileId:state.foodProfileId||null,foodMenuBusinessId:state.foodMenuBusinessId||null,topicPostId:state.topicPostId||null
  };
 
  aaBackStack.push(snapshot);
@@ -5374,7 +5374,7 @@ function goBack(){
  if(previous.jobsTab!==null){
   state.jobsTab=previous.jobsTab;
  }
- ["foodTab","propertyTab","stayView","foodProfileId","foodMenuBusinessId"].forEach(k=>{if(previous[k]!=null)state[k]=previous[k]});
+ ["foodTab","propertyTab","stayView","foodProfileId","foodMenuBusinessId","topicPostId"].forEach(k=>{if(previous[k]!=null)state[k]=previous[k]});
 
  render();
  window.scrollTo(0,0);
@@ -8418,8 +8418,8 @@ function aaFeedFollowButtonHTML(c){
 function aaVideoListings(){
  let base=(state.listings||[]).filter(c=>{
   const hasVideo=aaMediaType(c)==="video"&&!!aaVideoUrl(c);
-  const promotedPhoto=c?.isBoosted&&aaMediaType(c)==="photo"&&!!aaMainPhoto(c);
-  return hasVideo||promotedPhoto;
+  const photoPost=aaMediaType(c)==="photo"&&!!aaMainPhoto(c);
+  return hasVideo||photoPost;
  });
  /* No synthetic/fabricated videos: if there are no real videos or boosted
     photos, the video feed legitimately stays empty rather than relabeling
@@ -8844,7 +8844,7 @@ function aaFeedCardHTML(c,i){
    : `<img class="aa360-photo" src="${esc(aaMainPhoto(c))}" alt="${esc(c.title||"Promoted vehicle")}">`;
  const promoLabel=aaPromotionLabel(c);
  const promoted=c?.isBoosted?`<div class="aa-ad-label">Ad</div>`:promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";
- return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}<div class="aa360-side"><div><button class="aa360-action" aria-label="Views" title="Views">${aaSideIcon("views")}</button><span>${aaCompact(aaViewCount(c))}</span></div><div><button class="aa360-action ${aaInterested(c)?"on":""}" onclick='aaToggleInterested(${id})' aria-label="Interested" title="Interested">${aaSideIcon("interested")}</button><span>${aaCompact(interested)}</span></div><div><button class="aa360-action" onclick='aaOpenComments(state.listings.find(x=>String(x.id)===${id}))' aria-label="Comments" title="Comments">${aaSideIcon("comments")}</button><span>${aaCompact(aaCommentCount(c))}</span></div><div><button class="aa360-action" onclick='state.shareTarget=state.listings.find(x=>String(x.id)===${id});render()' aria-label="Share" title="Share">${aaSideIcon("share")}</button><span>${aaCompact(c.shares||0)}</span></div><div><button class="aa360-action" onclick='${isVideo?`aaDownloadListingVideo(state.listings.find(x=>String(x.id)===${id}))`:`aaDownloadCurrentPhoto(state.listings.find(x=>String(x.id)===${id}))`}' aria-label="Download" title="Download">${aaSideIcon("download")}</button><span>Download</span></div><div><button class="aa360-action ${isFav(c.id)?"on":""}" onclick='toggleFav(${id})' aria-label="Save" title="Save">${aaSideIcon("save")}</button><span>${isFav(c.id)?"Saved":"Save"}</span></div></div><div class="aa360-info"><div class="aa360-seller-wrap"><button class="aa360-seller" title="Open seller profile" aria-label="Open seller profile" onclick='openSeller(${sellerId})'><img src="${esc(aaProfilePhoto(c.sellerPhoto || (state.isLoggedIn && aaListingOwnerId(c)===String(state.user?.id||"") ? state.user?.photo_url : "")))}" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.sellerName||"Bingo Seller")}</b>${aaListingSellerRating(c)}${aaFollowStatsHTML(c.sellerId||c.userId)}<small style="color:#f5b91e">${esc(aaListingUsername(c))}</small><small>${aaPresenceBadge({id:c.sellerId,sellerId:c.sellerId,phone:c.sellerPhone})}</small></span></button>${aaFeedFollowButtonHTML(c)}</div><div>${listingBadge(c)}</div><div class="aa360-title">${esc(c.title)}</div><div class="aa360-price">${price}</div><div class="aa360-specs"><span>${esc(c.year||"")}</span><span>${money(c.mileage)} KM</span><span>${esc(c.fuel||"")}</span><span>${esc(c.transmission||"")}</span><span>${esc(c.condition||"")}</span><span>${esc(aaSearchLocationText(c)||c.location||"Kenya")}</span></div><div class="aa360-desc">${esc(c.description||"")}${c.description&&c.description.length>60?` <button type="button" class="aa360-readmore" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'>Read more ›</button>`:""}</div><div class="aa360-actions"><button class="bingo-neon-action bingo-neon-action-cyan" onclick='callSeller(state.listings.find(x=>String(x.id)===${id}))'>☎ Call</button><button class="bingo-neon-action bingo-neon-action-purple" onclick='contact("chat",state.listings.find(x=>String(x.id)===${id}))'>💬 Message</button><button class="bingo-neon-action bingo-neon-action-green" onclick='contact("whatsapp",state.listings.find(x=>String(x.id)===${id}))'>WhatsApp</button><button class="bingo-neon-action bingo-neon-action-gold" onclick='if(typeof aaDU1Negotiate==="function")aaDU1Negotiate(${id});else toast("Negotiation opens Bingo Chat.")'>Negotiate</button></div></div></section>`;
+ return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}" data-canon="vehicle:${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}<div class="aa360-side"><div><button class="aa360-action" aria-label="Views" title="Views">${aaSideIcon("views")}</button><span>${aaCompact(aaViewCount(c))}</span></div><div><button class="aa360-action ${aaInterested(c)?"on":""}" onclick='aaToggleInterested(${id})' aria-label="Interested" title="Interested">${aaSideIcon("interested")}</button><span>${aaCompact(interested)}</span></div><div><button class="aa360-action" onclick='aaOpenComments(state.listings.find(x=>String(x.id)===${id}))' aria-label="Comments" title="Comments">${aaSideIcon("comments")}</button><span>${aaCompact(aaCommentCount(c))}</span></div><div><button class="aa360-action" onclick='state.shareTarget=state.listings.find(x=>String(x.id)===${id});render()' aria-label="Share" title="Share">${aaSideIcon("share")}</button><span>${aaCompact(c.shares||0)}</span></div><div><button class="aa360-action" onclick='${isVideo?`aaDownloadListingVideo(state.listings.find(x=>String(x.id)===${id}))`:`aaDownloadCurrentPhoto(state.listings.find(x=>String(x.id)===${id}))`}' aria-label="Download" title="Download">${aaSideIcon("download")}</button><span>Download</span></div><div><button class="aa360-action ${isFav(c.id)?"on":""}" onclick='toggleFav(${id})' aria-label="Save" title="Save">${aaSideIcon("save")}</button><span>${isFav(c.id)?"Saved":"Save"}</span></div></div><div class="aa360-info"><div class="aa360-seller-wrap"><button class="aa360-seller" title="Open seller profile" aria-label="Open seller profile" onclick='openSeller(${sellerId})'><img src="${esc(aaProfilePhoto(c.sellerPhoto || (state.isLoggedIn && aaListingOwnerId(c)===String(state.user?.id||"") ? state.user?.photo_url : "")))}" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.sellerName||"Bingo Seller")}</b>${aaListingSellerRating(c)}${aaFollowStatsHTML(c.sellerId||c.userId)}<small style="color:#f5b91e">${esc(aaListingUsername(c))}</small><small>${aaPresenceBadge({id:c.sellerId,sellerId:c.sellerId,phone:c.sellerPhone})}</small></span></button>${aaFeedFollowButtonHTML(c)}</div><div>${listingBadge(c)}</div><div class="aa360-title">${esc(c.title)}</div><div class="aa360-price">${price}</div><div class="aa360-specs"><span>${esc(c.year||"")}</span><span>${money(c.mileage)} KM</span><span>${esc(c.fuel||"")}</span><span>${esc(c.transmission||"")}</span><span>${esc(c.condition||"")}</span><span>${esc(aaSearchLocationText(c)||c.location||"Kenya")}</span></div><div class="aa360-desc">${esc(c.description||"")}${c.description&&c.description.length>60?` <button type="button" class="aa360-readmore" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'>Read more ›</button>`:""}</div><div class="aa360-actions"><button class="bingo-neon-action bingo-neon-action-cyan" onclick='callSeller(state.listings.find(x=>String(x.id)===${id}))'>☎ Call</button><button class="bingo-neon-action bingo-neon-action-purple" onclick='contact("chat",state.listings.find(x=>String(x.id)===${id}))'>💬 Message</button><button class="bingo-neon-action bingo-neon-action-green" onclick='contact("whatsapp",state.listings.find(x=>String(x.id)===${id}))'>WhatsApp</button><button class="bingo-neon-action bingo-neon-action-gold" onclick='if(typeof aaDU1Negotiate==="function")aaDU1Negotiate(${id});else toast("Negotiation opens Bingo Chat.")'>Negotiate</button></div></div></section>`;
 }
 /* ---- Promotion geography and analytics (Change 10) ----
    Super-User-controlled distribution by objective (visibility/ranking/
@@ -9186,6 +9186,18 @@ function aaInit360Feed(){
  vids.forEach(v=>aaFeedObserver.observe(v));
  requestAnimationFrame(()=>aaFeedGoTo(aaFeedCurrentIndex(),"auto"));
 }
+(function installHomeCanonicalOpen(){
+ if(window.__aaHomeCanonOpen)return;window.__aaHomeCanonOpen=true;
+ document.addEventListener("click",function(e){
+  const item=e.target.closest&&e.target.closest("#auto-arcade-widget .aa360-feed .aa360-item[data-canon]");
+  if(!item)return;
+  /* buttons (avatar/name, actions, play, follow), links, the side rail and
+     form controls keep their own behaviour */
+  if(e.target.closest("button,a,input,select,textarea,label,.aa360-side,.aa-icon-action-row,.aa360-actions,.aa-video-play-overlay"))return;
+  const [kind,...rest]=String(item.dataset.canon).split(":");const id=rest.join(":");
+  if(kind&&id)aaCanonOpen(kind,id);
+ });
+})();
 (function installFeedClickAnalyticsBridge(){
  if(window.__aaFeedClickBridge)return;window.__aaFeedClickBridge=true;
  document.addEventListener("click",function(e){
@@ -13589,7 +13601,7 @@ function aaWatchFoodActivation(id){
     if(idx>=0)state.foodBusinesses[idx]=mapped;else state.foodBusinesses.unshift(mapped);
     toast('Subscription confirmed — your restaurant is now live on Home Feed.');
     const videoIdx=(Array.isArray(mapped.media)?mapped.media:[]).findIndex(m=>m.type==='video');
-    aaRedirectToHomeAndHighlightFeedItem(id+'_fv'+(videoIdx>=0?videoIdx:0));
+    aaRedirectToHomeAndHighlightFeedItem(id+'_f');
    })
    .subscribe();
  }catch(e){console.warn("Bingo: could not watch for food subscription activation - the business will still go live once confirmed, just without the automatic redirect.",e)}
@@ -13634,14 +13646,14 @@ function aaMixedFeedTopicCardHTML(c){
   media=`<div class="aa360-video aa360-text-hero" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):''}">${esc(heroText)}</div>`;
  }
  const multiTag=c.feed_media_count>1?`<span class="aa-type-label" style="left:auto;right:10px">1/${c.feed_media_count}</span>`:'';
- const openPostCall=`aaOpenExactTopic(${JSON.stringify(String(t.id))})`;
+ const openPostCall=`aaOpenTopicPost(${JSON.stringify(String(t.id))})`;
  const authorMeta=c.feed_sellerMeta||{};
  const authorUnavailable=!!authorMeta.unavailable;
  const timeLine=t.createdAt?esc(new Date(t.createdAt).toLocaleString("en-KE",{hour:"2-digit",minute:"2-digit"}))+" ago":"";
  const locLine=t.location?` · 📍 ${esc(t.location)}`:"";
  const authorBlock=`<button type="button" class="aa360-seller" ${authorUnavailable?'disabled':`onclick='event.stopPropagation();openSeller(${JSON.stringify(c.feed_sellerId||"")})'`}><img src="${bingoSafeMediaAttr(aaProfilePhoto(c.feed_sellerPhoto))}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.feed_seller)}</b>${authorMeta.verified?`<span class="aa-post-verified">✓</span>`:''}${!authorUnavailable?`<br><small style="color:#ffd700;font-weight:800;text-decoration:underline">View Profile</small>`:''}${(timeLine||locLine)?`<small>${timeLine}${locLine}</small>`:''}</span></button>`;
  const compactStats=`<div class="aa-post-stats" style="margin-top:6px">${[`❤ ${aaTopicLoveCount(t)}`,`💬 ${aaTopicCommentsFor(t).length}`,topicCounts?`👁 ${topicCounts.views} views`:''].filter(Boolean).map(s=>`<span>${s}</span>`).join('')}</div>`;
- return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${videoPlayOverlay}<span class="aa-type-label">POST</span>${multiTag}<div class="aa360-info" onclick='${openPostCall}' style="cursor:pointer"><div class="aa360-seller-wrap">${authorBlock}</div>${c.feed_title?`<div class="aa360-title">${esc(c.feed_title)}</div>`:''}${c.feed_desc?`<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc,140)}</div>`:''}${compactStats}<div class="aa-icon-action-row" role="group" aria-label="Post actions" style="margin-top:8px" onclick="event.stopPropagation()">
+ return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}" data-canon="topic:${esc(t.id)}">${media}<div class="aa360-shade"></div>${videoPlayOverlay}<span class="aa-type-label">POST</span>${multiTag}<div class="aa360-info" style="cursor:pointer"><div class="aa360-seller-wrap">${authorBlock}</div>${c.feed_title?`<div class="aa360-title">${esc(c.feed_title)}</div>`:''}${c.feed_desc?`<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc,140)}</div>`:''}${compactStats}<div class="aa-icon-action-row" role="group" aria-label="Post actions" style="margin-top:8px" onclick="event.stopPropagation()">
   ${aaIconActionBtn({rgb:"255,58,110",active:loved,label:"Love",activeLabel:"Loved",svg:AA_ICON_ACTION_SVG.heartOutline,activeSvg:AA_ICON_ACTION_SVG.heartFilled,onclick:`aaTopicLove(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"34,201,255",label:"Share",svg:AA_ICON_ACTION_SVG.share,onclick:`aaTopicShare(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"245,185,30",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
@@ -13652,7 +13664,7 @@ function aaMixedFeedItems(){const v=(typeof aaVideoListings==='function'?aaVideo
    Only a business with NO video (photo-only) gets a single cover-photo
    entry here - not one entry per photo - so it appears in the swipe feed
    exactly once, the same way Property already does with aaPropertyCoverMedia,
-   rather than repeating the same business once per photo. */if(videos.length)return videos.map((m,i)=>({...base,id:`${x.id}_fv${i}`,feed_media:m.url}));const cover=media[0];return cover?[{...base,id:`${x.id}_fp`,feed_media:cover.url,feed_media_type:'image',feed_media_count:media.length}]:[];});const tp=aaTopics().filter(x=>!x.hiddenFromPublic).map(x=>{const firstMedia=Array.isArray(x.media)&&x.media.length?x.media[0]:null;const authorMeta=typeof aaTopicAuthorMeta==='function'?aaTopicAuthorMeta(x):null;return {id:`${x.id}_t`,kind:'topic',source:x,feed_title:x.title||'',feed_desc:x.body||'',feed_media:firstMedia?aaTopicMediaSrc(firstMedia):'',feed_media_type:firstMedia?firstMedia.type:'',feed_media_count:Array.isArray(x.media)?x.media.length:0,feed_location:'',feed_seller:aaMemberDisplayName(authorMeta),feed_sellerId:String(x.authorId||''),feed_sellerPhoto:(authorMeta&&authorMeta.photo)||'',feed_sellerMeta:authorMeta,created_at:x.createdAt,_promoType:null,_promoId:null,_topicId:x.id};});let all=[...v,...p,...f,...tp];all.forEach(item=>aaAttachPromotions(item,item._promoType,item._promoId));let aaFeedSeedStored="";try{aaFeedSeedStored=sessionStorage.getItem('aa_feed_seed')||""}catch(e){}const seed=String(state.user?.id||aaFeedSeedStored||Math.random());if(!aaFeedSeedStored){try{sessionStorage.setItem('aa_feed_seed',seed)}catch(e){}}const score=s=>{let n=0;for(const c of String(s))n=(n*31+c.charCodeAt(0))>>>0;return n};const viewerLoc=typeof aaViewerFeedLocation==='function'?aaViewerFeedLocation():'All Kenya';all.sort((a,b)=>{const followBoost=(x)=>x.kind==='vehicle'&&typeof aaIsFollowing==='function'&&aaIsFollowing(x.sellerId||x.userId)?10000000000000:0;const promo=(x)=>aaPromotionAdjustment(x,viewerLoc)*1000000;const ta=new Date(a.created_at||a.createdAt||0).getTime()+followBoost(a)+promo(a)+score(seed+a.id)%1000000;const tb=new Date(b.created_at||b.createdAt||0).getTime()+followBoost(b)+promo(b)+score(seed+b.id)%1000000;return tb-ta});return all}
+   rather than repeating the same business once per photo. */if(videos.length)return [{...base,id:`${x.id}_f`,feed_media:videos[0].url,feed_media_count:media.length}];const cover=media[0];return cover?[{...base,id:`${x.id}_f`,feed_media:cover.url,feed_media_type:'image',feed_media_count:media.length}]:[];});const tp=aaTopics().filter(x=>!x.hiddenFromPublic).map(x=>{const firstMedia=Array.isArray(x.media)&&x.media.length?x.media[0]:null;const authorMeta=typeof aaTopicAuthorMeta==='function'?aaTopicAuthorMeta(x):null;return {id:`${x.id}_t`,kind:'topic',source:x,feed_title:x.title||'',feed_desc:x.body||'',feed_media:firstMedia?aaTopicMediaSrc(firstMedia):'',feed_media_type:firstMedia?firstMedia.type:'',feed_media_count:Array.isArray(x.media)?x.media.length:0,feed_location:'',feed_seller:aaMemberDisplayName(authorMeta),feed_sellerId:String(x.authorId||''),feed_sellerPhoto:(authorMeta&&authorMeta.photo)||'',feed_sellerMeta:authorMeta,created_at:x.createdAt,_promoType:null,_promoId:null,_topicId:x.id};});let all=[...v,...p,...f,...tp];all.forEach(item=>aaAttachPromotions(item,item._promoType,item._promoId));let aaFeedSeedStored="";try{aaFeedSeedStored=sessionStorage.getItem('aa_feed_seed')||""}catch(e){}const seed=String(state.user?.id||aaFeedSeedStored||Math.random());if(!aaFeedSeedStored){try{sessionStorage.setItem('aa_feed_seed',seed)}catch(e){}}const score=s=>{let n=0;for(const c of String(s))n=(n*31+c.charCodeAt(0))>>>0;return n};const viewerLoc=typeof aaViewerFeedLocation==='function'?aaViewerFeedLocation():'All Kenya';all.sort((a,b)=>{const followBoost=(x)=>x.kind==='vehicle'&&typeof aaIsFollowing==='function'&&aaIsFollowing(x.sellerId||x.userId)?10000000000000:0;const promo=(x)=>aaPromotionAdjustment(x,viewerLoc)*1000000;const ta=new Date(a.created_at||a.createdAt||0).getTime()+followBoost(a)+promo(a)+score(seed+a.id)%1000000;const tb=new Date(b.created_at||b.createdAt||0).getTime()+followBoost(b)+promo(b)+score(seed+b.id)%1000000;return tb-ta});return all}
 function aaMixedFeedCardHTML(c,i){
  if(c.kind==='vehicle')return aaFeedCardHTML(c,i);
  if(c.kind==='topic')return aaMixedFeedTopicCardHTML(c);
@@ -13671,7 +13683,7 @@ function aaMixedFeedCardHTML(c,i){
     button logic below is left exactly as it already worked. */
  const isPropertyImage=(c.kind==='property'||c.kind==='food')&&c.feed_media_type==='image';
  const openDetailCall=c.kind==='property'?`openPropertyDetail('${esc(c._promoId||"")}')`:(c.kind==='food'?`aaOpenFoodBusinessProfile('${esc(c._promoId||"")}')`:'');
- const openDetailAttr=openDetailCall?` onclick="${openDetailCall}" style="cursor:pointer"`:'';
+ const openDetailAttr=openDetailCall?` style="cursor:pointer"`:'';
  const media=isPropertyImage?`<img class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" alt=""${openDetailAttr}>`:`<video class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"${openDetailAttr}></video>`;
  const multiTag=(c.feed_media_count>1)?`<span class="aa-type-label" style="left:auto;right:10px">1/${c.feed_media_count}</span>`:'';
  const promoLabel=aaPromotionLabel(c);
@@ -13729,7 +13741,7 @@ function aaMixedFeedCardHTML(c,i){
  const downloadName=JSON.stringify((c.feed_title||'bingo')+'-media');
  const commentTarget=JSON.stringify({id:canonicalId,title:c.feed_title});
  const side=`<div class="aa360-side"><div><button class="aa360-action" aria-label="Views" title="Views">${aaSideIcon("views")}</button><span>${aaCompact(aaViewCount({id:canonicalId}))}</span></div><div><button class="aa360-action ${aaInterested({id:canonicalId})?"on":""}" onclick='event.stopPropagation();aaToggleInterested(${cid})' aria-label="Interested" title="Interested">${aaSideIcon("interested")}</button><span>${aaCompact(interested)}</span></div><div><button class="aa360-action" onclick='event.stopPropagation();aaOpenComments(${commentTarget})' aria-label="Comments" title="Comments">${aaSideIcon("comments")}</button><span>${aaCompact(aaCommentCount({id:canonicalId}))}</span></div><div><button class="aa360-action" onclick='event.stopPropagation();state.shareTarget=${shareTarget};render()' aria-label="Share" title="Share">${aaSideIcon("share")}</button><span>${aaCompact(c.source?.shares||0)}</span></div><div><button class="aa360-action" onclick='event.stopPropagation();aaDownloadMedia(${JSON.stringify(c.feed_media)},${downloadName},{title:${JSON.stringify(c.feed_title||"")},sellerName:${JSON.stringify(c.feed_seller||"")}})' aria-label="Download" title="Download">${aaSideIcon("download")}</button><span>Download</span></div><div><button class="aa360-action ${isFav(canonicalId)?"on":""}" onclick='event.stopPropagation();toggleFav(${cid})' aria-label="Save" title="Save">${aaSideIcon("save")}</button><span>${isFav(canonicalId)?"Saved":"Save"}</span></div></div>`;
- return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}${multiTag}${side}<div class="aa360-info"${openDetailAttr}>${sellerBlock}<div>${badge}</div><div class="aa360-title">${esc(c.feed_title)}</div>${price}${specs}<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc)}</div><div class="aa360-actions" onclick="event.stopPropagation()">${actions}</div></div></section>`;
+ return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}" data-canon="${c.kind==='food'?'food':'property'}:${esc(c._promoId||'')}">${media}<div class="aa360-shade"></div>${promoted}${multiTag}${side}<div class="aa360-info"${openDetailAttr}>${sellerBlock}<div>${badge}</div><div class="aa360-title">${esc(c.feed_title)}</div>${price}${specs}<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc)}</div><div class="aa360-actions" onclick="event.stopPropagation()">${actions}</div></div></section>`;
 }
 /* Shared short-excerpt renderer for feed card descriptions - "Read more"
    opens the full listing/post instead of expanding inline, so the card's
@@ -13842,6 +13854,7 @@ function render(){
   ${state.view==="inbox"?aaMsgInboxHTML():""}
   ${state.view==="super-admin"?aaSuperUserDashboardHTML():""}
   ${state.view==="member-central"?aaMemberCentralHTML():""}
+  ${state.view==="topic-post"?aaTopicPostViewHTML():""}
   ${state.view==="food-menu"?aaFoodMenuHTML():""}
   ${state.view==="food-item-form"?aaFoodItemFormHTML():""}
   ${state.view==="food-item-detail"?aaFoodItemDetailHTML():""}
@@ -14541,6 +14554,7 @@ function aaProfileDestyTabContentHTML(own,s,cars,sellerKey,rs,avg,reviewList){
    used), social handles (not stored), stories, tagged posts, liked posts. */
 function aaBpItems(s,cars,sellerKey){
  const items=[];
+ const ownView=state.isLoggedIn&&String(state.user?.id||"")===String(sellerKey||"");
  (cars||[]).forEach(c=>{
   const video=aaMediaType(c)==="video"?aaVideoUrl(c):"";
   items.push({kind:"vehicle",id:String(c.id),title:c.title||"Vehicle",img:(Array.isArray(c.images)&&c.images[0])||c.image||"",video,at:c.createdAt||"",open:`openDetails(state.listings.find(x=>String(x.id)===${JSON.stringify(String(c.id))}))`});
@@ -14549,19 +14563,24 @@ function aaBpItems(s,cars,sellerKey){
   const m=aaPropertyCoverMedia(p);const imgM=(Array.isArray(p.media)?p.media:[]).find(x=>x.type!=="video");
   items.push({kind:"property",id:String(p.id),title:p.title||"Property",img:imgM?imgM.url:"",video:m&&m.type==="video"?m.url:"",at:p.created_at||p.createdAt||"",open:`openPropertyDetail(${JSON.stringify(String(p.id))})`});
  });
- (typeof aaOwnerFoodListings==="function"?aaOwnerFoodListings(sellerKey):[]).forEach(f=>{
+ (typeof aaOwnerFoodListings==="function"?aaOwnerFoodListings(sellerKey):[]).filter(f=>ownView||aaFoodActive(f)).forEach(f=>{
   const media=aaFoodMedia(f);const imgM=media.find(x=>x.type!=="video");const vid=media.find(x=>x.type==="video");
-  items.push({kind:"food",id:String(f.id),title:f.business_name||f.name||"Food business",img:imgM?imgM.url:"",video:vid?vid.url:"",at:f.created_at||"",open:`aaOpenFoodBusinessProfile(${JSON.stringify(String(f.id))})`});
+  items.push({kind:"food",id:String(f.id),title:f.business_name||f.name||"Food business",img:imgM?imgM.url:"",video:vid?vid.url:"",at:f.created_at||"",draft:!aaFoodActive(f),open:`aaOpenFoodBusinessProfile(${JSON.stringify(String(f.id))})`});
+ });
+ /* the member's own Bingo posts (bingo_topics) that carry a photo or video */
+ (typeof aaTopics==="function"?aaTopics():[]).filter(t=>String(t.authorId||"")===String(sellerKey||"")&&(ownView||!t.hiddenFromPublic)&&Array.isArray(t.media)&&t.media.length).forEach(t=>{
+  const m=t.media[0];const src=typeof aaTopicMediaSrc==="function"?aaTopicMediaSrc(m):(m.url||"");
+  items.push({kind:"topic",id:String(t.id),title:t.title||String(t.body||"").slice(0,60)||"Bingo post",img:m.type==="video"?"":src,video:m.type==="video"?src:"",at:t.createdAt||"",draft:!!t.hiddenFromPublic,open:`aaOpenTopicPost(${JSON.stringify(String(t.id))})`});
  });
  return items.sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));
 }
 function aaBpTileHTML(it,own){
- const label={vehicle:"Vehicle",property:"Property",food:"Food"}[it.kind];
+ const label={vehicle:"Vehicle",property:"Property",food:"Food",topic:"Post"}[it.kind];
  const media=it.img?`<img src="${bingoSafeMediaAttr(it.img)}" alt="${esc(it.title)}" loading="lazy" onerror="this.style.display='none'">`
   :it.video?`<video src="${bingoSafeMediaAttr(it.video)}" muted playsinline preload="metadata"></video>`
   :`<span class="bp-tile-empty">${esc(it.title)}</span>`;
- return `<div class="bp-tile" role="listitem">
-  <button type="button" class="bp-tile-open" onclick='${it.open}' aria-label="Open ${esc(label)}: ${esc(it.title)}">${media}${it.video?`<span class="bp-tile-play" aria-hidden="true">▶</span>`:""}<span class="bp-tile-kind">${label}</span></button>
+ return `<div class="bp-tile" role="listitem" data-canon="${it.kind}:${esc(it.id)}">
+  <button type="button" class="bp-tile-open" onclick='${it.open}' aria-label="Open ${esc(label)}: ${esc(it.title)}">${media}${it.video?`<span class="bp-tile-play" aria-hidden="true">▶</span>`:""}<span class="bp-tile-kind">${label}${it.draft?" · Draft":""}</span></button>
   ${own&&it.kind==="vehicle"?`<button type="button" class="bp-neon bp-red bp-tile-x" aria-label="Delete ${esc(it.title)}" title="Delete post" onclick='aaSoftDeleteListing(${JSON.stringify(it.id)})'>×</button><button type="button" class="bp-neon bp-micro bp-tile-boost" onclick='openContentBoost(state.listings.find(x=>String(x.id)===${JSON.stringify(it.id)}),"vehicle")'>Boost</button>`:""}
  </div>`;
 }
@@ -14570,7 +14589,10 @@ function aaBpSetTab(k){state.profileTab3=k;render()}
 function aaBpTabContentHTML(own,s,cars,sellerKey){
  const tab=aaBpTab();
  const items=aaBpItems(s,cars,sellerKey);
- const grid=list=>list.length?`<div class="bp-grid" role="list">${list.map(it=>aaBpTileHTML(it,own)).join("")}</div>`:"";
+ /* six tiles first, then "Show more" adds six at a time (per profile) */
+ if(state.bpGridFor!==String(sellerKey)){state.bpGridFor=String(sellerKey);state.bpGridLimit=6}
+ const limit=state.bpGridLimit||6;
+ const grid=list=>list.length?`<div class="bp-grid" role="list">${list.slice(0,limit).map(it=>aaBpTileHTML(it,own)).join("")}</div>${list.length>limit?`<div class="bp-more-row"><button type="button" class="bp-neon bp-micro bp-cyan bp-grid-more" onclick="state.bpGridLimit=(state.bpGridLimit||6)+6;render()">Show more (${list.length-limit})</button></div>`:""}`:"";
  if(tab==="posts"){
   const wall=typeof aaProfileDestyTopicsTabHTML==="function"?aaProfileDestyTopicsTabHTML(own,sellerKey):"";
   return (grid(items)||`<div class="bp-empty">${own?"You have not published any listings yet. Tap + to share your first post.":"This member has not published any listings yet."}</div>`)+`<div class="bp-subhead">Bingo Wall posts</div>${wall}`;
@@ -17632,6 +17654,26 @@ function aaBingoBoxHTML(){
   </div>
  </div>`;
 }
+/* ONE published item -> the complete ORIGINAL record, whichever surface
+   (Home slide, Wall card, profile tile) it was reached from. kind is the
+   record's real table; id is its real primary key - never a feed copy. */
+function aaCanonOpen(kind,id){
+ id=String(id||"");kind=String(kind||"");
+ if(kind==="vehicle"){const c=(state.listings||[]).find(x=>String(x.id)===id);if(c)openDetails(c);else toast("This listing is no longer available.");return}
+ if(kind==="property"||kind==="stay"){openPropertyDetail(id);return}
+ if(kind==="food"||kind==="food_business"){aaOpenFoodBusinessProfile(id);return}
+ if(kind==="topic"){aaOpenTopicPost(id);return}
+}
+function aaOpenTopicPost(id){
+ if(typeof aaRememberPage==="function")aaRememberPage();
+ state.topicPostId=String(id||"");state.view="topic-post";render();window.scrollTo(0,0);
+}
+function aaTopicPostViewHTML(){
+ const t=aaTopics().find(x=>String(x.id)===String(state.topicPostId));
+ const mine=t&&state.isLoggedIn&&String(t.authorId||"")===String(state.user?.id||"");
+ if(!t||(t.hiddenFromPublic&&!mine))return `<section style="padding:18px 0 105px"><button class="btn btn-glass" onclick="goBack()">← Back</button><div class="notice" style="margin-top:12px">This post is not available.</div></section>`;
+ return `<section class="aa-topic-post-view" style="padding:14px 0 105px"><button class="btn btn-glass" onclick="goBack()">← Back</button>${aaTopicPostCardHTML(t)}</section>`;
+}
 function aaOpenExactTopic(topicId){
  state.bingoBoxOpen=false;
  state.topicCategoryFilter="All";
@@ -18097,6 +18139,35 @@ function aaWallAdSlotAutoLoad(){
  state.wallAdQueueLoaded=true;
  aaLoadAdQueue("topics").then(()=>{if(state.view==="topics")render()}).catch(()=>{});
 }
+/* Compact Wall card for a published category listing: poster's round
+   avatar, name and location (-> their profile), media preview at its
+   natural proportions, title + one line. The card body opens the SAME
+   original listing (aaCanonOpen) - the Wall never holds a copy. */
+function aaWallListingCardHTML(kind,rec){
+ const id=String(rec.id);
+ const ownerId=String(kind==="vehicle"?(rec.sellerId||rec.userId||""):(rec.user_id||rec.userId||""));
+ const meta=aaResolveMemberMeta(ownerId,kind==="vehicle"?(rec.sellerName||""):"");
+ const name=aaMemberDisplayName(meta)||(kind==="food"?rec.business_name:"Bingo Member");
+ const photo=aaProfilePhoto(meta.photo||(kind==="vehicle"?rec.sellerPhoto:""));
+ let mediaUrl="",isVideo=false,title="",line="",loc="",label="";
+ if(kind==="vehicle"){
+  isVideo=aaMediaType(rec)==="video"&&!!aaVideoUrl(rec);mediaUrl=isVideo?aaVideoUrl(rec):aaMainPhoto(rec);
+  title=rec.title||"Vehicle";line=listingType(rec)==="hire"?hirePrice(rec):`KES ${money(rec.price||0)}`;loc=aaSearchLocationText(rec)||rec.location||"";label="Vehicle";
+ }else if(kind==="property"){
+  const m=aaPropertyCoverMedia(rec);isVideo=!!m&&m.type==="video";mediaUrl=m?m.url:"";
+  const stay=typeof AA_STAY_TYPES!=="undefined"&&AA_STAY_TYPES.includes(rec.type);
+  title=rec.title||"Property";line=`${rec.type?esc(rec.type)+" · ":""}KES ${money(rec.price||0)}`;loc=[rec.town,rec.county].filter(Boolean).join(", ");label=stay?"Bingo Stay":"Property";
+ }else{
+  const media=aaFoodMedia(rec);const m=media.find(x=>x.type==="video")||media[0];isVideo=!!m&&m.type==="video";mediaUrl=m?m.url:"";
+  title=rec.business_name||"Food business";line=rec.category||"Food";loc=[rec.town,rec.county].filter(Boolean).join(", ");label="Food";
+ }
+ const media=!mediaUrl?"":isVideo?`<video src="${bingoSafeMediaAttr(mediaUrl)}" muted playsinline preload="metadata"></video><span class="aa-wall-play" aria-hidden="true">▶</span>`:`<img src="${bingoSafeMediaAttr(mediaUrl)}" alt="${esc(title)}" loading="lazy">`;
+ return `<article class="aa-wall-listing" id="wall-${kind}-${esc(id)}" data-canon="${kind}:${esc(id)}" role="link" tabindex="0" onclick="aaCanonOpen('${kind}',${esc(JSON.stringify(id))})" onkeydown="if(event.key==='Enter')aaCanonOpen('${kind}',${esc(JSON.stringify(id))})">
+  <button type="button" class="aa-wall-author" onclick="event.stopPropagation();openSeller(${esc(JSON.stringify(ownerId))})" aria-label="Open ${esc(name)}'s profile"><img src="${bingoSafeMediaAttr(photo)}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(name)}</b>${loc?`<small>📍 ${esc(loc)}</small>`:""}</span></button>
+  ${media?`<div class="aa-wall-media">${media}</div>`:""}
+  <div class="aa-wall-body"><span class="aa-wall-kind">${label}</span><b>${esc(title)}</b><small>${line}</small></div>
+ </article>`;
+}
 function aaPublicTopicsFeedHTML(){
  const tagFilter=state.trendingTagFilter||"";
  let all=aaTopics().filter(t=>!t.hiddenFromPublic);
@@ -18110,10 +18181,13 @@ function aaPublicTopicsFeedHTML(){
     scoped to `all` (topics only) - properties don't have that tracking. */
  const wallProperties=tagFilter?[]:aaProperties().filter(p=>Array.isArray(p.media)&&p.media.length);
  const wallFoods=tagFilter?[]:aaFoods().filter(f=>aaFoodActive(f)&&Array.isArray(f.media)&&f.media.length);
+ /* published vehicles (vehicle_listings status=published, already loaded) with a photo or video */
+ const wallVehicles=tagFilter?[]:(state.listings||[]).filter(c=>String(c.status||"available").toLowerCase()!=="deleted"&&((aaMediaType(c)==="video"&&aaVideoUrl(c))||aaMainPhoto(c)));
  const feedItems=[
   ...all.map(t=>({kind:"topic",data:t,ts:new Date(t.createdAt||0).getTime()})),
   ...wallProperties.map(p=>({kind:"property",data:p,ts:new Date(p.created_at||0).getTime()})),
-  ...wallFoods.map(f=>({kind:"food",data:f,ts:new Date(f.created_at||0).getTime()}))
+  ...wallFoods.map(f=>({kind:"food",data:f,ts:new Date(f.created_at||0).getTime()})),
+  ...wallVehicles.map(c=>({kind:"vehicle",data:c,ts:new Date(c.createdAt||c.created_at||0).getTime()}))
  ].sort((a,b)=>b.ts-a.ts);
  aaWallAdSlotAutoLoad();
  return `<section style="padding:12px 0 105px">
@@ -18128,7 +18202,7 @@ function aaPublicTopicsFeedHTML(){
    <div class="aa-mbea-main" style="min-width:0">
     ${state.isLoggedIn?aaWallComposerSectionHTML():`<div class="aa-v69-card" style="margin-top:10px;text-align:center"><p>Sign up or log in to post, comment, like, save or follow.</p><button class="btn btn-red" onclick="openAuth('login')">Sign Up / Log In</button></div>`}
     ${(()=>{aaLoadTopicCounts(all.map(t=>t.id));all.forEach(t=>{if(typeof aaRecordFeedView==="function")aaRecordFeedView("topic_"+t.id,"topic",t.id);if(String(t.authorId||"")!==String(state.user?.id||""))aaRecordTopicViewOnce(t.id)});return"";})()}
-    ${!feedItems.length?`<div class="empty" style="margin-top:12px">No posts yet. Be the first to post.</div>`:feedItems.map(it=>it.kind==="topic"?aaTopicPostCardHTML(it.data):it.kind==="food"?aaProfileFoodCardHTML(it.data):aaProfilePropertyCardHTML(it.data)).join("")}
+    ${!feedItems.length?`<div class="empty" style="margin-top:12px">No posts yet. Be the first to post.</div>`:feedItems.map(it=>it.kind==="topic"?aaTopicPostCardHTML(it.data):aaWallListingCardHTML(it.kind,it.data)).join("")}
    </div>
    <div class="aa-mbea-right" style="display:grid;gap:12px;align-content:start">
     ${aaProfileDecorationsPanelHTML()}
@@ -28012,6 +28086,23 @@ html body #auto-arcade-widget .aa-owner-ws-tabs .btn.is-active:not(#bingo-flat-g
 
 /* Food rail on phones: wrap instead of a hidden horizontal scroller */
 @media(max-width:820px){html body #auto-arcade-widget .bingo-food-menu-proto .bfp-aside:not(#bingo-flat-guard){flex-wrap:wrap!important;overflow:visible!important;gap:5px!important}html body #auto-arcade-widget .bingo-food-menu-proto .bfp-aside .bfp-nav:not(#bingo-flat-guard){width:auto!important;flex:1 1 30%!important;padding:7px 8px!important;font-size:12px!important;text-align:center}}
+
+/* ===== Published-content distribution: Wall listing card + profile grid ===== */
+#auto-arcade-widget .aa-wall-listing{margin:12px 0;border:1px solid #234663;border-radius:12px;background:#0b1628;overflow:hidden;cursor:pointer;max-width:640px}
+#auto-arcade-widget .aa-wall-listing:focus-visible{outline:2px solid #22c9ff;outline-offset:2px}
+html body #auto-arcade-widget .aa-wall-author:not(#bingo-flat-guard){display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;padding:9px 11px!important;min-height:0}
+#auto-arcade-widget .aa-wall-author img{width:38px;height:38px;border-radius:50%;object-fit:cover;border:1.5px solid #f3be2b;background:#132036;flex:0 0 auto}
+#auto-arcade-widget .aa-wall-author b{display:block;font-size:13px;color:#f8faff}
+#auto-arcade-widget .aa-wall-author small{display:block;font-size:11px;color:#9fb2c8;font-weight:500}
+#auto-arcade-widget .aa-wall-media{position:relative;background:#000;display:flex;justify-content:center}
+#auto-arcade-widget .aa-wall-media img,#auto-arcade-widget .aa-wall-media video{display:block;max-width:100%;max-height:420px;width:auto;height:auto;object-fit:contain}
+#auto-arcade-widget .aa-wall-play{position:absolute;inset:auto auto 10px 10px;background:rgba(0,0,0,.6);color:#fff;border-radius:6px;padding:2px 7px;font-size:12px}
+#auto-arcade-widget .aa-wall-body{display:flex;flex-direction:column;gap:2px;padding:9px 11px 11px}
+#auto-arcade-widget .aa-wall-body b{font-size:14px;color:#f8faff}
+#auto-arcade-widget .aa-wall-body small{font-size:12px;color:#fcd34d}
+#auto-arcade-widget .aa-wall-kind{align-self:flex-start;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#22c9ff;border:1px solid rgba(34,201,255,.5);border-radius:6px;padding:0 6px;margin-bottom:3px}
+#auto-arcade-widget .bp-more-row{display:flex;justify-content:center;margin:10px 0 4px}
+#auto-arcade-widget .aa-topic-post-view{max-width:720px;margin:0 auto}
 </style>
 
 </body>
