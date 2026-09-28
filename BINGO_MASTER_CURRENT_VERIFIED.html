@@ -19384,6 +19384,30 @@ function aaCallOverlayHTML(){
   </div>
  </div>`;
 }
+/* Far-left icon rail, added per the supplied Bingo Chat Messenger
+   reference. Every button here reuses a real, already-existing
+   mechanism (aaMsgSetActiveTab for Chats/Calls/Contacts/Settings; the
+   existing Archive/Trash inbox filters for those two) - the reference's
+   own "Groups" and "Saved" rail items are left out rather than wired to
+   invented functionality, since no groups/saved-messages feature exists
+   in this app to point them at. Desktop/tablet only (>700px); the
+   existing horizontal Chats/Calls/Contacts/Settings tabs already cover
+   this compactly on phone, where there is no room for a persistent rail. */
+function aaMsgIconRailHTML(){
+ const tab=state.msgActiveTab||"chats";
+ const filter=state.msgInboxFilter||"all";
+ const items=[
+  {key:"chats",icon:"💬",label:"Chats",active:tab==="chats"&&filter!=="archived"&&filter!=="trash",onclick:"aaMsgSetActiveTab('chats')"},
+  {key:"calls",icon:"☎",label:"Calls",active:tab==="calls",onclick:"aaMsgSetActiveTab('calls')"},
+  {key:"contacts",icon:"👤",label:"Contacts",active:tab==="contacts",onclick:"aaMsgSetActiveTab('contacts')"},
+  {key:"archive",icon:"🗄",label:"Archive",active:tab==="chats"&&filter==="archived",onclick:"aaMsgSetActiveTab('chats');state.msgInboxFilter='archived';render()"},
+  {key:"trash",icon:"🗑",label:"Trash",active:tab==="chats"&&filter==="trash",onclick:"aaMsgSetActiveTab('chats');state.msgInboxFilter='trash';render()"},
+  {key:"settings",icon:"⚙",label:"Settings",active:tab==="settings",onclick:"aaMsgSetActiveTab('settings')"}
+ ];
+ return `<nav class="msg-icon-rail" aria-label="Messenger sections">
+  ${items.map(x=>`<button type="button" class="msg-rail-btn${x.active?" is-active":""}" onclick="${x.onclick}" aria-label="${esc(x.label)}"><span class="msg-rail-icon">${x.icon}</span><span class="msg-rail-label">${esc(x.label)}</span></button>`).join("")}
+ </nav>`;
+}
 function aaMsgInboxHTML(){
  aaMsgPurgeExpiredTrash();
  const tab=state.msgActiveTab||"chats";
@@ -19394,7 +19418,8 @@ function aaMsgInboxHTML(){
  const myPhoto=aaProfilePhoto(state.user?.photo_url);
  const myName=aaOwnProfileName?aaOwnProfileName():"Me";
  const currentThemeId=bingoMsgThemeRoot()?.dataset.msgTheme||"cyan";
- return `<section style="padding:14px 0 20px;display:flex;justify-content:center">
+ return `<section style="padding:14px 0 20px;display:flex;justify-content:center;gap:10px">
+ ${aaMsgIconRailHTML()}
  <div class="bingo-messenger${showingSecondaryPane?" msg-sidebar-collapsed":""}${peekOpen?" msg-sidebar-peek-open":""}" data-msg-theme="${esc(currentThemeId)}">
   ${peekOpen?`<div class="msg-sidebar-peek-backdrop" onclick="aaMsgToggleSidebarPeek()"></div>`:""}
   <aside class="msg-sidebar${showingSecondaryPane&&!peekOpen?" is-hidden":""}">
@@ -26646,6 +26671,30 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
   transition:border-color 550ms ease,box-shadow 550ms ease,background 550ms ease;
   position:relative;
 }
+/* Far-left icon rail (Chats/Calls/Contacts/Archive/Trash/Settings) - a
+   fixed-width flex sibling of .bingo-messenger inside the same
+   justify-content:center section, not a grid column of .bingo-messenger
+   itself, so it never touches the already-tested collapsed/peek-drawer
+   grid-template-columns rules below. Hidden under 700px, where the
+   existing horizontal Chats/Calls/Contacts/Settings tabs already cover
+   the same navigation compactly. */
+#auto-arcade-widget .msg-icon-rail{
+  width:76px;flex:0 0 auto;display:flex;flex-direction:column;gap:6px;
+  padding:14px 6px;background:rgba(5,13,28,.94);
+  border:1px solid rgba(var(--msg-accent-rgb),.3);border-radius:18px;
+  height:min(820px,calc(100dvh - 160px));min-height:560px;overflow-y:auto;
+}
+#auto-arcade-widget .msg-rail-btn{
+  --tab-light:var(--msg-accent);--tab-rgb:var(--msg-accent-rgb);
+  all:unset;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:9px 2px;border-radius:12px;cursor:pointer;color:var(--msg-muted);
+  text-align:center;
+}
+#auto-arcade-widget .msg-rail-btn:hover{background:rgba(var(--msg-accent-rgb),.1);color:var(--msg-text)}
+#auto-arcade-widget .msg-rail-btn.is-active{background:var(--msg-accent);color:#031018;font-weight:800}
+#auto-arcade-widget .msg-rail-icon{font-size:18px;line-height:1}
+#auto-arcade-widget .msg-rail-label{font-size:9px;font-weight:700}
+@media(max-width:700px){#auto-arcade-widget .msg-icon-rail{display:none}}
 #auto-arcade-widget .msg-sidebar,#auto-arcade-widget .msg-info-panel{min-width:0;background:rgba(7,18,37,.94);display:flex;flex-direction:column;min-height:0}
 #auto-arcade-widget .msg-sidebar{border-right:1px solid rgba(var(--msg-accent-rgb),.22)}
 /* Left nav/chat-list behind a drawer at every width, not just mobile:
