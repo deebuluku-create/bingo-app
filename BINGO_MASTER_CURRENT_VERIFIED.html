@@ -5333,7 +5333,9 @@ function aaRememberPage(){
   spareSelected:state.spareSelected||null,
   page:state.page||1,
    solutionRoomId:state.solutionRoomId||"",
-   communityGroupId:state.communityGroupId||""
+   communityGroupId:state.communityGroupId||"",
+   foodTab:state.foodTab||null,propertyTab:state.propertyTab||null,stayView:state.stayView||null,
+   foodProfileId:state.foodProfileId||null,foodMenuBusinessId:state.foodMenuBusinessId||null
  };
 
  aaBackStack.push(snapshot);
@@ -5372,6 +5374,7 @@ function goBack(){
  if(previous.jobsTab!==null){
   state.jobsTab=previous.jobsTab;
  }
+ ["foodTab","propertyTab","stayView","foodProfileId","foodMenuBusinessId"].forEach(k=>{if(previous[k]!=null)state[k]=previous[k]});
 
  render();
  window.scrollTo(0,0);
@@ -6133,34 +6136,90 @@ function aaOpenMemberCentral(){
  if(!state.isLoggedIn){openAuth("login");return}
  if(typeof aaRememberPage==="function")aaRememberPage();
  state.view="member-central";render();window.scrollTo(0,0);
+ /* refresh the counts shown on the owner cards (loaders are no-ops offline) */
+ Promise.allSettled([typeof aaLoadFoods==="function"&&aaLoadFoods(),typeof aaLoadProperties==="function"&&aaLoadProperties()]).then(()=>{if(state.view==="member-central")render()});
 }
-
+function aaOpenCockpit(){aaOpenMemberCentral()}
+function aaCockpitOwnerFoods(){
+ const me=String(state.user?.id||"");
+ return typeof aaFoods==="function"?aaFoods().filter(x=>(me&&String(x.user_id||"")===me)||x.local_owner):[];
+}
+function aaCockpitOwnerProperties(){
+ const me=String(state.user?.id||"");
+ return typeof aaProperties==="function"?aaProperties().filter(x=>(me&&String(x.user_id||x.userId||"")===me)||(x._localOnly&&x.local_owner)):[];
+}
+/* Every destination below is an EXISTING route; this only chooses the
+   right one for how many businesses the owner has. */
+function aaCockpitGo(key){
+ if(!state.isLoggedIn){openAuth("login");return}
+ const foods=aaCockpitOwnerFoods();
+ const one=foods.length===1?String(foods[0].id):"";
+ if(key==="food"){aaOpenFood(foods.length?"mine":"post");return}
+ if(key==="food-new"){state.foodEditId=null;aaOpenFood("post");return}
+ if(key==="menu"){
+  if(!foods.length){toast("Create your food business first, then add its menu.");aaOpenFood("post");return}
+  if(one){aaOpenFoodMenu(one);return}
+  toast("Choose a restaurant, then tap Manage Menu.");aaOpenFood("mine");return;
+ }
+ if(key==="orders"){
+  if(!foods.length){toast("Orders appear here once you have a food business.");aaOpenFood("post");return}
+  if(one){aaOpenFoodMenu(one);state.foodOrdersOpenFor=one;if(typeof aaLoadFoodOrders==="function")aaLoadFoodOrders().then(render);render();return}
+  toast("Choose a restaurant to see its orders.");aaOpenFood("mine");return;
+ }
+ if(key==="properties"){aaOpenProperties("mine");return}
+ if(key==="property-new"){aaOpenProperties("post");return}
+ if(key==="stay-new"){aaOpenProperties("stays");aaStayGo("hub");return}
+}
 function aaMemberCentralHTML(){
  const first=esc(state.user?.firstName||"there");
- const tiles=[
-  {label:"Home",icon:"⌂",action:"goHome()",color:"btn-blue"},
-  {label:"Search",icon:"⌕",action:"aaOpenSearch('videos')",color:"btn-glass"},
-  {label:"Post",icon:"＋",action:"if(typeof aaDU1OpenCreate==='function')aaDU1OpenCreate();else openPostVehicle();",color:"btn-publish"},
-  {label:"Marketplace",icon:"▱",action:"aaOpenMarket()",color:"btn-boost"},
-  {label:"Bingo Stays",icon:"▥",action:"aaOpenProperties('stays')",color:"btn-cyan"},
-  {label:"Jobs & CV",icon:"▣",action:"openJobs('jobs')",color:"btn-success"},
-  {label:"Community",icon:"◆",action:"aaOpenSolutionRooms()",color:"btn-purple"},
-  {label:"Go Live",icon:"⏺",action:"if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio('live');",color:"btn-red"},
-  {label:"My Bingo",icon:"◉",action:"goAccount()",color:"btn-glass"}
+ const foods=aaCockpitOwnerFoods(),props=aaCockpitOwnerProperties();
+ const me=String(state.user?.id||"");
+ const bizIds=foods.map(x=>String(x.id));
+ const orders=typeof aaFoodOrdersAll==="function"?aaFoodOrdersAll().filter(o=>bizIds.includes(String(o.business_id))):[];
+ const myOrders=typeof aaFoodOrdersAll==="function"?aaFoodOrdersAll().filter(o=>String(o.customer_id||"")===me):[];
+ const vehicles=(state.listings||[]).filter(c=>String(c.sellerId||c.userId||"")===me);
+ const agent=typeof aaCanUseAgentDashboard==="function"&&aaCanUseAgentDashboard();
+ const plural=(n,w)=>`${n} ${w}${n===1?"":"s"}`;
+ const groups=[
+  {key:"business",title:"Your businesses",note:"Manage what you sell. Buyers still find your listings through Categories and the feeds.",cards:[
+   {icon:"🍽",label:"Food Business",sub:foods.length?plural(foods.length,"restaurant"):"Create your restaurant",run:"aaCockpitGo('food')",tone:"gold"},
+   {icon:"📋",label:"Food Menu",sub:foods.length?"Add and edit dishes":"Needs a food business",run:"aaCockpitGo('menu')",tone:"gold"},
+   {icon:"🧾",label:"Restaurant Orders",sub:foods.length?plural(orders.length,"order"):"Needs a food business",run:"aaCockpitGo('orders')",tone:"gold"},
+   {icon:"🏠",label:"Properties & Stays",sub:props.length?plural(props.length,"listing"):"Post a property or stay",run:"aaCockpitGo('properties')",tone:"cyan"},
+   {icon:"🚗",label:"Vehicles & Posts",sub:vehicles.length?plural(vehicles.length,"vehicle listing"):"Your posts on your profile",run:"goAccount();aaBpSetTab('posts');aaBpScrollToTabs()",tone:"cyan"},
+   {icon:"💼",label:"Jobs & CVs",sub:"My vacancies and CV",run:"openJobs('myjobs')",tone:"green"},
+   {icon:"📣",label:"Promotions",sub:"Boost your listings",run:"aaBpMenuGo('promote')",tone:"pink"},
+   ...(agent?[{icon:"💰",label:"Agent Dashboard",sub:"Businesses & earnings",run:"aaSwitchToAgent()",tone:"pink"}]:[])]},
+  {key:"create",title:"Create",cards:[
+   {icon:"＋",label:"New Post",sub:"Vehicle, property, food…",run:"if(typeof aaDU1OpenCreate==='function')aaDU1OpenCreate();else openPostVehicle();",tone:"green"},
+   {icon:"🍽",label:"New Food Business",sub:"Restaurant listing",run:"aaCockpitGo('food-new')",tone:"gold"},
+   {icon:"🏘",label:"Post Property",sub:"Sale, rent or lease",run:"aaCockpitGo('property-new')",tone:"cyan"},
+   {icon:"🛏",label:"List a Bingo Stay",sub:"Furnished stay",run:"aaCockpitGo('stay-new')",tone:"cyan"},
+   {icon:"⏺",label:"Go Live",sub:"Live Studio",run:"if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio('live');",tone:"pink"}]},
+  {key:"activity",title:"Your activity",cards:[
+   {icon:"🛍",label:"My Food Orders",sub:myOrders.length?plural(myOrders.length,"order"):"Orders you placed",run:"if(typeof aaLoadFoodOrders==='function')aaLoadFoodOrders().then(render);aaOpenFood('orders')",tone:"green"},
+   {icon:"✉",label:"Messages",sub:"Chats and requests",run:"openInbox()",tone:"cyan"},
+   {icon:"◉",label:"My Profile",sub:"Public profile",run:"goAccount()",tone:"pink"}]},
+  {key:"browse",title:"Browse Bingo",cards:[
+   {icon:"⌂",label:"Home Feed",run:"goHome()"},
+   {icon:"⌕",label:"Categories & Search",run:"aaOpenSearch('videos')"},
+   {icon:"🍲",label:"Food",run:"aaOpenFood('browse')"},
+   {icon:"🏢",label:"Properties",run:"aaOpenProperties('browse')"},
+   {icon:"🌴",label:"Bingo Stays",run:"state.stayView='landing';aaOpenProperties('stays')"},
+   {icon:"▱",label:"Marketplace",run:"aaOpenMarket()"},
+   {icon:"▣",label:"Jobs",run:"openJobs('jobs')"},
+   {icon:"◆",label:"Community",run:"aaOpenSolutionRooms()"},
+   {icon:"💬",label:"Bingo Posts",run:"aaOpenBingoTopicsFeed()"}]}
  ];
- return `<section class="aa-member-central">
+ const tone={gold:"",cyan:" aa-cp-cyan",pink:" aa-cp-pink",green:" aa-cp-green"};
+ return `<section class="aa-member-central aa-cockpit">
   <div class="aa-member-central-head">
    <button class="btn btn-glass" onclick="goBack()">← Back</button>
-   <div class="aa-member-central-kicker">WELCOME BACK</div>
+   <div class="aa-member-central-kicker">Cockpit</div>
    <h2>Hi ${first}, what would you like to do?</h2>
   </div>
-  <button type="button" class="aa-member-central-topics btn-boost" onclick="aaOpenBingoTopicsFeed()">
-   <span>💬</span>
-   <div><b>Bingo Posts</b><small>See what Kenyans are talking about right now</small></div>
-  </button>
-  <div class="aa-member-central-grid">
-   ${tiles.map(t=>`<button type="button" class="aa-member-central-tile ${t.color}" onclick="${t.action}"><span class="aa-member-central-ico">${t.icon}</span><b>${esc(t.label)}</b></button>`).join("")}
-  </div>
+  ${groups.map(g=>`<div class="aa-cp-group" data-group="${g.key}"><div class="aa-cp-title">${esc(g.title)}</div>${g.note?`<p class="aa-cp-note">${esc(g.note)}</p>`:""}
+   <div class="aa-cp-grid${g.key==="browse"?" aa-cp-grid-compact":""}">${g.cards.map(c=>`<button type="button" class="aa-cp-card${tone[c.tone]||""}" onclick="${esc(c.run)}"><span class="aa-cp-ico" aria-hidden="true">${c.icon}</span><span class="aa-cp-text"><b>${esc(c.label)}</b>${c.sub?`<small>${esc(c.sub)}</small>`:""}</span></button>`).join("")}</div></div>`).join("")}
   <button type="button" class="aa-member-central-more btn-glass" onclick="if(typeof aaAssistantOpenDrawer==='function')aaAssistantOpenDrawer()">More · Open full menu</button>
  </section>`;
 }
@@ -10030,6 +10089,11 @@ function aaPageGuideHTML(){
  if(state.view==="inbox")return "";
  /* the profile has its own full header (name, subtitle, search, menu) */
  if(state.view==="seller"&&state.isLoggedIn&&!state.agentModeActive&&!state.agentAddBusinessOpen)return "";
+ /* owner workspaces reached from the Cockpit carry their own header -
+    the public "discover / list your own / Boost" hero belongs to browsing */
+ if(state.view==="member-central")return "";
+ if(state.view==="food"&&["post","mine","orders"].includes(state.foodTab))return "";
+ if(state.view==="properties"&&(["post","mine"].includes(state.propertyTab)||(state.propertyTab==="stays"&&state.stayView&&state.stayView!=="landing")))return "";
  const info=aaPageGuideInfo();if(!info)return "";
  return `<div class="aa-page-guide">
    <div class="aa-page-guide-copy">
@@ -10870,7 +10934,18 @@ function aaUnmuteFoodViewerVideo(){
  if(btn)btn.hidden=true;
 }
 function aaFileToLocalMedia(files,maxVideos=3){return Promise.all(Array.from(files||[]).slice(0,8).map(f=>new Promise(res=>{if(f.type.startsWith('video/')&&maxVideos<=0)return res(null);const r=new FileReader();r.onload=()=>res({type:f.type.startsWith('video/')?'video':'image',url:r.result,name:f.name});r.onerror=()=>res(null);r.readAsDataURL(f)}))).then(a=>{let vc=0;return a.filter(x=>x&&(x.type!=='video'||++vc<=maxVideos))})}
-function aaPropertyHTML(){const tab=state.propertyTab||'browse', all=aaProperties();return `<section style="padding:18px 0 105px"><h2>Properties</h2><p class="notice">Buy, rent or lease property across Kenya. Property videos can also appear in the Bingo Home discovery feed.</p><div class="aa-v69-tabs"><button class="btn ${tab==='browse'?'btn-red':''}" onclick="aaOpenProperties('browse')">Browse Properties</button><button class="btn ${tab==='post'?'btn-red':''}" onclick="aaOpenProperties('post')">Post Property</button><button class="btn ${tab==='stays'?'btn-red':''}" onclick="aaOpenProperties('stays')">Bingo Stays</button><button class="btn ${tab==='mine'?'btn-red':''}" onclick="aaOpenProperties('mine')">My Properties</button></div>${tab==='post'?aaPropertyPostHTML():tab==='stays'?aaFurnishedStaysHTML():tab==='mine'?aaPropertyListHTML(all.filter(x=>String(x.user_id||x.userId||'')===String(state.user?.id||'')||(x._localOnly&&x.local_owner)),true):aaPropertyListHTML(all,false)}</section>`}
+/* Public: Browse Properties | Bingo Stays. Owner (reached from the
+   Cockpit): My Listings | Post Property | List a Bingo Stay. */
+function aaPropertyNavHTML(tab){
+ const ownerStay=tab==='stays'&&state.stayView&&state.stayView!=='landing';
+ if(tab==='post'||tab==='mine'||ownerStay){
+  const on=k=>k===(ownerStay?'stay':tab)?' is-active':'';
+  return `<div class="aa-owner-ws-head"><button type="button" class="btn btn-glass" onclick="aaOpenCockpit()">‹ Cockpit</button><div><small>Cockpit › Properties &amp; Stays</small></div></div>
+  <div class="aa-v69-tabs aa-owner-ws-tabs" role="group" aria-label="Property owner tools"><button class="btn${on('mine')}" aria-pressed="${!!on('mine')}" onclick="aaOpenProperties('mine')">My Listings</button><button class="btn${on('post')}" aria-pressed="${!!on('post')}" onclick="aaOpenProperties('post')">Post Property</button><button class="btn${on('stay')}" aria-pressed="${!!on('stay')}" onclick="aaOpenProperties('stays');aaStayGo('hub')">List a Bingo Stay</button></div>`;
+ }
+ return `<div class="aa-v69-tabs aa-public-tabs" role="group" aria-label="Browse property"><button class="btn${tab!=='stays'?' is-active':''}" aria-pressed="${tab!=='stays'}" onclick="aaOpenProperties('browse')">Browse Properties</button><button class="btn${tab==='stays'?' is-active':''}" aria-pressed="${tab==='stays'}" onclick="state.stayView='landing';aaOpenProperties('stays')">Bingo Stays</button>${state.isLoggedIn&&aaCockpitOwnerProperties().length?`<button class="btn btn-glass aa-cp-link" onclick="aaCockpitGo('properties')">Manage my listings ›</button>`:''}</div>`;
+}
+function aaPropertyHTML(){const tab=state.propertyTab||'browse', all=aaProperties();return `<section style="padding:18px 0 105px"><h2>Properties</h2><p class="notice">Buy, rent or lease property across Kenya. Property videos can also appear in the Bingo Home discovery feed.</p>${aaPropertyNavHTML(tab)}${tab==='post'?aaPropertyPostHTML():tab==='stays'?aaFurnishedStaysHTML():tab==='mine'?aaPropertyListHTML(all.filter(x=>String(x.user_id||x.userId||'')===String(state.user?.id||'')||(x._localOnly&&x.local_owner)),true):aaPropertyListHTML(all,false)}</section>`}
 function aaEditProperty(id){
  const item=aaProperties().find(x=>String(x.id)===String(id));
  if(!item)return;
@@ -11807,7 +11882,37 @@ async function aaDeleteProperty(id){
  }
  aaOpenProperties('mine');
 }
-function aaFoodHTML(){const tab=state.foodTab||'browse', all=aaFoods(), visible=all.filter(aaFoodActive);return `<section style="padding:18px 0 105px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 style="margin:0">Food</h2><div class="aa-v69-tabs aa-content-fit-row-wrap"><button class="btn ${tab==='browse'?'btn-cyan':'btn-glass'}" onclick="aaOpenFood('browse')">Feed</button><button class="btn ${tab==='post'?'btn-publish':'btn-glass'}" onclick="aaOpenFood('post')">+ Post Business</button><button class="btn ${tab==='mine'?'btn-gold':'btn-glass'}" onclick="aaOpenFood('mine')">My Business</button><button class="btn ${tab==='orders'?'btn-cyan':'btn-glass'}" onclick="aaLoadFoodOrders().then(render);aaOpenFood('orders')">My Orders</button></div></div>${tab==='browse'?'<p class="notice" style="margin-top:8px">Restaurants and food businesses run on a paid monthly advertising subscription (KES 1,000 / 30 days via M-Pesa).</p>':''}${tab==='post'?aaFoodPostHTML():tab==='mine'?aaFoodMineHTML(all.filter(x=>String(x.user_id||'')===String(state.user?.id||'')||x.local_owner)):tab==='orders'?aaFoodMyOrdersHTML():aaFoodListHTML(visible)}</section>`}
+function aaFoodHTML(){
+ const tab=state.foodTab||'browse', all=aaFoods(), visible=all.filter(aaFoodActive);
+ const mine=all.filter(x=>String(x.user_id||'')===String(state.user?.id||'')||x.local_owner);
+ if(tab==='post'||tab==='mine')return aaFoodWorkspaceHTML(tab,mine,tab==='post'?aaFoodPostHTML():aaFoodMineHTML(mine));
+ if(tab==='orders')return `<section class="aa-owner-ws" style="padding:18px 0 105px"><div class="aa-owner-ws-head"><button type="button" class="btn btn-glass" onclick="goBack()">← Back</button><div><small>Your activity</small><h2>My Food Orders</h2></div></div>${aaFoodMyOrdersHTML()}</section>`;
+ return `<section style="padding:18px 0 105px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 style="margin:0">Food</h2>${state.isLoggedIn&&mine.length?`<button type="button" class="btn btn-glass aa-cp-link" onclick="aaCockpitGo('food')">Manage my restaurant ›</button>`:''}</div><p class="notice" style="margin-top:8px">Restaurants and food businesses run on a paid monthly advertising subscription (KES 1,000 / 30 days via M-Pesa).</p>${aaFoodListHTML(visible)}</section>`;
+}
+/* Owner-only Food Business workspace, reached from the Cockpit. Uses the
+   approved Food Menu layout (bingo-food-menu-proto): a section rail on
+   the left and navy/gold panels, instead of the old public tab strip. */
+function aaFoodOwnerRailHTML(active,businessId){
+ const foods=aaCockpitOwnerFoods();
+ /* owner links only for a business the signed-in user actually owns */
+ const owned=id=>!!id&&state.isLoggedIn&&foods.some(x=>String(x.id)===String(id));
+ const biz=owned(businessId)?String(businessId):(foods.length===1?String(foods[0].id):"");
+ const items=[
+  {key:"cockpit",label:"‹ Cockpit",run:"aaOpenCockpit()"},
+  {key:"mine",label:"My Food Business",run:"aaOpenFood('mine')"},
+  {key:"post",label:state.foodEditId&&active==="post"?"Edit Business":"New Business",run:state.foodEditId&&active==="post"?"":"state.foodEditId=null;aaOpenFood('post')"},
+  ...(biz?[{key:"profile",label:"Restaurant Profile",run:`aaOpenFoodBusinessProfile('${esc(biz)}')`},
+   {key:"menu",label:"Food Menu",run:`aaOpenFoodMenu('${esc(biz)}')`},
+   {key:"orders",label:"Orders",run:`aaOpenFoodMenuProtoOrders('${esc(biz)}')`}]:[])
+ ];
+ return `<aside class="bfp-aside" aria-label="Food business tools">${items.map(x=>`<button type="button" class="bfp-nav${x.key===active?' on':''}"${x.key===active?' aria-current="page"':''} onclick="${x.run}">${esc(x.label)}</button>`).join('')}</aside>`;
+}
+function aaFoodWorkspaceHTML(tab,mine,body){
+ const editing=tab==='post'&&state.foodEditId;
+ const title=tab==='post'?(editing?'EDIT FOOD BUSINESS':'CREATE FOOD BUSINESS'):'MY FOOD BUSINESS';
+ const sub=tab==='post'?'Your restaurant profile: identity, location, contacts, hours, photos. Menu items are added separately under Food Menu.':(mine.length?'Preview, pay, edit and open the menu and orders for each restaurant.':'You have not created a food business yet.');
+ return `<section class="aa-food-ws" style="padding:14px 0 105px"><div class="bingo-food-menu-proto">${aaFoodOwnerRailHTML(tab)}<div class="bfp-main"><div class="bfp-panel aa-food-ws-band"><small class="aa-food-ws-kicker">Cockpit › Food Business</small><h2>${title}</h2><p class="bfp-mut">${sub}</p></div>${body}</div></div></section>`;
+}
 function aaFoodPostHTML(){
  const editItem=state.foodEditId?aaFoods().find(x=>String(x.id)===String(state.foodEditId)):null;
  const contextKey=editItem?('edit:'+editItem.id):'new';
@@ -12660,14 +12765,7 @@ async function aaFoodMenuEditorValidateMedia(file){
 const AA_FOOD_MENU_DELICACY_OPTIONS=["African Delicacies","Chinese Delicacies","Italian Delicacies","Swahili Delicacies","Luhya Delicacies","Kikuyu Delicacies","Coasterian / Coastal Delicacies","Mijikenda Delicacies","Kisii Delicacies","Luo Delicacies","Maasai Delicacies","Oromo / Pokomo Delicacies","Kamba Delicacies","Meru Delicacies","Turkana Delicacies","Somali Delicacies","Arab Delicacies","Ethiopian Delicacies","Turkish Delicacies","Indian Delicacies","Other / International"];
 let aaFoodMenuProtoInstance=null;
 function aaFoodMenuProtoSidebarHTML(businessId){
- const items=[
-  {label:"Food",action:"aaOpenFood('browse')"},
-  {label:"Post Food Business",action:"aaOpenFood('post')"},
-  {label:"Food Menu",action:`aaOpenFoodItemForm('${esc(businessId)}')`,on:true},
-  {label:"Restaurant Profile",action:`aaOpenFoodBusinessProfile('${esc(businessId)}')`},
-  {label:"Orders",action:`aaOpenFoodMenuProtoOrders('${esc(businessId)}')`}
- ];
- return `<aside class="bfp-aside">${items.map(x=>`<button type="button" class="bfp-nav${x.on?' on':''}" onclick="${x.action}">${esc(x.label)}</button>`).join('')}</aside>`;
+ return aaFoodOwnerRailHTML('menu',String(businessId||''));
 }
 function aaFoodMenuProtoFormHTML(biz,editItem){
  const businessId=String(biz.id);
@@ -13782,6 +13880,16 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
             <button class="bcp-btn" onclick="aaAssistantNavigate(goHome)"><span class="bcp-ico">&#9638;</span><b>Feed</b></button>
           </div>
         </div>
+
+        ${state.isLoggedIn?`<div class="bcp-section">
+          <div class="bcp-section-label">My Business</div>
+          <div class="bcp-grid">
+            <button class="bcp-btn" onclick="aaAssistantNavigate(()=>aaCockpitGo('food'))"><span class="bcp-ico">&#127869;</span><b>Food Business</b></button>
+            <button class="bcp-btn" onclick="aaAssistantNavigate(()=>aaCockpitGo('menu'))"><span class="bcp-ico">&#128203;</span><b>Food Menu</b></button>
+            <button class="bcp-btn" onclick="aaAssistantNavigate(()=>aaCockpitGo('orders'))"><span class="bcp-ico">&#129534;</span><b>Orders</b></button>
+            <button class="bcp-btn" onclick="aaAssistantNavigate(()=>aaCockpitGo('properties'))"><span class="bcp-ico">&#127968;</span><b>Properties &amp; Stays</b></button>
+          </div>
+        </div>`:""}
 
         <div class="bcp-section">
           <div class="bcp-section-label">Marketplace</div>
@@ -27865,6 +27973,45 @@ html body #auto-arcade-widget :is(.btn,a.btn,.aa-upload-type-btn,.du1-camera-mai
 /* Remaining 44-46px text buttons: compact. */
 html body #auto-arcade-widget :is(.aa-page-guide,.aa-room-hero,.aa-market-head,.tabs) :is(.btn,a.btn):not(#bingo-flat-guard){min-height:34px!important;padding:7px 12px!important}
 html body #auto-arcade-widget :is(.du1-post-about-grid,.du1-purpose-grid) button:not(#bingo-flat-guard){min-height:34px!important;padding:6px 6px!important;font-size:11px!important;font-weight:700!important}
+
+/* ===== Bingo Cockpit: grouped destinations (flat neon) ===== */
+#auto-arcade-widget .aa-cockpit{max-width:1000px;margin:0 auto}
+#auto-arcade-widget .aa-cp-group{margin:16px 0 4px}
+#auto-arcade-widget .aa-cp-title{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#fcd34d;margin:0 2px 6px}
+#auto-arcade-widget .aa-cp-note{margin:-2px 2px 8px;font-size:11.5px;color:#9fb2c8}
+#auto-arcade-widget .aa-cp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+#auto-arcade-widget .aa-cp-grid-compact{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+html body #auto-arcade-widget .aa-cp-card:not(#bingo-flat-guard){display:flex;align-items:center;gap:9px;text-align:left;min-height:42px;padding:5px 10px!important;border-radius:10px!important;font-size:12.5px;font-weight:600}
+#auto-arcade-widget .aa-cp-cyan{--tab-light:#22c9ff;--tab-rgb:34,201,255}
+#auto-arcade-widget .aa-cp-pink{--tab-light:#fb50c7;--tab-rgb:251,80,199}
+#auto-arcade-widget .aa-cp-green{--tab-light:#47ed9b;--tab-rgb:71,237,155}
+#auto-arcade-widget .aa-cp-ico{flex:0 0 auto;font-size:18px;width:24px;text-align:center}
+#auto-arcade-widget .aa-cp-text{display:flex;flex-direction:column;min-width:0}
+#auto-arcade-widget .aa-cp-text b{font-size:12.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#auto-arcade-widget .aa-cp-text small{font-size:10.5px;color:#9fb2c8;font-weight:500;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#auto-arcade-widget .aa-cp-grid-compact .aa-cp-card{min-height:38px}
+@media(max-width:520px){#auto-arcade-widget .aa-cp-grid,#auto-arcade-widget .aa-cp-grid-compact{grid-template-columns:1fr 1fr}#auto-arcade-widget .aa-cp-card .aa-cp-ico{font-size:16px;width:20px}}
+/* owner workspace headers (Properties & Stays, My Food Orders) */
+#auto-arcade-widget .aa-owner-ws-head{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+#auto-arcade-widget .aa-owner-ws-head small{display:block;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#fcd34d}
+#auto-arcade-widget .aa-owner-ws-head h2{margin:2px 0 0}
+#auto-arcade-widget .aa-owner-ws-tabs{margin-bottom:12px}
+html body #auto-arcade-widget .aa-owner-ws-tabs .btn.is-active:not(#bingo-flat-guard),html body #auto-arcade-widget .aa-public-tabs .btn.is-active:not(#bingo-flat-guard){--tab-light:#22c9ff;--tab-rgb:34,201,255}
+#auto-arcade-widget .aa-cp-link{margin-left:auto}
+/* Food Business workspace: the business form rendered in the approved Food Menu layout */
+#auto-arcade-widget .aa-food-ws .bingo-food-menu-proto{min-height:0}
+#auto-arcade-widget .aa-food-ws-band h2{margin:2px 0 4px;letter-spacing:.06em}
+#auto-arcade-widget .aa-food-ws-kicker{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--bfp-gold,#ffc928)}
+#auto-arcade-widget .aa-food-ws .aa-food-form{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
+#auto-arcade-widget .aa-food-ws .aa-food-form>h3{display:none}
+#auto-arcade-widget .aa-food-ws .aa-food-section{background:linear-gradient(145deg,#081c30,#05121f)!important;border:1px solid #234663!important;border-radius:12px!important;padding:14px!important;margin:0 0 12px!important}
+#auto-arcade-widget .aa-food-ws .aa-food-section-title{color:var(--bfp-txt,#f7f9fd)!important;font-size:15px!important;font-weight:700;border:0!important;padding:0 0 8px!important;margin:0 0 8px!important;border-bottom:1px solid #1b3a55!important}
+#auto-arcade-widget .aa-food-ws .aa-food-section-done{float:right;color:var(--bfp-green,#47ed9b)!important;font-size:11px}
+#auto-arcade-widget .aa-food-ws .aa-food-field>span{color:var(--bfp-mut,#9fb2c8)!important;font-size:12px}
+#auto-arcade-widget .aa-food-ws .aa-v69-card{background:linear-gradient(145deg,#081c30,#05121f)!important;border:1px solid #234663!important;border-radius:12px!important}
+
+/* Food rail on phones: wrap instead of a hidden horizontal scroller */
+@media(max-width:820px){html body #auto-arcade-widget .bingo-food-menu-proto .bfp-aside:not(#bingo-flat-guard){flex-wrap:wrap!important;overflow:visible!important;gap:5px!important}html body #auto-arcade-widget .bingo-food-menu-proto .bfp-aside .bfp-nav:not(#bingo-flat-guard){width:auto!important;flex:1 1 30%!important;padding:7px 8px!important;font-size:12px!important;text-align:center}}
 </style>
 
 </body>
