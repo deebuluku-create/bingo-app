@@ -9159,7 +9159,47 @@ function aaPartCardHTML(p){
 function aaMarketHTML(){
  const type=state.marketListingType||"spare_parts",household=type==="household",rows=aaPartFiltered();
  const cats=household?["All","Furniture","Kitchen Appliances","Home Electronics","General Electronics","Home Decor","Bedding","Lighting","Small Appliances","Storage & Organization"]:["All","Engine & Drivetrain","Bodywork & Trim","Brakes & Suspension","Electrical & Lighting","Interior & Accessories"];
- return `<section class="aa-market-page"><div class="aa-market-head"><div><button class="btn" onclick="goBack()">← Back</button><h2 style="margin:10px 0 2px">Auto Market · ${household?"Household Items":"Spare Parts"}</h2><div class="notice">${household?"Search furniture, appliances, electronics, decor, lighting, bedding, storage and other home goods by location or seller.":"Search by vehicle compatibility, OEM/part number, location or store."}</div></div><button class="btn btn-red" onclick="aaOpenSparePost('${household?"household":"spare_parts"}')">＋ ${household?"Post Household Item":"Post Spare Part"}</button></div><div class="aa-market-type-tabs"><button class="btn ${!household?'active':''}" onclick="aaSetMarketType('spare_parts')">Spare Parts</button><button class="btn ${household?'active':''}" onclick="aaSetMarketType('household')">Household Items</button></div><div class="aa-market-filters"><input class="field" placeholder="${household?"Search household item, brand...":"Search part, make, model, OEM..."}" value="${esc(state.marketSearch||'')}" oninput="state.marketSearch=this.value"><select class="select" onchange="state.marketCategory=this.value;render()">${cats.map(x=>`<option ${x===state.marketCategory?'selected':''}>${esc(x)}</option>`).join('')}</select><select class="select" onchange="state.marketCounty=this.value;render()"><option>All Kenya</option>${kenyaCounties.map(x=>`<option ${x===state.marketCounty?'selected':''}>${esc(x)}</option>`).join('')}</select><input class="field" placeholder="Town / area" value="${esc(state.marketTown||'')}" oninput="state.marketTown=this.value"></div>${rows.length?`<div class="aa-market-grid">${rows.map(aaPartCardHTML).join('')}</div>`:`<div class="empty">No ${household?'household items':'spare parts'} match this search.</div>`}</section>`
+ return `<section class="aa-market-page"><div class="aa-market-head"><div><button class="btn" onclick="goBack()">← Back</button><h2 style="margin:10px 0 2px">Auto Market · ${household?"Household Items":"Spare Parts"}</h2><div class="notice">${household?"Search furniture, appliances, electronics, decor, lighting, bedding, storage and other home goods by location or seller.":"Search by vehicle compatibility, OEM/part number, location or store."}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="bingo-neon-action bingo-neon-action-cyan" onclick="aaOpenMarketCategoriesDrawer()"><span aria-hidden="true">▤</span> Categories</button><button class="btn btn-red" onclick="aaOpenSparePost('${household?"household":"spare_parts"}')">＋ ${household?"Post Household Item":"Post Spare Part"}</button></div></div><div class="aa-market-type-tabs"><button class="btn ${!household?'active':''}" onclick="aaSetMarketType('spare_parts')">Spare Parts</button><button class="btn ${household?'active':''}" onclick="aaSetMarketType('household')">Household Items</button></div><div class="aa-market-filters"><input class="field" placeholder="${household?"Search household item, brand...":"Search part, make, model, OEM..."}" value="${esc(state.marketSearch||'')}" oninput="state.marketSearch=this.value"><select class="select" onchange="state.marketCategory=this.value;render()">${cats.map(x=>`<option ${x===state.marketCategory?'selected':''}>${esc(x)}</option>`).join('')}</select><select class="select" onchange="state.marketCounty=this.value;render()"><option>All Kenya</option>${kenyaCounties.map(x=>`<option ${x===state.marketCounty?'selected':''}>${esc(x)}</option>`).join('')}</select><input class="field" placeholder="Town / area" value="${esc(state.marketTown||'')}" oninput="state.marketTown=this.value"></div>${rows.length?`<div class="aa-market-grid">${rows.map(aaPartCardHTML).join('')}</div>`:`<div class="empty">No ${household?'household items':'spare parts'} match this search.</div>`}</section>`
+}
+/* Marketplace > Categories management panel (Cockpit Navigation
+   Correction, 28 Sep 2026): the seven items are all real, existing
+   owner-management destinations, reused as-is - nothing here is a new
+   invented feature. Food Menu/Restaurant Orders don't have a standalone
+   route (both need a specific business first), so they route straight to
+   that business's menu when the owner has exactly one, and otherwise fall
+   back to My Business so they can pick - see aaCockpitOpenFoodManage. */
+function aaOpenMarketCategoriesDrawer(){state.marketCategoriesDrawerOpen=true;render()}
+function aaCloseMarketCategoriesDrawer(){state.marketCategoriesDrawerOpen=false;render()}
+function aaCockpitOpenFoodManage(mode){
+ aaCloseMarketCategoriesDrawer();
+ const mine=aaFoods().filter(x=>String(x.user_id||"")===String(state.user?.id||"")||x.local_owner);
+ if(mine.length===1){
+  aaOpenFoodMenu(mine[0].id);
+  if(mode==="orders"){state.foodOrdersOpenFor=String(mine[0].id);render()}
+  return;
+ }
+ aaOpenFood("mine");
+ if(!mine.length)toast("Create a food business first, then manage its menu and orders from My Business.");
+}
+function aaMarketCategoriesDrawerHTML(){
+ if(!state.marketCategoriesDrawerOpen)return "";
+ const items=[
+  {label:"Food Business",ico:"🍽",onclick:"aaCloseMarketCategoriesDrawer();aaOpenFood('mine')"},
+  {label:"Food Menu",ico:"📋",onclick:"aaCockpitOpenFoodManage('menu')"},
+  {label:"Restaurant Orders",ico:"🧾",onclick:"aaCockpitOpenFoodManage('orders')"},
+  {label:"Properties &amp; Stays",ico:"🏠",onclick:"aaCloseMarketCategoriesDrawer();aaOpenProperties('mine')"},
+  {label:"Vehicles &amp; Posts",ico:"🚗",onclick:"aaCloseMarketCategoriesDrawer();goAccount()"},
+  {label:"Jobs &amp; CVs",ico:"🧑‍💼",onclick:"aaCloseMarketCategoriesDrawer();openJobs('myjobs')"},
+  {label:"Promotions",ico:"⚡",onclick:"aaCloseMarketCategoriesDrawer();aaTriggerBannerBoost()"}
+ ];
+ return `<div class="overlay"><div class="modal aa-market-categories-modal">
+  <button class="close" onclick="aaCloseMarketCategoriesDrawer()">×</button>
+  <h2>Marketplace &gt; Categories</h2>
+  <p class="notice">Manage your own listings from here. Public browsing stays under Categories &amp; Search on the Cockpit.</p>
+  <div class="bcp-grid">
+   ${items.map(x=>`<button class="bcp-btn" onclick="${x.onclick}"><span class="bcp-ico">${x.ico}</span><b>${x.label}</b></button>`).join("")}
+  </div>
+ </div></div>`;
 }
 function aaSparePostHTML(){
  const household=(state.marketFormType||"spare_parts")==="household";
@@ -13744,48 +13784,47 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
       </div>
 
       <div class="bcp-body">
+        <!-- Cockpit Navigation Correction (28 Sep 2026): Marketplace stays a
+             single visible Browse Bingo button; management-category
+             shortcuts (Food Business/Menu/Orders, Properties & Stays,
+             Vehicles & Posts, Jobs & CVs, Promotions) now live behind a
+             "Categories" entry INSIDE the Marketplace (Auto Market) page
+             itself - see aaMarketCategoriesDrawerHTML() - not as a second
+             Cockpit section, so nothing is duplicated here. Categories &amp;
+             Search below is the separate, existing public-discovery grid
+             (bgcOpenGrid) and is untouched. -->
         <div class="bcp-section">
-          <div class="bcp-section-label">Main</div>
+          <div class="bcp-section-label">Browse Bingo</div>
           <div class="bcp-grid">
-            <button class="bcp-btn btn-blue ${state.view==="home"?"active":""}" onclick="aaAssistantNavigate(goHome)"><span class="bcp-ico">&#8962;</span><b>Home</b></button>
-            <button class="bcp-btn btn-glass ${state.view==="search"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenSearch('videos'))"><span class="bcp-ico">&#8981;</span><b>Search</b></button>
-            <!-- Post entry point removed from the Cockpit per the current
-                 posting-roadmap redesign - aaDU1OpenCreate/openPostVehicle
-                 and everything they lead to (POST ABOUT, all posting forms)
-                 are untouched and still fully reachable from within each
-                 module (Post Vehicle, Post Property, Post Food, etc.).
-                 Only this Cockpit shortcut is disconnected, deliberately,
-                 for now. -->
-            <button class="bcp-btn" onclick="aaAssistantNavigate(openInbox)"><span class="bcp-ico">&#128172;</span><b>Chats</b></button>
-            <button class="bcp-btn" onclick="aaAssistantNavigate(goHome)"><span class="bcp-ico">&#9638;</span><b>Feed</b></button>
-          </div>
-        </div>
-
-        <div class="bcp-section">
-          <div class="bcp-section-label">Marketplace</div>
-          <div class="bcp-grid">
-            <button class="bcp-btn ${state.view==="market"||state.view==="spare-add"||state.view==="spare-details"?"active":""}" onclick="aaAssistantCloseDrawer();if(typeof window.bgcOpenGrid==='function')window.bgcOpenGrid();else aaAssistantNavigate(aaOpenMarket);"><span class="bcp-ico">&#9638;</span><b>Categories</b></button>
-            <button class="bcp-btn" onclick="aaAssistantNavigate(aaTriggerBannerBoost)"><span class="bcp-ico">&#9889;</span><b>Boost Listing</b></button>
-            <button class="bcp-btn ${state.view==="jobs"?"active":""}" onclick="aaAssistantNavigate(()=>openJobs('jobs'))"><span class="bcp-ico">&#9635;</span><b>Jobs &amp; CV</b></button>
-            <button class="bcp-btn ${state.view==="properties"&&state.propertyTab!=="stays"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenProperties('browse'))"><span class="bcp-ico">&#9637;</span><b>Property</b></button>
-            <button class="bcp-btn ${state.view==="properties"&&state.propertyTab==="stays"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenProperties('stays'))"><span class="bcp-ico">&#127958;</span><b>Stays</b></button>
+            <button class="bcp-btn btn-blue ${state.view==="home"?"active":""}" onclick="aaAssistantNavigate(goHome)"><span class="bcp-ico">&#8962;</span><b>Home Feed</b></button>
+            <button class="bcp-btn btn-glass" onclick="aaAssistantCloseDrawer();if(typeof window.bgcOpenGrid==='function')window.bgcOpenGrid();else aaAssistantNavigate(()=>aaOpenSearch('videos'));"><span class="bcp-ico">&#8981;</span><b>Categories &amp; Search</b></button>
             <button class="bcp-btn ${state.view==="food"||state.view==="food-profile"||state.view==="food-menu"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenFood('browse'))"><span class="bcp-ico">&#127860;</span><b>Food</b></button>
+            <button class="bcp-btn ${state.view==="properties"&&state.propertyTab!=="stays"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenProperties('browse'))"><span class="bcp-ico">&#9637;</span><b>Properties</b></button>
+            <button class="bcp-btn ${state.view==="properties"&&state.propertyTab==="stays"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenProperties('stays'))"><span class="bcp-ico">&#127958;</span><b>Bingo Stays</b></button>
+            <button class="bcp-btn ${state.view==="market"||state.view==="spare-add"||state.view==="spare-details"?"active":""}" onclick="aaAssistantNavigate(aaOpenMarket)"><span class="bcp-ico">&#9638;</span><b>Marketplace</b></button>
+            <button class="bcp-btn ${state.view==="jobs"?"active":""}" onclick="aaAssistantNavigate(()=>openJobs('jobs'))"><span class="bcp-ico">&#9635;</span><b>Jobs</b></button>
+            <button class="bcp-btn ${state.view==="community-groups"?"active":""}" onclick="aaAssistantNavigate(aaOpenCommunityGroups)"><span class="bcp-ico">&#128101;</span><b>Community</b></button>
+            <button class="bcp-btn btn-purple ${state.view==="topics"?"active":""}" onclick="aaAssistantNavigate(aaOpenBingoTopicsFeed)"><span class="bcp-ico">&#9636;</span><b>Bingo Posts</b></button>
           </div>
         </div>
 
         <div class="bcp-section">
-          <div class="bcp-section-label">Media &amp; Community</div>
+          <div class="bcp-section-label">Create</div>
           <div class="bcp-grid">
-            <button class="bcp-btn btn-red" type="button" onclick="aaAssistantCloseDrawer();aa92OpenLiveStudio();"><span class="bcp-ico">&#9673;</span><b>Live Studio</b></button>
-            <button class="bcp-btn" onclick="aaAssistantNavigate(openInbox)"><span class="bcp-ico">&#9993;</span><b>Inbox</b>${aaUnreadMessageCount()?`<em class="bcp-badge">${aaUnreadMessageCount()}</em>`:""}</button>
-            <button class="bcp-btn btn-purple ${state.view==="topics"?"active":""}" onclick="aaAssistantNavigate(aaOpenBingoTopicsFeed)"><span class="bcp-ico">&#9636;</span><b>Public Wall</b><small style="display:block;font-weight:400;font-size:9px;opacity:.75">Posts and community discussion</small></button>
+            <button class="bcp-btn btn-publish" onclick="aaAssistantCloseDrawer();if(typeof window.aaDU1OpenCreate==='function')window.aaDU1OpenCreate();else openPostVehicle();"><span class="bcp-ico">&#10133;</span><b>New Post</b></button>
+            <button class="bcp-btn" onclick="aaAssistantNavigate(()=>aaOpenFood('post'))"><span class="bcp-ico">&#127860;</span><b>New Food Business</b></button>
+            <button class="bcp-btn" onclick="aaAssistantNavigate(()=>aaOpenProperties('post'))"><span class="bcp-ico">&#9637;</span><b>Post Property</b></button>
+            <button class="bcp-btn" onclick="aaAssistantNavigate(()=>aaStayGo('hub'))"><span class="bcp-ico">&#127958;</span><b>List a Bingo Stay</b></button>
+            <button class="bcp-btn btn-red" type="button" onclick="aaAssistantCloseDrawer();aa92OpenLiveStudio();"><span class="bcp-ico">&#9673;</span><b>Go Live</b></button>
           </div>
         </div>
 
         <div class="bcp-section">
           <div class="bcp-section-label">Account</div>
           <div class="bcp-grid">
-            <button class="bcp-btn ${state.view==="profile"||(state.view==="seller"&&aaIsOwnSeller(state.seller))?"active":""}" onclick="aaAssistantNavigate(goAccount)"><span class="bcp-ico">&#9673;</span><b>Profile</b></button>
+            <button class="bcp-btn ${state.view==="profile"||(state.view==="seller"&&aaIsOwnSeller(state.seller))?"active":""}" onclick="aaAssistantNavigate(goAccount)"><span class="bcp-ico">&#9673;</span><b>My Profile</b></button>
+            <button class="bcp-btn ${state.view==="food"&&state.foodTab==="orders"?"active":""}" onclick="aaAssistantNavigate(()=>{aaLoadFoodOrders().then(render);aaOpenFood('orders')})"><span class="bcp-ico">&#127859;</span><b>My Food Orders</b></button>
+            <button class="bcp-btn" onclick="aaAssistantNavigate(openInbox)"><span class="bcp-ico">&#9993;</span><b>Messages</b>${aaUnreadMessageCount()?`<em class="bcp-badge">${aaUnreadMessageCount()}</em>`:""}</button>
             <button class="bcp-btn ${state.view==="edit-profile"?"active":""}" onclick="aaAssistantNavigate(aaOpenEditProfile)"><span class="bcp-ico">&#9998;</span><b>Edit Profile</b></button>
             ${state.isLoggedIn?`<button class="bcp-btn bcp-btn-danger" onclick="aaAssistantCloseDrawer();logoutBingo();"><span class="bcp-ico">&#9211;</span><b>Log Out</b></button>`:`<button class="bcp-btn" onclick="aaAssistantNavigate(()=>openAuth('login'))"><span class="bcp-ico">&#8618;</span><b>Sign Up / Log In</b></button>`}
           </div>
@@ -13798,7 +13837,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
     </div>
   </nav>
  </div>`}
- ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.propertyMediaViewerOpen?aaPropertyMediaViewerHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.foodBasketOpen?aaFoodBasketHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.propertyMediaViewerOpen?aaPropertyMediaViewerHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.foodBasketOpen?aaFoodBasketHTML():""}${state.marketCategoriesDrawerOpen?aaMarketCategoriesDrawerHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   if(state.view==="inbox"&&!state.msgActiveConversationId)aaStartMsgAdTimer();else aaStopMsgAdTimer();
