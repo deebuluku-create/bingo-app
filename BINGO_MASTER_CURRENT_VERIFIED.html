@@ -19065,37 +19065,43 @@ function aaCallOverlayHTML(){
    conversation, right-hand details panel. Buttons keep Bingo's compact
    flat-neon treatment (the app-wide --tab-light/--tab-rgb bridge).
 
-   ---- Live database contract ----
-   public.messages - columns CONFIRMED on the live project (2026-09-28):
-     id, conversation_id, sender_id, message, deleted, created_at
-   (there is no recipient_id and no body column).
-   public.conversations / public.conversation_members - their columns
-   have NOT been inspected from here. Before Messenger reads or writes
-   them it asks PostgREST whether each column it would use exists: a
-   zero-row select of an unknown column fails with 42703, an existing
-   one returns [] whatever the RLS policy. Nothing is written until
-   every column it needs is confirmed; otherwise sending stops with the
-   exact reason (Messenger > Settings > Message sync). The member-id
-   column of conversation_members is taken from AA_MSG_DB.members.userCol
-   if set, else the first of userCandidates that exists.
-
-   A conversation row (and its two member rows) is created only when the
-   first message is sent, never just by opening a chat. RLS is not
-   relaxed or assumed: any refusal is surfaced as-is.
+   ---- Live database contract (reported by the project owner) ----
+   public.messages: id, conversation_id, sender_id, message, deleted,
+     created_at (no recipient_id / body). Client reads and inserts
+     {conversation_id, sender_id, message}.
+   public.conversation_members: conversation_id, user_id, archived,
+     blocked, joined_at. RLS: a client may INSERT only its own row and
+     SELECT only its own row - so the client can neither add the
+     recipient nor see who else is in a conversation.
+   Therefore conversations are created, and co-members read, ONLY through
+   two server functions (supabase/migrations/
+   20260928_bingo_messenger_direct_conversation_rpc_REVIEW_NOT_APPLIED.sql):
+     bingo_get_or_create_direct_conversation(p_other_user) - validates
+       caller + recipient, reuses or creates the pair's conversation and
+       adds BOTH members in one transaction;
+     bingo_my_conversation_members() - member rows of the caller's own
+       conversations only.
+   The client never inserts into conversations or conversation_members.
+   If those functions are not deployed, sending to a NEW contact stops
+   with that reason; existing conversations still load from the caller's
+   own member rows and their messages. Columns used are verified with a
+   zero-row select before first use.
 
    Per-member conversation state (read position, mute, archive, trash,
    starred messages) has no live column, so it stays on this device.
    ============================================================ */
 const AA_MSG_DB={
  messages:{table:"messages",cols:"id,conversation_id,sender_id,message,deleted,created_at"},
- conversations:{table:"conversations",idCol:"id"},
- members:{table:"conversation_members",convCol:"conversation_id",userCol:"",userCandidates:["user_id","member_id","profile_id"]}
+ members:{table:"conversation_members",convCol:"conversation_id",userCol:"user_id",cols:"conversation_id,user_id,archived,blocked,joined_at"},
+ rpcCreate:"bingo_get_or_create_direct_conversation",
+ rpcMembers:"bingo_my_conversation_members"
 };
+function aaMsgRpcMissing(e){return e&&(e.code==="PGRST202"||e.code==="42883"||/could not find the function|function .* does not exist/i.test(e.message||""))}
 const AA_MSG_LIVE_TABLE=AA_MSG_DB.messages.table;
 const AA_MSG_LIVE_COLS=AA_MSG_DB.messages.cols;
 const AA_MSG_MEDIA_BUCKET="message-media";
 var aaMsgLiveStatus="idle",aaMsgLiveError="";
-var aaMsgContract=null,aaMsgContractPromise=null;
+var aaMsgContract=null,aaMsgContractPromise=null,aaMsgMembersRpcMissing=false;
 function aaMsgIsUuid(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(v||""))}
 function aaMsgSetLiveError(e,context){
  aaMsgLiveStatus="error";
@@ -19116,15 +19122,11 @@ async function aaMsgResolveContract(){
  if(!sb)return {ok:false,problems:["Supabase is not available in this browser session"]};
  if(aaMsgContractPromise)return aaMsgContractPromise;
  aaMsgContractPromise=(async()=>{
-  const c={ok:false,problems:[],memberUserCol:""};
+  const c={ok:false,problems:[],memberUserCol:AA_MSG_DB.members.userCol};
   let transient=false;
   try{
    if(!await aaMsgProbeColumns(AA_MSG_DB.messages.table,AA_MSG_DB.messages.cols))c.problems.push(`messages is missing one of: ${AA_MSG_DB.messages.cols}`);
-   if(!await aaMsgProbeColumns(AA_MSG_DB.conversations.table,AA_MSG_DB.conversations.idCol))c.problems.push("conversations has no id column");
-   if(!await aaMsgProbeColumns(AA_MSG_DB.members.table,AA_MSG_DB.members.convCol))c.problems.push("conversation_members has no conversation_id column");
-   const candidates=AA_MSG_DB.members.userCol?[AA_MSG_DB.members.userCol]:AA_MSG_DB.members.userCandidates;
-   for(const col of candidates){if(await aaMsgProbeColumns(AA_MSG_DB.members.table,col)){c.memberUserCol=col;break}}
-   if(!c.memberUserCol)c.problems.push(`conversation_members has none of: ${candidates.join(", ")}`);
+   if(!await aaMsgProbeColumns(AA_MSG_DB.members.table,AA_MSG_DB.members.cols))c.problems.push(`conversation_members is missing one of: ${AA_MSG_DB.members.cols}`);
   }catch(e){c.problems.push(`${String(e?.message||e)}${e?.code?` (${e.code})`:""}`);transient=true}
   c.ok=!c.problems.length;
   if(!transient)aaMsgContract=c;
@@ -19169,7 +19171,7 @@ function aaMsgEnsureDirectConv(otherId,name,photo){
 }
 /* Attach a live conversation to the local list. participants = every
    member id we could see (member rows, else message senders). */
-function aaMsgAdoptLiveConversation(liveId,participants){
+function aaMsgAdoptLiveConversation(liveId,participants,liveBlocked){
  liveId=String(liveId);
  const me=aaMsgMyId();
  const others=[...new Set(participants.map(String))].filter(x=>x&&x!==me);
@@ -19178,13 +19180,14 @@ function aaMsgAdoptLiveConversation(liveId,participants){
  if(!conv&&others.length===1)conv=list.find(c=>c.type!=="group"&&!c.liveId&&(c.participantIds||[]).map(String).includes(others[0]));
  if(conv){
   conv.liveId=liveId;
+  conv.liveBlocked=!!liveBlocked;
   if(others.length>1){conv.type="group";conv.groupName=conv.groupName||"Group chat"}
   const merged=[...new Set([...(conv.participantIds||[]).map(String),me,...others])];
   if(merged.length!==(conv.participantIds||[]).length)conv.participantIds=merged;
   aaMsgSaveConversations(list);
   return conv.id;
  }
- const created={id:liveId,liveId,type:others.length>1?"group":"direct",groupName:others.length>1?"Group chat":"",createdAt:new Date().toISOString(),updatedAt:new Date(0).toISOString(),participantIds:[me,...others],participantNames:{},participantPhotos:{}};
+ const created={id:liveId,liveId,liveBlocked:!!liveBlocked,type:others.length>1?"group":"direct",groupName:others.length>1?"Group chat":"",createdAt:new Date().toISOString(),updatedAt:new Date(0).toISOString(),participantIds:[me,...others],participantNames:{},participantPhotos:{}};
  list.unshift(created);aaMsgSaveConversations(list);
  return created.id;
 }
@@ -19226,25 +19229,31 @@ async function aaMsgMyLiveConversationIds(contract){
 }
 /* Inbox: every live conversation this member belongs to, its visible
    members, and its latest messages. */
+/* Inbox: the caller's conversations with their members (server function;
+   falls back to the caller's own member rows + message senders if the
+   function is not deployed), then their latest messages. */
 async function aaMsgFetchConversationsFromSupabase(){
  if(!sb||!state.user?.id||!aaMsgIsUuid(aaMsgMyId()))return false;
  const contract=await aaMsgResolveContract();
  if(!contract.ok)return false;
- const me=aaMsgMyId(),M=AA_MSG_DB.members,U=contract.memberUserCol;
+ const me=aaMsgMyId();
  try{
-  const ids=await aaMsgMyLiveConversationIds(contract);
+  let memberRows=null;
+  const {data:mr,error:mrErr}=await sb.rpc(AA_MSG_DB.rpcMembers);
+  if(!mrErr)memberRows=mr||[];
+  else if(aaMsgRpcMissing(mrErr)){aaMsgMembersRpcMissing=true;console.warn("Bingo Messenger: bingo_my_conversation_members() is not deployed; naming conversations from message senders.")}
+  else throw mrErr;
+  const ids=memberRows?[...new Set(memberRows.map(r=>String(r.conversation_id)))]:await aaMsgMyLiveConversationIds(contract);
   let changed=false;
   if(ids.length){
-   const {data:members,error:mErr}=await sb.from(M.table).select(`${M.convCol},${U}`).in(M.convCol,ids);
-   if(mErr)console.warn("Bingo Messenger: other members' rows are not readable; naming conversations from message senders instead.",mErr.message);
    const {data:rows,error}=await sb.from(AA_MSG_LIVE_TABLE).select(AA_MSG_LIVE_COLS).in("conversation_id",ids).order("created_at",{ascending:false}).limit(500);
    if(error)throw error;
-   const byConv={};ids.forEach(id=>byConv[id]={members:[],rows:[]});
-   (members||[]).forEach(r=>{const k=String(r[M.convCol]);if(byConv[k])byConv[k].members.push(String(r[U]))});
+   const byConv={};ids.forEach(id=>byConv[id]={members:[],blocked:false,rows:[]});
+   (memberRows||[]).forEach(r=>{const k=String(r.conversation_id);if(byConv[k]){byConv[k].members.push(String(r.user_id));if(r.blocked)byConv[k].blocked=true}});
    (rows||[]).forEach(r=>{const k=String(r.conversation_id);if(byConv[k])byConv[k].rows.push(r)});
    Object.entries(byConv).forEach(([liveId,x])=>{
     const participants=x.members.length?x.members:x.rows.map(r=>String(r.sender_id));
-    const localId=aaMsgAdoptLiveConversation(liveId,participants);
+    const localId=aaMsgAdoptLiveConversation(liveId,participants,x.blocked);
     if(aaMsgMergeRows(localId,x.rows.reverse()))changed=true;
    });
    const baselineKey="aa_msg_live_baseline_"+me;
@@ -19274,38 +19283,22 @@ async function aaMsgSyncFromSupabase(conversationId){
 /* Find the live one-to-one conversation shared with this member, or
    create it (conversation row with a client-generated id, then this
    member's own row, then the other member's row). */
+/* The live conversation shared with this member: created or reused by the
+   server function, which adds BOTH members atomically. The client never
+   inserts member rows (RLS only allows its own row). */
 async function aaMsgEnsureLiveConversation(conv){
  if(conv.liveId)return conv.liveId;
  const contract=await aaMsgResolveContract();
  if(!contract.ok)throw new Error(aaMsgLiveError||contract.problems.join("; "));
- const me=aaMsgMyId(),other=aaMsgOtherParticipantId(conv),M=AA_MSG_DB.members,C=AA_MSG_DB.conversations,U=contract.memberUserCol;
+ const me=aaMsgMyId(),other=aaMsgOtherParticipantId(conv);
  if(!aaMsgIsUuid(me)||!aaMsgIsUuid(other))throw new Error("This member has no Bingo account id, so a live conversation cannot be created.");
- const mine=await aaMsgMyLiveConversationIds(contract);
- if(mine.length){
-  const {data:shared,error}=await sb.from(M.table).select(M.convCol).in(M.convCol,mine).eq(U,other);
-  if(error)throw error;
-  const candidates=(shared||[]).map(r=>String(r[M.convCol]));
-  if(candidates.length){
-   // prefer a two-member conversation over a group containing this member
-   const {data:counts}=await sb.from(M.table).select(`${M.convCol},${U}`).in(M.convCol,candidates);
-   const size=id=>(counts||[]).filter(r=>String(r[M.convCol])===id).length;
-   const liveId=candidates.find(id=>size(id)===2)||candidates[0];
-   aaMsgAttachLiveId(conv.id,liveId);
-   return liveId;
-  }
+ const {data,error}=await sb.rpc(AA_MSG_DB.rpcCreate,{p_other_user:other});
+ if(error){
+  if(aaMsgRpcMissing(error))throw Object.assign(new Error("Starting a new conversation needs the server function bingo_get_or_create_direct_conversation, which is not deployed yet"),{code:error.code});
+  throw Object.assign(new Error("Starting the conversation was refused: "+error.message),{code:error.code});
  }
- let liveId=(typeof crypto!=="undefined"&&crypto.randomUUID)?crypto.randomUUID():"";
- let {error:cErr}=liveId?await sb.from(C.table).insert({[C.idCol]:liveId}):{error:{code:"22P02"}};
- if(cErr&&(cErr.code==="22P02"||/invalid input syntax/i.test(cErr.message||""))){
-  // id is not a uuid column: let the database assign it
-  const res=await sb.from(C.table).insert({}).select(C.idCol).single();
-  cErr=res.error;liveId=res.data?String(res.data[C.idCol]):"";
- }
- if(cErr)throw Object.assign(new Error("Creating the conversation was refused: "+cErr.message),{code:cErr.code});
- const {error:m1}=await sb.from(M.table).insert({[M.convCol]:liveId,[U]:me});
- if(m1)throw Object.assign(new Error("Adding you to the new conversation was refused: "+m1.message),{code:m1.code});
- const {error:m2}=await sb.from(M.table).insert({[M.convCol]:liveId,[U]:other});
- if(m2)throw Object.assign(new Error("Adding the other member to the new conversation was refused: "+m2.message),{code:m2.code});
+ const liveId=String(data||"");
+ if(!aaMsgIsUuid(liveId))throw new Error("The server did not return a conversation id.");
  aaMsgAttachLiveId(conv.id,liveId);
  aaMsgLiveSubscribe();
  return liveId;
@@ -19503,7 +19496,7 @@ function aaMsgCanSendTo(conversationId){
  const conv=aaMsgConversations().find(c=>c.id===conversationId);
  if(!conv){toast("Conversation not found.");return null}
  const otherId=aaMsgOtherParticipantId(conv);
- if(otherId&&aaMsgIsBlockedBy(otherId)){toast("You cannot send messages in this conversation.");return null}
+ if((otherId&&aaMsgIsBlockedBy(otherId))||conv.liveBlocked){toast("You cannot send messages in this conversation.");return null}
  return conv;
 }
 async function aaMsgSend(conversationId){
@@ -19844,7 +19837,7 @@ function aaMsgSettingsPaneHTML(){
    return `<div class="bm-conv-row is-static">${aaMsgThreadAvatarHTML(String(b.blockedId),name,"sm")}<span class="bm-conv-copy"><span class="bm-conv-name">${esc(name)}</span></span><button type="button" class="bm-chip-btn" onclick="aaMsgUnblockUser('${esc(String(b.blockedId))}')">Unblock</button></div>`;
   }).join("")}
   <h4>Message sync</h4>
-  <div class="bm-settings-note">${status}${aaMsgContract?.ok?`<br>Live tables: messages, conversations, conversation_members (member column: ${esc(aaMsgContract.memberUserCol)})`:""}<br>Read position, mute, archive, trash and starred messages are kept on this device.</div>
+  <div class="bm-settings-note">${status}${aaMsgContract?.ok?`<br>Live tables: messages, conversation_members${aaMsgMembersRpcMissing?" - member lookup function not deployed, names come from message senders":""}`:""}<br>Read position, mute, archive, trash and starred messages are kept on this device.</div>
  </div>`;
 }
 function aaBmListColumnHTML(tab){
@@ -19966,7 +19959,7 @@ function aaMsgConversationPaneHTML(conv){
  const meta=otherId?aaResolveMemberMeta(otherId,aaMsgOtherParticipantName(conv)):null;
  const name=aaMsgConversationDisplayName(conv);
  const online=otherId?aaVendorOnline({id:otherId}):false;
- const blocked=otherId?aaMsgIsBlockedBy(otherId):false;
+ const blocked=(otherId?aaMsgIsBlockedBy(otherId):false)||!!conv.liveBlocked;
  const msgsAll=(aaMsgAllMessages()[id]||[]).filter(m=>!aaMsgIsDeletedForMe(m.id));
  const q=String(state.msgThreadSearch||"").trim().toLowerCase();
  const hits=q?msgsAll.filter(m=>String(m.body||"").toLowerCase().includes(q)).length:0;
