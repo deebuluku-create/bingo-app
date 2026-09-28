@@ -11691,7 +11691,7 @@ function aaProfileFoodCardHTML(f){
   </div>
   <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:10px">
    <button class="btn btn-publish" type="button" onclick='event.stopPropagation();${openCall}'>View Restaurant</button>
-   <button class="btn btn-glass" type="button" onclick='event.stopPropagation();state.shareTarget={id:${JSON.stringify(String(f.id))},title:${JSON.stringify(f.business_name||"")}};render()'>Share</button>
+   <button class="btn btn-glass" type="button" onclick='event.stopPropagation();state.shareTarget={id:${esc(JSON.stringify(String(f.id)))},title:${esc(JSON.stringify(f.business_name||""))}};render()'>Share</button>
    <button class="btn ${isFav(f.id)?"btn-gold fav-on":"btn-glass"}" type="button" onclick='event.stopPropagation();toggleFav(${JSON.stringify(String(f.id))})'>${isFav(f.id)?"★ Saved":"☆ Save"}</button>
    ${own?`<button class="btn btn-glass" type="button" onclick="event.stopPropagation();aaEditFoodBusiness('${esc(f.id)}')">✎ Edit</button><button class="btn btn-danger" type="button" onclick="event.stopPropagation();aaDeleteFoodBusiness('${esc(f.id)}')">Delete</button>`:""}
   </div>
@@ -13385,7 +13385,7 @@ function aaFoodBusinessProfileHTML(){
      <button class="btn bingo-neon-action bingo-neon-action-gold" onclick="aaOpenFoodMenu('${esc(f.id)}')">🛒 Order Now</button>
      ${own?'':`${phone?`<a class="btn bingo-neon-action bingo-neon-action-cyan" href="tel:${esc(phone)}">☎ Call</a>`:''}${wa?`<button class="btn bingo-neon-action bingo-neon-action-green" onclick="window.open('https://wa.me/${esc(wa)}','_blank')">WhatsApp</button>`:''}<button class="btn bingo-neon-action bingo-neon-action-purple" onclick="if(!aaRequireMember({action:'message',targetId:'${esc(f.id)}'}))return;aaMsgOpenConversationWith('${esc(f.user_id||'')}','${esc((f.business_name||'Bingo Member').replace(/'/g,"\\'"))}','')">💬 Chat</button>`}
      <button class="btn bingo-neon-action bingo-neon-action-cyan" onclick="window.open('${esc(directionsUrl)}','_blank')">📍 Directions</button>
-     <button class="btn btn-glass" onclick="state.shareTarget={id:'${esc(f.id)}',title:${JSON.stringify(f.business_name||'')}};render()">↗ Share</button>
+     <button class="btn btn-glass" onclick="state.shareTarget={id:${esc(JSON.stringify(String(f.id)))},title:${esc(JSON.stringify(f.business_name||''))}};render()">↗ Share</button>
      <button class="btn ${isFav(f.id)?'btn-gold fav-on':'btn-glass'}" onclick='toggleFav(${JSON.stringify(String(f.id))})'>${isFav(f.id)?'★ Saved':'☆ Save'}</button>
     </div>
    </div>
@@ -13581,9 +13581,9 @@ function aaMixedFeedCardHTML(c,i){
  const sellerMeta=c.feed_sellerMeta||{};
  const sellerUnavailable=!!sellerMeta.unavailable;
  const sellerBlock=`<div class="aa360-seller-wrap"><button type="button" class="aa360-seller" ${sellerUnavailable?'disabled':`onclick='event.stopPropagation();openSeller(${JSON.stringify(c.feed_sellerId||"")})'`}><img src="${bingoSafeMediaAttr(aaProfilePhoto(c.feed_sellerPhoto))}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.feed_seller)}</b>${!sellerUnavailable?aaListingSellerRating({sellerId:c.feed_sellerId}):''}${aaFollowStatsHTML(c.feed_sellerId)}<small>${esc(c.feed_location)}</small></span></button></div>`;
- const callBtn=(c.kind==='food')?`<button class="bingo-neon-action bingo-neon-action-cyan" onclick='event.stopPropagation();location.href="tel:${esc(c.source?.phone||"")}"'>☎ Call Delivery</button>`:(sellerMeta.showPhone!==false?`<button class="bingo-neon-action bingo-neon-action-cyan" onclick='event.stopPropagation();${openDetailCall||`state.selected=${JSON.stringify(c.source||{})};callSeller(state.selected)`}'>☎ Call</button>`:'');
+ const callBtn=(c.kind==='food')?`<button class="bingo-neon-action bingo-neon-action-cyan" onclick='event.stopPropagation();location.href="tel:${esc(c.source?.phone||"")}"'>☎ Call Delivery</button>`:(sellerMeta.showPhone!==false?`<button class="bingo-neon-action bingo-neon-action-cyan" onclick='event.stopPropagation();${esc(openDetailCall||`state.selected=${JSON.stringify(c.source||{})};callSeller(state.selected)`)}'>☎ Call</button>`:'');
  const waBtn=`<button class="bingo-neon-action bingo-neon-action-green" onclick='event.stopPropagation();${c.kind==='food'?`window.open("https://wa.me/${esc(String(c.source?.whatsapp||c.source?.phone||'').replace(/\D/g,''))}","_blank")`:`state.selected=${JSON.stringify(c.source||{})};contact("whatsapp",state.selected)`}'>WhatsApp</button>`;
- const viewBtn=openDetailCall?`<button class="bingo-neon-action bingo-neon-action-gold" onclick='event.stopPropagation();${openDetailCall}'>${c.kind==='property'?'View Property':'View Business'}</button>`:'';
+ const viewBtn=openDetailCall?`<button class="bingo-neon-action bingo-neon-action-gold" onclick='event.stopPropagation();${esc(openDetailCall)}'>${c.kind==='property'?'View Property':'View Business'}</button>`:'';
  const isOwnListing=state.isLoggedIn&&String(c.feed_sellerId||"")===String(state.user?.id||"");
  const chatBtn=isOwnListing?'':`<button class="bingo-neon-action bingo-neon-action-purple" onclick='event.stopPropagation();aaMsgOpenConversationWith(${JSON.stringify(String(c.feed_sellerId||""))},${JSON.stringify(String(c.feed_seller||""))},${JSON.stringify(String(c.feed_sellerPhoto||""))})'>💬 Chat</button>`;
  const actions=`${viewBtn}${callBtn}${waBtn}${chatBtn}`;
