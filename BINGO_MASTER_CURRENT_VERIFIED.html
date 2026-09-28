@@ -793,6 +793,13 @@ Production mother file does not force production.
 *{box-sizing:border-box}#auto-arcade-widget{scroll-behavior:smooth}
 #auto-arcade-widget{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif;min-height:0;width:100%;position:relative;isolation:isolate;overflow:visible}
 #auto-arcade-widget button,#auto-arcade-widget input,#auto-arcade-widget select,#auto-arcade-widget textarea{font:inherit}#auto-arcade-widget button{cursor:pointer}
+/* Compact control sizes. "font:inherit" above (id specificity) made every
+   button inherit the 16px body text, overriding .btn's own 12px - the cause
+   of the large bold buttons. These defaults restore compact labels; any
+   component rule declared later with the same or higher specificity wins. */
+#auto-arcade-widget button{font-size:13px;font-weight:700;line-height:1.2}
+#auto-arcade-widget .btn,#auto-arcade-widget a.btn{font-size:12.5px;font-weight:700;padding:7px 12px;min-height:34px;line-height:1.2}
+#auto-arcade-widget .small-btn{font-size:11.5px;font-weight:700;padding:5px 10px;min-height:28px}
 #auto-arcade-widget button{touch-action:manipulation;-webkit-tap-highlight-color:transparent;min-width:0}#auto-arcade-widget button[data-aa-otp-send],#auto-arcade-widget button[data-aa-otp-verify]{pointer-events:auto;position:relative;z-index:2}#auto-arcade-widget .btn,#auto-arcade-widget .small-btn,#auto-arcade-widget .nav-btn{user-select:none;-webkit-user-select:none}#auto-arcade-widget .aa-gold-qualified{position:relative;border:2px solid #f5b91e;box-shadow:0 0 0 1px rgba(245,185,30,.28),0 0 16px rgba(245,185,30,.22);overflow:visible}
 [x-cloak]{display:none!important}
 #auto-arcade-widget a{text-decoration:none;color:inherit}
@@ -14427,7 +14434,7 @@ function aaBpTileHTML(it,own){
   :`<span class="bp-tile-empty">${esc(it.title)}</span>`;
  return `<div class="bp-tile" role="listitem">
   <button type="button" class="bp-tile-open" onclick='${it.open}' aria-label="Open ${esc(label)}: ${esc(it.title)}">${media}${it.video?`<span class="bp-tile-play" aria-hidden="true">▶</span>`:""}<span class="bp-tile-kind">${label}</span></button>
-  ${own&&it.kind==="vehicle"?`<button type="button" class="bp-tile-x" aria-label="Delete ${esc(it.title)}" title="Delete post" onclick='aaSoftDeleteListing(${JSON.stringify(it.id)})'>×</button><button type="button" class="bp-tile-boost" onclick='openContentBoost(state.listings.find(x=>String(x.id)===${JSON.stringify(it.id)}),"vehicle")'>Boost</button>`:""}
+  ${own&&it.kind==="vehicle"?`<button type="button" class="bp-neon bp-red bp-tile-x" aria-label="Delete ${esc(it.title)}" title="Delete post" onclick='aaSoftDeleteListing(${JSON.stringify(it.id)})'>×</button><button type="button" class="bp-neon bp-micro bp-tile-boost" onclick='openContentBoost(state.listings.find(x=>String(x.id)===${JSON.stringify(it.id)}),"vehicle")'>Boost</button>`:""}
  </div>`;
 }
 function aaBpTab(){return ["posts","reels","tagged","saved","liked"].includes(state.profileTab3)?state.profileTab3:"posts"}
@@ -14509,18 +14516,24 @@ async function aaBpShare(platform){
 function aaBpMenuHTML(){
  if(!state.isLoggedIn)return "";
  const me=aaResolveMemberMeta(String(state.user?.id||""),"");
- return `<aside class="bp-menu" aria-label="Account menu">
-  <div class="bp-menu-head"><button type="button" class="bp-icon" onclick="state.profileMenuOpen=false;render()" aria-label="Close menu">×</button></div>
-  <button type="button" class="bp-menu-me" onclick="goAccount()"><img src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(aaMemberDisplayName(me))}</b>${state.user?.username?`<small>@${esc(state.user.username)}</small>`:""}</span></button>
-  <nav class="bp-menu-list">${aaBpMenuEntries().map(e=>e.na
-   ?`<div class="bp-menu-item is-na" aria-disabled="true" title="${esc(e.na)}"><span class="bp-menu-ico">${e.icon}</span><span class="bp-menu-label">${esc(e.label)}</span><small>Not available yet</small></div>`
-   :`<button type="button" class="bp-menu-item${e.cls?" "+e.cls:""}" onclick="state.profileMenuOpen=false;${esc(e.run)}"><span class="bp-menu-ico">${e.icon}</span><span class="bp-menu-label">${esc(e.label)}</span>${e.badge?`<span class="bp-menu-badge">${e.badge>99?"99+":e.badge}</span>`:e.note?`<small>${esc(e.note)}</small>`:""}</button>`).join("")}
-   <button type="button" class="bp-menu-item is-logout" onclick="state.profileMenuOpen=false;logoutBingo()"><span class="bp-menu-ico">⏻</span><span class="bp-menu-label">Log Out</span></button>
+ const tones=["","bp-cyan","bp-pink","bp-green"];
+ return `<aside class="bp-side" aria-label="Account menu">
+  <div class="bp-sidehead"><img src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" alt="" onerror="aaProfileImgFallback(this)"><div><strong>${esc(aaMemberDisplayName(me))}</strong><br><small>View your profile</small></div><button type="button" class="bp-neon bp-micro bp-close" onclick="state.profileMenuOpen=false;render()" aria-label="Close menu">✕</button></div>
+  <nav>${aaBpMenuEntries().map((e,i)=>e.na
+   ?`<div class="bp-na" aria-disabled="true" title="${esc(e.na)}"><b>${e.icon}</b>${esc(e.label)}<small>Not available yet</small></div>`
+   :`<button type="button" class="bp-neon bp-micro ${tones[i%4]}" onclick="state.profileMenuOpen=false;${esc(e.run)}"><b>${e.icon}</b>${esc(e.label)}${e.badge?`<span class="bp-menu-badge">${e.badge>99?"99+":e.badge}</span>`:e.note?`<small>${esc(e.note)}</small>`:"<i>›</i>"}</button>`).join("")}
+   <button type="button" class="bp-neon bp-micro bp-red" onclick="state.profileMenuOpen=false;logoutBingo()"><b>⇥</b>Log Out<i>›</i></button>
   </nav>
-  <div class="bp-share"><b>Quick Share Profile</b><div class="bp-share-row">
-   ${[["whatsapp","WhatsApp","🟢"],["tiktok","TikTok","♪"],["instagram","Instagram","◎"],["facebook","Facebook","f"],["copy","Copy link","⧉"]].map(([k,l,i])=>`<button type="button" class="bp-share-btn" onclick="aaBpShare('${k}')" aria-label="Share on ${l}" title="${l}">${i}</button>`).join("")}
-  </div></div>
+  <div class="bp-share"><p>♧ Quick Share Profile</p>
+   ${[["whatsapp","WhatsApp","bp-green"],["tiktok","TikTok","bp-pink"],["instagram","Instagram","bp-pink"],["facebook","Facebook","bp-cyan"],["copy","Copy link","bp-cyan"]].map(([k,l,c])=>`<button type="button" class="bp-neon bp-micro ${c}" onclick="aaBpShare('${k}')">${l}</button>`).join("")}
+  </div>
+  <div class="bp-sidefoot">“Good People, Good Energy” ♡</div>
  </aside>`;
+}
+function aaBpSubtitle(own,s,items){
+ const kinds=[...new Set(items.map(it=>({vehicle:"Vehicles",property:"Property",food:"Food"})[it.kind]))];
+ const role=s.gold?"Gold member":(kinds.length?"Seller":"Bingo member");
+ return [role,...kinds].slice(0,3).join(" · ");
 }
 function aaProfileDestyHTML(s,cars,sellerKey){
  const own=aaIsOwnSeller(s);
@@ -14544,8 +14557,8 @@ function aaProfileDestyHTML(s,cars,sellerKey){
  const phoneHidden=s.showPhone===false;
  const sJson=JSON.stringify(s).replace(/'/g,"&#39;");
  const nameJs=JSON.stringify(String(s.name||"this member"));
- const subtitle=own?"Your profile · posts, followers and account tools":`${s.gold?"Gold member":"Bingo member"}${s.location?" · "+s.location:""}`;
- const contactBtn=(ic,label,onclick,disabled,title)=>`<button type="button" class="bp-contact" ${disabled?"disabled":""} onclick='${onclick}' title="${esc(title||label)}"><span class="bp-contact-ico">${ic}</span><span>${label}</span></button>`;
+ const subtitle=aaBpSubtitle(own,s,items);
+ const circle=(ic,label,cls,onclick,disabled,title)=>`<div><button type="button" class="bp-neon ${cls}" ${disabled?"disabled":""} onclick='${onclick}' aria-label="${esc(label)}" title="${esc(title||label)}">${ic}</button><small>${esc(label)}</small></div>`;
  const H=own?[
   {key:"new",label:"New",ring:"gold",icon:"+",run:"aaTogglePostToday()"},
   {key:"friends",label:"Friends",ring:"purple",icon:"👥"},{key:"saved",label:"Saved",ring:"white",icon:"☆"},
@@ -14555,68 +14568,75 @@ function aaProfileDestyHTML(s,cars,sellerKey){
   {key:"share",label:"Share",ring:"teal",icon:"↗"},{key:"block",label:blocked&&reqState==="blocked_by_me"?"Blocked":"Block",ring:"red",icon:"🚫"}];
  const tab=aaBpTab();
  const TABS=[["posts","▦","Posts"],["reels","▶","Reels"],["tagged","＠","Tagged"],["saved","☆","Saved"],["liked","♡","Liked"]];
+ const tabTone={posts:"",reels:"bp-cyan",tagged:"bp-pink",saved:"",liked:"bp-pink"};
+ const hl=h=>`<button type="button" class="bp-hl bp-ring-${h.ring}" onclick="${h.run?h.run:`aaProfileDestyBadgeClick('${h.key}',${esc(JSON.stringify(sellerKey))},${esc(nameJs)})`}"><span class="bp-orb">${h.icon}</span>${esc(h.label)}</button>`;
+ const Hs=own?[...H.slice(1),H[0]]:H;
  return `<section class="bp-page${state.profileMenuOpen?" is-menu-open":""}${state.isLoggedIn?" has-menu":""}">
  <div class="bp-layout">
- <div class="bp-main">
-  <header class="bp-topbar">
-   <button type="button" class="bp-icon" onclick="goBack()" aria-label="Back">←</button>
-   <div class="bp-topbar-title"><h1>${esc(s.name||"Bingo Profile")}${crown}</h1><p>${esc(subtitle)}</p></div>
-   <button type="button" class="bp-icon" onclick="aaOpenSearch()" aria-label="Search">🔍</button>
-   ${state.isLoggedIn?`<button type="button" class="bp-icon bp-more" onclick="state.profileMenuOpen=!state.profileMenuOpen;render()" aria-label="Open menu" aria-expanded="${!!state.profileMenuOpen}">•••</button>`:""}
+ <main class="bp-main">
+  <header class="bp-top">
+   <button type="button" class="bp-neon bp-round" onclick="goBack()" aria-label="Back">❮</button>
+   <div class="bp-heading"><strong>${esc(s.name||"Bingo Profile")}${crown}</strong><small>${esc(subtitle)}</small></div>
+   <div class="bp-top-actions">
+    <button type="button" class="bp-neon bp-round bp-cyan bp-search" onclick="aaOpenSearch()" aria-label="Search">⌕</button>
+    ${state.isLoggedIn?`<button type="button" class="bp-neon bp-round bp-more" onclick="state.profileMenuOpen=!state.profileMenuOpen;render()" aria-label="Open profile menu" aria-expanded="${!!state.profileMenuOpen}">•••</button>`:""}
+   </div>
   </header>
   <div class="bp-cover" role="img" aria-label="Profile cover">
-   <div class="bp-cover-art" aria-hidden="true"></div>
-   <div class="bp-cover-text"><span class="bp-cover-kicker">See listings · Boost adverts</span><strong>Good People, Good Energy</strong><span class="bp-cover-sub">CREATE · INSPIRE · CONNECT</span></div>
-   <div class="bp-avatar-wrap">
-    <span class="bp-avatar-ring" aria-hidden="true"></span>
-    <img class="bp-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||"Bingo member")}" onerror="aaProfileImgFallback(this)">
-    ${online?`<span class="bp-online" title="Online"></span>`:""}
+   <div class="bp-cover-words">Good People<br>Good Energy <span>♡</span></div>
+   <div class="bp-cover-tags" aria-hidden="true"><span>CREATE</span><span>INSPIRE</span><span>CONNECT</span></div>
+  </div>
+  <section class="bp-identity">
+   <div class="bp-identity-top">
+    <div class="bp-avatar">${crown}<img src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||"Bingo member")}" onerror="aaProfileImgFallback(this)">${online?`<span class="bp-online" title="Online"></span>`:""}</div>
+    <div class="bp-stats">
+     <button type="button" class="bp-stat" onclick="aaBpSetTab('posts');aaBpScrollToTabs()"><strong>${aaCompact(items.length)}</strong><span>Posts</span></button>
+     <button type="button" class="bp-stat" onclick="aaProfileDrawerOpen('friends')"><strong>${aaCompact(st.followers)}</strong><span>Followers</span></button>
+     <button type="button" class="bp-stat" onclick="aaProfileDrawerOpen('friends')"><strong>${aaCompact(st.following)}</strong><span>Following</span></button>
+    </div>
    </div>
-  </div>
-  <div class="bp-identity">
-   <h2>${esc(s.name||"Bingo Member")}${crown}</h2>
-   <div class="bp-meta">${username?`<span>@${esc(username)}</span>`:""}${s.location?`<span>📍 ${esc(s.location)}</span>`:own?`<span class="bp-muted">📍 Add your location</span>`:""}${aaMemberSinceHTML(s)?`<span>${aaMemberSinceHTML(s).replace(/<[^>]+>/g,"")}</span>`:""}</div>
-   <p class="bp-bio${s.bio&&s.bio!=="Bingo member."?"":" bp-muted"}">${s.bio&&s.bio!=="Bingo member."?esc(s.bio):own?"Add a short bio so buyers know who you are.":"This member has not written a bio yet."}</p>
-   <button type="button" class="bp-rating" onclick="aaProfileDrawerOpen('reviews')"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b>${avg}</b> <span>(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></button>
-  </div>
-  <div class="bp-statsrow">
-   <div class="bp-stats">
-    <button type="button" onclick="aaBpSetTab('posts');aaBpScrollToTabs()"><b>${aaCompact(items.length)}</b><span>Posts</span></button>
-    <button type="button" onclick="aaProfileDrawerOpen('friends')"><b>${aaCompact(st.followers)}</b><span>Followers</span></button>
-    <button type="button" onclick="aaProfileDrawerOpen('friends')"><b>${aaCompact(st.following)}</b><span>Following</span></button>
+   <div class="bp-details">
+    <div>
+     <h1 class="bp-name">${esc(s.name||"Bingo Member")}${crown}</h1>
+     ${s.location?`<p>📍 ${esc(s.location)}</p>`:own?`<p class="bp-muted">📍 Add your location</p>`:""}
+     ${username?`<p>＠ ${esc(username)}</p>`:""}
+     ${aaMemberSinceHTML(s)?`<p class="bp-muted">${aaMemberSinceHTML(s).replace(/<[^>]+>/g,"")}</p>`:""}
+     <p class="bp-bio${s.bio&&s.bio!=="Bingo member."?"":" bp-muted"}">${s.bio&&s.bio!=="Bingo member."?`“${esc(s.bio)}”`:own?"Add a short bio so buyers know who you are.":"This member has not written a bio yet."}</p>
+     <button type="button" class="bp-neon bp-micro bp-rating" onclick="aaProfileDrawerOpen('reviews')"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> ${avg} (${rs.ratings})</button>
+    </div>
+    ${own?"":`<div class="bp-contact">
+     ${circle("☎","Call","bp-cyan",`callSeller(${sJson})`,blocked||phoneHidden,blocked?"Blocked":phoneHidden?"This member does not share a phone number":"Call")}
+     ${circle("💬","Chat","bp-pink",`contact("chat",${sJson})`,blocked,blocked?"Blocked":"Chat")}
+     ${circle("◉","WhatsApp","bp-green",`contact("whatsapp",${sJson})`,blocked||phoneHidden,blocked?"Blocked":phoneHidden?"This member does not share a phone number":"WhatsApp")}
+     ${circle(following?"✓":"♙＋",following?"Following":"Follow","",`aaToggleFollowSeller(${JSON.stringify(sellerKey)},${nameJs})`,blocked,following?"Unfollow":"Follow")}
+    </div>`}
    </div>
-   ${own?"":`<div class="bp-contacts">
-    ${contactBtn("📞","Call",`callSeller(${sJson})`,blocked||phoneHidden,blocked?"Blocked":phoneHidden?"This member does not share a phone number":"Call")}
-    ${contactBtn("💬","Chat",`contact("chat",${sJson})`,blocked,blocked?"Blocked":"Chat")}
-    ${contactBtn("🟢","WhatsApp",`contact("whatsapp",${sJson})`,blocked||phoneHidden,blocked?"Blocked":phoneHidden?"This member does not share a phone number":"WhatsApp")}
-    ${contactBtn(following?"✓":"＋",following?"Following":"Follow",`aaToggleFollowSeller(${JSON.stringify(sellerKey)},${nameJs})`,blocked,following?"Unfollow":"Follow")}
-   </div>`}
-  </div>
-  ${own?`<div class="bp-owner-actions">
-   <button type="button" class="bp-btn" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">✎ Edit Profile</button>
-   <button type="button" class="bp-btn" onclick="aaProfileDrawerOpen('promote')">📣 Promotions</button>
-   <button type="button" class="bp-btn" onclick="aaProfileDrawerOpen('analytics')">📊 Insights</button>
-  </div>`:""}
-  ${own&&(aaIsAgentRole()||typeof aaCanUseAgentDashboard==="function"&&aaCanUseAgentDashboard())?`<div class="aa-desty-agentbar">${aaAgentProfilePanelHTML()}</div>`:""}
-  <div class="bp-highlights" role="list">${H.map(h=>`<button type="button" class="bp-hl bp-ring-${h.ring}" role="listitem" onclick="${h.run?h.run:`aaProfileDestyBadgeClick('${h.key}',${esc(JSON.stringify(sellerKey))},${esc(nameJs)})`}"><span class="bp-hl-circle">${h.icon}</span><span class="bp-hl-label">${esc(h.label)}</span></button>`).join("")}</div>
-  ${own&&state.postTodayOpen?`<div class="aa-post-today-menu bp-post-menu">${AA_POST_TODAY_OPTIONS.map(o=>`<button type="button" onclick="aaPostTodayRoute('${o.key}')">${esc(o.label)}</button>`).join("")}</div>`:""}
-  ${own&&state.postTodayTopicOpen?aaBingoTopicComposerHTML():""}
-  <div class="bp-quote">“All Kenyans, One Market.” <span aria-hidden="true">♡</span></div>
-  <nav class="bp-tabs" id="bpTabs" aria-label="Profile content">${TABS.map(([k,i,l])=>`<button type="button" class="bp-tab${tab===k?" is-active":""}" onclick="aaBpSetTab('${k}')" aria-pressed="${tab===k}"><span aria-hidden="true">${i}</span> ${l}</button>`).join("")}</nav>
+   ${own?`<div class="bp-owner-actions">
+    <button type="button" class="bp-neon" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">✎ Edit Profile</button>
+    <button type="button" class="bp-neon" onclick="aaProfileDrawerOpen('promote')">📣 Promotions</button>
+    <button type="button" class="bp-neon" onclick="aaProfileDrawerOpen('analytics')">▥ Insights</button>
+   </div>`:""}
+   ${own&&(aaIsAgentRole()||typeof aaCanUseAgentDashboard==="function"&&aaCanUseAgentDashboard())?`<div class="aa-desty-agentbar">${aaAgentProfilePanelHTML()}</div>`:""}
+   <div class="bp-highlights">${Hs.map(hl).join("")}</div>
+   ${own&&state.postTodayOpen?`<div class="aa-post-today-menu bp-post-menu">${AA_POST_TODAY_OPTIONS.map(o=>`<button type="button" onclick="aaPostTodayRoute('${o.key}')">${esc(o.label)}</button>`).join("")}</div>`:""}
+   ${own&&state.postTodayTopicOpen?aaBingoTopicComposerHTML():""}
+   <div class="bp-quote"><b>♛</b>Be your own kind of beautiful ♡</div>
+  </section>
+  <div class="bp-tabs" id="bpTabs" role="tablist" aria-label="Profile content">${TABS.map(([k,i,l])=>`<button type="button" class="bp-neon bp-micro ${tabTone[k]}${tab===k?" is-active":""}" role="tab" aria-selected="${tab===k}" onclick="aaBpSetTab('${k}')">${i} ${l}</button>`).join("")}</div>
   <div class="bp-tabcontent">${aaBpTabContentHTML(own,s,cars,sellerKey)}</div>
-  ${own?`<div class="bp-postcta"><button type="button" class="bp-cube" onclick="aaTogglePostToday();window.scrollTo({top:0,behavior:'smooth'})" aria-label="Create a post">+</button><div>SHARE YOUR NEXT POST</div></div>`:""}
- </div>
+  ${own?`<div class="bp-postcta"><button type="button" class="bp-neon bp-green bp-cube" onclick="aaTogglePostToday();window.scrollTo({top:0,behavior:'smooth'})" aria-label="Create a post">＋</button><div>SHARE YOUR NEXT POST</div></div>`:""}
+ </main>
  ${aaBpMenuHTML()}
  </div>
  ${state.profileMenuOpen?`<div class="bp-scrim" onclick="state.profileMenuOpen=false;render()"></div>`:""}
  ${aaProfileDestyDrawerHTML(sellerKey)}
  ${typeof window.aaBingoAccountPanelHTML==="function"?window.aaBingoAccountPanelHTML():""}
- <nav class="bp-bottomnav" aria-label="Main">
-  <button type="button" onclick="goHome()" aria-label="Home">🏠<span>Home</span></button>
-  <button type="button" onclick="aaOpenSearch()" aria-label="Search">🔍<span>Search</span></button>
-  <button type="button" class="bp-bottomnav-post" onclick="${state.isLoggedIn?"goAccount();state.postTodayOpen=true;render()":"openAuth('login')"}" aria-label="Post">＋</button>
-  <button type="button" onclick="aaOpenMarket()" aria-label="Market">🛒<span>Market</span></button>
-  <button type="button" class="${own?"is-active":""}" onclick="goAccount()" aria-label="My Profile">👤<span>Profile</span></button>
+ <nav class="bp-bottom" aria-label="Bottom navigation">
+  <button type="button" class="bp-neon bp-micro" onclick="goHome()">⌂ Home</button>
+  <button type="button" class="bp-neon bp-micro bp-cyan" onclick="aaOpenSearch()">⌕ Search</button>
+  <button type="button" class="bp-neon bp-micro" onclick="${state.isLoggedIn?"goAccount();state.postTodayOpen=true;render()":"openAuth('login')"}">＋ Create</button>
+  <button type="button" class="bp-neon bp-micro bp-green" onclick="aaOpenMarket()">▤ Shop</button>
+  <button type="button" class="bp-neon bp-micro bp-pink${own?" is-active":""}" onclick="goAccount()">◉ Profile</button>
  </nav>
  </section>`;
 }
@@ -25420,113 +25440,50 @@ Apply neon styling and reactive under-light to every functional button.
 Preserve all existing onclick actions, routes, forms and button wording.
 */
 
+/* APPROVED FLAT NEON (replaces the previous glossy "premium dimensional"
+   recipe). Spec = the approved profile preview ".neon" control: 1px
+   coloured outline, flat #0b1628 fill, 10px radius, soft 9px glow;
+   hover / active / selected = tinted fill + stronger glow. No gloss
+   gradient, no drop shadow, no under-glow, no lift. Colour identities
+   (.btn-red/.btn-gold/.btn-cyan/... and bingo-neon-*) still only swap
+   --tab-light/--tab-rgb, so every existing class keeps its colour. */
 #auto-arcade-widget button,
 #auto-arcade-widget .btn,
 #auto-arcade-widget a.btn,
 #auto-arcade-widget [role="button"]{
   --tab-light:var(--bingo-gold,#f3be2b);
   --tab-rgb:243,190,43;
-
   position:relative!important;
   isolation:isolate;
   overflow:visible!important;
-
-  border:1.5px solid rgba(var(--tab-rgb),.75)!important;
-  border-radius:12px!important;
-
-  /* Premium dimensional surface: a brighter top highlight sliver, a
-     saturated colour band, then a deep navy base - not a single flat
-     tint-to-black wash. This is the shared recipe every semantic
-     colour (.btn-red/.btn-gold/.btn-blue/.btn-publish/.btn-success/
-     .btn-glass) rides on by swapping --tab-light/--tab-rgb only. */
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,0) 34%),
-    linear-gradient(155deg, rgba(var(--tab-rgb),.55), rgba(var(--tab-rgb),.16) 45%, rgba(6,11,22,.97) 78%)
-    !important;
-
-  color:#fff!important;
-
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.22),
-    inset 0 -10px 16px -10px rgba(0,0,0,.55),
-    0 0 14px rgba(var(--tab-rgb),.38),
-    0 8px 18px rgba(0,0,0,.34)!important;
-
-  text-shadow:
-    0 0 6px rgba(255,255,255,.20);
-
-  transition:
-    transform .14s ease,
-    border-color .16s ease,
-    box-shadow .16s ease,
-    filter .16s ease!important;
+  border:1px solid rgba(var(--tab-rgb),.8)!important;
+  border-radius:10px!important;
+  background:#0b1628!important;
+  color:#f8faff!important;
+  box-shadow:0 0 9px rgba(var(--tab-rgb),.3)!important;
+  text-shadow:none;
+  transition:border-color .16s ease,box-shadow .16s ease,background-color .16s ease,filter .16s ease!important;
 }
-
-/* Bright light underneath every button base */
 #auto-arcade-widget button::after,
 #auto-arcade-widget .btn::after,
 #auto-arcade-widget a.btn::after,
-#auto-arcade-widget [role="button"]::after{
-  content:"";
-  position:absolute;
-  z-index:-1;
-
-  left:17%;
-  right:17%;
-  bottom:-7px;
-  height:10px;
-
-  border-radius:50%;
-  background:var(--tab-light);
-
-  opacity:.30;
-  filter:blur(8px);
-  transform:scaleX(.78);
-
-  pointer-events:none;
-
-  transition:
-    opacity .16s ease,
-    filter .16s ease,
-    transform .16s ease;
-}
-
-/* Mouse hover */
+#auto-arcade-widget [role="button"]::after{content:none}
 @media (hover:hover){
   #auto-arcade-widget button:hover,
   #auto-arcade-widget .btn:hover,
   #auto-arcade-widget a.btn:hover,
   #auto-arcade-widget [role="button"]:hover{
-    transform:translateY(-2px);
-
     border-color:var(--tab-light)!important;
-
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,.14),
-      0 0 15px rgba(var(--tab-rgb),.48),
-      0 9px 20px rgba(0,0,0,.34)!important;
-  }
-
-  #auto-arcade-widget button:hover::after,
-  #auto-arcade-widget .btn:hover::after,
-  #auto-arcade-widget a.btn:hover::after,
-  #auto-arcade-widget [role="button"]:hover::after{
-    opacity:.85;
-    filter:blur(6px);
-    transform:scaleX(1.08);
+    background-color:rgba(var(--tab-rgb),.14)!important;
+    box-shadow:0 0 15px rgba(var(--tab-rgb),.5)!important;
   }
 }
-
-/* Mouse click or mobile touch */
 #auto-arcade-widget button:active,
 #auto-arcade-widget .btn:active,
 #auto-arcade-widget a.btn:active,
 #auto-arcade-widget [role="button"]:active{
-  transform:translateY(2px) scale(.98)!important;
-
-  box-shadow:
-    inset 0 2px 5px rgba(0,0,0,.34),
-    0 0 21px rgba(var(--tab-rgb),.72)!important;
+  background-color:rgba(var(--tab-rgb),.2)!important;
+  box-shadow:0 0 18px rgba(var(--tab-rgb),.6)!important;
 }
 
 /* Existing red buttons retain their red identity. --tab-rgb must be the
@@ -27617,150 +27574,136 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 #auto-arcade-widget .bm-requests{border:1px solid rgba(var(--bm-gold-rgb),.35);border-radius:14px;padding:6px;margin-bottom:6px;background:rgba(var(--bm-gold-rgb),.05)}
 #auto-arcade-widget .bm-requests h4{margin:4px 6px 6px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#fcd34d}
 #auto-arcade-widget .bm-request-bar:not(.bm-danger-text) span{color:var(--bm-text)}
-/* ===== Bingo profile (approved reference layout) =====
-   Dark navy, gold accents, restrained glows; every control uses the
-   approved compact flat-neon language (1px accent border, dark fill, no
-   gloss/under-glow), overriding the sitewide glossy button recipe the
-   same way the approved .bgc-/.aa-media-tabs flat-neon pass does.
-   Cockpit (.bcp-*) and the Wall like/comment rows are not touched. */
+/* ===== Bingo profile (approved layout: Bingo_Profile_Approved_Layout_Preview) =====
+   Dark navy, gold accents, restrained coloured glows. Every control is
+   the approved ".neon" flat control (outline + #0b1628 fill + soft glow;
+   selected = tinted fill + stronger glow), in medium or micro size. */
 #auto-arcade-widget .bp-page{
-  --bp-bg:#050b16;--bp-card:#0a1426;--bp-line:rgba(148,163,184,.16);--bp-text:#eef2f8;--bp-muted:#94a3b8;
-  --bp-gold:#f3be2b;--bp-gold-rgb:243,190,43;--bp-cyan:#22c9ff;--bp-cyan-rgb:34,201,255;
-  color:var(--bp-text);padding:0 0 92px;
+  --bp-bg:#050c19;--bp-panel:#0d1728;--bp-line:#334961;--bp-text:#f6f8ff;--bp-muted:#afbdd0;
+  --bp-gold:#f4bf46;--bp-gold-rgb:244,191,70;--bp-pink:#fb50c7;--bp-pink-rgb:251,80,199;
+  --bp-cyan:#46e6ff;--bp-cyan-rgb:70,230,255;--bp-green:#47ed9b;--bp-green-rgb:71,237,155;
+  color:var(--bp-text);padding:0 0 12px;
 }
-#auto-arcade-widget .bp-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start;max-width:1120px;margin:0 auto}
-#auto-arcade-widget .bp-page:not(.has-menu) .bp-layout{grid-template-columns:minmax(0,1fr);max-width:760px}
-#auto-arcade-widget .bp-main{min-width:0;background:var(--bp-bg);border:1px solid rgba(var(--bp-gold-rgb),.28);border-radius:22px;overflow:hidden}
-/* flat-neon base for every button on this page */
-#auto-arcade-widget .bp-page button{
-  --tab-light:var(--bp-gold);--tab-rgb:var(--bp-gold-rgb);
-  border:1px solid rgba(var(--tab-rgb),.5)!important;background:#0b1729!important;color:var(--bp-text)!important;
-  border-radius:12px!important;box-shadow:none!important;text-shadow:none!important;transform:none!important;font-family:inherit;
-}
-#auto-arcade-widget .bp-page button::after{content:none!important}
-@media(hover:hover){#auto-arcade-widget .bp-page button:not([disabled]):hover{border-color:var(--tab-light)!important;box-shadow:0 0 9px rgba(var(--tab-rgb),.35)!important}}
+#auto-arcade-widget .bp-layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;max-width:1320px;margin:0 auto;background:radial-gradient(circle at 10% 0%,#132540,#050c19 45%);border:1px solid rgba(var(--bp-gold-rgb),.3);border-radius:18px;overflow:hidden}
+#auto-arcade-widget .bp-page:not(.has-menu) .bp-layout{grid-template-columns:minmax(0,1fr);max-width:900px}
+#auto-arcade-widget .bp-main{min-width:0;border-right:1px solid var(--bp-line)}
+/* the approved control */
+#auto-arcade-widget .bp-page .bp-neon{--tab-light:var(--bp-gold);--tab-rgb:var(--bp-gold-rgb);color:#f8faff!important;background:#0b1628!important;border:1px solid var(--tab-light)!important;border-radius:10px!important;padding:6px 11px!important;min-height:32px;font-size:13px;font-weight:600;line-height:1.2;box-shadow:0 0 9px rgba(var(--tab-rgb),.45)!important;white-space:nowrap}
+#auto-arcade-widget .bp-page .bp-neon:hover,#auto-arcade-widget .bp-page .bp-neon.is-active,#auto-arcade-widget .bp-page .bp-neon[aria-selected="true"]{background:rgba(var(--tab-rgb),.2)!important;box-shadow:0 0 16px rgba(var(--tab-rgb),.68)!important}
+#auto-arcade-widget .bp-page .bp-micro{padding:3px 9px!important;min-height:26px;font-size:12px}
+#auto-arcade-widget .bp-page .bp-cyan{--tab-light:var(--bp-cyan);--tab-rgb:var(--bp-cyan-rgb)}
+#auto-arcade-widget .bp-page .bp-pink{--tab-light:var(--bp-pink);--tab-rgb:var(--bp-pink-rgb)}
+#auto-arcade-widget .bp-page .bp-green{--tab-light:var(--bp-green);--tab-rgb:var(--bp-green-rgb)}
+#auto-arcade-widget .bp-page .bp-red{--tab-light:#f87171;--tab-rgb:248,113,113}
 #auto-arcade-widget .bp-page button[disabled]{opacity:.45;cursor:not-allowed}
-#auto-arcade-widget .bp-page button:focus-visible{outline:2px solid var(--bp-gold);outline-offset:2px}
+#auto-arcade-widget .bp-page button:focus-visible{outline:2px solid #fff;outline-offset:3px}
 /* top bar */
-#auto-arcade-widget .bp-topbar{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(var(--bp-gold-rgb),.35)}
-#auto-arcade-widget .bp-icon{width:38px;height:38px;min-width:38px;padding:0!important;display:inline-flex;align-items:center;justify-content:center;font-size:15px;border-radius:50%!important}
-#auto-arcade-widget .bp-topbar-title{flex:1;min-width:0}
-#auto-arcade-widget .bp-topbar-title h1{margin:0;font-size:17px;font-weight:800;display:flex;align-items:center;gap:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#auto-arcade-widget .bp-topbar-title p{margin:2px 0 0;font-size:12px;color:var(--bp-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-/* cover + avatar */
-#auto-arcade-widget .bp-cover{position:relative;height:210px;margin:12px 12px 0;border-radius:18px;border:1px solid rgba(var(--bp-gold-rgb),.55);overflow:visible;
-  background:radial-gradient(circle at 20% 20%,rgba(236,72,153,.35),transparent 45%),radial-gradient(circle at 85% 30%,rgba(34,201,255,.28),transparent 45%),linear-gradient(135deg,#1b1030,#0b1a33 55%,#241a05)}
-#auto-arcade-widget .bp-cover-art{position:absolute;inset:0;border-radius:18px;background:repeating-linear-gradient(115deg,rgba(255,255,255,.035) 0 2px,transparent 2px 18px);pointer-events:none}
-#auto-arcade-widget .bp-cover-text{position:absolute;right:16px;top:18px;text-align:right;display:flex;flex-direction:column;gap:4px;max-width:62%}
-#auto-arcade-widget .bp-cover-kicker{font-size:11px;font-weight:700;color:#fcd34d;letter-spacing:.04em}
-#auto-arcade-widget .bp-cover-text strong{font-size:24px;line-height:1.1;font-weight:900;color:#fff;font-family:Georgia,serif;font-style:italic}
-#auto-arcade-widget .bp-cover-sub{font-size:11px;letter-spacing:.3em;color:#c4b5fd;font-weight:800}
-#auto-arcade-widget .bp-avatar-wrap{position:absolute;left:22px;bottom:-54px;width:118px;height:118px}
-#auto-arcade-widget .bp-avatar-ring{position:absolute;inset:-6px;border-radius:50%;background:conic-gradient(#f3be2b,#ec4899,#8b5cf6,#22c9ff,#10b981,#f3be2b);filter:drop-shadow(0 0 10px rgba(243,190,43,.45))}
-#auto-arcade-widget .bp-avatar{position:relative;width:118px;height:118px;border-radius:50%;object-fit:cover;border:4px solid var(--bp-bg);background:#0d1b32;display:block}
-#auto-arcade-widget .bp-online{position:absolute;right:8px;bottom:8px;width:18px;height:18px;border-radius:50%;background:#10b981;border:3px solid var(--bp-bg);box-shadow:0 0 8px rgba(16,185,129,.7)}
+#auto-arcade-widget .bp-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 18px;background:rgba(7,18,35,.93);border-bottom:1px solid var(--bp-line)}
+#auto-arcade-widget .bp-heading{text-align:center;min-width:0;flex:1}
+#auto-arcade-widget .bp-heading strong{display:inline-flex;align-items:center;gap:6px;font-size:clamp(19px,2.6vw,28px);font-weight:800;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#auto-arcade-widget .bp-heading small{display:block;font-size:10px;letter-spacing:.22em;color:var(--bp-muted);text-transform:uppercase;margin-top:2px}
+#auto-arcade-widget .bp-top-actions{display:flex;gap:9px}
+#auto-arcade-widget .bp-page .bp-round{width:40px;height:40px;min-width:40px;border-radius:50%!important;padding:0!important;display:inline-flex;align-items:center;justify-content:center;font-size:16px}
+/* cover */
+#auto-arcade-widget .bp-cover{height:clamp(170px,28vw,300px);position:relative;overflow:hidden;border-bottom:1px solid var(--bp-gold);
+  background:radial-gradient(ellipse at 72% 45%,#556879 0%,#26364c 32%,transparent 55%),linear-gradient(130deg,#393446,#182a42 55%,#101b2a)}
+#auto-arcade-widget .bp-cover-words{position:absolute;left:7%;top:18%;font:italic clamp(22px,4vw,40px)/1.15 Georgia,serif;color:#fff8e6;text-shadow:0 0 16px #f0bd70}
+#auto-arcade-widget .bp-cover-words span{color:var(--bp-gold)}
+#auto-arcade-widget .bp-cover-tags{position:absolute;right:5%;top:38%;display:flex;flex-direction:column;gap:4px;font-size:clamp(11px,1.4vw,15px);letter-spacing:.35em;color:#e8c780}
 /* identity */
-#auto-arcade-widget .bp-identity{padding:64px 18px 6px}
-#auto-arcade-widget .bp-identity h2{margin:0;font-size:22px;font-weight:900;display:flex;align-items:center;gap:6px}
-#auto-arcade-widget .bp-meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font-size:13px;color:#cbd5e1}
-#auto-arcade-widget .bp-bio{margin:10px 0 0;font-size:14px;line-height:1.5;color:#e2e8f0;max-width:60ch}
-#auto-arcade-widget .bp-muted{color:var(--bp-muted)!important;font-style:italic}
-#auto-arcade-widget .bp-page .bp-rating{margin-top:10px;padding:6px 10px!important;font-size:12px;display:inline-flex;align-items:center;gap:6px}
-/* stats + contacts */
-#auto-arcade-widget .bp-statsrow{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;padding:12px 18px}
-#auto-arcade-widget .bp-stats{flex:1 1 280px;display:grid;grid-template-columns:repeat(3,1fr);border:1px solid rgba(var(--bp-gold-rgb),.45);border-radius:16px;background:linear-gradient(180deg,rgba(var(--bp-gold-rgb),.06),transparent);overflow:hidden}
-#auto-arcade-widget .bp-page .bp-stats button{border:0!important;border-right:1px solid var(--bp-line)!important;border-radius:0!important;background:transparent!important;padding:12px 6px!important;display:flex;flex-direction:column;align-items:center;gap:2px}
-#auto-arcade-widget .bp-page .bp-stats button:last-child{border-right:0!important}
-#auto-arcade-widget .bp-stats b{font-size:22px;font-weight:900;color:#fff}
-#auto-arcade-widget .bp-stats span{font-size:12px;color:var(--bp-muted)}
-#auto-arcade-widget .bp-contacts{display:flex;gap:10px;flex:0 1 auto;flex-wrap:wrap}
-#auto-arcade-widget .bp-page .bp-contact{--tab-light:var(--bp-cyan);--tab-rgb:var(--bp-cyan-rgb);display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 4px!important;min-width:62px;font-size:11px;font-weight:700;border:0!important;background:transparent!important}
-#auto-arcade-widget .bp-contact-ico{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:1px solid rgba(var(--bp-cyan-rgb),.55);background:#0b1729}
-#auto-arcade-widget .bp-contact:not([disabled]):hover .bp-contact-ico{box-shadow:0 0 10px rgba(var(--bp-cyan-rgb),.45)}
-/* owner actions */
-#auto-arcade-widget .bp-owner-actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:4px 18px 10px}
-#auto-arcade-widget .bp-page .bp-btn{padding:10px 8px!important;font-size:13px;font-weight:800;color:var(--bp-gold)!important;min-height:42px}
-/* highlights */
-#auto-arcade-widget .bp-highlights{display:flex;gap:14px;overflow-x:auto;padding:8px 18px 12px;scrollbar-width:none}
-#auto-arcade-widget .bp-page .bp-hl{display:flex;flex-direction:column;align-items:center;gap:6px;border:0!important;background:transparent!important;padding:2px!important;min-width:70px}
-#auto-arcade-widget .bp-hl-circle{width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;background:#0b1729;border:2px solid var(--ring);box-shadow:0 0 12px color-mix(in srgb,var(--ring) 45%,transparent)}
-#auto-arcade-widget .bp-hl-label{font-size:12px;font-weight:700;color:#e2e8f0}
-#auto-arcade-widget .bp-ring-gold{--ring:#f3be2b}#auto-arcade-widget .bp-ring-purple{--ring:#a855f7}#auto-arcade-widget .bp-ring-white{--ring:#e5e7eb}
-#auto-arcade-widget .bp-ring-yellow{--ring:#facc15}#auto-arcade-widget .bp-ring-teal{--ring:#14b8a6}#auto-arcade-widget .bp-ring-red{--ring:#ef4444}
-#auto-arcade-widget .bp-ring-gold .bp-hl-circle{font-size:28px;color:var(--bp-gold)}
-#auto-arcade-widget .bp-post-menu{margin:0 18px 10px;position:static}
-#auto-arcade-widget .bp-quote{margin:4px 18px 12px;padding:12px 14px;border-radius:14px;border:1px solid rgba(var(--bp-gold-rgb),.35);background:linear-gradient(90deg,rgba(var(--bp-gold-rgb),.08),rgba(168,85,247,.08));font-family:Georgia,serif;font-style:italic;font-size:15px;text-align:center;color:#fde68a}
-/* content tabs + grid */
-#auto-arcade-widget .bp-tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:0 12px 10px;border-bottom:1px solid var(--bp-line);position:relative}
-#auto-arcade-widget .bp-page .bp-tab{--tab-light:var(--bp-cyan);--tab-rgb:var(--bp-cyan-rgb);padding:8px 4px!important;min-height:36px;font-size:12px;font-weight:700;border-color:rgba(var(--bp-cyan-rgb),.3)!important;border-radius:10px!important;white-space:nowrap}
-#auto-arcade-widget .bp-page .bp-tab.is-active{border-color:var(--bp-cyan)!important;color:var(--bp-cyan)!important;box-shadow:0 0 10px rgba(var(--bp-cyan-rgb),.4)!important}
-#auto-arcade-widget .bp-tabcontent{padding:12px}
+#auto-arcade-widget .bp-identity{position:relative;padding:0 24px 15px}
+#auto-arcade-widget .bp-identity-top{display:flex;gap:24px;align-items:center;margin-top:-55px;position:relative}
+#auto-arcade-widget .bp-avatar{flex:none;position:relative;width:148px;height:148px;border-radius:50%;padding:6px;background:conic-gradient(var(--bp-gold),var(--bp-pink),var(--bp-cyan),var(--bp-gold));box-shadow:0 0 18px rgba(var(--bp-pink-rgb),.8)}
+#auto-arcade-widget .bp-avatar img{width:100%;height:100%;display:block;object-fit:cover;border:5px solid #0a182a;border-radius:50%;background:#101c32}
+#auto-arcade-widget .bp-avatar .aa-crown-badge{position:absolute;left:-2px;top:-10px;font-size:34px!important;transform:rotate(-18deg);filter:drop-shadow(0 0 6px rgba(244,191,70,.8))}
+#auto-arcade-widget .bp-online{position:absolute;right:10px;bottom:12px;width:24px;height:24px;border-radius:50%;background:#10b981;border:4px solid #0a182a;box-shadow:0 0 8px rgba(16,185,129,.8)}
+#auto-arcade-widget .bp-stats{flex:1;display:grid;grid-template-columns:repeat(3,1fr);text-align:center;border:1px solid #7a6748;border-radius:13px;background:rgba(12,23,40,.85);padding:6px 4px;box-shadow:0 0 10px rgba(197,140,87,.22)}
+#auto-arcade-widget .bp-page .bp-stat{border:0!important;background:transparent!important;box-shadow:none!important;padding:8px 2px!important;display:flex;flex-direction:column;align-items:center;min-height:0}
+#auto-arcade-widget .bp-page .bp-stat+.bp-stat{border-left:1px solid #25344b!important;border-radius:0!important}
+#auto-arcade-widget .bp-stat strong{display:block;color:#ffd374;font-size:clamp(20px,3vw,31px);font-weight:800;line-height:1.1}
+#auto-arcade-widget .bp-stat span{font-size:13px;font-weight:500;color:#e2e8f0}
+#auto-arcade-widget .bp-details{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:start}
+#auto-arcade-widget .bp-name{font-size:25px;color:#f48dd3;margin:10px 0 2px;display:flex;align-items:center;gap:6px;font-weight:800}
+#auto-arcade-widget .bp-details p{margin:4px 0;font-size:14px}
+#auto-arcade-widget .bp-bio{color:#c3cedd;font-style:italic}
+#auto-arcade-widget .bp-muted{color:var(--bp-muted)!important}
+#auto-arcade-widget .bp-page .bp-rating{margin-top:6px}
+#auto-arcade-widget .bp-contact{display:flex;align-items:flex-start;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+#auto-arcade-widget .bp-contact>div{text-align:center}
+#auto-arcade-widget .bp-page .bp-contact .bp-neon{width:52px;height:52px;border-radius:50%!important;padding:0!important;font-size:22px;display:inline-flex;align-items:center;justify-content:center}
+#auto-arcade-widget .bp-contact small{display:block;font-size:12px;margin-top:4px}
+#auto-arcade-widget .bp-owner-actions{display:flex;gap:10px;flex-wrap:wrap;margin:17px 0}
+#auto-arcade-widget .bp-owner-actions .bp-neon{flex:1;min-width:130px;font-size:14px}
+#auto-arcade-widget .bp-highlights{display:flex;justify-content:space-between;gap:10px;overflow-x:auto;padding:10px 2px;scrollbar-width:none}
+#auto-arcade-widget .bp-page .bp-hl{text-align:center;min-width:72px;font-size:12px;border:0!important;background:transparent!important;box-shadow:none!important;padding:0!important;display:flex;flex-direction:column;align-items:center;gap:4px}
+#auto-arcade-widget .bp-orb{width:65px;height:65px;border:2px solid var(--ring,var(--bp-cyan));border-radius:50%;display:grid;place-items:center;background:#132036;box-shadow:0 0 10px color-mix(in srgb,var(--ring,#46e6ff) 40%,transparent);font-size:25px}
+#auto-arcade-widget .bp-ring-gold{--ring:#f4bf46}#auto-arcade-widget .bp-ring-purple{--ring:#a855f7}#auto-arcade-widget .bp-ring-white{--ring:#e5e7eb}
+#auto-arcade-widget .bp-ring-yellow{--ring:#facc15}#auto-arcade-widget .bp-ring-teal{--ring:#14b8a6}#auto-arcade-widget .bp-ring-red{--ring:#ef4444}#auto-arcade-widget .bp-ring-cyan{--ring:#46e6ff}
+#auto-arcade-widget .bp-post-menu{margin:6px 0 10px;position:static}
+#auto-arcade-widget .bp-quote{margin:15px 0 5px;padding:16px;text-align:center;border:1px solid #b38640;border-radius:12px;background:#0d1829;color:#ff86ce;font:italic 23px Georgia,serif}
+#auto-arcade-widget .bp-quote b{color:var(--bp-gold);font-style:normal;margin-right:10px}
+/* content */
+#auto-arcade-widget .bp-tabs{display:flex;justify-content:space-around;gap:6px;margin:15px 16px 10px}
+#auto-arcade-widget .bp-tabs .bp-neon{flex:1}
+#auto-arcade-widget .bp-tabcontent{padding:0 6px 16px}
 #auto-arcade-widget .bp-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
-#auto-arcade-widget .bp-tile{position:relative;aspect-ratio:1/1;border-radius:8px;overflow:hidden;background:#0d1b32}
-#auto-arcade-widget .bp-page .bp-tile-open{position:absolute;inset:0;width:100%;height:100%;padding:0!important;border:0!important;border-radius:0!important;background:#0d1b32!important;display:block}
+#auto-arcade-widget .bp-tile{position:relative;aspect-ratio:1/1;overflow:hidden;background:#0d1b32;border:1px solid #33445c}
+#auto-arcade-widget .bp-page .bp-tile-open{position:absolute;inset:0;width:100%;height:100%;padding:0!important;border:0!important;border-radius:0!important;background:#0d1b32!important;box-shadow:none!important;display:block}
 #auto-arcade-widget .bp-tile img,#auto-arcade-widget .bp-tile video{width:100%;height:100%;object-fit:cover;display:block}
 #auto-arcade-widget .bp-tile-empty{display:flex;align-items:center;justify-content:center;height:100%;padding:8px;font-size:12px;color:var(--bp-muted);text-align:center}
 #auto-arcade-widget .bp-tile-play{position:absolute;right:6px;top:6px;font-size:12px;background:rgba(0,0,0,.55);border-radius:6px;padding:2px 6px;color:#fff}
-#auto-arcade-widget .bp-tile-kind{position:absolute;left:6px;bottom:6px;font-size:10px;font-weight:800;background:rgba(5,11,22,.75);border:1px solid rgba(var(--bp-gold-rgb),.45);border-radius:6px;padding:1px 6px;color:#fde68a}
-#auto-arcade-widget .bp-page .bp-tile-x{position:absolute;top:6px;left:6px;width:26px;height:26px;padding:0!important;border-radius:50%!important;font-size:15px;line-height:1;--tab-light:#ef4444;--tab-rgb:239,68,68;color:#fecaca!important;z-index:2}
-#auto-arcade-widget .bp-page .bp-tile-boost{position:absolute;right:6px;bottom:6px;padding:2px 8px!important;font-size:10px;font-weight:800;color:var(--bp-gold)!important;border-radius:8px!important;z-index:2}
+#auto-arcade-widget .bp-tile-kind{position:absolute;left:6px;bottom:6px;font-size:10px;font-weight:700;background:rgba(5,11,22,.8);border:1px solid rgba(var(--bp-gold-rgb),.5);border-radius:6px;padding:1px 6px;color:#fde68a}
+#auto-arcade-widget .bp-page .bp-tile-x{position:absolute;top:6px;left:6px;width:26px;height:26px;min-height:26px;padding:0!important;border-radius:50%!important;font-size:14px;line-height:1;z-index:2}
+#auto-arcade-widget .bp-page .bp-tile-boost{position:absolute;right:6px;bottom:6px;z-index:2}
 #auto-arcade-widget .bp-empty{padding:26px 12px;text-align:center;color:var(--bp-muted);font-size:14px;line-height:1.5}
-#auto-arcade-widget .bp-subhead{margin:18px 2px 8px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#fcd34d}
-#auto-arcade-widget .bp-postcta{display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 0 22px;font-size:12px;font-weight:900;letter-spacing:.12em;color:#86efac}
-#auto-arcade-widget .bp-page .bp-cube{--tab-light:#22c55e;--tab-rgb:34,197,94;width:64px;height:64px;border-radius:18px!important;font-size:32px;color:#86efac!important;box-shadow:0 0 14px rgba(34,197,94,.35)!important}
-/* right menu */
-#auto-arcade-widget .bp-menu{position:sticky;top:12px;background:var(--bp-card);border:1px solid rgba(var(--bp-gold-rgb),.3);border-radius:20px;padding:12px;max-height:calc(100dvh - 24px);overflow-y:auto}
-#auto-arcade-widget .bp-menu-head{display:none;justify-content:flex-end}
-#auto-arcade-widget .bp-page .bp-menu-me{display:flex;align-items:center;gap:10px;width:100%;padding:8px!important;text-align:left;margin-bottom:8px}
-#auto-arcade-widget .bp-menu-me img{width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid var(--bp-gold)}
-#auto-arcade-widget .bp-menu-me span{display:flex;flex-direction:column;min-width:0;font-size:14px}
-#auto-arcade-widget .bp-menu-me small{color:var(--bp-muted);font-size:12px}
-#auto-arcade-widget .bp-menu-list{display:flex;flex-direction:column;gap:4px}
-#auto-arcade-widget .bp-page .bp-menu-item,#auto-arcade-widget .bp-menu-item.is-na{display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px!important;text-align:left;font-size:14px;font-weight:600;border-color:transparent!important;background:transparent!important;border-radius:10px!important}
-#auto-arcade-widget .bp-page .bp-menu-item:hover{background:rgba(148,163,184,.08)!important}
-#auto-arcade-widget .bp-menu-ico{width:22px;text-align:center}
-#auto-arcade-widget .bp-menu-label{flex:1}
-#auto-arcade-widget .bp-menu-item small{font-size:11px;color:var(--bp-muted);font-weight:500}
-#auto-arcade-widget .bp-menu-item.is-na{color:var(--bp-muted);opacity:.7;cursor:not-allowed}
-#auto-arcade-widget .bp-menu-badge{background:#ef4444;color:#fff;border-radius:999px;font-size:11px;font-weight:800;padding:1px 7px}
-#auto-arcade-widget .bp-page .bp-menu-item.is-green{color:#86efac!important;border-color:rgba(34,197,94,.45)!important}
-#auto-arcade-widget .bp-page .bp-menu-item.is-logout{color:#fca5a5!important;border-color:rgba(239,68,68,.45)!important;margin-top:6px}
-#auto-arcade-widget .bp-share{margin-top:12px;padding-top:10px;border-top:1px solid var(--bp-line);font-size:13px}
-#auto-arcade-widget .bp-share-row{display:flex;gap:8px;margin-top:8px}
-#auto-arcade-widget .bp-page .bp-share-btn{width:40px;height:40px;padding:0!important;border-radius:50%!important;font-size:15px;--tab-light:var(--bp-cyan);--tab-rgb:var(--bp-cyan-rgb)}
+#auto-arcade-widget .bp-subhead{margin:18px 4px 8px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#fcd34d}
+#auto-arcade-widget .bp-postcta{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 0 20px;font-size:12px;font-weight:700;letter-spacing:.14em;color:#86efac}
+#auto-arcade-widget .bp-page .bp-cube{width:56px;height:56px;border-radius:50%!important;padding:0!important;font-size:26px}
+/* side menu */
+#auto-arcade-widget .bp-side{padding:20px 12px;background:linear-gradient(#10213a,#06101f);position:sticky;top:0;max-height:100vh;overflow:auto}
+#auto-arcade-widget .bp-sidehead{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+#auto-arcade-widget .bp-sidehead img{width:48px;height:48px;border:2px solid var(--bp-pink);border-radius:50%;object-fit:cover;background:#172741}
+#auto-arcade-widget .bp-sidehead small{color:#aab8c9}
+#auto-arcade-widget .bp-sidehead .bp-close{margin-left:auto}
+#auto-arcade-widget .bp-side nav{display:grid;gap:7px}
+#auto-arcade-widget .bp-page .bp-side nav .bp-neon,#auto-arcade-widget .bp-side nav .bp-na{text-align:left;display:flex;align-items:center;gap:10px;width:100%;font-size:13px;min-height:39px}
+#auto-arcade-widget .bp-side nav b{font-size:17px;color:var(--tab-light);font-weight:400;width:22px;text-align:center}
+#auto-arcade-widget .bp-side nav i{margin-left:auto;font-style:normal;color:var(--bp-gold)}
+#auto-arcade-widget .bp-side nav small{margin-left:auto;font-size:11px;color:var(--bp-muted)}
+#auto-arcade-widget .bp-menu-badge{margin-left:auto;background:#ef4444;color:#fff;border-radius:999px;font-size:11px;font-weight:700;padding:1px 7px}
+#auto-arcade-widget .bp-na{padding:6px 11px;border:1px dashed rgba(148,163,184,.35);border-radius:10px;color:var(--bp-muted);cursor:not-allowed;opacity:.75}
+#auto-arcade-widget .bp-share{margin-top:22px;border:1px solid var(--bp-line);border-radius:12px;padding:12px}
+#auto-arcade-widget .bp-share p{margin:0 0 8px;font-size:13px}
+#auto-arcade-widget .bp-share .bp-neon{margin:2px}
+#auto-arcade-widget .bp-sidefoot{margin-top:18px;text-align:center;font:italic 13px Georgia,serif;color:#cbd5e1}
 #auto-arcade-widget .bp-scrim{display:none}
-/* bottom nav */
-@media(min-width:1100px){#auto-arcade-widget .bp-page .bp-bottomnav{position:static;left:auto;transform:none;margin:14px auto 12px}#auto-arcade-widget .bp-page{padding-bottom:10px}}
-#auto-arcade-widget .bp-bottomnav{position:fixed;left:50%;transform:translateX(-50%);bottom:10px;z-index:40;display:flex;gap:6px;align-items:center;padding:6px 10px;background:rgba(5,11,22,.94);border:1px solid rgba(var(--bp-gold-rgb),.35);border-radius:20px;width:min(460px,calc(100% - 20px));justify-content:space-around}
-#auto-arcade-widget .bp-page .bp-bottomnav button{border-color:transparent!important;background:transparent!important;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 8px!important;font-size:18px;position:relative}
-#auto-arcade-widget .bp-bottomnav button span{font-size:10px;color:var(--bp-muted)}
-#auto-arcade-widget .bp-bottomnav button.is-active::before{content:"";position:absolute;top:0;right:8px;width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 6px #22c55e}
-#auto-arcade-widget .bp-page .bp-bottomnav-post{width:46px;height:46px;border-radius:14px!important;border-color:rgba(34,197,94,.6)!important;color:#86efac!important;font-size:24px}
-/* phone / tablet: the menu becomes a right drawer opened by ••• */
-@media(max-width:1099px){
-  #auto-arcade-widget .bp-layout,#auto-arcade-widget .bp-page:not(.has-menu) .bp-layout{grid-template-columns:minmax(0,1fr);max-width:760px}
-  #auto-arcade-widget .bp-menu{position:fixed;top:0;right:0;bottom:0;width:min(330px,88vw);max-height:none;border-radius:0;z-index:60;transform:translateX(105%);transition:transform .2s ease}
-  #auto-arcade-widget .bp-page.is-menu-open .bp-menu{transform:none}
-  #auto-arcade-widget .bp-menu-head{display:flex}
-  #auto-arcade-widget .bp-page.is-menu-open .bp-scrim{display:block;position:fixed;inset:0;background:rgba(3,8,18,.6);z-index:55}
-}
-@media(min-width:1100px){#auto-arcade-widget .bp-more{display:none!important}}
-@media(max-width:600px){
-  /* full-bleed: the page container keeps a small side gutter on phones */
+#auto-arcade-widget .bp-bottom{display:none}
+@media(max-width:800px){
   #auto-arcade-widget main.container > section.bp-page{margin-left:calc(50% - 50vw)!important;margin-right:calc(50% - 50vw)!important;width:100vw!important;max-width:100vw!important}
-  #auto-arcade-widget .bp-main{border-radius:0;border-left:0;border-right:0}
-  #auto-arcade-widget .bp-cover{height:170px;margin:10px 10px 0}
-  #auto-arcade-widget .bp-cover-text strong{font-size:19px}
-  #auto-arcade-widget .bp-avatar-wrap,#auto-arcade-widget .bp-avatar{width:96px;height:96px}
-  #auto-arcade-widget .bp-avatar-wrap{bottom:-44px;left:16px}
-  #auto-arcade-widget .bp-identity{padding:54px 14px 4px}
-  #auto-arcade-widget .bp-statsrow{padding:10px 14px}
-  #auto-arcade-widget .bp-contacts{width:100%;justify-content:space-between}
-  #auto-arcade-widget .bp-owner-actions{padding:4px 14px 10px;gap:8px}
-  #auto-arcade-widget .bp-page .bp-btn{font-size:12px;padding:9px 4px!important}
-  #auto-arcade-widget .bp-tabs{padding:0 8px 10px;gap:4px}
-  #auto-arcade-widget .bp-page .bp-tab{font-size:11px;padding:7px 2px!important}
-  #auto-arcade-widget .bp-tabcontent{padding:8px 6px}
+  #auto-arcade-widget .bp-layout,#auto-arcade-widget .bp-page:not(.has-menu) .bp-layout{display:block;border-radius:0;border-left:0;border-right:0}
+  #auto-arcade-widget .bp-main{border-right:0}
+  #auto-arcade-widget .bp-top{padding:8px}
+  #auto-arcade-widget .bp-heading strong{font-size:20px}
+  #auto-arcade-widget .bp-heading small{font-size:8px}
+  #auto-arcade-widget .bp-top-actions .bp-search{display:none}
+  #auto-arcade-widget .bp-side{position:fixed;z-index:60;right:0;top:0;width:min(330px,88vw);transform:translateX(105%);transition:transform .2s;height:100dvh;max-height:none}
+  #auto-arcade-widget .bp-page.is-menu-open .bp-side{transform:none}
+  #auto-arcade-widget .bp-page.is-menu-open .bp-scrim{display:block;position:fixed;inset:0;z-index:55;background:rgba(0,0,0,.6)}
+  #auto-arcade-widget .bp-identity{padding:0 14px 15px}
+  #auto-arcade-widget .bp-identity-top{gap:12px;margin-top:-43px}
+  #auto-arcade-widget .bp-avatar{width:105px;height:105px}
+  #auto-arcade-widget .bp-stat span{font-size:10px}
+  #auto-arcade-widget .bp-details{grid-template-columns:1fr}
+  #auto-arcade-widget .bp-contact{justify-content:space-around}
+  #auto-arcade-widget .bp-cover{height:195px}
+  #auto-arcade-widget .bp-owner-actions .bp-neon{min-width:90px;font-size:13px}
+  #auto-arcade-widget .bp-bottom{display:flex;justify-content:space-around;position:fixed;bottom:0;left:0;right:0;z-index:40;background:rgba(7,18,33,.95);border-top:1px solid var(--bp-line);padding:6px}
+  #auto-arcade-widget .bp-page{padding-bottom:62px}
+}
+@media(max-width:370px){
+  #auto-arcade-widget .bp-avatar{width:84px;height:84px}
+  #auto-arcade-widget .bp-stat strong{font-size:17px}
+  #auto-arcade-widget .bp-page .bp-contact .bp-neon{width:46px;height:46px}
 }
 
 
@@ -27806,6 +27749,26 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 body.bm-inbox-active #bingoGlobalBack,
 #auto-arcade-widget.bm-inbox-active .mushene-corner-tab,
 #auto-arcade-widget.bm-inbox-active .aa-refresh-fab{display:none!important}
+
+/* ===== FINAL SITEWIDE FLAT-NEON GUARD (keep LAST) =====
+   Appearance only - never size, position or layout - so icon controls and
+   card/tile layouts keep their geometry. Removes gloss gradients, glossy
+   text-shadow and the under-glow ::after from every control, including
+   component rules that set their own !important gradients (bingo-neon-*,
+   Smart Reactions, 360 feed actions, Cockpit tiles). Two ::after uses that
+   carry content are kept: the property "COVER" label and the settings
+   toggle knob. Selected states are tinted outlines, never filled blocks. */
+html body #auto-arcade-widget :is(button,.btn,a.btn,[role="button"]):not(#bingo-flat-guard),
+html body > button:not(#bingo-flat-guard){background-image:none!important;text-shadow:none!important}
+html body #auto-arcade-widget :is(button,.btn,a.btn,[role="button"]):not(.aa-property-media-thumb):not(.msg-toggle):not(#bingo-flat-guard)::after,
+html body > button:not(#bingo-flat-guard)::after{content:none!important;display:none!important}
+/* page-level floating controls outside the widget */
+html body > #bingoGlobalBack:not(#bingo-flat-guard){width:36px!important;height:36px!important;min-width:36px!important;font-size:18px!important;line-height:1!important;background:#0b1628!important;border:1px solid rgba(243,190,43,.8)!important;border-radius:50%!important;box-shadow:0 0 9px rgba(243,190,43,.3)!important;color:#fde68a!important}
+/* oversized controls, compacted to the medium size */
+html body #auto-arcade-widget :is(.aa-login-primary,.aa-login-google):not(#bingo-flat-guard){min-height:40px!important;padding:8px 14px!important;font-size:14px!important}
+html body #auto-arcade-widget :is(.aa-upload-type-btn,.du1-camera-main):not(#bingo-flat-guard){min-height:38px!important;padding:7px 12px!important;font-size:12px!important}
+html body #auto-arcade-widget .aa-member-central-tile:not(#bingo-flat-guard){font-size:12px!important}
+html body #auto-arcade-widget .aa-login-eye:not(#bingo-flat-guard){font-size:14px!important}
 </style>
 
 </body>
