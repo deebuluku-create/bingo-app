@@ -9022,6 +9022,18 @@ function aaOpenAdSlotDestination(queueItemId){
  if(item.source==="campaign")aaOpenCampaignDestination(item.campaign);
  else if(item.source==="boost"&&item.boostTarget)openDetails(item.boostTarget);
 }
+/* Derives a CTA label from the campaign's own destination_post_type
+   rather than a dedicated column - no such column exists on the real
+   campaigns table (confirmed this session), so this stays a client-side
+   presentation choice, never a guessed schema field. */
+function aaAdSlotCtaLabel(c){
+ const map={food_business:"Explore Food",vehicle:"Explore Vehicles",property:"Explore Properties",stay:"Explore Stays"};
+ return map[c.destination_post_type]||(c.destination_type==="url"?"Learn More":"View Offer");
+}
+function aaAdSlotEmoji(c){
+ const map={food_business:"🍜",vehicle:"🚗",property:"🏠",stay:"🏖️"};
+ return map[c.destination_post_type]||"📣";
+}
 function aaAdSlotInnerHTML(slot,item){
  if(!item)return "";
  if(item.source==="campaign"){
@@ -9029,11 +9041,18 @@ function aaAdSlotInnerHTML(slot,item){
   let creative="";
   if(c.source_type==="image")creative=`<img src="${bingoSafeMediaAttr(c.media_url)}" alt="${esc(c.name||"Advertisement")}" style="width:100%;height:100%;object-fit:cover">`;
   else if(c.source_type==="video")creative=`<video src="${bingoSafeMediaAttr(c.media_url)}" autoplay muted loop playsinline style="width:100%;height:100%;object-fit:cover"></video>`;
-  else creative=`<div class="aa-ad-slot-post"><b>${esc(c.name||"Sponsored")}</b></div>`;
+  else creative=`<div class="aa-ad-slot-post"><span style="font-size:26px">${aaAdSlotEmoji(c)}</span><b>${esc(c.name||"Sponsored")}</b><span class="aa-ad-slot-cta">${esc(aaAdSlotCtaLabel(c))} ›</span></div>`;
   return `<span class="aa-ad-slot-label">Sponsored</span><div class="aa-ad-slot-creative" onclick='aaOpenAdSlotDestination(${JSON.stringify(item.id)})'>${creative}</div>`;
  }
  const x=item.boostTarget||{};
  return `<span class="aa-ad-slot-label">Sponsored</span><div class="aa-ad-slot-creative" onclick='aaOpenAdSlotDestination(${JSON.stringify(item.id)})'><img src="${bingoSafeMediaAttr(x.image)}" alt="${esc(x.title||"")}" style="width:100%;height:100%;object-fit:cover"><div class="aa-ad-slot-caption">${esc(x.title||"")}</div></div>`;
+}
+/* Pagination dots reflect real queue position (items.length/st.index) -
+   not decorative markup - so they only ever appear when there is more
+   than one real eligible campaign/boost to rotate through. */
+function aaAdSlotBodyHTML(slot,items,index){
+ const dots=items.length>1?`<div class="aa-ad-slot-dots">${items.map((_,i)=>`<span class="aa-ad-slot-dot${i===index?" is-active":""}"></span>`).join("")}</div>`:"";
+ return aaAdSlotInnerHTML(slot,items[index])+dots;
 }
 function aaAdSlotHTML(slotId){
  const slot=aaAdSlotDef(slotId);
@@ -9042,8 +9061,7 @@ function aaAdSlotHTML(slotId){
  if(!items.length)return "";
  aaAdSlotEnsureIndex(slotId);
  const st=state.adSlotState[slotId];
- const item=items[st.index%items.length];
- return `<div class="aa-ad-slot aa-ad-slot-${esc(slot.capability)}" id="aaAdSlot_${esc(slotId)}">${aaAdSlotInnerHTML(slot,item)}</div>`;
+ return `<div class="aa-ad-slot aa-ad-slot-${esc(slot.capability)}" id="aaAdSlot_${esc(slotId)}">${aaAdSlotBodyHTML(slot,items,st.index%items.length)}</div>`;
 }
 function aaRotateApprovedSlot(slotId){
  if(!aaCanRenderAdSlot())return;
@@ -9054,7 +9072,7 @@ function aaRotateApprovedSlot(slotId){
  if(!slot||!st||!items.length)return;
  st.index=(st.index+1)%items.length;
  const host=document.getElementById("aaAdSlot_"+slotId);
- if(host)host.innerHTML=aaAdSlotInnerHTML(slot,items[st.index]);
+ if(host)host.innerHTML=aaAdSlotBodyHTML(slot,items,st.index);
 }
 function aaStartAdSlot(slot,index){
  const delay=5000+(index*2500);
@@ -18487,12 +18505,20 @@ function aaMsgOpenConversation(id){
  state.msgActiveConversationId=id;
  state.msgReplyTarget=null;
  state.msgConversationInfoOpen=false;
+ state.msgSidebarPeekOpen=false;
  aaMsgMarkRead(id);
  render();
  window.scrollTo(0,0);
  if(sb){aaMsgSyncFromSupabase(id);aaMsgRealtimeSubscribe(id)}
 }
-function aaMsgBack(){state.msgActiveConversationId=null;aaMsgRealtimeUnsubscribe();render()}
+function aaMsgBack(){state.msgActiveConversationId=null;state.msgSidebarPeekOpen=false;aaMsgRealtimeUnsubscribe();render()}
+/* Back always fully leaves the conversation - that's the "return to the
+   list" action WhatsApp-style apps already train users on. The chat-list
+   hamburger below is a second, independent way to reach the sidebar: a
+   real peek-open drawer that overlays the still-open conversation instead
+   of closing it, matching the right info panel's own three-dot toggle
+   (which already does this) rather than making Back do double duty. */
+function aaMsgToggleSidebarPeek(){state.msgSidebarPeekOpen=!state.msgSidebarPeekOpen;render()}
 function aaMsgMarkRead(id){
  const msgs=(aaMsgAllMessages()[id]||[]);
  if(msgs.length)aaMsgSetMyPState(id,{lastReadMessageId:msgs[msgs.length-1].id});
@@ -19364,12 +19390,14 @@ function aaMsgInboxHTML(){
  const activeConv=state.msgActiveConversationId?aaMsgConversations().find(c=>c.id===state.msgActiveConversationId):null;
  if(state.msgActiveConversationId&&!activeConv){state.msgActiveConversationId=null;aaMsgRealtimeUnsubscribe()}
  const showingSecondaryPane=!!activeConv||tab==="settings";
+ const peekOpen=showingSecondaryPane&&!!state.msgSidebarPeekOpen;
  const myPhoto=aaProfilePhoto(state.user?.photo_url);
  const myName=aaOwnProfileName?aaOwnProfileName():"Me";
  const currentThemeId=bingoMsgThemeRoot()?.dataset.msgTheme||"cyan";
  return `<section style="padding:14px 0 20px;display:flex;justify-content:center">
- <div class="bingo-messenger${showingSecondaryPane?" msg-sidebar-collapsed":""}" data-msg-theme="${esc(currentThemeId)}">
-  <aside class="msg-sidebar${showingSecondaryPane?" is-hidden":""}">
+ <div class="bingo-messenger${showingSecondaryPane?" msg-sidebar-collapsed":""}${peekOpen?" msg-sidebar-peek-open":""}" data-msg-theme="${esc(currentThemeId)}">
+  ${peekOpen?`<div class="msg-sidebar-peek-backdrop" onclick="aaMsgToggleSidebarPeek()"></div>`:""}
+  <aside class="msg-sidebar${showingSecondaryPane&&!peekOpen?" is-hidden":""}">
    <header class="msg-account-bar">
     <span class="msg-brand-mark" aria-hidden="true">${bingoAppLogoHTML({className:"bingo-app-logo--mobile",style:"max-height:26px"})}</span>
     <button type="button" class="msg-avatar-btn" aria-label="Open my profile" onclick="goAccount()"><img class="msg-avatar" src="${bingoSafeMediaAttr(myPhoto)}" alt="" onerror="aaProfileImgFallback(this)"></button>
@@ -19664,6 +19692,7 @@ function aaMsgConversationPaneHTML(conv){
  }).join("");
  return `<div class="msg-chat-header">
   <button type="button" class="msg-back msg-icon-btn" aria-label="Back" onclick="aaMsgBack()">←</button>
+  <button type="button" class="msg-icon-btn msg-sidebar-peek-btn" aria-label="Show chat list" onclick="aaMsgToggleSidebarPeek()">☰</button>
   ${aaMsgThreadAvatarHTML(avatarId,name)}
   <div class="msg-chat-person">
    <strong class="msg-chat-name">${esc(name)}${conv.type==="group"?"":aaCrownBadgeHTML(otherId)}</strong>
@@ -25351,8 +25380,15 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .aa-kenyan-holidays-modal{max-width:min(420px,92vw);max-height:82vh;overflow-y:auto;background:linear-gradient(160deg,#0d1b32,#02040b);border:1px solid rgba(243,190,43,.5);box-shadow:0 0 30px rgba(243,190,43,.2)}
 #auto-arcade-widget .aa-ad-slot-label{position:absolute;top:8px;left:8px;z-index:2;font-size:8.5px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#071225;background:var(--bingo-gold,#f3be2b);padding:3px 7px;border-radius:999px}
 #auto-arcade-widget .aa-ad-slot-creative{width:100%;height:100%;cursor:pointer;position:relative}
-#auto-arcade-widget .aa-ad-slot-post{display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#fff;text-align:center;padding:10px}
+#auto-arcade-widget .aa-ad-slot-post{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;width:100%;height:100%;color:#fff;text-align:center;padding:10px 10px 20px}
 #auto-arcade-widget .aa-ad-slot-caption{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;background:linear-gradient(0deg,rgba(0,0,0,.75),transparent);color:#fff;font-size:11px;font-weight:800}
+#auto-arcade-widget .aa-ad-slot-cta{
+  display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:800;
+  color:#071225;background:var(--bingo-gold,#f3be2b);padding:5px 12px;border-radius:999px;
+}
+#auto-arcade-widget .aa-ad-slot-dots{position:absolute;left:0;right:0;bottom:6px;display:flex;justify-content:center;gap:4px;z-index:2}
+#auto-arcade-widget .aa-ad-slot-dot{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.35)}
+#auto-arcade-widget .aa-ad-slot-dot.is-active{background:var(--bingo-gold,#f3be2b);width:14px;border-radius:3px}
 </style>
 
 <style id="bingo-agent-salary-style">
@@ -26622,6 +26658,26 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
    also needs its own template swapped via this modifier class. */
 #auto-arcade-widget .msg-sidebar.is-hidden{display:none}
 #auto-arcade-widget .bingo-messenger.msg-sidebar-collapsed{grid-template-columns:minmax(0,1fr) minmax(240px,310px)}
+/* Hamburger peek drawer: a second, independent way back to the chat list
+   while a conversation stays open (Back still fully exits it - see the
+   comment on aaMsgBack). Reuses the .msg-sidebar-collapsed grid (the
+   sidebar's track is already gone) and instead floats the sidebar as a
+   fixed overlay on top of the chat pane, at every breakpoint, closed by
+   the backdrop or by opening another conversation. */
+#auto-arcade-widget .bingo-messenger.msg-sidebar-peek-open{position:relative}
+#auto-arcade-widget .msg-sidebar-peek-backdrop{
+  position:absolute;inset:0;background:rgba(3,8,18,.55);z-index:29;
+  animation:aaMsgPeekFade .15s ease;
+}
+@keyframes aaMsgPeekFade{from{opacity:0}to{opacity:1}}
+#auto-arcade-widget .bingo-messenger.msg-sidebar-peek-open .msg-sidebar{
+  display:flex!important;position:absolute;inset:0 auto 0 0;
+  width:min(330px,86vw);z-index:30;box-shadow:12px 0 32px rgba(0,0,0,.45);
+  animation:aaMsgPeekSlide .18s ease;
+}
+@keyframes aaMsgPeekSlide{from{transform:translateX(-12px);opacity:.4}to{transform:translateX(0);opacity:1}}
+#auto-arcade-widget .msg-sidebar-peek-btn{display:none}
+#auto-arcade-widget .bingo-messenger.msg-sidebar-collapsed .msg-sidebar-peek-btn{display:inline-flex}
 #auto-arcade-widget .msg-info-panel{border-left:1px solid rgba(var(--msg-accent-rgb),.22);overflow-y:auto;padding:14px}
 /* The info panel uses the `hidden` attribute as its drawer-closed state
    on tablet/mobile (see the <1050px rule below); on desktop the panel is
@@ -26656,8 +26712,16 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
   width:max-content;flex:0 0 auto;min-height:38px;min-width:38px;padding:8px 12px;color:var(--msg-text);
   border-radius:12px;cursor:pointer;font-size:12px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
 }
-#auto-arcade-widget .msg-tab.is-active,#auto-arcade-widget .msg-filter.is-active,#auto-arcade-widget .msg-send{
+#auto-arcade-widget .msg-tab.is-active,#auto-arcade-widget .msg-send{
   filter:brightness(1.18)!important;
+}
+/* A filled chip (flat, no gradient/gloss) instead of the plain brightness
+   bump above - reads clearly as "the selected filter" the way the
+   reference's All/Unread/Groups pills do, while staying inside the
+   approved flat-neon language (solid var(--msg-accent), no shadow). */
+#auto-arcade-widget .msg-filter.is-active{
+  background:var(--msg-accent)!important;border-color:var(--msg-accent)!important;
+  color:#031018!important;font-weight:800!important;
 }
 #auto-arcade-widget .msg-icon-btn:focus-visible,#auto-arcade-widget .msg-tab:focus-visible,#auto-arcade-widget .msg-filter:focus-visible,#auto-arcade-widget .msg-send:focus-visible,#auto-arcade-widget .msg-search:focus-visible,#auto-arcade-widget .msg-input:focus-visible{outline:2px solid var(--msg-accent);outline-offset:2px}
 /* Fixed safety-colour buttons - these override --tab-light/--tab-rgb to
@@ -26679,14 +26743,14 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 #auto-arcade-widget .msg-conv-row:hover{background:rgba(var(--msg-accent-rgb),.06)!important}
 #auto-arcade-widget .msg-conv-row.is-selected{background:linear-gradient(90deg,rgba(var(--msg-accent-rgb),.18),transparent)!important;border-left:3px solid var(--msg-accent)!important;padding-left:9px}
 #auto-arcade-widget .msg-conv-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-#auto-arcade-widget .msg-conv-name-row{display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700}
-#auto-arcade-widget .msg-conv-preview{font-size:11px;color:var(--msg-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#auto-arcade-widget .msg-conv-name-row{display:flex;align-items:center;gap:4px;font-size:13.5px;font-weight:800}
+#auto-arcade-widget .msg-conv-preview{font-size:11.5px;color:var(--msg-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #auto-arcade-widget .msg-conv-meta{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex:0 0 auto}
 #auto-arcade-widget .msg-conv-time{font-size:9.5px;color:var(--msg-muted)}
 #auto-arcade-widget .msg-conv-badge{min-width:17px;height:17px;padding:0 4px;border-radius:99px;background:var(--msg-accent);color:#031018;font-size:9.5px;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 0 8px rgba(var(--msg-accent-rgb),.6)}
 #auto-arcade-widget .msg-conv-pin,#auto-arcade-widget .msg-conv-mute{font-size:10px;opacity:.75}
 #auto-arcade-widget .msg-empty{padding:40px 20px;text-align:center;color:var(--msg-muted);font-size:12px}
-#auto-arcade-widget .msg-thread{min-height:0;overflow-y:auto;padding:18px;overscroll-behavior:contain;display:flex;flex-direction:column;gap:4px;background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj4KPHRleHQgeD0iMCIgeT0iNDAiIGZvbnQtc2l6ZT0iMTMiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDYiIHRyYW5zZm9ybT0icm90YXRlKC0yMCAwIDQwKSI+TXVuZ3UgYWt1YmFyaWtpPC90ZXh0Pgo8dGV4dCB4PSIxMjAiIHk9IjExMCIgZm9udC1zaXplPSIxMyIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSIgdHJhbnNmb3JtPSJyb3RhdGUoLTIwIDEyMCAxMTApIj7YqNin2LHZgyDYp9mE2YTZhyDZgdmK2YM8L3RleHQ+Cjx0ZXh0IHg9IjEwIiB5PSIxOTAiIGZvbnQtc2l6ZT0iMTIiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiIHRyYW5zZm9ybT0icm90YXRlKC0yMCAxMCAxOTApIj5TcHJlYWQgUG9zaXRpdml0eTwvdGV4dD4KPHRleHQgeD0iMTQwIiB5PSIyNjAiIGZvbnQtc2l6ZT0iMTIiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDUiIHRyYW5zZm9ybT0icm90YXRlKC0yMCAxNDAgMjYwKSI+RXJva2FtYW5vPC90ZXh0Pgo8dGV4dCB4PSI0MCIgeT0iMjgwIiBmb250LXNpemU9IjIyIiBmaWxsLW9wYWNpdHk9IjAuMDciIHRyYW5zZm9ybT0icm90YXRlKC0yMCA0MCAyODApIj4mIzEyNzc5Njs8L3RleHQ+Cjx0ZXh0IHg9IjIxNSIgeT0iNTUiIGZvbnQtc2l6ZT0iMTgiIGZpbGwtb3BhY2l0eT0iMC4wNiIgdHJhbnNmb3JtPSJyb3RhdGUoLTIwIDIxNSA1NSkiPiYjMTI4NTIyOzwvdGV4dD4KPC9zdmc+Cg==");background-repeat:repeat;background-size:300px 300px}
+#auto-arcade-widget .msg-thread{min-height:0;overflow-y:auto;padding:18px;overscroll-behavior:contain;display:flex;flex-direction:column;gap:4px;background-image:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMDAiIGhlaWdodD0iMzAwIj4KPHRleHQgeD0iMCIgeT0iNDAiIGZvbnQtc2l6ZT0iMTMiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDkiIHRyYW5zZm9ybT0icm90YXRlKC0yMCAwIDQwKSI+TXVuZ3UgYWt1YmFyaWtpPC90ZXh0Pgo8dGV4dCB4PSIxMjAiIHk9IjExMCIgZm9udC1zaXplPSIxMyIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wOCIgdHJhbnNmb3JtPSJyb3RhdGUoLTIwIDEyMCAxMTApIj7YqNin2LHZgyDYp9mE2YTZhyDZgdmK2YM8L3RleHQ+Cjx0ZXh0IHg9IjEwIiB5PSIxOTAiIGZvbnQtc2l6ZT0iMTIiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDgiIHRyYW5zZm9ybT0icm90YXRlKC0yMCAxMCAxOTApIj5TcHJlYWQgUG9zaXRpdml0eTwvdGV4dD4KPHRleHQgeD0iMTQwIiB5PSIyNjAiIGZvbnQtc2l6ZT0iMTIiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmaWxsPSIjZmZmZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDgiIHRyYW5zZm9ybT0icm90YXRlKC0yMCAxNDAgMjYwKSI+RXJva2FtYW5vPC90ZXh0Pgo8dGV4dCB4PSI0MCIgeT0iMjgwIiBmb250LXNpemU9IjIyIiBmaWxsLW9wYWNpdHk9IjAuMSIgdHJhbnNmb3JtPSJyb3RhdGUoLTIwIDQwIDI4MCkiPiYjMTI3Nzk2OzwvdGV4dD4KPHRleHQgeD0iMjE1IiB5PSI1NSIgZm9udC1zaXplPSIxOCIgZmlsbC1vcGFjaXR5PSIwLjA5IiB0cmFuc2Zvcm09InJvdGF0ZSgtMjAgMjE1IDU1KSI+JiMxMjg1MjI7PC90ZXh0Pgo8dGV4dCB4PSIyMDAiIHk9IjIwMCIgZm9udC1zaXplPSIyMCIgZmlsbC1vcGFjaXR5PSIwLjA5IiB0cmFuc2Zvcm09InJvdGF0ZSgtMjAgMjAwIDIwMCkiPiYjMTAwODQ7PC90ZXh0Pgo8dGV4dCB4PSI3MCIgeT0iMTQwIiBmb250LXNpemU9IjEyIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZmlsbD0iI2ZmZmZmZiIgZmlsbC1vcGFjaXR5PSIwLjA4IiB0cmFuc2Zvcm09InJvdGF0ZSgtMjAgNzAgMTQwKSI+R29vZCBWaWJlczwvdGV4dD4KPC9zdmc+Cg==");background-repeat:repeat;background-size:300px 300px}
 #auto-arcade-widget .msg-date-sep{align-self:center;font-size:10px;color:var(--msg-muted);background:rgba(255,255,255,.04);padding:3px 10px;border-radius:99px;margin:8px 0}
 #auto-arcade-widget .msg-bubble-wrap{max-width:82%;display:flex;flex-direction:column;gap:2px}
 #auto-arcade-widget .msg-bubble-wrap.mine{align-self:flex-end;align-items:flex-end}
@@ -26793,6 +26857,17 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
   #auto-arcade-widget .msg-bubble-wrap{max-width:88%}
   #auto-arcade-widget .msg-attachments{grid-template-columns:repeat(3,minmax(70px,1fr))}
   #auto-arcade-widget .msg-info-panel{width:100vw}
+  /* Adding the hamburger drawer toggle made the chat header six controls
+     wide (Back, hamburger, avatar, name, call, video, more) - too many
+     fixed-width icon buttons for a 390px screen alongside the name. Drop
+     the small header avatar (redundant with the name right next to it,
+     and still shown full-size in Conversation Info) and tighten button
+     padding/gaps only inside this header, rather than shrinking
+     .msg-icon-btn everywhere else it's used at its normal size. */
+  #auto-arcade-widget .msg-chat-header{gap:4px;padding:10px 8px}
+  #auto-arcade-widget .msg-chat-header>span{display:none!important}
+  #auto-arcade-widget .msg-chat-header .msg-icon-btn{min-width:32px;min-height:32px;padding:6px;font-size:14px}
+  #auto-arcade-widget .msg-chat-actions{gap:3px}
 }
 @media(max-width:350px){#auto-arcade-widget .msg-attachments{grid-template-columns:repeat(2,minmax(78px,1fr))}}
 @media(prefers-reduced-motion:reduce){
