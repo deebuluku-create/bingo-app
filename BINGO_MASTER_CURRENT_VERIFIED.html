@@ -945,6 +945,12 @@ Production mother file does not force production.
 #auto-arcade-widget .aa360-brand b{font-size:13px;letter-spacing:.07em}.aa360-brand b span{color:var(--red)}
 #auto-arcade-widget .aa360-brand small{display:block;font-size:7px;color:#d6dbe5;margin-top:2px;letter-spacing:.05em}
 #auto-arcade-widget .aa360-switch{position:absolute;top:16px;right:12px;z-index:6;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.58);color:#fff;border-radius:999px;padding:8px 11px;font-size:10px;font-weight:900;backdrop-filter:blur(12px)}
+/* !important required on position/inset here for the same reason as
+   .aa-refresh-fab above: the shared button glow rule forces
+   position:relative!important on every <button>, which would otherwise
+   turn this into a normally-flowed element inside the feed instead of a
+   fixed overlay control. */
+#auto-arcade-widget button.aa-feed-sound-btn{position:fixed!important;top:calc(12px + env(safe-area-inset-top,0px))!important;right:12px!important;left:auto!important;bottom:auto!important;z-index:60;width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;backdrop-filter:blur(10px);box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #auto-arcade-widget .aa360-side{position:absolute;right:10px;bottom:188px;z-index:6;display:flex;flex-direction:column;gap:10px;align-items:center}
 #auto-arcade-widget .aa360-side button{width:52px;height:52px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;backdrop-filter:blur(10px);box-shadow:0 4px 14px rgba(0,0,0,.3)}
 #auto-arcade-widget .aa360-side .on{color:var(--gold);border-color:rgba(245,185,30,.55)}
@@ -9311,12 +9317,44 @@ function aaPauseAllFeedVideos(){
 function aaHomeOverlayOpen(){
  return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.msgActiveCall||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||state.adOpen||state.agentInviteTarget||state.successOpen||state.helpSellRulesTarget||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
 }
+/* Home Feed sound: state.aaFeedSoundOn defaults to true (try autoplay
+   WITH sound, per the video-playback directive) and only flips to false
+   once a browser actually rejects an unmuted play() - at that point we
+   fall back to muted and the floating button (aaFeedSoundBtnHTML) becomes
+   the visible way back to sound. Once a viewer taps that button, the
+   click itself is a user gesture, so the browser will allow unmuted
+   playback even if autoplay-with-sound was blocked before. */
+function aaFeedWantsSound(){return state.aaFeedSoundOn!==false}
+function aaFeedUpdateSoundBtn(){
+ const btn=document.getElementById("aaFeedSoundBtn");
+ if(!btn)return;
+ const on=aaFeedWantsSound();
+ btn.textContent=on?"🔊":"🔇";
+ btn.setAttribute("aria-label",on?"Mute video sound":"Unmute video sound");
+}
+function aaToggleFeedSound(){
+ state.aaFeedSoundOn=!aaFeedWantsSound();
+ const vids=[...document.querySelectorAll("#auto-arcade-widget video.aa360-video")];
+ const active=vids.find(v=>!v.paused)||vids[0];
+ if(active){
+  active.muted=!aaFeedWantsSound();
+  if(aaFeedWantsSound()){
+   const p=active.play();
+   if(p&&p.catch)p.catch(()=>{active.muted=true;state.aaFeedSoundOn=false;aaFeedUpdateSoundBtn();toast("Your browser is blocking sound for this video.")});
+  }
+ }
+ aaFeedUpdateSoundBtn();
+}
+function aaFeedSoundBtnHTML(){
+ return `<button type="button" id="aaFeedSoundBtn" class="aa-feed-sound-btn" aria-label="${aaFeedWantsSound()?"Mute video sound":"Unmute video sound"}" onclick="event.stopPropagation();aaToggleFeedSound()">${aaFeedWantsSound()?"🔊":"🔇"}</button>`;
+}
 function aaInit360Feed(){
  if(aaFeedObserver){try{aaFeedObserver.disconnect()}catch(e){}}
+ if(state.aaFeedSoundOn===undefined)state.aaFeedSoundOn=true;
  const vids=[...document.querySelectorAll("#auto-arcade-widget .aa360-video")];if(!vids.length)return;
- aaFeedObserver=new IntersectionObserver(entries=>{entries.forEach(entry=>{const v=entry.target;if(entry.isIntersecting&&entry.intersectionRatio>=.7){vids.forEach(x=>{if(x!==v){try{x.pause()}catch(e){}}});if(typeof v.play==="function"){v.muted=true;const p=v.play();if(p&&p.catch)p.catch(()=>{});}aaRecordFeedView(v.dataset.aaVideoId,v.dataset.aaPostType,v.dataset.aaPostId)}else{try{v.pause()}catch(e){}}})},{threshold:[0,.7,1]});
+ aaFeedObserver=new IntersectionObserver(entries=>{entries.forEach(entry=>{const v=entry.target;if(entry.isIntersecting&&entry.intersectionRatio>=.7){vids.forEach(x=>{if(x!==v){try{x.pause()}catch(e){}}});if(typeof v.play==="function"){const wantSound=aaFeedWantsSound();v.muted=!wantSound;const p=v.play();if(p&&p.catch)p.catch(()=>{if(wantSound){v.muted=true;state.aaFeedSoundOn=false;aaFeedUpdateSoundBtn()}const p2=v.play();if(p2&&p2.catch)p2.catch(()=>{})});}aaRecordFeedView(v.dataset.aaVideoId,v.dataset.aaPostType,v.dataset.aaPostId)}else{try{v.pause()}catch(e){}}})},{threshold:[0,.7,1]});
  vids.forEach(v=>aaFeedObserver.observe(v));
- requestAnimationFrame(()=>aaFeedGoTo(aaFeedCurrentIndex(),"auto"));
+ requestAnimationFrame(()=>{aaFeedGoTo(aaFeedCurrentIndex(),"auto");aaFeedUpdateSoundBtn()});
 }
 (function installHomeCanonicalOpen(){
  if(window.__aaHomeCanonOpen)return;window.__aaHomeCanonOpen=true;
@@ -14231,7 +14269,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
 }
 function homeHTML(boosted,rows,all,pages){
  const videos=aaMixedFeedItems();
- return `<section class="aa360-shell">${aaFeedFilterHTML()}${aaAdSlotHTML("home-banner")}${videos.length?`<div class="aa360-feed">${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div>`:`<div class="aa360-empty"><div><h2>360View is ready</h2><p>No vehicle, property or food video has been published yet.</p><button class="btn btn-red" onclick="openPostVehicle()">Post a Vehicle</button></div></div>`}</section>`;
+ return `<section class="aa360-shell">${aaFeedFilterHTML()}${aaAdSlotHTML("home-banner")}${videos.length?`<div class="aa360-feed">${aaFeedSoundBtnHTML()}${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div>`:`<div class="aa360-empty"><div><h2>360View is ready</h2><p>No vehicle, property or food video has been published yet.</p><button class="btn btn-red" onclick="openPostVehicle()">Post a Vehicle</button></div></div>`}</section>`;
 }
 function listingType(c){return String(c?.listingType||"sale").toLowerCase()==="hire"?"hire":"sale"}
 function listingBadge(c){return listingType(c)==="hire"?'<span class="badge badge-green">FOR HIRE</span>':'<span class="badge badge-red">FOR SALE</span>'}
