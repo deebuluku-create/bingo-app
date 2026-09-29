@@ -10415,6 +10415,7 @@ function aaPageGuideHTML(){
 /* ===== v69 BINGO EXTENSIONS ===== */
 const AA_PROPERTY_TYPES=["Apartment","Bedsitter","Bungalow","Maisonette","Townhouse","Villa","Penthouse","Studio Apartment","Serviced Apartment","Commercial Office","Shop/Retail","Warehouse","Industrial Property","Hotel/Lodge","Restaurant Space","Farm","Agricultural Land","Residential Plot","Commercial Plot","Beach Property","Student Housing","Short-Stay/Airbnb","Other"];
 const AA_FOOD_TYPES=["Restaurant","Fast Food","Local Food","Catering","Bakery","Coffee","Seafood","Swahili Food","Delivery Kitchen","Other"];
+const AA_FOOD_DELICACIES=["African Delicacies","Chinese Delicacies","Italian Delicacies","Swahili Delicacies","Luhya Delicacies","Kikuyu Delicacies","Coasterian / Coastal Delicacies","Mijikenda Delicacies","Kisii Delicacies","Luo Delicacies","Maasai Delicacies","Oromo / Pokomo Delicacies","Kamba Delicacies","Meru Delicacies","Turkana Delicacies","Somali Delicacies","Arab Delicacies","Ethiopian Delicacies","Turkish Delicacies","Indian Delicacies","Other / International"];
 function aaV69Read(k,d=[]){try{return JSON.parse(localStorage.getItem(k)||JSON.stringify(d))}catch(e){return d}}
 function aaV69Write(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 /* ===== STAGE 3 — property_listings Supabase persistence =====
@@ -11096,6 +11097,7 @@ function aaMapFoodBusinessRow(row){
  return {
   id:row.id,user_id:String(row.owner_id||''),local_owner:false,_localOnly:false,kind:'food',
   business_name:row.business_name||'',title:row.business_name||'',category:row.category||'',
+  delicacies:row.delicacies||'',
   county:row.county||'',town:row.town||'',delivery_area:row.delivery_area||'',
   phone:row.phone||'',whatsapp:row.whatsapp||'',opening_hours:row.opening_hours||'',
   price_range:row.price_range||'',delivery_available:!!row.delivery_available,
@@ -12240,76 +12242,63 @@ function aaFoodPostHTML(){
     instead of blanking them - cleared only once a save has actually
     succeeded. */
  if(state.foodFormDraftFor!==contextKey){
-  state.foodFormDraft={};
+  /* "Save Draft" persists to localStorage under aa_food_draft - rehydrate
+     it here for a brand-new (non-edit) form only, so it survives a reload.
+     An edit of an already-saved business always seeds from the real
+     record instead (editItem, above), never from an older local draft. */
+  let restored={};
+  if(!editItem){try{restored=JSON.parse(aaStorage.get('aa_food_draft')||'{}')||{}}catch(e){restored={}}}
+  state.foodFormDraft=restored;
   state.foodFormDraftFor=contextKey;
  }
  const d={...(editItem||{}),...(state.foodFormDraft||{})};
  const busy=!!state.foodPublishBusy;
  const mediaCount=aaMediaDraftGet('food').items.length;
  const sectionDone=ok=>ok?'<span class="aa-food-section-done">✓ Done</span>':'';
+ const delicacyList=String(d.delicacies||'').split(',').map(s=>s.trim()).filter(Boolean);
  return `<div class="aa-v69-card aa-food-form"><h3>${editItem?'Edit Food Business':'Create Food Business Listing'}</h3><form onsubmit="aaSubmitFood(event)" oninput="aaFoodSectionCheck(event)" onchange="aaFoodSectionCheck(event)">
 
   <div class="aa-food-section">
-   <div class="aa-food-section-title" id="aaFoodSec1">1. Business Identity${sectionDone(!!d.business_name)}</div>
+   <div class="aa-food-section-title" id="aaFoodSec1">1. Business Details${sectionDone(!!(d.business_name&&d.county&&d.town&&d.delivery_area&&d.phone&&d.description))}</div>
    <div class="aa-food-grid-2">
     <label class="aa-food-field aa-food-field-full"><span>Business Name <i class="aa-food-req">Required</i></span><input class="field" required name="business_name" value="${esc(d.business_name||'')}" placeholder="e.g. Mama Njeri's Kitchen"></label>
-    <label class="aa-food-field aa-food-field-full"><span>Cuisines / Delicacies <i class="aa-food-opt">Optional — choose all that apply</i></span>
+    <label class="aa-food-field aa-food-field-full"><span>Business Category <i class="aa-food-opt">Optional — choose all that apply</i></span>
      <div class="aa-food-cuisine-grid">${AA_FOOD_TYPES.map(x=>{const checked=String(d.category||'').split(',').map(s=>s.trim()).includes(x);return `<label class="aa-food-cuisine-chip${checked?' is-checked':''}"><input type="checkbox" name="category" value="${esc(x)}" ${checked?'checked':''} onchange="this.closest('label').classList.toggle('is-checked',this.checked)">${esc(x)}</label>`}).join('')}</div>
     </label>
-   </div>
-  </div>
-
-  <div class="aa-food-section">
-   <div class="aa-food-section-title" id="aaFoodSec2">2. Location &amp; Delivery${sectionDone(!!(d.county&&d.town&&d.delivery_area))}</div>
-   <div class="aa-food-grid-2">
     <label class="aa-food-field"><span>County <i class="aa-food-req">Required</i></span><select class="field" required name="county"><option value="" ${d.county?'':'selected'} disabled>Choose county</option>${kenyaCounties.map(c=>`<option ${d.county===c?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
     <label class="aa-food-field"><span>Town / Area <i class="aa-food-req">Required</i></span><input class="field" required name="town" value="${esc(d.town||'')}"></label>
     <label class="aa-food-field aa-food-field-full"><span>Delivery Area <i class="aa-food-req">Required</i></span><input class="field" required name="delivery_area" placeholder="Nyali, Bamburi, Mombasa CBD" value="${esc(d.delivery_area||'')}"></label>
     <label class="aa-food-field"><span>Home Delivery <i class="aa-food-opt">Optional</i></span><select class="field" name="delivery_available"><option value="yes" ${d.delivery_available?'selected':''}>Yes</option><option value="no" ${d.delivery_available===false?'selected':''}>No</option></select></label>
-   </div>
-  </div>
-
-  <div class="aa-food-section">
-   <div class="aa-food-section-title" id="aaFoodSec3">3. Contact Information${sectionDone(!!d.phone)}</div>
-   <div class="aa-food-grid-2">
     <label class="aa-food-field"><span>Phone <i class="aa-food-req">Required</i></span><input class="field" required name="phone" type="tel" value="${esc(d.phone||'')}"></label>
     <label class="aa-food-field"><span>WhatsApp <i class="aa-food-opt">Optional</i></span><input class="field" name="whatsapp" type="tel" value="${esc(d.whatsapp||'')}"></label>
-   </div>
-  </div>
-
-  <div class="aa-food-section">
-   <div class="aa-food-section-title">4. Hours &amp; Pricing</div>
-   <div class="aa-food-grid-2">
     <label class="aa-food-field"><span>Opening Hours <i class="aa-food-opt">Optional</i></span><input class="field" name="opening_hours" placeholder="8:00 AM - 11:00 PM" value="${esc(d.opening_hours||'')}"></label>
     <label class="aa-food-field"><span>Price Range <i class="aa-food-opt">Optional</i></span><input class="field" name="price_range" placeholder="KES 300 - 2,500" value="${esc(d.price_range||'')}"></label>
-   </div>
-  </div>
-
-  <div class="aa-food-section">
-   <div class="aa-food-section-title" id="aaFoodSec5">5. Description${sectionDone(!!d.description)}</div>
-   <label class="aa-food-field aa-food-field-full"><span>Tell customers about this business <i class="aa-food-req">Required</i></span><textarea class="field" required name="description" rows="4" placeholder="Describe your food, specialties and what makes this business special">${esc(d.description||'')}</textarea></label>
-  </div>
-
-  <div class="aa-food-section">
-   <div class="aa-food-section-title">6. Photos &amp; Videos</div>
-   <div class="aa-media-camera-box${busy?' is-disabled':''}" role="button" tabindex="${busy?'-1':'0'}" aria-disabled="${busy?'true':'false'}" aria-label="Add food photos or a video" onclick="${busy?'':"document.getElementById('foodBusinessMedia').click()"}" onkeydown="if(!${busy}&&(event.key==='Enter'||event.key===' ')){event.preventDefault();document.getElementById('foodBusinessMedia').click()}">
-    <div class="aa-media-camera-box-main">
-     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.4"/></svg>
-     <span>${mediaCount?'Add more photos or a video':'Add photos or a video'}</span>
+    <label class="aa-food-field aa-food-field-full"><span>Description <i class="aa-food-req">Required</i></span><textarea class="field" required name="description" rows="4" placeholder="Describe your food, specialties and what makes this business special">${esc(d.description||'')}</textarea></label>
+    <div class="aa-food-field aa-food-field-full">
+     <span>Photos &amp; Video <i class="aa-food-opt">Optional — helps customers trust your business</i></span>
+     <div class="aa-media-camera-box${busy?' is-disabled':''}" role="button" tabindex="${busy?'-1':'0'}" aria-disabled="${busy?'true':'false'}" aria-label="Add food photos or a video" onclick="${busy?'':"document.getElementById('foodBusinessMedia').click()"}" onkeydown="if(!${busy}&&(event.key==='Enter'||event.key===' ')){event.preventDefault();document.getElementById('foodBusinessMedia').click()}">
+      <div class="aa-media-camera-box-main">
+       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.4"/></svg>
+       <span>${mediaCount?'Add more photos or a video':'Add photos or a video'}</span>
+      </div>
+      <span class="aa-media-camera-box-count">${mediaCount} added</span>
+     </div>
+     <input type="file" id="foodBusinessMedia" accept="image/*,video/*" multiple style="display:none" ${busy?'disabled':''} onchange="aaMediaDraftAddFiles('food',this.files);this.value=''">
+     <p class="notice" style="margin-top:8px">Tap ★ to set the cover, ◀▶ to reorder, ✕ to remove. Tap a thumbnail to preview it full-screen.</p>
+     ${aaMediaGalleryHTML(aaMediaDraftGet('food').items,{editable:true,draftKey:'food',emptyText:'No photos or videos added yet.'})}
+     <button class="btn aa-food-record-btn" type="button" ${busy?'disabled':''} onclick="aaOpenDualCamera('food')">🎥 Record Video</button>
     </div>
-    <span class="aa-media-camera-box-count">${mediaCount} added</span>
    </div>
-   <input type="file" id="foodBusinessMedia" accept="image/*,video/*" multiple style="display:none" ${busy?'disabled':''} onchange="aaMediaDraftAddFiles('food',this.files);this.value=''">
-   <p class="notice" style="margin-top:8px">Tap ★ to set the cover, ◀▶ to reorder, ✕ to remove. Tap a thumbnail to preview it full-screen.</p>
-   ${aaMediaGalleryHTML(aaMediaDraftGet('food').items,{editable:true,draftKey:'food',emptyText:'No photos or videos added yet.'})}
-   <button class="btn aa-food-record-btn" type="button" ${busy?'disabled':''} onclick="aaOpenDualCamera('food')">🎥 Record Video</button>
+  </div>
+
+  <div class="aa-food-section">
+   <div class="aa-food-section-title" id="aaFoodSec2">2. Delicacies Served${sectionDone(delicacyList.length>0)}</div>
+   <div class="aa-food-cuisine-grid">${AA_FOOD_DELICACIES.map(x=>{const checked=delicacyList.includes(x);return `<label class="aa-food-cuisine-chip${checked?' is-checked':''}"><input type="checkbox" name="delicacies" value="${esc(x)}" ${checked?'checked':''} onchange="this.closest('label').classList.toggle('is-checked',this.checked)">${esc(x)}</label>`}).join('')}</div>
   </div>
 
   <div class="aa-food-section aa-food-section-submit">
-   <div class="aa-food-section-title">7. Preview &amp; Submission</div>
-   <p class="notice">Review your details above before saving. Required fields are marked - everything else, including photos and video, is optional but helps customers trust your business.</p>
    ${editItem?'':'<p class="notice">Saving creates a draft only visible to you. Customers only see it once you add photos and activate a 30-day subscription from My Food Business.</p>'}
-   <div class="details-actions aa-content-fit-row" style="margin-top:10px">${editItem?`<button class="btn btn-glass" type="button" ${busy?'disabled':''} onclick="aaCancelFoodEdit()">Cancel</button>`:''}<button class="btn btn-publish" type="submit" ${busy?'disabled':''} aria-busy="${busy?'true':'false'}">${busy?(state.foodPublishProgress||'Publishing…'):(editItem?'Save Changes':'Save as Draft')}</button></div>
+   <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:10px">${editItem?`<button class="btn btn-glass" type="button" ${busy?'disabled':''} onclick="aaCancelFoodEdit()">Cancel</button>`:''}<button class="btn btn-glass" type="button" ${busy?'disabled':''} onclick="try{aaStorage.set('aa_food_draft',JSON.stringify(state.foodFormDraft||{}))}catch(err){};save();toast('Draft saved.')">Save Draft</button><button class="btn btn-cyan" type="button" ${busy?'disabled':''} onclick="state.foodPreviewDraft=true;state.view='food-profile';render();window.scrollTo(0,0)">Preview Business</button><button class="btn btn-publish" type="submit" ${busy?'disabled':''} aria-busy="${busy?'true':'false'}">${busy?(state.foodPublishProgress||'Publishing…'):'Publish Business'}</button></div>
   </div>
 
  </form></div>`;
@@ -12321,11 +12310,10 @@ function aaFoodSectionCheck(e){
  const dft=state.foodFormDraft;
  ['business_name','county','town','delivery_area','phone','whatsapp','opening_hours','price_range','description'].forEach(n=>{dft[n]=val(n)});
  dft.category=Array.from(form.querySelectorAll('input[name="category"]:checked')).map(el=>el.value).join(', ');
+ dft.delicacies=Array.from(form.querySelectorAll('input[name="delicacies"]:checked')).map(el=>el.value).join(', ');
  dft.delivery_available=val('delivery_available')==='yes';
- [['aaFoodSec1',()=>!!val('business_name')],
-  ['aaFoodSec2',()=>!!(val('county')&&val('town')&&val('delivery_area'))],
-  ['aaFoodSec3',()=>!!val('phone')],
-  ['aaFoodSec5',()=>!!val('description')]
+ [['aaFoodSec1',()=>!!(val('business_name')&&val('county')&&val('town')&&val('delivery_area')&&val('phone')&&val('description'))],
+  ['aaFoodSec2',()=>form.querySelectorAll('input[name="delicacies"]:checked').length>0]
  ].forEach(([id,test])=>{
   const head=document.getElementById(id);if(!head)return;
   const ok=test(),mark=head.querySelector('.aa-food-section-done');
@@ -12361,7 +12349,16 @@ async function aaSubmitFood(e){
    county:fd.get('county')||'',town:fd.get('town')||'',delivery_area:fd.get('delivery_area')||'',
    phone:fd.get('phone')||'',whatsapp:fd.get('whatsapp')||'',opening_hours:fd.get('opening_hours')||'',
    price_range:fd.get('price_range')||'',delivery_available:fd.get('delivery_available')==='yes',
-   description:fd.get('description')||''
+   description:fd.get('description')||'',
+   /* "delicacies" (the approved "Delicacies Served" 21-item field) is a
+      NEW client-side field - written here the same way "category" already
+      is, but whether public.food_businesses has a matching column has not
+      been confirmed (this sandbox has no live Supabase connection). If it
+      doesn't yet, PostgREST silently ignores an unknown key on insert/
+      update rather than rejecting it - Publish/Save still succeed, this
+      one field just never persists. See the read-only inspection file
+      supabase/migrations/20260930m_food_businesses_delicacies_column_INSPECT_READ_ONLY.sql. */
+   delicacies:fd.getAll('delicacies').join(', ')||''
   };
   if(state.testMode){
    const original=editId?aaFoods().find(x=>String(x.id)===String(editId)):null;
@@ -13762,9 +13759,20 @@ function aaOpenFoodBusinessProfile(id){
  window.scrollTo(0,0);
 }
 function aaFoodBusinessProfileHTML(){
- const f=aaFoods().find(x=>String(x.id)===String(state.foodProfileId));
+ /* "Preview Business" (aaFoodPostHTML) sets state.foodPreviewDraft and
+    routes here without a saved id - reuse this exact renderer against the
+    in-progress draft instead of building a second, fake preview. */
+ const previewMode=!!state.foodPreviewDraft;
+ let f;
+ if(previewMode){
+  const editItem=state.foodEditId?aaFoods().find(x=>String(x.id)===String(state.foodEditId)):null;
+  f={...(editItem||{}),...(state.foodFormDraft||{}),id:editItem?.id||'',user_id:state.user?.id||'',media:aaMediaDraftGet('food').items};
+ }else{
+  f=aaFoods().find(x=>String(x.id)===String(state.foodProfileId));
+ }
  if(!f)return `<section style="padding:18px 0 100px"><button class="btn btn-glass" onclick="goBack()">← Back</button><div class="notice" style="margin-top:12px">This restaurant could not be found.</div></section>`;
- const own=state.isLoggedIn&&String(f.user_id||'')===String(state.user?.id||'');
+ const own=!previewMode&&state.isLoggedIn&&String(f.user_id||'')===String(state.user?.id||'');
+ const ownMenu=own; /* the "•••" owner-options drawer uses the same real ownership check as every other owner-only control below */
  const phone=normalizeKenyanPhone(f.phone||'');
  const wa=String(f.whatsapp||f.phone||'').replace(/\D/g,'');
  const addr=[f.town,f.county].filter(Boolean).join(', ');
@@ -13780,7 +13788,8 @@ function aaFoodBusinessProfileHTML(){
  const ratingHTML=rs.ratings?`<span class="aa-rating-stars">${starsHTML(rs.average)}</span> <span style="font-size:10.5px;color:#9aa7bc">${rs.average.toFixed(1)} (${rs.ratings} review${rs.ratings===1?'':'s'})</span>`:`<span style="font-size:10.5px;color:#7f8ba0">No rating yet</span>`;
  const following=f.user_id?aaIsFollowingSeller(f.user_id):false;
  return `<section style="padding:18px 0 105px">
-  <button class="btn btn-glass" onclick="goBack()">← Back</button>
+  <button class="btn btn-glass" onclick="${previewMode?"state.foodPreviewDraft=false;aaOpenFood('post')":"goBack()"}">← ${previewMode?'Back to Editing':'Back'}</button>
+  ${previewMode?`<div class="notice" style="margin-top:10px;border-color:var(--bingo-gold,#f3be2b);color:var(--bingo-gold,#f3be2b)">Live preview — this is how "${esc(f.business_name||'your business')}" will look to customers. Nothing has been published yet.</div>`:''}
   ${aaAdSlotHTML('food-profile-top')}
   <div class="aa-foodprofile-cover" style="margin-top:12px">${coverMedia&&coverMedia.type!=='video'?`<img src="${bingoSafeMediaAttr(coverMedia.url)}" alt="">`:''}</div>
   <div class="aa-foodprofile-topband">
@@ -13790,6 +13799,7 @@ function aaFoodBusinessProfileHTML(){
      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h2>${esc(f.business_name)}</h2>${aaFoodActive(f)?'<span class="badge badge-green">OPEN FOR ORDERS</span>':'<span class="badge badge-red">INACTIVE</span>'}</div>
      <div class="meta">${ratingHTML}</div>
     </div>
+    ${ownMenu?`<button type="button" class="aa-fp-menubtn" aria-haspopup="true" aria-expanded="${state.foodProfileMenuOpen?'true':'false'}" aria-label="Restaurant options" onclick="state.foodProfileMenuOpen=!state.foodProfileMenuOpen;render()">•••</button>`:''}
    </div>
    <div class="aa-foodprofile-strip">
     <div class="aa-foodprofile-chip"><span>Cuisine</span><b>${esc(f.category||'Restaurant')}</b></div>
@@ -13799,45 +13809,44 @@ function aaFoodBusinessProfileHTML(){
     <div class="aa-foodprofile-chip"><span>Delivery</span><b>${f.delivery_available?'Available':'Pickup only'} · ${esc(f.delivery_area||'—')}</b></div>
    </div>
   </div>
+  ${ownMenu&&state.foodProfileMenuOpen?`<div class="overlay" onclick="if(event.target===this){state.foodProfileMenuOpen=false;render()}"><div class="modal aa-fp-drawer">
+   <div class="aa-fp-drawer-head"><b>Restaurant Options</b><button type="button" class="close" onclick="state.foodProfileMenuOpen=false;render()">×</button></div>
+   <button type="button" class="aa-fp-drawer-item" onclick="state.foodProfileMenuOpen=false;aaEditFoodBusiness('${esc(f.id)}')">✎ Edit Restaurant Profile</button>
+   <button type="button" class="aa-fp-drawer-item" onclick="state.foodProfileMenuOpen=false;aaOpenFoodMenu('${esc(f.id)}')">🍽 Manage Menu</button>
+   <button type="button" class="aa-fp-drawer-item" onclick="state.foodProfileMenuOpen=false;aaLoadFoodOrders().then(render);state.foodProfileOrdersOpen=true;render()">📋 Orders Dashboard</button>
+   <button type="button" class="aa-fp-drawer-item" onclick="state.foodProfileMenuOpen=false;aaStartFoodSubscription('${esc(f.id)}',1)">💳 Renew / Pay KES 1,000</button>
+   <button type="button" class="aa-fp-drawer-item" onclick="state.foodProfileMenuOpen=false;aaOpenInviteAgentModal('food_business','${esc(f.id)}')">👤 Invite Manager</button>
+   <button type="button" class="aa-fp-drawer-item" onclick="state.foodProfileMenuOpen=false;openContentBoost(aaFoods().find(x=>String(x.id)===${JSON.stringify(String(f.id))}),'food_business')">🚀 Boost Profile</button>
+   <button type="button" class="aa-fp-drawer-item aa-fp-drawer-item-red" onclick="state.foodProfileMenuOpen=false;aaDeleteFoodBusiness('${esc(f.id)}')">🗑 Delete Business</button>
+   <p class="notice" style="margin:8px 12px 4px">Managers can update posts and menu items but never see M-Pesa or payment details.</p>
+  </div></div>`:''}
   ${(f.media||[]).length>1?aaListingMediaGalleryHTML(String(f.id),f.media,f.business_name):''}
   <div class="aa-foodprofile-actionband">
    <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap aa-foodprofile-actions">
-    <button class="btn bingo-neon-action bingo-neon-action-gold" onclick="aaOpenFoodMenu('${esc(f.id)}')">🛒 Order Now</button>
-    ${own?'':`${phone?`<a class="btn bingo-neon-action bingo-neon-action-cyan" href="tel:${esc(phone)}">☎ Call</a>`:''}${wa?`<button class="btn bingo-neon-action bingo-neon-action-green" onclick="window.open('https://wa.me/${esc(wa)}','_blank')">WhatsApp</button>`:''}<button class="btn bingo-neon-action bingo-neon-action-purple" onclick="if(!aaRequireMember({action:'message',targetId:'${esc(f.id)}'}))return;aaMsgOpenConversationWith('${esc(f.user_id||'')}','${esc((f.business_name||'Bingo Member').replace(/'/g,"\\'"))}','')">💬 Chat</button>`}
+    ${previewMode&&!f.id?'':`<button class="btn bingo-neon-action bingo-neon-action-gold" onclick="aaOpenFoodMenu('${esc(f.id)}')">🛒 Order Now</button>`}
+    ${own?'':`${phone?`<a class="btn bingo-neon-action bingo-neon-action-cyan" href="tel:${esc(phone)}">☎ Call</a>`:''}${wa?`<button class="btn bingo-neon-action bingo-neon-action-green" onclick="window.open('https://wa.me/${esc(wa)}','_blank')">WhatsApp</button>`:''}${previewMode?'':`<button class="btn bingo-neon-action bingo-neon-action-purple" onclick="if(!aaRequireMember({action:'message',targetId:'${esc(f.id)}'}))return;aaMsgOpenConversationWith('${esc(f.user_id||'')}','${esc((f.business_name||'Bingo Member').replace(/'/g,"\\'"))}','')">💬 Chat</button>`}`}
     <button class="btn bingo-neon-action bingo-neon-action-cyan" onclick="window.open('${esc(directionsUrl)}','_blank')">📍 Directions</button>
-    <button class="btn btn-glass" onclick="state.shareTarget={id:${esc(JSON.stringify(String(f.id)))},title:${esc(JSON.stringify(f.business_name||''))}};render()">↗ Share</button>
-    <button class="btn ${isFav(f.id)?'btn-gold fav-on':'btn-glass'}" onclick='toggleFav(${JSON.stringify(String(f.id))})'>${isFav(f.id)?'★ Saved':'☆ Save'}</button>
+    ${previewMode&&!f.id?'':`<button class="btn btn-glass" onclick="state.shareTarget={id:${esc(JSON.stringify(String(f.id)))},title:${esc(JSON.stringify(f.business_name||''))}};render()">↗ Share</button>
+    <button class="btn ${isFav(f.id)?'btn-gold fav-on':'btn-glass'}" onclick='toggleFav(${JSON.stringify(String(f.id))})'>${isFav(f.id)?'★ Saved':'☆ Save'}</button>`}
     ${own||!f.user_id?'':`<button class="btn ${following?'btn-gold':'btn-glass'}" onclick="aaToggleFollowSeller('${esc(f.user_id)}',${esc(JSON.stringify(f.business_name||''))})">${following?'✓ Following':'+ Follow'}</button>
     <button class="btn btn-glass" style="color:var(--red)" onclick="aaOpenModeration('food_business','${esc(f.id)}','${esc(f.user_id||'')}')">⚑ Report</button>`}
    </div>
    <div class="desc aa-foodprofile-desc">${esc(f.description||'')}</div>
-   ${own?`<button class="btn btn-glass aa-foodprofile-edit" onclick="aaEditFoodBusiness('${esc(f.id)}')">✎ Edit Business</button>`:''}
   </div>
-  ${aaHelpSellBlockHTML("food_business",f.id,f.user_id||"")}
-  ${aaAdminControlsHTML("food_business",f.id,f.user_id||"")}
+  ${previewMode?'':aaHelpSellBlockHTML("food_business",f.id,f.user_id||"")}
+  ${previewMode?'':aaAdminControlsHTML("food_business",f.id,f.user_id||"")}
   <div class="boost-summary" style="margin-top:14px">
    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
     <b>Menu</b>
-    <div class="aa-agentdash-tabs" style="margin:0">
+    ${previewMode&&!f.id?'':`<div class="aa-agentdash-tabs" style="margin:0">
      ${own?`<button class="bingo-neon-action bingo-neon-action-gold" onclick="aaOpenFoodMenu('${esc(f.id)}')">Manage Menu</button>`:''}
      <button class="bingo-neon-action bingo-neon-action-cyan" onclick="aaOpenFoodMenu('${esc(f.id)}')">View Full Menu</button>
-    </div>
+    </div>`}
    </div>
    ${!menuItems.length?`<p class="notice">${own?'No food items yet. Tap Manage Menu to start.':'This restaurant has not published any menu items yet.'}</p>`:`<div class="aa-food-menu-grid">${menuItems.map(it=>aaFoodMenuItemCardHTML({...it,business_id:f.id},own)).join('')}</div>`}
   </div>
-  ${aaAdSlotHTML('food-profile-menu')}
-  ${own?`<div class="boost-summary" style="margin-top:14px;border-color:var(--gold)">
-   <b style="color:var(--gold)">Restaurant Management</b>
-   <div class="aa-agentdash-tabs aa-agentdash-chips" style="margin-top:8px">
-    <button class="bingo-neon-action bingo-neon-action-cyan" onclick="aaLoadFoodOrders().then(render);state.foodProfileOrdersOpen=!state.foodProfileOrdersOpen;render()">📋 Orders Dashboard</button>
-    <button class="bingo-neon-action bingo-neon-action-gold" onclick="aaStartFoodSubscription('${esc(f.id)}',1)">Renew / Pay KES 1,000</button>
-    <button class="bingo-neon-action bingo-neon-action-purple" onclick="aaOpenInviteAgentModal('food_business','${esc(f.id)}')">Invite Manager</button>
-    <button class="bingo-neon-action bingo-neon-action-green" onclick='openContentBoost(aaFoods().find(x=>String(x.id)===${JSON.stringify(String(f.id))}),"food_business")'>Boost Profile</button>
-    <button class="bingo-neon-action bingo-neon-action-red" onclick="aaDeleteFoodBusiness('${esc(f.id)}')">Delete Business</button>
-   </div>
-   ${state.foodProfileOrdersOpen?aaFoodBusinessOrdersHTML(f.id):''}
-   <p class="notice">Managers can update posts and menu items but never see M-Pesa or payment details.</p>
-  </div>`:''}
+  ${previewMode?'':aaAdSlotHTML('food-profile-menu')}
+  ${own&&state.foodProfileOrdersOpen?`<div class="boost-summary" style="margin-top:14px;border-color:var(--gold)"><b style="color:var(--gold)">Orders Dashboard</b>${aaFoodBusinessOrdersHTML(f.id)}</div>`:''}
  </section>`;
 }
 async function aaStartFoodSubscription(id,months){
@@ -26437,6 +26446,14 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .aa-foodprofile-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 #auto-arcade-widget .aa-foodprofile-cover:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(3,7,19,0) 42%,rgba(3,7,19,.9))}
 #auto-arcade-widget .aa-foodprofile-head{display:flex;gap:12px;align-items:flex-end;margin:-36px 4px 0;position:relative}
+#auto-arcade-widget .aa-fp-menubtn{margin-left:auto;flex:none;width:38px;height:38px;box-sizing:border-box;border-radius:10px;border:1px solid #31597b!important;background:#061729!important;color:#fff!important;font-size:16px;font-weight:900;cursor:pointer;letter-spacing:1px}
+#auto-arcade-widget .aa-fp-menubtn:hover{border-color:var(--bingo-gold,#f3be2b)!important}
+#auto-arcade-widget .aa-fp-drawer{width:min(340px,100%);padding:8px}
+#auto-arcade-widget .aa-fp-drawer-head{display:flex;align-items:center;justify-content:space-between;padding:6px 6px 10px}
+#auto-arcade-widget .aa-fp-drawer-head b{font-size:14px}
+#auto-arcade-widget .aa-fp-drawer-item{display:block;width:100%;min-height:44px;box-sizing:border-box;text-align:left;padding:0 14px;margin-bottom:6px;border-radius:10px;border:1px solid #31597b!important;background:#061729!important;color:#fff!important;font-size:13px;cursor:pointer}
+#auto-arcade-widget .aa-fp-drawer-item:hover{border-color:var(--bingo-gold,#f3be2b)!important}
+#auto-arcade-widget .aa-fp-drawer-item-red{color:var(--red,#ff4c6b)!important;border-color:rgba(255,76,107,.4)!important}
 #auto-arcade-widget .aa-foodprofile-logo{width:72px;height:72px;border-radius:18px;border:3px solid var(--gold);background:linear-gradient(145deg,#1c5476,#6c315f);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex:none}
 #auto-arcade-widget .aa-foodprofile-id{padding-bottom:4px;min-width:0}
 #auto-arcade-widget .aa-foodprofile-id h2{margin:0;font-size:19px;line-height:1.25;word-break:break-word}
