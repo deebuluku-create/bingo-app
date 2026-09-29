@@ -1,8 +1,19 @@
--- REVIEW_NOT_APPLIED - PART A ONLY (existing table).
+-- APPLIED - PART A (existing table). Kept for the record, not for re-running.
 -- Split out of 372226b at the owner's request so Part A (this table) and
--- Part B (schema-wide default, in the companion PARTB file) can be
--- reviewed, verified and approved independently of each other. Not
--- executed by Claude; requires separate, explicit approval to apply.
+-- Part B (schema-wide default, in the companion PARTB file) could be
+-- reviewed, verified and approved independently of each other.
+--
+-- === Execution record ===
+-- Authorized by the owner and executed via their connected Supabase
+-- tooling (not from this sandbox, which has no live database access at
+-- any point in this project). Reported results:
+--   Step 1 (before):  authenticated TRUNCATE = true  (grant confirmed present)
+--   Step 2 (REVOKE):  executed successfully
+--   Step 3 (after):   authenticated TRUNCATE = false; anon TRUNCATE = false
+-- Matches the expected outcome exactly - no unexpected result, nothing to
+-- stop and investigate. Do not re-run: the grant this file removes is
+-- already gone, so Step 2 would be a safe no-op if repeated, but there is
+-- no reason to.
 --
 -- Scope: removes TRUNCATE on the ONE existing table already confirmed to
 -- have it (public.bingo_user_roles), from the ONE role confirmed to hold

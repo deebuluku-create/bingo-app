@@ -1,10 +1,20 @@
--- REVIEW_NOT_APPLIED - PART B ONLY (schema-wide default privileges).
--- Split out of 372226b at the owner's request so this can be reviewed,
+-- APPLIED (postgres-role statement only) - PART B. Kept for the record,
+-- not for re-running.
+-- Split out of 372226b at the owner's request so this could be reviewed,
 -- verified and approved independently of Part A (the single-table fix,
--- in the companion PARTA file). Not executed by Claude; requires
--- separate, explicit approval to apply. Treat this as the higher-impact
--- half of the two: it changes what EVERY future table in public receives
--- automatically, not just the one table Part A already covers.
+-- in the companion PARTA file). Was the higher-impact half of the two: it
+-- changes what EVERY future table in public receives automatically, not
+-- just the one table Part A already covers.
+--
+-- === Execution record ===
+-- Authorized by the owner and executed via their connected Supabase
+-- tooling (not from this sandbox). Reported post-execution inspection:
+--   postgres-owned future tables:      anon TRUNCATE = false; authenticated TRUNCATE = false
+--   supabase_admin-owned future tables: anon TRUNCATE = true;  authenticated TRUNCATE = true
+-- Matches the expected outcome exactly: the postgres-role default is
+-- fixed; the supabase_admin-role default is untouched, by design, since
+-- that statement was deliberately never executed (see below) - not an
+-- unexpected result, nothing to stop and investigate.
 --
 -- Scope: pg_default_acl showed TRUNCATE granted to anon/authenticated by
 -- default for tables created by BOTH the postgres role and the
