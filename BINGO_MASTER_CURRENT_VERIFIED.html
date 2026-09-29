@@ -20477,7 +20477,10 @@ const AA_BM_ICON_PATHS={
  back:{d:["M15 19l-7-7 7-7"]},
  close:{d:["M6 18L18 6M6 6l12 12"]},
  checks:{d:["M5 13l4 4L19 7m-10 6l4 4L21 7"]},
- chevron:{d:["M9 5l7 7-7 7"]}
+ chevron:{d:["M9 5l7 7-7 7"]},
+ home:{d:["M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75"]},
+ live:{d:["M9.348 14.652a3.75 3.75 0 010-5.304m5.304 0a3.75 3.75 0 010 5.304m-7.425 2.121a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.807-3.808-9.98 0-13.788m13.788 0c3.808 3.807 3.808 9.98 0 13.788","M12 12h.008v.008H12V12z"]},
+ market:{d:["M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"]}
 };
 function aaBmIcon(name,cls){
  const ic=AA_BM_ICON_PATHS[name];if(!ic)return "";
@@ -20690,6 +20693,28 @@ function aaBmListColumnHTML(tab){
  return aaBmChatsColumnHTML();
 }
 function aaMsgChatsSidebarBodyHTML(){return aaBmChatsColumnHTML()}
+/* Messenger-only top bar (Figure B, 29 Sep 2026 directive): search +
+   Home/Live/Marketplace/Notifications/Messages, each routed to its real
+   existing destination. The shared site header above it is untouched,
+   and this bar does not render on any other page. The search control is
+   a button, not a text input - there is no free-text query behind
+   aaOpenSearch(), so a typable box here would silently do nothing on
+   submit; a button that opens the real Categories & Search view is the
+   honest version of the same affordance. */
+function aaMsgTopNavHTML(){
+ const n=typeof unreadCount==="function"?unreadCount():0;
+ const tab=(ic,label,onclick,active,badge)=>`<button type="button" class="bm-topnav-tab${active?" is-active":""}" role="tab" aria-selected="${!!active}" onclick="${onclick}">${aaBmIcon(ic)}<span>${label}</span>${badge?`<span class="bm-topnav-badge">${badge>99?"99+":badge}</span>`:""}</button>`;
+ return `<nav class="bm-topnav" aria-label="Bingo sections">
+  <button type="button" class="bm-topnav-search" onclick="aaOpenSearch('all')" aria-label="Search Bingo">${aaBmIcon("search")}<span>Search Bingo...</span></button>
+  <div class="bm-topnav-tabs" role="tablist" aria-label="Bingo areas">
+   ${tab("home","Home","goHome()")}
+   ${tab("live","Live","if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio()")}
+   ${tab("market","Marketplace","aaOpenMarket()")}
+   ${tab("bell","Notifications","goAccount();if(typeof aaOpenAccountNotifications==='function')aaOpenAccountNotifications()",false,n)}
+   ${tab("chats","Messages","openInbox()",true)}
+  </div>
+ </nav>`;
+}
 function aaMsgInboxHTML(){
  aaMsgPurgeExpiredTrash();
  const tab=aaBmTab();
@@ -20697,6 +20722,7 @@ function aaMsgInboxHTML(){
  if(state.msgActiveConversationId&&!activeConv)state.msgActiveConversationId=null;
  const cls=["bm-shell",activeConv?"is-conv-open":"is-list-only",state.msgNavDrawerOpen?"is-nav-open":"",state.msgListDrawerOpen===false?"is-list-closed":"is-list-open",state.msgConversationInfoOpen?"is-info-open":""].filter(Boolean).join(" ");
  return `<section class="bm-page">
+ ${aaMsgTopNavHTML()}
  <div class="${cls}">
   ${aaBmRailHTML(tab)}
   <section class="bm-list" aria-label="${esc(tab)}">${aaBmListColumnHTML(tab)}</section>
@@ -21031,7 +21057,10 @@ var aaMsgStickToBottom=true;
   document.body.classList.toggle("bm-inbox-active",state.view==="inbox");
   if(state.view==="inbox"){
    const shell=document.querySelector("#auto-arcade-widget .bm-shell");
-   const head=document.querySelector("#auto-arcade-widget .header");
+   /* .bm-topnav (Messenger-only) sits below the shared .header and above
+      .bm-shell - when present, its own bottom edge is the real top
+      offset; .header alone would leave .bm-shell overlapping the bar. */
+   const head=document.querySelector("#auto-arcade-widget .bm-topnav")||document.querySelector("#auto-arcade-widget .header");
    if(shell&&head)shell.style.setProperty("--bm-top",Math.max(0,Math.round(head.getBoundingClientRect().bottom+window.scrollY))+"px");
    const t=document.getElementById("aaMsgThreadScroll");
    if(t){
@@ -27973,7 +28002,48 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
   --bm-input:#0F182A;--bm-blue:#0066FF;--bm-blue-rgb:0,102,255;--bm-cyan:#00C3FF;--bm-cyan-rgb:0,195,255;
   --bm-gold:#FFC107;--bm-gold-rgb:255,193,7;--bm-in:#1A2338;--bm-muted:#8C9BAE;--bm-text:#E5E7EB;
   --bm-line:rgba(55,65,81,.55);--bm-green:#10B981;--bm-red:#F87171;--bm-red-rgb:248,113,113;
-  display:flex;justify-content:center;padding:10px 12px 14px;
+  display:flex;flex-direction:column;align-items:center;padding:10px 12px 14px;
+}
+/* Messenger-only top bar (search + Home/Live/Marketplace/Notifications/
+   Messages). Sits above .bm-shell, inside .bm-page, so it never appears
+   on any other page and never touches the shared site header. */
+#auto-arcade-widget .bm-topnav{
+  display:flex;align-items:center;gap:10px;width:min(1480px,100%);margin:0 0 10px;padding:0;
+}
+#auto-arcade-widget .bm-topnav-search{
+  display:flex;align-items:center;gap:8px;flex:0 1 260px;min-width:0;padding:9px 14px!important;
+  border-radius:999px!important;font-size:13px;font-weight:600;color:var(--bm-muted)!important;
+  --tab-light:var(--bm-cyan);--tab-rgb:var(--bm-cyan-rgb);
+}
+#auto-arcade-widget .bm-topnav-search .bm-ico{width:16px;height:16px;color:var(--bm-muted)}
+#auto-arcade-widget .bm-topnav-search span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+#auto-arcade-widget .bm-topnav-tabs{display:flex;align-items:center;gap:8px;flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+#auto-arcade-widget .bm-topnav-tabs::-webkit-scrollbar{display:none}
+#auto-arcade-widget .bm-topnav-tab{
+  position:relative;display:flex;align-items:center;gap:6px;flex:0 0 auto;padding:8px 14px!important;
+  border-radius:999px!important;font-size:12.5px;font-weight:700;color:var(--bm-muted)!important;white-space:nowrap;
+}
+#auto-arcade-widget .bm-topnav-tab.is-active{
+  --tab-light:var(--bm-gold);--tab-rgb:var(--bm-gold-rgb);color:var(--bm-gold)!important;font-weight:800;
+}
+#auto-arcade-widget .bm-topnav-badge{
+  display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;
+  border-radius:999px;background:var(--bm-red);color:#fff;font-size:9px;font-weight:800;line-height:1;
+}
+@media(max-width:900px){
+  #auto-arcade-widget .bm-topnav-tab span{display:none}
+  #auto-arcade-widget .bm-topnav-tab{padding:8px!important}
+  #auto-arcade-widget .bm-topnav-search{flex:1 1 auto}
+}
+@media(max-width:700px){
+  /* .bm-page itself goes edge-to-edge below 700px (see the phone-tier
+     block further down), so the top bar carries its own side inset
+     instead of relying on the page's padding. */
+  #auto-arcade-widget .bm-topnav{gap:6px;margin:8px 8px 6px;width:auto}
+  #auto-arcade-widget .bm-topnav-search{flex:0 0 auto;padding:8px!important}
+  #auto-arcade-widget .bm-topnav-search span{display:none}
+  #auto-arcade-widget .bm-topnav-tabs{gap:5px}
+  #auto-arcade-widget .bm-topnav-tab{padding:7px!important}
 }
 #auto-arcade-widget .bm-shell{
   position:relative;display:grid;grid-template-columns:84px 320px minmax(0,1fr);
