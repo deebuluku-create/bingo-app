@@ -190,6 +190,7 @@ splash itself begins fading out.
 #auto-arcade-widget .aa-login-primary{min-height:48px;border-radius:12px!important;background:#0d172a!important;border:1.5px solid #f5b91e!important;color:#f5b91e!important;font-weight:900!important;box-shadow:0 0 14px rgba(245,185,30,.32),0 8px 18px rgba(0,0,0,.35);transition:transform .15s ease,box-shadow .15s ease}
 #auto-arcade-widget .aa-login-primary:active{transform:scale(.98);box-shadow:0 0 8px rgba(245,185,30,.32)}
 #auto-arcade-widget .aa-login-google{min-height:46px;border:1px solid rgba(255,255,255,.72)!important;background:rgba(5,11,20,.22)!important;color:#fff!important;border-radius:5px!important;display:flex;align-items:center;justify-content:center;gap:9px;font-weight:800}
+#auto-arcade-widget .aa-login-facebook{min-height:46px;margin-top:8px;border:1px solid rgba(24,119,242,.75)!important;background:rgba(24,119,242,.12)!important;color:#fff!important;border-radius:5px!important;display:flex;align-items:center;justify-content:center;gap:9px;font-weight:800}
 #auto-arcade-widget .aa-google-g{width:22px;height:22px;border-radius:50%;background:#fff;display:inline-grid;place-items:center}
 #auto-arcade-widget .aa-login-title-logo{max-width:260px;width:100%;height:auto;object-fit:contain}
 #auto-arcade-widget .aa-login-signup{text-align:right;margin-top:8px;font-size:10px;color:#fff}
@@ -944,6 +945,12 @@ Production mother file does not force production.
 #auto-arcade-widget .aa360-brand b{font-size:13px;letter-spacing:.07em}.aa360-brand b span{color:var(--red)}
 #auto-arcade-widget .aa360-brand small{display:block;font-size:7px;color:#d6dbe5;margin-top:2px;letter-spacing:.05em}
 #auto-arcade-widget .aa360-switch{position:absolute;top:16px;right:12px;z-index:6;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.58);color:#fff;border-radius:999px;padding:8px 11px;font-size:10px;font-weight:900;backdrop-filter:blur(12px)}
+/* !important required on position/inset here for the same reason as
+   .aa-refresh-fab above: the shared button glow rule forces
+   position:relative!important on every <button>, which would otherwise
+   turn this into a normally-flowed element inside the feed instead of a
+   fixed overlay control. */
+#auto-arcade-widget button.aa-feed-sound-btn{position:fixed!important;top:calc(12px + env(safe-area-inset-top,0px))!important;right:12px!important;left:auto!important;bottom:auto!important;z-index:60;width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;backdrop-filter:blur(10px);box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #auto-arcade-widget .aa360-side{position:absolute;right:10px;bottom:188px;z-index:6;display:flex;flex-direction:column;gap:10px;align-items:center}
 #auto-arcade-widget .aa360-side button{width:52px;height:52px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(0,0,0,.55);color:#fff;display:flex;align-items:center;justify-content:center;font-size:21px;backdrop-filter:blur(10px);box-shadow:0 4px 14px rgba(0,0,0,.3)}
 #auto-arcade-widget .aa360-side .on{color:var(--gold);border-color:rgba(245,185,30,.55)}
@@ -3471,6 +3478,7 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .aa-food-menu-card{display:block;width:100%;margin:0;padding:0;font:inherit;color:inherit;background:#0c1424;border:1px solid #26354d;border-radius:14px;overflow:hidden;cursor:pointer;text-align:left}
 #auto-arcade-widget .aa-food-menu-card-media{position:relative;width:100%;aspect-ratio:4/5;background:#030711}
 #auto-arcade-widget .aa-food-menu-card-media img,#auto-arcade-widget .aa-food-menu-card-media video{width:100%;height:100%;object-fit:cover;display:block}
+#auto-arcade-widget .aa-food-menu-card-cuisine{position:absolute;left:0;right:0;bottom:0;padding:4px 8px;font-size:9.5px;font-weight:800;letter-spacing:.02em;color:#fff;background:linear-gradient(0deg,rgba(3,7,17,.88),rgba(3,7,17,0));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(min-width:600px){#auto-arcade-widget .aa-food-menu-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(min-width:900px){#auto-arcade-widget .aa-food-menu-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
 /* ===== Approved "Combined Integration Review" Food Menu layout, ported
@@ -6585,6 +6593,27 @@ async function aaGoogleLogin(){
   if(error)throw error;
  }catch(e){state.authBusy=false;state.authError=String(e?.message||"Google sign-in could not start.");render()}
 }
+/* Same OAuth flow as aaGoogleLogin, targeting the Facebook provider - the
+   redirect-save, session pickup (aaLoadAuthenticatedProfile) and profile
+   bootstrap (aaLoadUserRole, profile upsert) are already provider-agnostic
+   (keyed on the resulting Supabase session, not on which provider was
+   used), so this only needs the sign-in call itself and its own error
+   handling to plug into that same path. The Facebook provider must still
+   be enabled and configured (App ID/Secret) in the Supabase dashboard -
+   see the accompanying report for what that setup involves - or this
+   call fails with a real, honest Supabase error rather than pretending
+   to work. */
+async function aaFacebookLogin(){
+ if(!sb){toast("Facebook sign-in is not ready yet.");return}
+ try{
+  state.authBusy=true;state.authError="";render();
+  aaSaveCurrentRoute();
+  aaSaveOAuthAuthIntent();
+  const redirectTo=aaOAuthRedirectTo();
+  const {error}=await sb.auth.signInWithOAuth({provider:"facebook",options:{redirectTo}});
+  if(error)throw error;
+ }catch(e){state.authBusy=false;state.authError=String(e?.message||"Facebook sign-in could not start.");render()}
+}
 
 function authHTML(){
  const d=state.authDraft||{};
@@ -6593,7 +6622,7 @@ function authHTML(){
  if(state.authMode==="recovery")return `<div class="overlay"><div class="modal" style="width:min(430px,100%)"><h2>Choose a New Password</h2><p>Create a new password for your Bingo account.</p><div class="form-grid"><input id="aNewPassword" class="field full aa-password-field" type="password" autocomplete="new-password" placeholder="New password"><input id="aNewPassword2" class="field full aa-password-field" type="password" autocomplete="new-password" placeholder="Confirm new password"><div class="notice full">At least 6 characters with uppercase, lowercase and a number.</div><button class="btn btn-red full" onclick="aaUpdateRecoveredPassword()" ${state.authBusy?'disabled':''}>${state.authBusy?'Saving…':'Change Password'}</button>${state.authError?`<div class="notice full" style="color:#ff8f94">${esc(state.authError)}</div>`:''}</div></div></div>`;
  if(state.authMode==="confirm-email")return `<div class="overlay"><div class="modal" style="width:min(440px,100%)"><button class="close" onclick="aaCancelAuth()">×</button><h2>Confirm Your Email</h2><div class="aa-confirm-email-card"><b>Registration created successfully.</b><p>We sent a confirmation link to <strong>${esc(state.authDraft?.email||state.user?.email||"your email")}</strong>. Open that email and confirm your Bingo account.</p><div class="notice">If you do not see it, check Spam/Junk. After confirming, return here and log in.</div><div class="aa-confirm-email-actions"><button class="btn btn-gold" onclick="aaGoToLoginAfterConfirmation()">I Confirmed Email</button><button class="btn" onclick="aaResendSignupConfirmation()" ${state.authBusy?"disabled":""}>${state.authBusy?"Sending…":"Resend Email"}</button></div>${state.authError?`<div class="notice" style="color:#f5d36a">${esc(state.authError)}</div>`:""}</div></div></div>`;
  if(state.authMode==="register")return `<div class="overlay"><div class="modal" style="width:min(470px,100%);max-height:94vh"><button class="close" onclick="aaCancelAuth()">×</button><h2>Create My Bingo Profile</h2><p>Sign up uses the same profile details you will later edit from My Profile.</p>${aaUnifiedProfileFields('register')}<button class="btn aa-login-primary" style="width:100%;margin-top:12px" type="button" onclick="fastAuthContinue()" ${state.authBusy?'disabled':''}>${state.authBusy?'Creating account…':'Create Account'}</button>${state.authError?`<div class="notice" style="color:#ff8f94">${esc(state.authError)}</div>`:''}<button class="btn" style="width:100%;margin-top:8px" onclick="state.authMode='login';state.authError='';render()">Already have an account? Log In</button></div></div>`;
- return `<div class="overlay"><div class="modal aa-login-panel"><button class="close" onclick="aaCancelAuth()">×</button><h2 class="aa-login-title">${bingoAppLogoHTML({className:"aa-login-title-logo"})}</h2><div class="aa-login-form"><label class="aa-login-label">Email<input id="aLoginEmail" class="field aa-login-field" type="email" autocomplete="email" placeholder="you@example.com" value="${esc(d.email??state.user.email??'')}"></label><label class="aa-login-label">Password<div class="aa-login-password-wrap"><input id="aLoginPassword" class="field aa-password-field aa-login-field" type="password" autocomplete="current-password" placeholder="Password"><button id="aaLoginEye" class="aa-login-eye" type="button" aria-label="Show password" onclick="aaToggleLoginPassword()">◌</button></div></label>${state.authError?`<div class="aa-login-error">${esc(state.authError)}</div>`:`<div class="aa-login-error"></div>`}<button class="aa-login-forgot" type="button" onclick="state.authMode='forgot';state.authError='';render()">Forgot password?</button><button class="btn aa-login-primary" type="button" onclick="fastLoginContinue()" ${state.authBusy?'disabled':''}>${state.authBusy?'Signing in…':'Log In'}</button><button class="btn aa-login-google" type="button" onclick="aaGoogleLogin()" ${state.authBusy?'disabled':''}><span class="aa-google-g"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.9-2.26 5.36-4.78 7.18l7.73 6c4.51-4.16 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1-.76-4.59c0-1.59.27-3.13.76-4.59l-7.98-6.19A24 24 0 0 0 0 24c0 3.87.92 7.53 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.92-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg></span><span>Continue with Google</span></button><div class="aa-login-signup">Don't have an account? <button type="button" onclick="state.authMode='register';state.authError='';render()">Sign up</button></div></div></div></div>`;
+ return `<div class="overlay"><div class="modal aa-login-panel"><button class="close" onclick="aaCancelAuth()">×</button><h2 class="aa-login-title">${bingoAppLogoHTML({className:"aa-login-title-logo"})}</h2><div class="aa-login-form"><label class="aa-login-label">Email<input id="aLoginEmail" class="field aa-login-field" type="email" autocomplete="email" placeholder="you@example.com" value="${esc(d.email??state.user.email??'')}"></label><label class="aa-login-label">Password<div class="aa-login-password-wrap"><input id="aLoginPassword" class="field aa-password-field aa-login-field" type="password" autocomplete="current-password" placeholder="Password"><button id="aaLoginEye" class="aa-login-eye" type="button" aria-label="Show password" onclick="aaToggleLoginPassword()">◌</button></div></label>${state.authError?`<div class="aa-login-error">${esc(state.authError)}</div>`:`<div class="aa-login-error"></div>`}<button class="aa-login-forgot" type="button" onclick="state.authMode='forgot';state.authError='';render()">Forgot password?</button><button class="btn aa-login-primary" type="button" onclick="fastLoginContinue()" ${state.authBusy?'disabled':''}>${state.authBusy?'Signing in…':'Log In'}</button><button class="btn aa-login-google" type="button" onclick="aaGoogleLogin()" ${state.authBusy?'disabled':''}><span class="aa-google-g"><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.9-2.26 5.36-4.78 7.18l7.73 6c4.51-4.16 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 0 1-.76-4.59c0-1.59.27-3.13.76-4.59l-7.98-6.19A24 24 0 0 0 0 24c0 3.87.92 7.53 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.92-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg></span><span>Continue with Google</span></button><button class="btn aa-login-facebook" type="button" onclick="aaFacebookLogin()" ${state.authBusy?'disabled':''}><span class="aa-facebook-f"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#1877F2" d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.96.93-1.96 1.89v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.09 24 18.1 24 12.07z"/></svg></span><span>Continue with Facebook</span></button><div class="aa-login-signup">Don't have an account? <button type="button" onclick="state.authMode='register';state.authError='';render()">Sign up</button></div></div></div></div>`;
 }
 function aaShowSuccess(message){state.successMessage=String(message||"Success");state.successOpen=true;render()}
 function successHTML(){
@@ -9127,7 +9156,7 @@ var aaAdTimer=null;
    are backend authoritative (RLS-scoped campaign rows; the existing
    isBoosted/boostRemaining fields already trusted everywhere else in
    this file), never a client-invented status. */
-const AA_AD_SLOTS=[{id:"home-banner",page:"home",capability:"medium"},{id:"wall-sidebar",page:"topics",capability:"medium"},{id:"messenger-sidebar",page:"inbox",capability:"medium"}];
+const AA_AD_SLOTS=[{id:"home-banner",page:"home",capability:"medium"},{id:"wall-sidebar",page:"topics",capability:"medium"},{id:"messenger-sidebar",page:"inbox",capability:"medium"},{id:"food-profile-top",page:"food",capability:"medium"},{id:"food-profile-menu",page:"food",capability:"medium"}];
 function aaAdSlotDef(slotId){return AA_AD_SLOTS.find(s=>s.id===slotId)}
 function aaEligibleQueueItems(slot,now=Date.now()){
  return (state.adQueue||[]).filter(x=>x.status==="active"&&Date.parse(x.starts_at)<=now&&Date.parse(x.expires_at)>now&&x.eligible_slots?.includes(slot.id));
@@ -9259,6 +9288,28 @@ function aaStartMsgAdTimer(){
  });
 }
 function aaStopMsgAdTimer(){if(aaMsgAdTimer){clearInterval(aaMsgAdTimer);aaMsgAdTimer=null}}
+/* Two independent slots on the same page (top banner, beside/after the
+   Menu) - each rotates on its own timer, offset by aaStartAdSlot's own
+   index-based delay so they do not visibly flip in lockstep. Both share
+   one aaLoadAdQueue("food") load since eligible_slots already scopes
+   each campaign/boost to the right slot(s). */
+var aaFoodAdTimers=[],aaFoodAdStarting=false;
+function aaStartFoodAdTimer(){
+ aaStopFoodAdTimer();
+ if(!aaCanRenderAdSlot())return;
+ aaLoadAdQueue("food").then(()=>{
+  if(!aaCanRenderAdSlot()||state.view!=="food-profile")return;
+  let needsRender=false;
+  ["food-profile-top","food-profile-menu"].forEach((id,i)=>{
+   const slot=aaAdSlotDef(id);
+   if(!slot||!aaEligibleQueueItems(slot).length)return;
+   aaFoodAdTimers.push(aaStartAdSlot(slot,i));
+   if(!document.getElementById("aaAdSlot_"+id))needsRender=true;
+  });
+  if(needsRender)render();
+ });
+}
+function aaStopFoodAdTimer(){aaFoodAdTimers.forEach(t=>clearInterval(t));aaFoodAdTimers=[]}
 function aaCloseAd(){state.adOpen=false;render()}
 function aaPauseAllFeedVideos(){
  document.querySelectorAll("#auto-arcade-widget .aa360-video").forEach(v=>{try{v.pause()}catch(e){}});
@@ -9266,12 +9317,44 @@ function aaPauseAllFeedVideos(){
 function aaHomeOverlayOpen(){
  return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.msgActiveCall||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||state.adOpen||state.agentInviteTarget||state.successOpen||state.helpSellRulesTarget||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
 }
+/* Home Feed sound: state.aaFeedSoundOn defaults to true (try autoplay
+   WITH sound, per the video-playback directive) and only flips to false
+   once a browser actually rejects an unmuted play() - at that point we
+   fall back to muted and the floating button (aaFeedSoundBtnHTML) becomes
+   the visible way back to sound. Once a viewer taps that button, the
+   click itself is a user gesture, so the browser will allow unmuted
+   playback even if autoplay-with-sound was blocked before. */
+function aaFeedWantsSound(){return state.aaFeedSoundOn!==false}
+function aaFeedUpdateSoundBtn(){
+ const btn=document.getElementById("aaFeedSoundBtn");
+ if(!btn)return;
+ const on=aaFeedWantsSound();
+ btn.textContent=on?"🔊":"🔇";
+ btn.setAttribute("aria-label",on?"Mute video sound":"Unmute video sound");
+}
+function aaToggleFeedSound(){
+ state.aaFeedSoundOn=!aaFeedWantsSound();
+ const vids=[...document.querySelectorAll("#auto-arcade-widget video.aa360-video")];
+ const active=vids.find(v=>!v.paused)||vids[0];
+ if(active){
+  active.muted=!aaFeedWantsSound();
+  if(aaFeedWantsSound()){
+   const p=active.play();
+   if(p&&p.catch)p.catch(()=>{active.muted=true;state.aaFeedSoundOn=false;aaFeedUpdateSoundBtn();toast("Your browser is blocking sound for this video.")});
+  }
+ }
+ aaFeedUpdateSoundBtn();
+}
+function aaFeedSoundBtnHTML(){
+ return `<button type="button" id="aaFeedSoundBtn" class="aa-feed-sound-btn" aria-label="${aaFeedWantsSound()?"Mute video sound":"Unmute video sound"}" onclick="event.stopPropagation();aaToggleFeedSound()">${aaFeedWantsSound()?"🔊":"🔇"}</button>`;
+}
 function aaInit360Feed(){
  if(aaFeedObserver){try{aaFeedObserver.disconnect()}catch(e){}}
+ if(state.aaFeedSoundOn===undefined)state.aaFeedSoundOn=true;
  const vids=[...document.querySelectorAll("#auto-arcade-widget .aa360-video")];if(!vids.length)return;
- aaFeedObserver=new IntersectionObserver(entries=>{entries.forEach(entry=>{const v=entry.target;if(entry.isIntersecting&&entry.intersectionRatio>=.7){vids.forEach(x=>{if(x!==v){try{x.pause()}catch(e){}}});if(typeof v.play==="function"){v.muted=true;const p=v.play();if(p&&p.catch)p.catch(()=>{});}aaRecordFeedView(v.dataset.aaVideoId,v.dataset.aaPostType,v.dataset.aaPostId)}else{try{v.pause()}catch(e){}}})},{threshold:[0,.7,1]});
+ aaFeedObserver=new IntersectionObserver(entries=>{entries.forEach(entry=>{const v=entry.target;if(entry.isIntersecting&&entry.intersectionRatio>=.7){vids.forEach(x=>{if(x!==v){try{x.pause()}catch(e){}}});if(typeof v.play==="function"){const wantSound=aaFeedWantsSound();v.muted=!wantSound;const p=v.play();if(p&&p.catch)p.catch(()=>{if(wantSound){v.muted=true;state.aaFeedSoundOn=false;aaFeedUpdateSoundBtn()}const p2=v.play();if(p2&&p2.catch)p2.catch(()=>{})});}aaRecordFeedView(v.dataset.aaVideoId,v.dataset.aaPostType,v.dataset.aaPostId)}else{try{v.pause()}catch(e){}}})},{threshold:[0,.7,1]});
  vids.forEach(v=>aaFeedObserver.observe(v));
- requestAnimationFrame(()=>aaFeedGoTo(aaFeedCurrentIndex(),"auto"));
+ requestAnimationFrame(()=>{aaFeedGoTo(aaFeedCurrentIndex(),"auto");aaFeedUpdateSoundBtn()});
 }
 (function installHomeCanonicalOpen(){
  if(window.__aaHomeCanonOpen)return;window.__aaHomeCanonOpen=true;
@@ -9331,35 +9414,115 @@ function aaMarketHTML(){
  const cats=household?["All","Furniture","Kitchen Appliances","Home Electronics","General Electronics","Home Decor","Bedding","Lighting","Small Appliances","Storage & Organization"]:["All","Engine & Drivetrain","Bodywork & Trim","Brakes & Suspension","Electrical & Lighting","Interior & Accessories"];
  return `<section class="aa-market-page"><div class="aa-market-head"><div><button class="btn" onclick="goBack()">← Back</button><h2 style="margin:10px 0 2px">Auto Market · ${household?"Household Items":"Spare Parts"}</h2><div class="notice">${household?"Search furniture, appliances, electronics, decor, lighting, bedding, storage and other home goods by location or seller.":"Search by vehicle compatibility, OEM/part number, location or store."}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="bingo-neon-action bingo-neon-action-cyan" onclick="aaOpenMarketCategoriesDrawer()"><span aria-hidden="true">▤</span> Categories</button><button class="btn btn-red" onclick="aaOpenSparePost('${household?"household":"spare_parts"}')">＋ ${household?"Post Household Item":"Post Spare Part"}</button></div></div><div class="aa-market-type-tabs"><button class="btn ${!household?'active':''}" onclick="aaSetMarketType('spare_parts')">Spare Parts</button><button class="btn ${household?'active':''}" onclick="aaSetMarketType('household')">Household Items</button></div><div class="aa-market-filters"><input class="field" placeholder="${household?"Search household item, brand...":"Search part, make, model, OEM..."}" value="${esc(state.marketSearch||'')}" oninput="state.marketSearch=this.value"><select class="select" onchange="state.marketCategory=this.value;render()">${cats.map(x=>`<option ${x===state.marketCategory?'selected':''}>${esc(x)}</option>`).join('')}</select><select class="select" onchange="state.marketCounty=this.value;render()"><option>All Kenya</option>${kenyaCounties.map(x=>`<option ${x===state.marketCounty?'selected':''}>${esc(x)}</option>`).join('')}</select><input class="field" placeholder="Town / area" value="${esc(state.marketTown||'')}" oninput="state.marketTown=this.value"></div>${rows.length?`<div class="aa-market-grid">${rows.map(aaPartCardHTML).join('')}</div>`:`<div class="empty">No ${household?'household items':'spare parts'} match this search.</div>`}</section>`
 }
-/* Marketplace > Categories panel (Cockpit restoration, Consolidated
-   Directives 28 Sep 2026): the Cockpit's own Categories button opens this
-   directly, consolidating "Restaurant and food browsing/registration,
-   food listings, property listings, Bingo Properties and Bingo Stays"
-   under Categories rather than as separate Cockpit buttons - every item
-   below is a real, existing route, reused as-is. Food Menu/Restaurant
-   Orders reuse the already-merged aaCockpitGo('menu'/'orders') helper
-   (it already handles zero/one/many-businesses correctly and the
-   logged-out gate) instead of duplicating that logic here. */
-function aaOpenMarketCategoriesDrawer(){state.marketCategoriesDrawerOpen=true;render()}
-function aaCloseMarketCategoriesDrawer(){state.marketCategoriesDrawerOpen=false;render()}
+/* Marketplace > Categories panel (Categories/Food Restoration directive,
+   28 Sep 2026): restores the full "All Categories" directory (all 30
+   catalogue categories, search, subcategory counts) in place of the
+   earlier 8-item Cockpit shortcut list. Food is now also its own direct
+   Cockpit button (see the bcp Marketplace section) rather than living only
+   inside this drawer. A tapped category opens a real, existing route
+   (AA_CATEGORY_REAL_ROUTES) when one exists; every other category is real
+   catalogue metadata with an honest "coming soon" panel instead of
+   invented listings - see AA_ALL_CATEGORIES above aaOpenMarketCategoriesDrawer.
+   Bingo Stays remains reachable one tap deeper, as a tab on the real
+   Properties page it already has (aaPropertyNavHTML); Food Menu/Restaurant
+   Orders/Promotions remain reachable via the owner's "Manage my
+   restaurant"/"Boost Listing" entries rather than this public directory. */
+function aaOpenMarketCategoriesDrawer(){state.marketCategoriesDrawerOpen=true;state.allCatComingSoonSlug=null;render()}
+function aaCloseMarketCategoriesDrawer(){state.marketCategoriesDrawerOpen=false;state.allCatComingSoonSlug=null;render()}
+/* The full Bingo marketplace catalogue (names/subcategories/age-restriction),
+   independent of the orphaned #bgcCatGrid demo module elsewhere in this file
+   (that module's own item data is hardcoded placeholder content - "Temporary
+   editable ... demo listing", picsum.photos images, "Demo value" fields, and
+   its edit form is literally labelled "Front-end demo only" - confirmed
+   identical across every branch's history, so there is no real version to
+   recover). Only categories with an AA_CATEGORY_REAL_ROUTES entry open a real,
+   existing, backend-connected page; every other category is real catalogue
+   metadata but has no page to route to yet, so it opens an honest "coming
+   soon" panel instead of inventing listings. */
+const AA_ALL_CATEGORIES=[
+ {name:"Vehicles / Auto",slug:"vehicles",subs:["Cars","SUVs","Vans","Pickups","Trucks","Buses","Matatus"]},
+ {name:"Properties",slug:"properties",subs:["House","Apartment","Bedsitter","Maisonette","Villa","Office","Shop","Warehouse"]},
+ {name:"Agriculture",slug:"agriculture",subs:["Farm Produce","Seeds","Fertilizer","Animal Feed","Irrigation","Farming Supplies"]},
+ {name:"Farm Equipment",slug:"farm-equipment",subs:["Tractors","Water Pumps","Ploughs","Harvesting Equipment","Irrigation Equipment","Generators","Farm Tools"]},
+ {name:"Food & Drinks",slug:"food",subs:["Prepared Meals","Fresh Food","Groceries","Fresh Produce","Meat","Fish","Drinks","Catering","Snacks"]},
+ {name:"Restaurants",slug:"restaurants",subs:["African","Seafood","Fast Food","Indian","Italian","Cafe","Fine Dining"]},
+ {name:"Pastries & Bakeries",slug:"pastries-bakeries",subs:["Cakes","Bread","Cookies","Doughnuts","Cupcakes","Pastries","Wedding Cakes"]},
+ {name:"Hotels & Accommodation",slug:"hotels-accommodation",subs:["Hotels","Apartments","BnBs","Guest Houses","Resorts","Lodges"]},
+ {name:"Liquor Stores",slug:"liquor-stores",ageRestricted:true,subs:["Wine","Beer","Spirits","Cider","Mixers","Gift Packs"]},
+ {name:"Fashion & Clothing",slug:"fashion",subs:["Men","Women","Kids","Shoes","Bags","Jewellery","Watches","Traditional Wear"]},
+ {name:"Furniture & Home",slug:"furniture",subs:["Sofas","Beds","Dining Sets","Tables","Chairs","Office Furniture","Cabinets","Home Decor"]},
+ {name:"Electronics",slug:"electronics",subs:["TVs","Audio","Cameras","Gaming","Home Electronics","Smart Devices"]},
+ {name:"Beauty & Personal Care",slug:"beauty",subs:["Hair","Barbers","Nails","Skincare","Cosmetics","Spa","Massage","Beauty Products","Salons"]},
+ {name:"Jobs",slug:"jobs",subs:["Full Time","Part Time","Contract","Casual","Internship","Remote","Temporary"]},
+ {name:"CVs / Job Seekers",slug:"cvs",subs:["Administration","Sales","Hospitality","Driving","Technology","Creative","Trades"]},
+ {name:"Services",slug:"services",subs:["Mechanics","Plumbers","Electricians","Cleaning","Moving","Photography","Graphic Design","IT Services","Repair Services"]},
+ {name:"Phones & Accessories",slug:"phones",subs:["Smartphones","Feature Phones","Tablets","Chargers","Cases","Earphones","Power Banks","Phone Parts"]},
+ {name:"Computers & Accessories",slug:"computers",subs:["Laptops","Desktops","Monitors","Printers","Keyboards","Mice","Storage","Computer Parts","Networking"]},
+ {name:"Home Appliances",slug:"home-appliances",subs:["Refrigerators","Cookers","Microwaves","Washing Machines","Fans","Air Conditioners","Blenders"]},
+ {name:"Motorcycles & Bicycles",slug:"motorcycles-bicycles",subs:["Motorcycles","Scooters","Bicycles","Electric Bikes","Delivery Bikes"]},
+ {name:"Spare Parts & Accessories",slug:"spare-parts",subs:["Vehicle Parts","Motorcycle Parts","Tyres","Rims","Batteries","Lights","Body Parts","Engine Parts"]},
+ {name:"Construction & Hardware",slug:"construction-hardware",subs:["Building Materials","Tools","Cement","Steel","Timber","Plumbing Materials","Electrical Materials","Doors","Windows","Roofing"]},
+ {name:"Land & Plots",slug:"land-plots",subs:["Residential Plot","Commercial Plot","Agricultural Land","Industrial Land","Beach Plot"]},
+ {name:"Commercial Property",slug:"commercial-property",subs:["Office","Shop","Warehouse","Industrial","Restaurant Space","Hotel Property","Commercial Land"]},
+ {name:"Pets & Animals",slug:"pets",subs:["Dogs","Cats","Birds","Fish","Pet Supplies","Pet Services"]},
+ {name:"Livestock",slug:"livestock",subs:["Cattle","Goats","Sheep","Poultry","Rabbits"]},
+ {name:"Events & Entertainment",slug:"events",subs:["Events","Venues","Entertainment Services","DJs","MCs","Photography","Decor","Event Equipment","Outside Catering"]},
+ {name:"Sports & Fitness",slug:"sports-fitness",subs:["Sports Equipment","Gym Equipment","Fitness Services","Sportswear","Outdoor Equipment"]},
+ {name:"Health & Wellness",slug:"health-wellness",subs:["Wellness Services","Fitness / Wellness Centres","Personal Care","Non-restricted Wellness Products"]},
+ {name:"Other Marketplace Items",slug:"other",subs:["General","Collectibles","Office Items","Miscellaneous"]}
+];
+const AA_CATEGORY_REAL_ROUTES={
+ vehicles:()=>aaOpenMarket(),
+ properties:()=>aaOpenProperties('browse'),
+ food:()=>aaOpenFood('browse'),
+ restaurants:()=>aaOpenFood('browse'),
+ jobs:()=>openJobs('jobs'),
+ cvs:()=>openJobs('candidates')
+};
+function aaOpenCategoryTile(slug){
+ const route=AA_CATEGORY_REAL_ROUTES[slug];
+ if(route){aaCloseMarketCategoriesDrawer();route();return}
+ state.allCatComingSoonSlug=slug;render();
+}
+/* Real, live counts only - no fabricated numbers. Used by Admin Mode
+   (super users only) so the tile can show "N live" next to a real-routed
+   category instead of the demo module's old fake per-item admin editor. */
+function aaCategoryLiveCount(slug){
+ if(slug==="vehicles")return (state.listings||[]).filter(x=>String(x.status||"published")!=="deleted").length;
+ if(slug==="properties")return (typeof aaProperties==="function"?aaProperties():[]).length;
+ if(slug==="food"||slug==="restaurants")return (typeof aaFoods==="function"?aaFoods():[]).filter(aaFoodActive).length;
+ if(slug==="jobs")return (state.jobs||[]).length;
+ if(slug==="cvs")return (state.candidates||[]).length;
+ return null;
+}
+function aaToggleAllCatAdminMode(){if(!aaIsSuperUser())return;state.allCatAdminMode=!state.allCatAdminMode;render()}
 function aaMarketCategoriesDrawerHTML(){
  if(!state.marketCategoriesDrawerOpen)return "";
- const items=[
-  {label:"Food",ico:"🍽",onclick:"aaCloseMarketCategoriesDrawer();aaOpenFood('browse')"},
-  {label:"Food Menu",ico:"📋",onclick:"aaCloseMarketCategoriesDrawer();aaCockpitGo('menu')"},
-  {label:"Restaurant Orders",ico:"🧾",onclick:"aaCloseMarketCategoriesDrawer();aaCockpitGo('orders')"},
-  {label:"Properties",ico:"🏠",onclick:"aaCloseMarketCategoriesDrawer();aaOpenProperties('browse')"},
-  {label:"Bingo Stays",ico:"🏖️",onclick:"aaCloseMarketCategoriesDrawer();aaOpenProperties('stays')"},
-  {label:"Vehicles &amp; Auto Market",ico:"🚗",onclick:"aaCloseMarketCategoriesDrawer();aaOpenMarket()"},
-  {label:"Jobs &amp; CVs",ico:"🧑‍💼",onclick:"aaCloseMarketCategoriesDrawer();openJobs('myjobs')"},
-  {label:"Promotions",ico:"⚡",onclick:"aaCloseMarketCategoriesDrawer();aaTriggerBannerBoost()"}
- ];
+ const q=(state.allCatSearch||"").toLowerCase().trim();
+ const list=AA_ALL_CATEGORIES.filter(c=>!q||c.name.toLowerCase().includes(q));
+ const comingSoon=state.allCatComingSoonSlug?AA_ALL_CATEGORIES.find(c=>c.slug===state.allCatComingSoonSlug):null;
+ const isAdmin=aaIsSuperUser();
+ const adminOn=isAdmin&&state.allCatAdminMode;
+ if(comingSoon){
+  return `<div class="overlay"><div class="modal aa-market-categories-modal">
+   <button class="close" onclick="aaCloseMarketCategoriesDrawer()">×</button>
+   <button class="btn btn-glass" style="margin-bottom:8px" onclick="state.allCatComingSoonSlug=null;render()">← All Categories</button>
+   <h2>${esc(comingSoon.name)}</h2>
+   <p class="notice">${esc(comingSoon.name)} browsing is not live yet on Bingo. This category is not going to show placeholder or invented listings - real listings will appear here once this section is connected to the marketplace.</p>
+   <div class="bcp-grid">${comingSoon.subs.map(s=>`<span class="badge">${esc(s)}</span>`).join(" ")}</div>
+  </div></div>`;
+ }
  return `<div class="overlay"><div class="modal aa-market-categories-modal">
   <button class="close" onclick="aaCloseMarketCategoriesDrawer()">×</button>
-  <h2>Marketplace &gt; Categories</h2>
-  <p class="notice">Browse or manage food, property, stays, vehicles, jobs and promotions from here.</p>
+  <h2>All Categories</h2>
+  <p class="notice">Browse every Bingo marketplace category. Categories already live on Bingo open straight away; the rest are shown honestly as not yet available.</p>
+  <div class="bcp-header" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+   <input class="field" style="flex:1;min-width:160px" placeholder="Search categories..." value="${esc(state.allCatSearch||"")}" oninput="state.allCatSearch=this.value;render()">
+   ${isAdmin?`<button type="button" class="btn ${adminOn?"btn-gold active":"btn-glass"}" onclick="aaToggleAllCatAdminMode()">${adminOn?"✓ ":""}Admin Mode</button>`:""}
+  </div>
+  ${adminOn?`<p class="notice">Admin Mode: showing real live listing counts for each connected category. No demo or placeholder data.</p>`:""}
   <div class="bcp-grid">
-   ${items.map(x=>`<button class="bcp-btn" onclick="${x.onclick}"><span class="bcp-ico">${x.ico}</span><b>${x.label}</b></button>`).join("")}
+   ${list.length?list.map((c,i)=>{const live=adminOn?aaCategoryLiveCount(c.slug):null;return `<button type="button" class="aa-catpill aa-catpill-c${i%6}" onclick="aaOpenCategoryTile('${c.slug}')"><b>${esc(c.name)}</b><small>${c.ageRestricted?"18+":c.subs.length+" subcategories"}${!AA_CATEGORY_REAL_ROUTES[c.slug]?" · Coming soon":live!==null?` · ${live} live`:""}</small></button>`}).join(""):`<div class="notice">No categories match your search.</div>`}
   </div>
  </div></div>`;
 }
@@ -10014,12 +10177,22 @@ function aaOpenDynamicPromotedListing(id){
  const c=(state.listings||[]).find(x=>String(x.id)===String(id))||demoListings.find(x=>String(x.id)===String(id));
  if(c)openDetails(c);else toast("This sponsored listing is no longer available.");
 }
+/* Was vehicle-only (state.listings), so any account whose only listing
+   was a food business or property got "Post a vehicle first" - wrong
+   and confusing coming from a Food/Property page's own Boost/Promotions
+   entry point. Now checks each listing type this account actually owns
+   and boosts that one, via the same generic openContentBoost() the
+   Food profile's own "Boost Profile" button already uses. */
 function aaTriggerBannerBoost(){
  if(!state.isLoggedIn){openAuth("login");return}
  const uid=String(state.user?.id||"");
- const owned=(state.listings||[]).find(x=>String(x.userId||x.sellerId||x.ownerId||"")===uid&&String(x.status||"published")!=="deleted");
- if(owned){openBoost(owned);return}
- toast("Post a vehicle first, then you can boost your own listing.");
+ const ownedVehicle=(state.listings||[]).find(x=>String(x.userId||x.sellerId||x.ownerId||"")===uid&&String(x.status||"published")!=="deleted");
+ if(ownedVehicle){openBoost(ownedVehicle);return}
+ const ownedFood=aaCockpitOwnerFoods()[0];
+ if(ownedFood){openContentBoost(ownedFood,"food_business");return}
+ const ownedProperty=aaCockpitOwnerProperties()[0];
+ if(ownedProperty){openContentBoost(ownedProperty,AA_STAY_TYPES.includes(ownedProperty.type)?"stay":"property");return}
+ toast("Post a vehicle, property or food business first, then you can boost your own listing.");
  openPostVehicle();
 }
 /* Cockpit's single ad section: reuses the same real ad pool/selection and
@@ -12018,7 +12191,9 @@ function aaFoodHTML(){
  const mine=all.filter(x=>String(x.user_id||'')===String(state.user?.id||'')||x.local_owner);
  if(tab==='post'||tab==='mine')return aaFoodWorkspaceHTML(tab,mine,tab==='post'?aaFoodPostHTML():aaFoodMineHTML(mine));
  if(tab==='orders')return `<section class="aa-owner-ws" style="padding:18px 0 105px"><div class="aa-owner-ws-head"><button type="button" class="btn btn-glass" onclick="goBack()">← Back</button><div><small>Your activity</small><h2>My Food Orders</h2></div></div>${aaFoodMyOrdersHTML()}</section>`;
- return `<section style="padding:18px 0 105px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 style="margin:0">Food</h2>${state.isLoggedIn&&mine.length?`<button type="button" class="btn btn-glass aa-cp-link" onclick="aaCockpitGo('food')">Manage my restaurant ›</button>`:''}</div><p class="notice" style="margin-top:8px">Restaurants and food businesses run on a paid monthly advertising subscription (KES 1,000 / 30 days via M-Pesa).</p>${aaFoodListHTML(visible)}</section>`;
+ const fq=(state.foodBrowseSearch||'').toLowerCase().trim();
+ const filtered=visible.filter(f=>!fq||[f.business_name,f.county,f.town,f.delivery_area].some(v=>String(v||'').toLowerCase().includes(fq)));
+ return `<section style="padding:18px 0 105px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h2 style="margin:0">Food</h2>${state.isLoggedIn?`<button type="button" class="btn btn-glass aa-cp-link" onclick="aaCockpitGo('food')">${mine.length?'Manage my restaurant ›':'List your restaurant ›'}</button>`:''}</div><p class="notice" style="margin-top:8px">Restaurants and food businesses run on a paid monthly advertising subscription (KES 1,000 / 30 days via M-Pesa).</p><input class="field" style="margin-top:10px" placeholder="Search restaurant name, county, town or delivery area..." value="${esc(state.foodBrowseSearch||'')}" oninput="state.foodBrowseSearch=this.value;render()">${fq&&!filtered.length?`<div class="empty" style="margin-top:10px">No restaurants match "${esc(state.foodBrowseSearch)}".</div>`:aaFoodListHTML(filtered)}</section>`;
 }
 /* Owner-only Food Business workspace, reached from the Cockpit. Uses the
    approved Food Menu layout (bingo-food-menu-proto): a section rail on
@@ -13327,10 +13502,10 @@ function aaFoodMenuItemCardHTML(it,own){
    ${media?(media.type==='video'?`<video src="${bingoSafeMediaAttr(media.url)}" muted playsinline preload="metadata"></video><span class="aa-media-play">▶</span>`:`<img src="${bingoSafeMediaAttr(media.url)}" alt="">`):''}
    ${it.status==='draft'?'<span class="badge badge-gold" style="position:absolute;top:6px;left:6px">DRAFT</span>':''}
    ${!it.available?'<span class="badge badge-red" style="position:absolute;top:6px;right:6px">UNAVAILABLE</span>':''}
+   ${it.category?`<span class="aa-food-menu-card-cuisine">${esc(it.category)}</span>`:''}
   </div>
   <div style="padding:8px 8px 0">
    <b style="font-size:12px;display:block">${esc(it.name)}</b>
-   ${it.category?`<div class="meta" style="font-size:9px">${esc(it.category)}</div>`:''}
    <div class="meta" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.description)}</div>
    <div class="price" style="margin-top:6px;font-size:12px">KSh ${money(it.price_kes)}</div>
    ${tags.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${tags.map(t=>`<span class="badge">${esc(t)}</span>`).join('')}</div>`:''}
@@ -13597,41 +13772,49 @@ function aaFoodBusinessProfileHTML(){
  const coverMedia=f.media?.[0];
  const initials=String(f.business_name||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()||'?';
  const menuItems=aaFoodMenuItems(f.id).filter(x=>own||x.status==='published').slice(0,6);
+ /* Real rating/review data only - reuses the same reviewSummary() the
+    seller profile page already shows against this business's owner, so
+    "No rating yet" (not a fabricated score) is what a business with no
+    reviews actually shows, exactly as the seller profile already does. */
+ const rs=reviewSummary(f.user_id||'',f.business_name||'');
+ const ratingHTML=rs.ratings?`<span class="aa-rating-stars">${starsHTML(rs.average)}</span> <span style="font-size:10.5px;color:#9aa7bc">${rs.average.toFixed(1)} (${rs.ratings} review${rs.ratings===1?'':'s'})</span>`:`<span style="font-size:10.5px;color:#7f8ba0">No rating yet</span>`;
+ const following=f.user_id?aaIsFollowingSeller(f.user_id):false;
  return `<section style="padding:18px 0 105px">
   <button class="btn btn-glass" onclick="goBack()">← Back</button>
+  ${aaAdSlotHTML('food-profile-top')}
   <div class="aa-foodprofile-cover" style="margin-top:12px">${coverMedia&&coverMedia.type!=='video'?`<img src="${bingoSafeMediaAttr(coverMedia.url)}" alt="">`:''}</div>
-  <div class="aa-foodprofile-head">
-   <div class="aa-foodprofile-logo">${esc(initials)}</div>
-   <div class="aa-foodprofile-id">
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h2>${esc(f.business_name)}</h2>${aaFoodActive(f)?'<span class="badge badge-green">OPEN FOR ORDERS</span>':'<span class="badge badge-red">INACTIVE</span>'}</div>
-    <div class="meta">${esc(f.category||'Restaurant')} · ${esc(addr||'—')}${f.opening_hours?' · '+esc(f.opening_hours):''}</div>
-   </div>
-  </div>
-  <div class="detail-grid" style="margin-top:14px">
-   <div>
-    ${aaListingMediaGalleryHTML(String(f.id),f.media,f.business_name)}
-    <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap aa-foodprofile-actions" style="margin-top:10px">
-     <button class="btn bingo-neon-action bingo-neon-action-gold" onclick="aaOpenFoodMenu('${esc(f.id)}')">🛒 Order Now</button>
-     ${own?'':`${phone?`<a class="btn bingo-neon-action bingo-neon-action-cyan" href="tel:${esc(phone)}">☎ Call</a>`:''}${wa?`<button class="btn bingo-neon-action bingo-neon-action-green" onclick="window.open('https://wa.me/${esc(wa)}','_blank')">WhatsApp</button>`:''}<button class="btn bingo-neon-action bingo-neon-action-purple" onclick="if(!aaRequireMember({action:'message',targetId:'${esc(f.id)}'}))return;aaMsgOpenConversationWith('${esc(f.user_id||'')}','${esc((f.business_name||'Bingo Member').replace(/'/g,"\\'"))}','')">💬 Chat</button>`}
-     <button class="btn bingo-neon-action bingo-neon-action-cyan" onclick="window.open('${esc(directionsUrl)}','_blank')">📍 Directions</button>
-     <button class="btn btn-glass" onclick="state.shareTarget={id:${esc(JSON.stringify(String(f.id)))},title:${esc(JSON.stringify(f.business_name||''))}};render()">↗ Share</button>
-     <button class="btn ${isFav(f.id)?'btn-gold fav-on':'btn-glass'}" onclick='toggleFav(${JSON.stringify(String(f.id))})'>${isFav(f.id)?'★ Saved':'☆ Save'}</button>
+  <div class="aa-foodprofile-topband">
+   <div class="aa-foodprofile-head">
+    <div class="aa-foodprofile-logo">${esc(initials)}</div>
+    <div class="aa-foodprofile-id">
+     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><h2>${esc(f.business_name)}</h2>${aaFoodActive(f)?'<span class="badge badge-green">OPEN FOR ORDERS</span>':'<span class="badge badge-red">INACTIVE</span>'}</div>
+     <div class="meta">${ratingHTML}</div>
     </div>
    </div>
-   <div class="modal" style="max-height:none">
-    <div class="specs">
-     ${f.category?`<div class="spec"><span>Cuisine</span><b>${esc(f.category)}</b></div>`:''}
-     <div class="spec"><span>Location</span><b>${esc(addr||'—')}</b></div>
-     ${f.opening_hours?`<div class="spec"><span>Hours</span><b>${esc(f.opening_hours)}</b></div>`:''}
-     ${f.price_range?`<div class="spec"><span>Price Range</span><b>${esc(f.price_range)}</b></div>`:''}
-     <div class="spec"><span>Delivery</span><b>${f.delivery_available?'Available':'Pickup only'} · ${esc(f.delivery_area||'—')}</b></div>
-    </div>
-    <div class="desc">${esc(f.description||'')}</div>
-    ${own?`<div class="details-actions aa-content-fit-row aa-content-fit-row-wrap" style="margin-top:10px"><button class="btn btn-glass" onclick="aaEditFoodBusiness('${esc(f.id)}')">✎ Edit Business</button></div>`:''}
-    ${aaHelpSellBlockHTML("food_business",f.id,f.user_id||"")}
-    ${aaAdminControlsHTML("food_business",f.id,f.user_id||"")}
+   <div class="aa-foodprofile-strip">
+    <div class="aa-foodprofile-chip"><span>Cuisine</span><b>${esc(f.category||'Restaurant')}</b></div>
+    <div class="aa-foodprofile-chip"><span>Location</span><b>${esc(addr||'—')}</b></div>
+    <div class="aa-foodprofile-chip"><span>Hours</span><b>${esc(f.opening_hours||'—')}</b></div>
+    ${f.price_range?`<div class="aa-foodprofile-chip"><span>Price Range</span><b>${esc(f.price_range)}</b></div>`:''}
+    <div class="aa-foodprofile-chip"><span>Delivery</span><b>${f.delivery_available?'Available':'Pickup only'} · ${esc(f.delivery_area||'—')}</b></div>
    </div>
   </div>
+  ${(f.media||[]).length>1?aaListingMediaGalleryHTML(String(f.id),f.media,f.business_name):''}
+  <div class="aa-foodprofile-actionband">
+   <div class="details-actions aa-content-fit-row aa-content-fit-row-wrap aa-foodprofile-actions">
+    <button class="btn bingo-neon-action bingo-neon-action-gold" onclick="aaOpenFoodMenu('${esc(f.id)}')">🛒 Order Now</button>
+    ${own?'':`${phone?`<a class="btn bingo-neon-action bingo-neon-action-cyan" href="tel:${esc(phone)}">☎ Call</a>`:''}${wa?`<button class="btn bingo-neon-action bingo-neon-action-green" onclick="window.open('https://wa.me/${esc(wa)}','_blank')">WhatsApp</button>`:''}<button class="btn bingo-neon-action bingo-neon-action-purple" onclick="if(!aaRequireMember({action:'message',targetId:'${esc(f.id)}'}))return;aaMsgOpenConversationWith('${esc(f.user_id||'')}','${esc((f.business_name||'Bingo Member').replace(/'/g,"\\'"))}','')">💬 Chat</button>`}
+    <button class="btn bingo-neon-action bingo-neon-action-cyan" onclick="window.open('${esc(directionsUrl)}','_blank')">📍 Directions</button>
+    <button class="btn btn-glass" onclick="state.shareTarget={id:${esc(JSON.stringify(String(f.id)))},title:${esc(JSON.stringify(f.business_name||''))}};render()">↗ Share</button>
+    <button class="btn ${isFav(f.id)?'btn-gold fav-on':'btn-glass'}" onclick='toggleFav(${JSON.stringify(String(f.id))})'>${isFav(f.id)?'★ Saved':'☆ Save'}</button>
+    ${own||!f.user_id?'':`<button class="btn ${following?'btn-gold':'btn-glass'}" onclick="aaToggleFollowSeller('${esc(f.user_id)}',${esc(JSON.stringify(f.business_name||''))})">${following?'✓ Following':'+ Follow'}</button>
+    <button class="btn btn-glass" style="color:var(--red)" onclick="aaOpenModeration('food_business','${esc(f.id)}','${esc(f.user_id||'')}')">⚑ Report</button>`}
+   </div>
+   <div class="desc aa-foodprofile-desc">${esc(f.description||'')}</div>
+   ${own?`<button class="btn btn-glass aa-foodprofile-edit" onclick="aaEditFoodBusiness('${esc(f.id)}')">✎ Edit Business</button>`:''}
+  </div>
+  ${aaHelpSellBlockHTML("food_business",f.id,f.user_id||"")}
+  ${aaAdminControlsHTML("food_business",f.id,f.user_id||"")}
   <div class="boost-summary" style="margin-top:14px">
    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
     <b>Menu</b>
@@ -13642,6 +13825,7 @@ function aaFoodBusinessProfileHTML(){
    </div>
    ${!menuItems.length?`<p class="notice">${own?'No food items yet. Tap Manage Menu to start.':'This restaurant has not published any menu items yet.'}</p>`:`<div class="aa-food-menu-grid">${menuItems.map(it=>aaFoodMenuItemCardHTML({...it,business_id:f.id},own)).join('')}</div>`}
   </div>
+  ${aaAdSlotHTML('food-profile-menu')}
   ${own?`<div class="boost-summary" style="margin-top:14px;border-color:var(--gold)">
    <b style="color:var(--gold)">Restaurant Management</b>
    <div class="aa-agentdash-tabs aa-agentdash-chips" style="margin-top:8px">
@@ -14029,6 +14213,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
           <div class="bcp-section-label">Marketplace</div>
           <div class="bcp-grid">
             <button class="bcp-btn ${state.marketCategoriesDrawerOpen?"active":""}" onclick="aaAssistantCloseDrawer();aaOpenMarketCategoriesDrawer();"><span class="bcp-ico">&#9638;</span><b>Categories</b></button>
+            <button class="bcp-btn ${state.view==="food"&&(state.foodTab||"browse")==="browse"?"active":""}" onclick="aaAssistantNavigate(()=>aaOpenFood('browse'))"><span class="bcp-ico">&#127860;</span><b>Food</b></button>
             <button class="bcp-btn" onclick="aaAssistantNavigate(aaTriggerBannerBoost)"><span class="bcp-ico">&#9889;</span><b>Boost Listing</b></button>
             <button class="bcp-btn ${state.view==="jobs"?"active":""}" onclick="aaAssistantNavigate(()=>openJobs('jobs'))"><span class="bcp-ico">&#9635;</span><b>Jobs &amp; CV</b></button>
           </div>
@@ -14062,6 +14247,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   if(state.view==="inbox"){if(!aaMsgAdTimer&&!aaMsgAdStarting){aaMsgAdStarting=true;aaStartMsgAdTimer();setTimeout(()=>{aaMsgAdStarting=false},15000)}}else{aaStopMsgAdTimer();aaMsgAdStarting=false}
+  if(state.view==="food-profile"){if(!aaFoodAdTimers.length&&!aaFoodAdStarting){aaFoodAdStarting=true;aaStartFoodAdTimer();setTimeout(()=>{aaFoodAdStarting=false},15000)}}else{aaStopFoodAdTimer();aaFoodAdStarting=false}
   if(state.msgActiveCall)aaCallReattachMediaElements();
   aaDynamicAdAfterRender();
   if(state.view==="add")aaInstallVehicleUploadEnhancer();
@@ -14083,7 +14269,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
 }
 function homeHTML(boosted,rows,all,pages){
  const videos=aaMixedFeedItems();
- return `<section class="aa360-shell">${aaFeedFilterHTML()}${aaAdSlotHTML("home-banner")}${videos.length?`<div class="aa360-feed">${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div>`:`<div class="aa360-empty"><div><h2>360View is ready</h2><p>No vehicle, property or food video has been published yet.</p><button class="btn btn-red" onclick="openPostVehicle()">Post a Vehicle</button></div></div>`}</section>`;
+ return `<section class="aa360-shell">${aaFeedFilterHTML()}${aaAdSlotHTML("home-banner")}${videos.length?`<div class="aa360-feed">${aaFeedSoundBtnHTML()}${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div>`:`<div class="aa360-empty"><div><h2>360View is ready</h2><p>No vehicle, property or food video has been published yet.</p><button class="btn btn-red" onclick="openPostVehicle()">Post a Vehicle</button></div></div>`}</section>`;
 }
 function listingType(c){return String(c?.listingType||"sale").toLowerCase()==="hire"?"hire":"sale"}
 function listingBadge(c){return listingType(c)==="hire"?'<span class="badge badge-green">FOR HIRE</span>':'<span class="badge badge-red">FOR SALE</span>'}
@@ -24108,6 +24294,28 @@ function bingoSafeMediaAttr(value){
   .bcp-grid{grid-template-columns:repeat(1,minmax(0,1fr))!important}
 }
 
+/* All Categories directory: neon pill tiles (Screenshot B), cycling
+   through the same neon palette used elsewhere on Bingo rather than one
+   flat gold outline like the rest of the Cockpit's bcp-btn grid. */
+#auto-arcade-widget button.aa-catpill{
+  display:block!important;
+  text-align:left!important;
+  padding:9px 12px!important;
+  border-radius:999px!important;
+  border:1.5px solid var(--catpill-c,var(--bcp-gold-soft))!important;
+  background:rgba(10,20,36,.9)!important;
+  color:var(--bcp-text)!important;
+  box-shadow:0 0 8px -2px var(--catpill-c,transparent)!important;
+}
+.aa-catpill b{display:block;font-size:11px;font-weight:800;line-height:1.2}
+.aa-catpill small{display:block;font-size:9px;font-weight:400;opacity:.72;margin-top:1px}
+.aa-catpill-c0{--catpill-c:#22d3ee}
+.aa-catpill-c1{--catpill-c:#f472b6}
+.aa-catpill-c2{--catpill-c:#4ade80}
+.aa-catpill-c3{--catpill-c:#f5b91e}
+.aa-catpill-c4{--catpill-c:#a78bfa}
+.aa-catpill-c5{--catpill-c:#fb923c}
+
 /* ---- Buttons ---- */
 .bcp-btn{
   position:relative!important;
@@ -26233,6 +26441,28 @@ Preserve all existing onclick actions, routes, forms and button wording.
 #auto-arcade-widget .aa-foodprofile-id{padding-bottom:4px;min-width:0}
 #auto-arcade-widget .aa-foodprofile-id h2{margin:0;font-size:19px;line-height:1.25;word-break:break-word}
 #auto-arcade-widget .aa-foodprofile-id .meta{font-size:10.5px;color:#9aa7bc;margin-top:3px}
+/* Identity (avatar/name/rating) and the info chips read as one header
+   band - side by side on wide screens, the chips wrapping onto their
+   own row(s) once the row can no longer fit both, down to a full
+   single-column stack on phones. aa-foodprofile-head keeps its own
+   width (name/rating shouldn't stretch); the chip strip takes the rest. */
+#auto-arcade-widget .aa-foodprofile-topband{display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px 20px}
+#auto-arcade-widget .aa-foodprofile-topband .aa-foodprofile-head{flex:0 1 auto;min-width:220px}
+#auto-arcade-widget .aa-foodprofile-topband .aa-foodprofile-strip{flex:999 1 320px}
+/* Not the 2-column .specs grid used elsewhere (which sits in a side
+   column) - flex-wrap chips that flow in one band. */
+#auto-arcade-widget .aa-foodprofile-strip{display:flex;flex-wrap:wrap;gap:8px;margin:0}
+#auto-arcade-widget .aa-foodprofile-chip{background:#111b30;border:1px solid var(--line);border-radius:9px;padding:7px 11px;font-size:11px;flex:1 1 150px;min-width:0}
+#auto-arcade-widget .aa-foodprofile-chip span{display:block;color:#7f8ba0;font-size:9px;margin-bottom:2px}
+#auto-arcade-widget .aa-foodprofile-chip b{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* Actions + description + Edit Business share one band too - buttons
+   left, description filling the middle, Edit Business trailing on
+   desktop; each drops to its own full-width row once the band can't
+   fit them side by side. */
+#auto-arcade-widget .aa-foodprofile-actionband{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:10px}
+#auto-arcade-widget .aa-foodprofile-actionband .aa-foodprofile-actions{margin-top:0}
+#auto-arcade-widget .aa-foodprofile-desc{flex:2 1 240px;min-width:0;margin:0}
+#auto-arcade-widget .aa-foodprofile-edit{flex:0 0 auto;margin-left:auto}
 #auto-arcade-widget .aa-foodprofile-actions{gap:8px}
 @media(max-width:850px){
  /* Below the desktop two-column breakpoint, .detail-grid's own left/right
