@@ -11,28 +11,26 @@
 -- supabase_admin role. Two ALTER DEFAULT PRIVILEGES statements, one per
 -- granting role, are needed to remove both.
 --
--- === Who can actually run each line - read this before applying ===
--- PostgreSQL's rule for ALTER DEFAULT PRIVILEGES FOR ROLE <target>: the
--- session running it must be <target> itself, a member of <target>, or a
--- superuser. This is NOT the same requirement as Part A's plain REVOKE
--- (which just needs ownership/grant privilege on the table).
+-- === UPDATED after the Part B preflight (20260929f) was actually run ===
+-- Confirmed live: postgres is NOT a member of supabase_admin, and
+-- postgres is NOT a superuser. Per the PostgreSQL rule for ALTER DEFAULT
+-- PRIVILEGES FOR ROLE <target> (the session must BE <target>, be a MEMBER
+-- of it, or be a superuser), the Supabase SQL editor session (which
+-- connects as postgres) does not meet that rule for "FOR ROLE
+-- supabase_admin". Running it anyway would either fail outright, or -
+-- worse - if it somehow succeeded via some other path, would mean running
+-- a schema-altering statement as an unauthorized role, which this owner
+-- has explicitly said not to do. That statement is REMOVED below, not
+-- just commented as risky.
 --
---   - "FOR ROLE postgres": the Supabase SQL editor connects AS postgres,
---     so this line is postgres altering its own default privileges -
---     expected to succeed normally.
---   - "FOR ROLE supabase_admin": supabase_admin is Supabase's own internal
---     control-plane role, not something project owners are normally
---     granted membership in. Whether `postgres` on this specific project
---     has been granted that membership is a live-project fact this
---     sandbox cannot see and this review has not independently confirmed
---     either way. If this statement fails with something like
---     "must be member of role supabase_admin", that is PostgreSQL
---     correctly enforcing this rule, not a bug in the statement - it
---     means fixing the supabase_admin default requires either Supabase
---     support/their own tooling, or running it from whatever role
---     Supabase's own migration system uses. Applying just the postgres
---     line first is still a real, independent improvement even if the
---     supabase_admin line has to wait.
+-- What that leaves: the postgres-role line only. postgres altering its
+-- OWN default privileges needs no special membership - that one is
+-- unaffected by this finding and remains ready for approval. It only
+-- fixes half of what pg_default_acl originally showed (tables postgres
+-- creates going forward, not tables supabase_admin creates going
+-- forward) - the supabase_admin half is now a known, documented gap
+-- requiring Supabase's own support/tooling, not something this project's
+-- own SQL editor session can close.
 --
 -- Effect if applied: no impact on any legitimate feature (same reasoning
 -- as Part A - nothing in the client ever uses TRUNCATE). Only changes
@@ -43,12 +41,24 @@
 alter default privileges for role postgres in schema public
   revoke truncate on tables from authenticated, anon;
 
-alter default privileges for role supabase_admin in schema public
-  revoke truncate on tables from authenticated, anon;
-
--- Verify afterward (expect no TRUNCATE entries for postgres/supabase_admin
--- remaining in this list):
+-- Verify afterward (expect the postgres row's acl to no longer list
+-- TRUNCATE for anon/authenticated; the supabase_admin row, if any exists
+-- below, is expected to be UNCHANGED by this file - that gap is tracked
+-- separately, not silently left unaddressed):
 select defaclrole::regrole as default_grant_owner, defaclnamespace::regnamespace as schema,
        defaclobjtype, defaclacl
 from pg_default_acl
 where defaclnamespace = 'public'::regnamespace;
+
+-- === Residual gap - not fixed by this file, tracked for the owner ===
+-- The supabase_admin default (TRUNCATE granted to anon/authenticated on
+-- every future table supabase_admin creates) remains in place after this
+-- file runs. Closing it requires one of:
+--   1. Supabase support running the equivalent ALTER DEFAULT PRIVILEGES
+--      from a role that does have supabase_admin membership, or
+--   2. Confirming with Supabase whether tables in this project are ever
+--      actually created by supabase_admin in normal operation (dashboard/
+--      SQL-editor-created tables are typically owned by postgres, per
+--      what this project's own bingo_user_roles table already showed) -
+--      if supabase_admin never creates project tables in practice, this
+--      gap may be low-priority even though it remains technically open.
