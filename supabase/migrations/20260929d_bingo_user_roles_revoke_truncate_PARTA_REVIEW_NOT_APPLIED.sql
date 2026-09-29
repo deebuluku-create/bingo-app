@@ -20,9 +20,23 @@
 -- ever writes to bingo_user_roles, let alone truncates it - every
 -- reference is a .select() scoped to the caller's own row.
 
+-- === STEP 1: verify BEFORE applying ===
+-- Expected result: one row (authenticated, TRUNCATE) - confirming the
+-- grant this correction removes actually exists right now, exactly as
+-- reported. If this returns zero rows already, STOP - the grant is gone
+-- some other way and the REVOKE below is unnecessary (harmless to run
+-- anyway, but worth knowing why before proceeding).
+select grantee, privilege_type
+from information_schema.role_table_grants
+where table_name = 'bingo_user_roles'
+  and grantee = 'authenticated'
+  and privilege_type = 'TRUNCATE';
+
+-- === STEP 2: the correction itself (only after Step 1 confirms the row above) ===
 revoke truncate on public.bingo_user_roles from authenticated;
 
--- Verify afterward (expect zero rows):
+-- === STEP 3: verify AFTER applying ===
+-- Expected result: zero rows - the grant from Step 1 is gone.
 select grantee, privilege_type
 from information_schema.role_table_grants
 where table_name = 'bingo_user_roles'
