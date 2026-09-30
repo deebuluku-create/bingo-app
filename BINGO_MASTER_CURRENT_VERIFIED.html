@@ -12457,8 +12457,14 @@ async function aaSubmitFood(e){
    state.foodPublishProgress='Saving listing…';render();
    const upd=await aaUpdateFoodBusiness(editId,payload);
    if(upd.error){
-    await aaDeleteUploadedFoodMedia(upload.paths);
-    toast('Could not save changes: '+String(upd.error.message||upd.error));
+    /* 30 Sep 2026 directive: a failed row update used to delete the
+       files this same attempt just finished uploading, so a retry after
+       a transient/column error (the 'category' schema-cache failure
+       included) forced the owner to redo every photo/video too. The
+       files stay in Storage now - orphaned only if the owner abandons
+       the edit outright, which is a far smaller cost than silently
+       destroying a successful upload. */
+    toast('Could not save changes: '+String(upd.error.message||upd.error)+' Your entered details and uploaded media are unchanged - try Save again.');
     return;
    }
    const verify=await aaVerifyFoodBusiness(editId);
@@ -12503,8 +12509,14 @@ async function aaSubmitFood(e){
   state.foodPublishProgress='Saving listing…';render();
   const ins=await aaInsertFoodBusiness(payload);
   if(ins.error){
-   await aaDeleteUploadedFoodMedia(upload.paths);
-   toast('Could not save Food business: '+String(ins.error.message||ins.error));
+   /* 30 Sep 2026 directive: same reasoning as the edit path above - do
+      not delete media this same attempt just finished uploading only
+      because the business row failed to save (e.g. the 'category'
+      schema-cache error under investigation). Keeping the files means a
+      retry after aaInsertFoodBusiness's own column-drop-and-retry loop
+      still exhausts its attempts, or after a genuinely different error,
+      does not force the owner to re-upload. */
+   toast('Could not save Food business: '+String(ins.error.message||ins.error)+' Your entered details and uploaded media are unchanged - try Save again.');
    return;
   }
   const verify=await aaVerifyFoodBusiness(businessId);
