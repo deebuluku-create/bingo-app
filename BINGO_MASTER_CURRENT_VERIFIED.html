@@ -22103,8 +22103,20 @@ function bingoSafeMediaAttr(value){
 #auto-arcade-widget .aa82-camera-glass{position:absolute;inset:0;display:flex;flex-direction:column;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.18),transparent 35%,rgba(0,0,0,.30))}
 #auto-arcade-widget .aa82-camera-top{display:flex;gap:8px;padding:calc(12px + env(safe-area-inset-top)) 12px 10px;pointer-events:auto}
 #auto-arcade-widget .aa82-camera-btn{border:1px solid rgba(255,255,255,.35);border-radius:14px;background:rgba(5,13,25,.48);backdrop-filter:blur(10px);color:#fff;padding:10px 12px;font-weight:800;cursor:pointer}
-#auto-arcade-widget .aa82-camera-chat{margin-top:auto;margin-bottom:calc(80px + env(safe-area-inset-bottom));padding:12px;pointer-events:auto}
+#auto-arcade-widget .aa92-gear-btn{font-size:16px;padding:9px 13px}
+#auto-arcade-widget .aa82-camera-bottom{margin-top:auto;display:flex;flex-direction:column;gap:6px;padding-bottom:calc(10px + env(safe-area-inset-bottom));pointer-events:none}
+#auto-arcade-widget .aa82-camera-chat{padding:0 12px;pointer-events:auto}
 #auto-arcade-widget .aa82-camera-chat .aa82-bubble{background:rgba(5,13,25,.50);backdrop-filter:blur(10px)}
+/* Settings drawer (the setup panel) - hidden whenever Live Studio first
+   opens, and whenever explicitly closed. Opening/closing only toggles
+   this attribute, so entered values and the live preview/stream are
+   never touched. */
+#auto-arcade-widget .aa92-live-studio-panel[aria-hidden="true"]{display:none}
+#auto-arcade-widget .aa92-settings-close{width:100%;min-height:38px;border:1px solid #4d6d90;border-radius:10px;background:#16283f;color:#fff;font-weight:800;font-size:12px;margin-bottom:9px;cursor:pointer}
+#auto-arcade-widget .aa92-golive-row{display:flex;justify-content:center;padding:0 16px;pointer-events:auto}
+#auto-arcade-widget .aa92-golive-row .aa92-share-live,#auto-arcade-widget .aa92-golive-row .aa92-stop-live{width:100%;max-width:280px;min-height:46px;font-size:12px}
+#auto-arcade-widget .aa92-tool-btn.on{border-color:#f5b91e!important;color:#f5b91e}
+#auto-arcade-widget .aa92-rail-btn#aa92MicToggle.on{border-color:#ef233c;color:#ff9eaa}
 #auto-arcade-widget .aa82-screenfx{position:fixed;inset:0;z-index:290;pointer-events:none;overflow:hidden}
 #auto-arcade-widget .aa82-fly{position:fixed;z-index:300;font-size:30px;pointer-events:none;filter:drop-shadow(0 6px 8px rgba(0,0,0,.25))}
 #auto-arcade-widget .aa82-mud{position:absolute;border-radius:50%;background:radial-gradient(circle at 35% 30%,#8a613d,#4f321f 68%,#2e1b11);opacity:.92;filter:blur(.3px);animation:aa82MudClear 30s linear forwards}
@@ -22352,8 +22364,9 @@ function bingoSafeMediaAttr(value){
   <div class="aa82-camera-glass">
     
 <div class="aa92-watermark" id="aa92Watermark"><b>Bingo</b></div>
-<div class="aa92-live-studio-panel" id="aa92LiveStudioPanel">
-  <div class="aa92-live-title-row">${bingoAppLogoHTML({className:"bingo-app-logo--mobile"})}<div><strong>Bingo Live Studio</strong><small>One camera · multiple destinations</small></div><span class="aa92-live-state" id="aa92LiveState">READY</span></div>
+<div class="aa92-live-studio-panel" id="aa92LiveStudioPanel" aria-hidden="true">
+  <div class="aa92-live-title-row"><img class="bingo-app-logo bingo-app-logo--mobile" src="assets/bingo-original-logo.png" alt="Bingo" loading="lazy" decoding="async"><div><strong>Bingo Live Studio</strong><small>One camera · multiple destinations</small></div><span class="aa92-live-state" id="aa92LiveState">READY</span></div>
+  <button type="button" class="aa92-settings-close" id="aa92SettingsClose">✕ Close Settings</button>
   <input id="aa92LiveTitle" class="aa92-live-title-input" placeholder="Live title e.g. Prado V8 viewing">
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
    <select id="aa92LiveCategory" class="field" style="font-size:11px;padding:6px">
@@ -22376,19 +22389,17 @@ function bingoSafeMediaAttr(value){
     <button type="button" class="aa92-social" data-social="youtube"><span class="aa92-social-icon">▶</span><b>YouTube</b><small>Tap to connect</small><i class="aa92-social-status">OFF</i></button>
     <button type="button" class="aa92-social" data-social="tiktok"><span class="aa92-social-icon">♪</span><b>TikTok</b><small>Tap to connect</small><i class="aa92-social-status">OFF</i></button>
   </div>
-  <div class="aa92-live-row"><button type="button" id="aa92ShareLive" class="aa92-share-live">GO LIVE & SHARE</button><button type="button" id="aa92StopLive" class="aa92-stop-live">STOP</button></div>
   <div class="aa92-backend-note" id="aa92BackendNote">Bingo Live works here. External social broadcasting needs the Bingo streaming server to relay this one stream to connected platforms.</div>
 </div>
 
 <div class="aa82-camera-top">
       <button class="aa82-camera-btn" id="aa82CameraClose">✕ Close</button>
-      <button class="aa82-camera-btn" id="aa82CamLive">● LIVE</button>
+      <button class="aa82-camera-btn aa92-gear-btn" id="aa92SettingsOpen" aria-label="Live settings" title="Settings">⚙</button>
     </div>
     <div class="aa92-side-rail">
       <button class="aa92-rail-btn" id="aa82Flip"><span>↻</span>Flip</button>
       <button class="aa92-rail-btn" onclick="if(typeof aaOpenDualCamera==='function')aaOpenDualCamera('profile')"><span>⧉</span>Dual Cam</button>
-      <button class="aa92-rail-btn" id="aa92BeautyToggle" onclick="aaLiveToggleBeauty()"><span>✨</span>Beauty</button>
-      <button class="aa92-rail-btn" onclick="aaLiveOpenTools()"><span>⋯</span>More</button>
+      <button class="aa92-rail-btn" id="aa92MicToggle" onclick="aaLiveToggleMicRail()"><span>🎙</span>Mic</button>
     </div>
 
     <div class="aa90-live-layer" id="aa90LiveLayer" aria-hidden="true">
@@ -22398,12 +22409,17 @@ function bingoSafeMediaAttr(value){
       <div id="aa90LivePollLayer"></div>
     </div>
 
+<div class="aa82-camera-bottom">
 <div class="aa82-camera-chat">
       <div style="display:flex;gap:6px;align-items:center;pointer-events:auto">
        <input id="aa90LiveCommentInput" class="field" style="flex:1;font-size:12px" placeholder="Add a comment...">
        <button class="btn" style="padding:6px 10px" onclick="aaLiveSendComment()">➤</button>
       </div>
      </div>
+    <div class="aa92-golive-row">
+     <button type="button" id="aa92ShareLive" class="aa92-share-live">🔴 GO LIVE</button>
+     <button type="button" id="aa92StopLive" class="aa92-stop-live" hidden>■ STOP</button>
+    </div>
     <div class="aa92-capture-row">
      <button class="aa92-capture-side" onclick="aaLiveAddTextOverlay()"><span class="aa92-cap-icon aa92-badge-gold">Aa</span><span class="aa92-cap-label">Text</span></button>
      <button class="aa92-capture-side" onclick="aaLiveShowFilterPicker()"><span class="aa92-cap-icon aa92-badge-purple">✨</span><span class="aa92-cap-label">Effects</span></button>
@@ -22411,6 +22427,7 @@ function bingoSafeMediaAttr(value){
      <button class="aa92-capture-side" onclick="aaLiveOpenGuests()"><span class="aa92-cap-icon aa92-badge-cyan">👥</span><span class="aa92-cap-label">Guests</span></button>
      <button class="aa92-capture-side" onclick="aaLiveOpenTools()"><span class="aa92-cap-icon aa92-badge-magenta">⋯</span><span class="aa92-cap-label">Tools</span></button>
     </div>
+</div>
     <div id="aa92LiveToolsSheet" class="aa92-tools-sheet" aria-hidden="true"></div>
   </div>
 </section>
@@ -22548,9 +22565,12 @@ function bingoSafeMediaAttr(value){
  function closeCamera(){if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null}$("#aa82Camera")?.classList.remove("open")}
  $("#aa82CameraTop")?.addEventListener("click",openCamera);$("#aa82CameraTool")?.addEventListener("click",openCamera);$("#aa82CameraClose")?.addEventListener("click",closeCamera);$("#aa82Flip")?.addEventListener("click",async()=>{facing=facing==="environment"?"user":"environment";await openCamera()});
 
- // Live toggle.
- const live=$("#aa82LiveSwitch");live?.addEventListener("click",()=>live.classList.toggle("on"));
- $("#aa82CamLive")?.addEventListener("click",()=>{live?.classList.toggle("on");$("#aa82CamLive").style.background=live?.classList.contains("on")?"#ef233c":"rgba(5,13,25,.48)"});
+ // Settings drawer (the setup panel - title/category/location/goal/quality/
+ // socials/backend note). Closed by default; opening or closing it never
+ // touches the camera stream or clears any typed value, since it only
+ // shows/hides existing DOM.
+ $("#aa92SettingsOpen")?.addEventListener("click",()=>{$("#aa92LiveStudioPanel")?.setAttribute("aria-hidden","false")});
+ $("#aa92SettingsClose")?.addEventListener("click",()=>{$("#aa92LiveStudioPanel")?.setAttribute("aria-hidden","true")});
 
  // Existing assistant drawer Chat insertion remains non-destructive.
  const drawerButtons=$(".aa-assistant-drawer-buttons");
@@ -22880,7 +22900,7 @@ function bingoSafeMediaAttr(value){
 #auto-arcade-widget .aa90-live-comments{
   position:absolute;
   left:12px;
-  bottom:115px;
+  bottom:210px;
   width:min(72vw,350px);
   display:flex;
   flex-direction:column;
@@ -22937,7 +22957,7 @@ function bingoSafeMediaAttr(value){
   const $=(s,c=root)=>c.querySelector(s);
 
 /* ---------- V90 Live mode preserved (mascot-helper setup removed with the cartoon assistant) ---------- */
-  const liveSwitch=$("#aa82LiveSwitch"),camLive=$("#aa82CamLive"),goLiveTool=$("#aa90GoLiveTool"),
+  const liveSwitch=$("#aa82LiveSwitch"),goLiveTool=$("#aa90GoLiveTool"),
         liveLayer=$("#aa90LiveLayer"),comments=$("#aa90LiveComments"),reactions=$("#aa90LiveReactions"),
         viewerEl=$("#aa90LiveViewers"),cameraTool=$("#aa82CameraTool");
   let liveActive=false;
@@ -22972,16 +22992,19 @@ function bingoSafeMediaAttr(value){
   function setLive(on){
     liveActive=!!on;liveSwitch?.classList.toggle("on",liveActive);goLiveTool?.classList.toggle("aa90-live-on",liveActive);liveLayer?.classList.toggle("on",liveActive);
     liveLayer?.setAttribute("aria-hidden",liveActive?"false":"true");
-    if(camLive){camLive.style.background=liveActive?"#ef233c":"rgba(5,13,25,.48)";camLive.textContent=liveActive?"● LIVE":"○ GO LIVE"}
     if(liveActive)startReal();else{if(comments)comments.innerHTML="";if(reactions)reactions.innerHTML="";if(viewerEl)viewerEl.textContent="0";}
   }
+  /* Exposed so the real Go Live/Stop flow (aa-v92-live-social-studio-js,
+     which owns the backend fetch + social distribution) can drive this
+     same viewer/comments overlay - the one true LIVE indicator - instead
+     of each script running its own independent live state. */
+  window.aa90SetLiveLayer=setLive;
   async function ensureCameraOpen(){const camera=$("#aa82Camera");if(camera?.classList.contains("open"))return;cameraTool?.click();await new Promise(r=>setTimeout(r,350))}
-  async function startLive(){await ensureCameraOpen();setLive(true)}
-  function stopLive(){setLive(false)}
+  async function startLive(){await ensureCameraOpen();if(typeof window.aa92LiveStart==="function")await window.aa92LiveStart();else setLive(true)}
+  function stopLive(){if(typeof window.aa92LiveStop==="function")window.aa92LiveStop();else setLive(false)}
   liveSwitch?.addEventListener("click",e=>{e.stopPropagation();liveActive?stopLive():startLive()});
-  camLive?.addEventListener("click",e=>{e.stopPropagation();liveActive?stopLive():startLive()});
   goLiveTool?.addEventListener("click",e=>{e.preventDefault();liveActive?stopLive():startLive()});
-  $("#aa82CameraClose")?.addEventListener("click",stopLive);
+  $("#aa82CameraClose")?.addEventListener("click",()=>{if(liveActive)stopLive()});
   window.aaLiveReceiveComment=p=>{if(liveActive&&p)addLiveComment(p.name||"Viewer",p.text||"")};
   window.aaLiveReceiveReaction=s=>{if(liveActive)addLiveReaction(s)};
 })();
@@ -23071,9 +23094,12 @@ function bingoSafeMediaAttr(value){
  }));
  async function openCamera(){const cam=$("#aa82Camera");if(cam?.classList.contains("open"))return true;($("#aa82CameraTool")||$("#aa82CameraTop"))?.click();await new Promise(r=>setTimeout(r,500));return !!cam?.classList.contains("open")}
  async function start(){
+  if($("#aa92ShareLive")?.classList.contains("live"))return;
   if(!await openCamera()){alert("Camera did not open. Check HTTPS and camera/microphone permission.");return}
   const dest=Object.keys(selected).filter(k=>selected[k]&&connected[k]);if(!dest.includes("bingo"))dest.unshift("bingo");
-  $("#aa92ShareLive")?.classList.add("live");$("#aa92LiveState")?.classList.add("live");if($("#aa92LiveState"))$("#aa92LiveState").textContent="LIVE";$("#aa82LiveSwitch")?.classList.add("on");
+  $("#aa92ShareLive")?.classList.add("live");$("#aa92ShareLive")?.setAttribute("hidden","");$("#aa92StopLive")?.removeAttribute("hidden");
+  $("#aa92LiveState")?.classList.add("live");if($("#aa92LiveState"))$("#aa92LiveState").textContent="LIVE";$("#aa82LiveSwitch")?.classList.add("on");
+  window.aa90SetLiveLayer?.(true);
   if(typeof window.aaLiveReceiveComment==="function")window.aaLiveReceiveComment({name:"Bingo",text:"Live started. Bingo watermark is active."});
   const payload={title:($("#aa92LiveTitle")?.value||"Bingo Live").trim(),destinations:dest,watermark:{text:"BINGO",position:"top-right"},source:"browser-camera"};
   /* URL path deliberately left unchanged: no server route by any name is
@@ -23094,16 +23120,24 @@ function bingoSafeMediaAttr(value){
   }
  }
  async function stop(){
-  $("#aa92ShareLive")?.classList.remove("live");$("#aa92LiveState")?.classList.remove("live");if($("#aa92LiveState"))$("#aa92LiveState").textContent="READY";$("#aa82LiveSwitch")?.classList.remove("on");
+  if(!$("#aa92ShareLive")?.classList.contains("live"))return;
+  $("#aa92ShareLive")?.classList.remove("live");$("#aa92ShareLive")?.removeAttribute("hidden");$("#aa92StopLive")?.setAttribute("hidden","");
+  $("#aa92LiveState")?.classList.remove("live");if($("#aa92LiveState"))$("#aa92LiveState").textContent="READY";$("#aa82LiveSwitch")?.classList.remove("on");
+  window.aa90SetLiveLayer?.(false);
   try{await fetch(window.BINGO_LIVE_STOP_API||window.AUTO_ARCADE_LIVE_STOP_API||"/api/auto-arcade/live/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({session:window.aa92LiveSession||null})})}catch(e){}
   $("#aa92BackendNote").className="aa92-backend-note";$("#aa92BackendNote").textContent="Live stopped.";
  }
  $("#aa92ShareLive")?.addEventListener("click",start);$("#aa92StopLive")?.addEventListener("click",stop);
+ /* Exposed so every other Go Live entry point (the Cockpit tile's
+    #aa82LiveSwitch/#aa90GoLiveTool, handled in aa-v90-live-draggable-helper-js)
+    drives this one real start/stop instead of running its own parallel
+    live state - one backend call, one indicator, wherever it's triggered. */
+ window.aa92LiveStart=start;window.aa92LiveStop=stop;
  window.aa92OpenLiveStudio=async function(mode){
   if(!window.aaRequireMember({action:"live",mode:"register"}))return;
   $("#aaAssistantDrawer")?.classList.remove("open");
   const opened=await openCamera();
-  if(mode==="live"&&opened!==false){const sw=$("#aa82LiveSwitch");if(sw&&!sw.classList.contains("on"))sw.click()}
+  if(mode==="live"&&opened!==false&&!$("#aa92ShareLive")?.classList.contains("live"))start();
  };
  refresh();
 })();
@@ -23381,12 +23415,21 @@ function bingoSafeMediaAttr(value){
    </div>
    <button class="btn" style="width:100%;margin-top:10px" onclick="aaLiveCloseTools()">Close</button>`;
  };
+ function syncMicRailBtn(){
+  const track=$("#aa82CameraVideo")?.srcObject?.getAudioTracks?.()[0];
+  const btn=$("#aa92MicToggle");if(!btn)return;
+  const muted=!!track&&!track.enabled;
+  btn.classList.toggle("on",muted);
+  const icon=btn.querySelector("span");if(icon)icon.textContent=muted?"🔇":"🎙";
+ }
+ window.aaLiveToggleMicRail=function(){window.aaLiveToggleMic();syncMicRailBtn()};
  window.aaLiveToggleMic=function(){
   const video=$("#aa82CameraVideo");
   const track=video?.srcObject?.getAudioTracks?.()[0];
   if(!track){toast&&toast("Microphone track not available.");return}
   track.enabled=!track.enabled;
   toast&&toast(track.enabled?"Microphone unmuted.":"Microphone muted.");
+  syncMicRailBtn();
   aaLiveOpenSettings();
  };
  window.aaLiveSetWatermarkPos=function(pos){
@@ -23411,6 +23454,7 @@ function bingoSafeMediaAttr(value){
   sheet.innerHTML=`<h3 style="color:#fff;margin:0">Creator Tools</h3>
    <div class="aa92-tools-grid">
     <button class="aa92-tool-btn" onclick="aaLiveAddTextOverlay()"><span class="aa92-tool-icon aa92-badge-gold">Aa</span><span class="aa92-tool-label">Text Style</span></button>
+    <button class="aa92-tool-btn" id="aa92BeautyToggle" onclick="aaLiveToggleBeauty()"><span class="aa92-tool-icon aa92-badge-purple">✨</span><span class="aa92-tool-label">Beauty</span></button>
     <button class="aa92-tool-btn" onclick="aaLiveAddSticker('🔥')"><span class="aa92-tool-icon aa92-badge-purple">😊</span><span class="aa92-tool-label">Stickers</span></button>
     <button class="aa92-tool-btn" onclick="aaLiveShowFilterPicker()"><span class="aa92-tool-icon aa92-badge-magenta">✨</span><span class="aa92-tool-label">Effects</span></button>
     <button class="aa92-tool-btn" onclick="aaLivePickMusic()"><span class="aa92-tool-icon aa92-badge-cyan">🎵</span><span class="aa92-tool-label">Music</span></button>
