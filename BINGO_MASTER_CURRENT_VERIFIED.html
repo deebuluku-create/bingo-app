@@ -22389,7 +22389,7 @@ function bingoSafeMediaAttr(value){
     <button type="button" class="aa92-social" data-social="youtube"><span class="aa92-social-icon">▶</span><b>YouTube</b><small>Tap to connect</small><i class="aa92-social-status">OFF</i></button>
     <button type="button" class="aa92-social" data-social="tiktok"><span class="aa92-social-icon">♪</span><b>TikTok</b><small>Tap to connect</small><i class="aa92-social-status">OFF</i></button>
   </div>
-  <div class="aa92-backend-note" id="aa92BackendNote">Bingo Live works here. External social broadcasting needs the Bingo streaming server to relay this one stream to connected platforms.</div>
+  <div class="aa92-backend-note" id="aa92BackendNote">Not live yet. Going live requires the Bingo streaming server to confirm the broadcast before anything is shown as LIVE.</div>
 </div>
 
 <div class="aa82-camera-top">
@@ -23063,7 +23063,7 @@ function bingoSafeMediaAttr(value){
 #auto-arcade-widget .aa92-share-live.live{animation:aa92GreenPulse 1.1s infinite}
 #auto-arcade-widget .aa92-stop-live{min-width:66px;border:1px solid #66323a;border-radius:11px;background:#241015;color:#ff9eaa;font-size:9px;font-weight:950}
 #auto-arcade-widget .aa92-backend-note{margin-top:8px;padding:8px;border:1px solid #2e415a;border-radius:9px;background:rgba(6,13,23,.7);color:#91a1b6;font-size:7.5px;line-height:1.45}
-#auto-arcade-widget .aa92-backend-note.ok{border-color:#267d5c;color:#86e4bd}#auto-arcade-widget .aa92-backend-note.warn{border-color:#8b6b28;color:#f3d78a}
+#auto-arcade-widget .aa92-backend-note.ok{border-color:#267d5c;color:#86e4bd}#auto-arcade-widget .aa92-backend-note.warn{border-color:#8b6b28;color:#f3d78a}#auto-arcade-widget .aa92-backend-note.err{border-color:#ef233c;color:#ff9eaa}
 @keyframes aa92Pulse{50%{box-shadow:0 0 5px rgba(239,35,60,.2)}}@keyframes aa92GreenPulse{50%{box-shadow:0 6px 0 #03472f,0 0 24px rgba(20,199,132,.45)}}
 @media(max-width:560px){#auto-arcade-widget .aa92-live-studio-panel{left:8px;right:60px;top:calc(64px + env(safe-area-inset-top));width:auto;max-height:47dvh}}
 </style>
@@ -23093,14 +23093,21 @@ function bingoSafeMediaAttr(value){
   refresh();
  }));
  async function openCamera(){const cam=$("#aa82Camera");if(cam?.classList.contains("open"))return true;($("#aa82CameraTool")||$("#aa82CameraTop"))?.click();await new Promise(r=>setTimeout(r,500));return !!cam?.classList.contains("open")}
+ /* 30 Sep 2026 fix: LIVE must never show, and the "start" side effects
+    (watermark comment, live layer/badge, #aa92LiveState text, the
+    Cockpit-wide #aa82LiveSwitch "on" class) must never fire, until the
+    backend has actually confirmed the broadcast. Previously all of that
+    ran BEFORE the fetch even started, so a failed or unreachable request
+    still left the UI reading "LIVE" - a fabricated success. The fetch
+    now runs first; only a genuine res.ok response flips any UI state to
+    live. A failure leaves the camera preview open (opening the camera
+    is not broadcasting) but the app stays visibly offline and reports
+    the real reason, never a silent/partial "it's running here anyway"
+    fallback. */
  async function start(){
   if($("#aa92ShareLive")?.classList.contains("live"))return;
   if(!await openCamera()){alert("Camera did not open. Check HTTPS and camera/microphone permission.");return}
   const dest=Object.keys(selected).filter(k=>selected[k]&&connected[k]);if(!dest.includes("bingo"))dest.unshift("bingo");
-  $("#aa92ShareLive")?.classList.add("live");$("#aa92ShareLive")?.setAttribute("hidden","");$("#aa92StopLive")?.removeAttribute("hidden");
-  $("#aa92LiveState")?.classList.add("live");if($("#aa92LiveState"))$("#aa92LiveState").textContent="LIVE";$("#aa82LiveSwitch")?.classList.add("on");
-  window.aa90SetLiveLayer?.(true);
-  if(typeof window.aaLiveReceiveComment==="function")window.aaLiveReceiveComment({name:"Bingo",text:"Live started. Bingo watermark is active."});
   const payload={title:($("#aa92LiveTitle")?.value||"Bingo Live").trim(),destinations:dest,watermark:{text:"BINGO",position:"top-right"},source:"browser-camera"};
   /* URL path deliberately left unchanged: no server route by any name is
      defined in this repo (Hostinger serves static files only), so we
@@ -23109,15 +23116,24 @@ function bingoSafeMediaAttr(value){
      window.BINGO_LIVE_API is preferred going forward, window.AUTO_ARCADE_LIVE_API
      is still honored so an existing operator override keeps working. */
   const endpoint=window.BINGO_LIVE_API||window.AUTO_ARCADE_LIVE_API||"/api/auto-arcade/live/start";
+  if($("#aa92BackendNote")){$("#aa92BackendNote").className="aa92-backend-note";$("#aa92BackendNote").textContent="Connecting to the Bingo Live server…";}
+  let session=null;
   try{
    const res=await fetch(endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-   if(!res.ok)throw new Error();
-   window.aa92LiveSession=await res.json().catch(()=>({}));
-   $("#aa92BackendNote").className="aa92-backend-note ok";$("#aa92BackendNote").textContent=`Live distribution started: ${dest.join(", ")}. Bingo watermark enabled.`;
+   if(!res.ok)throw new Error("HTTP "+res.status);
+   session=await res.json().catch(()=>({}));
   }catch(e){
-   $("#aa92BackendNote").className="aa92-backend-note warn";
-   $("#aa92BackendNote").textContent=`Bingo Live is running here. External multistream (${dest.filter(x=>x!=="bingo").join(", ")||"none selected"}) needs the Bingo streaming server endpoint.`;
+   if($("#aa92BackendNote")){$("#aa92BackendNote").className="aa92-backend-note err";$("#aa92BackendNote").textContent="Could not go live: the Bingo Live streaming server did not confirm the broadcast. You are still offline - not broadcasting.";}
+   toast&&toast("Could not go live: the streaming server is not reachable.");
+   return;
   }
+  // Backend confirmed the broadcast - only now does the UI reflect LIVE.
+  window.aa92LiveSession=session;
+  $("#aa92ShareLive")?.classList.add("live");$("#aa92ShareLive")?.setAttribute("hidden","");$("#aa92StopLive")?.removeAttribute("hidden");
+  $("#aa92LiveState")?.classList.add("live");if($("#aa92LiveState"))$("#aa92LiveState").textContent="LIVE";$("#aa82LiveSwitch")?.classList.add("on");
+  window.aa90SetLiveLayer?.(true);
+  if(typeof window.aaLiveReceiveComment==="function")window.aaLiveReceiveComment({name:"Bingo",text:"Live started. Bingo watermark is active."});
+  $("#aa92BackendNote").className="aa92-backend-note ok";$("#aa92BackendNote").textContent=`Live distribution started: ${dest.join(", ")}. Bingo watermark enabled.`;
  }
  async function stop(){
   if(!$("#aa92ShareLive")?.classList.contains("live"))return;
