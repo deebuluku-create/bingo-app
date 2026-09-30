@@ -11049,61 +11049,31 @@ async function aaDeleteUploadedFoodMedia(paths){
  if(!sb||!Array.isArray(paths)||!paths.length)return;
  try{await sb.storage.from(AA_FOOD_MEDIA_BUCKET).remove(paths)}catch(e){console.warn('Could not clean up failed food media upload',e)}
 }
-/* AA_FOOD_BUSINESS_CORE_FIELDS + the retry loop below (30 Sep 2026
-   directive - investigating the reported "Could not find the 'category'
-   column of 'food_businesses' in the schema cache" error): the repo's own
-   supabase/bingo_change_food_video_persistence.sql says category is a
-   plain column, user_id is the owner column, and media is one JSONB
-   array - but a later, already-live-audited comment right below this one
-   (aaMapFoodBusinessRow/aaFoodMediaToColumns, confirmed 2026-09-27) shows
-   the real live table actually uses owner_id (not user_id), four separate
-   image_urls/video_url/cover_url/logo_url columns (not one media column),
-   and a status enum with no 'inactive' value - all contradicting that
-   migration file. So that file cannot be trusted to confirm category
-   still exists under that name either, and this sandbox has no live
-   connection to check directly. Rather than guess, aaInsertFoodBusiness/
-   aaUpdateFoodBusiness (previously a bare single-shot call with no
-   recovery at all, unlike aaInsertPropertyListing/aaUpdatePropertyListing
-   which already use this exact aaMissingPropertyColumn pattern) now drop
-   whichever single key PostgREST reports missing and retry, so category
-   (or any other one field) failing does not fail the entire save - the
-   business still saves with that one field silently unpersisted, instead
-   of a hard, unrecoverable error. owner_id/id/business_name stay
-   protected as non-droppable since the live audit confirms those. */
-const AA_FOOD_BUSINESS_CORE_FIELDS=['id','owner_id','business_name'];
+/* 30 Sep 2026 directive: the retry-and-drop-column loop previously here
+   (which silently deleted whichever single field PostgREST reported
+   missing and retried, up to 20 times) is removed. It could silently
+   discard real business information the owner typed in - e.g. category
+   - with the business still reported as "saved" and no record anywhere
+   that the field was dropped. That is not an acceptable failure mode
+   for user-entered data. This is back to a single, honest attempt: if
+   the database rejects the write, the real PostgREST error is returned
+   as-is and the caller (aaSubmitFood) surfaces it and preserves the
+   entered form/media (see aaSubmitFood's own comment on that), instead
+   of quietly saving a partial record. Whether "category" is a genuine
+   missing/renamed column or a stale PostgREST schema cache has not been
+   confirmed against the live database from this sandbox - see
+   supabase/migrations/20260930n_bingo_food_businesses_category_column_INSPECT_READ_ONLY.sql
+   for the exact read-only query to run, and
+   supabase/migrations/20260930o_bingo_food_businesses_reload_schema_cache.sql
+   for the separate, non-read-only fix to apply only if that inspection
+   shows the column already exists. */
 async function aaInsertFoodBusiness(payload){
  if(!sb||!state.user?.id)return {data:null,error:new Error('No database session')};
- let body={...payload};
- let lastError=null;
- for(let attempt=0;attempt<20;attempt++){
-  const result=await sb.from('food_businesses').insert(body).select().single();
-  if(!result.error)return result;
-  lastError=result.error;
-  const missing=aaMissingPropertyColumn(result.error);
-  if(missing&&AA_FOOD_BUSINESS_CORE_FIELDS.includes(missing)){
-   return {data:null,error:new Error(`Required field "${missing}" was rejected by the database (${String(result.error?.message||result.error)}). This field cannot be dropped, so the business was not saved.`)};
-  }
-  if(missing&&Object.prototype.hasOwnProperty.call(body,missing)){delete body[missing];continue}
-  break;
- }
- return {data:null,error:lastError};
+ return await sb.from('food_businesses').insert(payload).select().single();
 }
 async function aaUpdateFoodBusiness(id,payload){
  if(!sb||!state.user?.id)return {data:null,error:new Error('No database session')};
- let body={...payload};
- let lastError=null;
- for(let attempt=0;attempt<20;attempt++){
-  const result=await sb.from('food_businesses').update(body).eq('id',id).select().single();
-  if(!result.error)return result;
-  lastError=result.error;
-  const missing=aaMissingPropertyColumn(result.error);
-  if(missing&&AA_FOOD_BUSINESS_CORE_FIELDS.includes(missing)){
-   return {data:null,error:new Error(`Required field "${missing}" was rejected by the database (${String(result.error?.message||result.error)}). This field cannot be dropped, so the update was not saved.`)};
-  }
-  if(missing&&Object.prototype.hasOwnProperty.call(body,missing)){delete body[missing];continue}
-  break;
- }
- return {data:null,error:lastError};
+ return await sb.from('food_businesses').update(payload).eq('id',id).select().single();
 }
 async function aaVerifyFoodBusiness(id){
  if(!sb||!id)return {data:null,error:new Error('Cannot verify saved business without database connection.')};

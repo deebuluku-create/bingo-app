@@ -87,12 +87,13 @@ select exists (
 ) as category_column_exists;
 
 -- ----------------------------------------------------------------------------
+-- This file makes no changes and never will. What to do with the results:
+--
 -- If section 1/6 shows `category` genuinely exists and section 2 shows no
 -- renamed sibling, the most likely explanation is a stale PostgREST schema
--- cache. That is fixed by running, once, in the same SQL editor:
---   NOTIFY pgrst, 'reload schema';
--- (or Supabase dashboard: Settings -> API -> "Reload schema"). Re-test a
--- Save Draft afterwards before concluding anything else is wrong.
+-- cache - the fix for that is a SEPARATE, NON-read-only file:
+--   20260930o_bingo_food_businesses_reload_schema_cache.sql
+-- Run that file only after confirming those results here, not before.
 --
 -- If `category` does not exist under any name, it needs a real migration
 -- (a plain `alter table public.food_businesses add column category text
