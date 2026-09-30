@@ -3498,9 +3498,18 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .bfp-panel h2,#auto-arcade-widget .bfp-panel h3{margin:0 0 10px;color:var(--bfp-txt)}
 #auto-arcade-widget .bfp-mut{color:var(--bfp-mut);font-size:12px}
 #auto-arcade-widget .bfp-formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-#auto-arcade-widget .bfp-formgrid label{font-size:11px;color:#c4d0df;display:block}
-#auto-arcade-widget .bfp-field{min-height:39px;padding:8px 10px;background:#041426;border:1px solid #315473;border-radius:8px;color:#fff;display:block;width:100%;margin-top:5px;font:inherit}
-#auto-arcade-widget .bfp-field:focus{outline:2px solid var(--bfp-cyan)}
+/* Readability pass (30 Sep 2026 directive): bold light-cream labels at
+   14px, gold section titles, lighter slate field surfaces at 16px text,
+   a gold focus ring (was cyan) matching the Food Business form, and
+   bolder radio/checkbox labels - scoped to .bfp-field/.bfp-checkitem/
+   .bfp-formgrid/.bfp-complete-section, which only this menu-item editor
+   uses (the shared .bfp-panel/.bfp-main/.bfp-nav workspace scaffold is
+   untouched, so other owner-workspace pages keep their current look). */
+#auto-arcade-widget .bfp-complete-section h3{color:var(--bfp-gold,#ffc928)!important;font-weight:900!important}
+#auto-arcade-widget .bfp-formgrid label{font-size:14px;font-weight:800;color:#f7f2e4;display:block}
+#auto-arcade-widget .bfp-field{min-height:39px;padding:8px 10px;background:#1c2f47;border:1px solid #4d6d90;border-radius:8px;color:#fff;display:block;width:100%;margin-top:5px;font:inherit;font-size:16px}
+#auto-arcade-widget .bfp-field::placeholder{color:#c3d2e3}
+#auto-arcade-widget .bfp-field:focus{outline:2px solid var(--bfp-gold,#ffc928);box-shadow:0 0 0 3px rgba(255,201,40,.32)}
 #auto-arcade-widget .bfp-wide{grid-column:1/-1}
 #auto-arcade-widget .bfp-media-upload{border:1px dashed #416786;border-radius:10px;padding:12px;text-align:center}
 #auto-arcade-widget .bfp-media-upload input{color:#cfe0f0}
@@ -3510,9 +3519,9 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .bfp-sectionstate{float:right;color:var(--bfp-gold);font-size:11px}
 #auto-arcade-widget .bfp-choice-row{display:flex;gap:7px;flex-wrap:wrap;margin-top:7px}
 #auto-arcade-widget .bfp-checkgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
-#auto-arcade-widget .bfp-checkitem{display:flex!important;align-items:center;gap:7px;padding:8px 9px;border:1px solid #315473;border-radius:8px;background:#041426;color:#d8e4ef!important;cursor:pointer}
-#auto-arcade-widget .bfp-checkitem input{accent-color:var(--bfp-green)}
-#auto-arcade-widget .bfp-checkitem:has(input:checked){border-color:var(--bfp-green);background:#073222;box-shadow:0 0 10px #2ef09533}
+#auto-arcade-widget .bfp-checkitem{display:flex!important;align-items:center;gap:7px;padding:8px 9px;border:1px solid #4d6d90;border-radius:8px;background:#16283d;color:#f0f4f9!important;font-size:13px;font-weight:600;cursor:pointer}
+#auto-arcade-widget .bfp-checkitem input{accent-color:var(--bfp-green);width:15px;height:15px}
+#auto-arcade-widget .bfp-checkitem:has(input:checked){border-color:var(--bfp-green);background:#073222;box-shadow:0 0 10px #2ef09533;color:#fff!important;font-weight:800}
 #auto-arcade-widget .bfp-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px}
 /* The sitewide glossy button recipe (#auto-arcade-widget button{...},
    ~line 24860) paints border/background/box-shadow/::after with
@@ -11040,13 +11049,61 @@ async function aaDeleteUploadedFoodMedia(paths){
  if(!sb||!Array.isArray(paths)||!paths.length)return;
  try{await sb.storage.from(AA_FOOD_MEDIA_BUCKET).remove(paths)}catch(e){console.warn('Could not clean up failed food media upload',e)}
 }
+/* AA_FOOD_BUSINESS_CORE_FIELDS + the retry loop below (30 Sep 2026
+   directive - investigating the reported "Could not find the 'category'
+   column of 'food_businesses' in the schema cache" error): the repo's own
+   supabase/bingo_change_food_video_persistence.sql says category is a
+   plain column, user_id is the owner column, and media is one JSONB
+   array - but a later, already-live-audited comment right below this one
+   (aaMapFoodBusinessRow/aaFoodMediaToColumns, confirmed 2026-09-27) shows
+   the real live table actually uses owner_id (not user_id), four separate
+   image_urls/video_url/cover_url/logo_url columns (not one media column),
+   and a status enum with no 'inactive' value - all contradicting that
+   migration file. So that file cannot be trusted to confirm category
+   still exists under that name either, and this sandbox has no live
+   connection to check directly. Rather than guess, aaInsertFoodBusiness/
+   aaUpdateFoodBusiness (previously a bare single-shot call with no
+   recovery at all, unlike aaInsertPropertyListing/aaUpdatePropertyListing
+   which already use this exact aaMissingPropertyColumn pattern) now drop
+   whichever single key PostgREST reports missing and retry, so category
+   (or any other one field) failing does not fail the entire save - the
+   business still saves with that one field silently unpersisted, instead
+   of a hard, unrecoverable error. owner_id/id/business_name stay
+   protected as non-droppable since the live audit confirms those. */
+const AA_FOOD_BUSINESS_CORE_FIELDS=['id','owner_id','business_name'];
 async function aaInsertFoodBusiness(payload){
  if(!sb||!state.user?.id)return {data:null,error:new Error('No database session')};
- return await sb.from('food_businesses').insert(payload).select().single();
+ let body={...payload};
+ let lastError=null;
+ for(let attempt=0;attempt<20;attempt++){
+  const result=await sb.from('food_businesses').insert(body).select().single();
+  if(!result.error)return result;
+  lastError=result.error;
+  const missing=aaMissingPropertyColumn(result.error);
+  if(missing&&AA_FOOD_BUSINESS_CORE_FIELDS.includes(missing)){
+   return {data:null,error:new Error(`Required field "${missing}" was rejected by the database (${String(result.error?.message||result.error)}). This field cannot be dropped, so the business was not saved.`)};
+  }
+  if(missing&&Object.prototype.hasOwnProperty.call(body,missing)){delete body[missing];continue}
+  break;
+ }
+ return {data:null,error:lastError};
 }
 async function aaUpdateFoodBusiness(id,payload){
  if(!sb||!state.user?.id)return {data:null,error:new Error('No database session')};
- return await sb.from('food_businesses').update(payload).eq('id',id).select().single();
+ let body={...payload};
+ let lastError=null;
+ for(let attempt=0;attempt<20;attempt++){
+  const result=await sb.from('food_businesses').update(body).eq('id',id).select().single();
+  if(!result.error)return result;
+  lastError=result.error;
+  const missing=aaMissingPropertyColumn(result.error);
+  if(missing&&AA_FOOD_BUSINESS_CORE_FIELDS.includes(missing)){
+   return {data:null,error:new Error(`Required field "${missing}" was rejected by the database (${String(result.error?.message||result.error)}). This field cannot be dropped, so the update was not saved.`)};
+  }
+  if(missing&&Object.prototype.hasOwnProperty.call(body,missing)){delete body[missing];continue}
+  break;
+ }
+ return {data:null,error:lastError};
 }
 async function aaVerifyFoodBusiness(id){
  if(!sb||!id)return {data:null,error:new Error('Cannot verify saved business without database connection.')};
@@ -28582,10 +28639,26 @@ html body #auto-arcade-widget .aa-owner-ws-tabs .btn.is-active:not(#bingo-flat-g
 #auto-arcade-widget .aa-food-ws .aa-food-form{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
 #auto-arcade-widget .aa-food-ws .aa-food-form>h3{display:none}
 #auto-arcade-widget .aa-food-ws .aa-food-section{background:linear-gradient(145deg,#081c30,#05121f)!important;border:1px solid #234663!important;border-radius:12px!important;padding:14px!important;margin:0 0 12px!important}
-#auto-arcade-widget .aa-food-ws .aa-food-section-title{color:var(--bfp-txt,#f7f9fd)!important;font-size:15px!important;font-weight:700;border:0!important;padding:0 0 8px!important;margin:0 0 8px!important;border-bottom:1px solid #1b3a55!important}
+#auto-arcade-widget .aa-food-ws .aa-food-section-title{color:var(--bfp-gold,#ffc928)!important;font-size:15px!important;font-weight:900!important;border:0!important;padding:0 0 8px!important;margin:0 0 8px!important;border-bottom:1px solid #1b3a55!important}
 #auto-arcade-widget .aa-food-ws .aa-food-section-done{float:right;color:var(--bfp-green,#47ed9b)!important;font-size:11px}
-#auto-arcade-widget .aa-food-ws .aa-food-field>span{color:var(--bfp-mut,#9fb2c8)!important;font-size:12px}
+#auto-arcade-widget .aa-food-ws .aa-food-field>span{color:#f7f2e4!important;font-size:14px!important;font-weight:800!important}
 #auto-arcade-widget .aa-food-ws .aa-v69-card{background:linear-gradient(145deg,#081c30,#05121f)!important;border:1px solid #234663!important;border-radius:12px!important}
+/* Readability pass (30 Sep 2026 directive): the two rules above this
+   comment used to leave section titles near-white instead of gold and
+   labels a dim, undersized blue-grey - this block only ever mattered in
+   practice since .aa-food-ws wraps the real rendered form, so the base
+   .aa-food-section-title/.aa-food-field>span rules further up this
+   stylesheet were silently losing to these !important overrides. Fixed
+   in place, plus lighter input surfaces, 16px input text, brighter
+   placeholders, a gold focus ring and a clearer checked-chip state -
+   scoped to this workspace only, so Property/Stays/other .field usages
+   elsewhere are untouched. */
+#auto-arcade-widget .aa-food-ws .field{background:#1c2f47!important;border:1px solid #4d6d90!important;color:#fff!important;font-size:16px!important}
+#auto-arcade-widget .aa-food-ws .field::placeholder{color:#c3d2e3!important}
+#auto-arcade-widget .aa-food-ws .field:focus{border-color:var(--bfp-gold,#ffc928)!important;box-shadow:0 0 0 3px rgba(255,201,40,.32)!important}
+#auto-arcade-widget .aa-food-ws .aa-food-cuisine-chip{font-size:12.5px!important;font-weight:700!important;color:#e7edf6!important;background:#16283d!important;border-color:#4d6d90!important}
+#auto-arcade-widget .aa-food-ws .aa-food-cuisine-chip input{width:14px!important;height:14px!important}
+#auto-arcade-widget .aa-food-ws .aa-food-cuisine-chip.is-checked{background:rgba(34,201,255,.18)!important;border-color:#22c9ff!important;color:#fff!important;box-shadow:0 0 10px rgba(34,201,255,.4)!important}
 
 /* Food rail on phones: wrap instead of a hidden horizontal scroller */
 @media(max-width:820px){html body #auto-arcade-widget .bingo-food-menu-proto .bfp-aside:not(#bingo-flat-guard){flex-wrap:wrap!important;overflow:visible!important;gap:5px!important}html body #auto-arcade-widget .bingo-food-menu-proto .bfp-aside .bfp-nav:not(#bingo-flat-guard){width:auto!important;flex:1 1 30%!important;padding:7px 8px!important;font-size:12px!important;text-align:center}}
