@@ -3496,7 +3496,7 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .bfp-main{padding:15px;min-width:0}
 #auto-arcade-widget .bfp-panel{background:linear-gradient(145deg,#081c30,#05121f);border:1px solid #234663;border-radius:12px;padding:15px;margin-bottom:12px}
 #auto-arcade-widget .bfp-panel h2,#auto-arcade-widget .bfp-panel h3{margin:0 0 10px;color:var(--bfp-txt)}
-#auto-arcade-widget .bfp-mut{color:var(--bfp-mut);font-size:12px}
+#auto-arcade-widget .bfp-mut{color:#c9d6e8;font-size:12px}
 #auto-arcade-widget .bfp-formgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 /* Readability pass (30 Sep 2026 directive): bold light-cream labels at
    14px, gold section titles, lighter slate field surfaces at 16px text,
@@ -3506,7 +3506,7 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
    uses (the shared .bfp-panel/.bfp-main/.bfp-nav workspace scaffold is
    untouched, so other owner-workspace pages keep their current look). */
 #auto-arcade-widget .bfp-complete-section h3{color:var(--bfp-gold,#ffc928)!important;font-weight:900!important}
-#auto-arcade-widget .bfp-formgrid label{font-size:14px;font-weight:800;color:#f7f2e4;display:block}
+#auto-arcade-widget .bfp-formgrid label{font-size:14px;font-weight:800;color:var(--bfp-gold,#ffc928);font-family:Arial,Helvetica,sans-serif;display:block}
 #auto-arcade-widget .bfp-field{min-height:39px;padding:8px 10px;background:#1c2f47;border:1px solid #4d6d90;border-radius:8px;color:#fff;display:block;width:100%;margin-top:5px;font:inherit;font-size:16px}
 #auto-arcade-widget .bfp-field::placeholder{color:#c3d2e3}
 #auto-arcade-widget .bfp-field:focus{outline:2px solid var(--bfp-gold,#ffc928);box-shadow:0 0 0 3px rgba(255,201,40,.32)}
@@ -28653,7 +28653,16 @@ html body #auto-arcade-widget .aa-owner-ws-tabs .btn.is-active:not(#bingo-flat-g
 #auto-arcade-widget .aa-food-ws .aa-food-section{background:linear-gradient(145deg,#081c30,#05121f)!important;border:1px solid #234663!important;border-radius:12px!important;padding:14px!important;margin:0 0 12px!important}
 #auto-arcade-widget .aa-food-ws .aa-food-section-title{color:var(--bfp-gold,#ffc928)!important;font-size:15px!important;font-weight:900!important;border:0!important;padding:0 0 8px!important;margin:0 0 8px!important;border-bottom:1px solid #1b3a55!important}
 #auto-arcade-widget .aa-food-ws .aa-food-section-done{float:right;color:var(--bfp-green,#47ed9b)!important;font-size:11px}
-#auto-arcade-widget .aa-food-ws .aa-food-field>span{color:#f7f2e4!important;font-size:14px!important;font-weight:800!important}
+#auto-arcade-widget .aa-food-ws .aa-food-field>span{color:var(--bfp-gold,#ffc928)!important;font-size:14px!important;font-weight:800!important;font-family:Arial,Helvetica,sans-serif!important}
+/* 30 Sep 2026 follow-up: the section-title gold above ("Delicacies
+   Served" etc.) previously stopped at the section level - individual
+   field titles (WhatsApp, Phone, Opening Hours, Price Range, Photos &
+   Video, Description, ...) stayed cream instead of matching it. All of
+   them share this one .aa-food-field>span selector, so this single rule
+   brings every field title in the Food Business form to the same gold.
+   The red "Required" / grey "Optional" badges are a separate .aa-food-req/
+   .aa-food-opt element inside the span and keep their own color. */
+#auto-arcade-widget .aa-food-ws .notice{color:#c9d6e8!important}
 #auto-arcade-widget .aa-food-ws .aa-v69-card{background:linear-gradient(145deg,#081c30,#05121f)!important;border:1px solid #234663!important;border-radius:12px!important}
 /* Readability pass (30 Sep 2026 directive): the two rules above this
    comment used to leave section titles near-white instead of gold and
