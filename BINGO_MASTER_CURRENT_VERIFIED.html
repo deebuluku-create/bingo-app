@@ -20872,7 +20872,7 @@ function aaMsgConversationPaneHTML(conv){
    <input type="file" id="aaMsgAudioInput_${esc(id)}" accept="audio/*" hidden onchange="aaMsgSendFile('${esc(id)}',this.files,'audio');this.value=''">
    <input type="file" id="aaMsgDocInput_${esc(id)}" hidden onchange="aaMsgSendFile('${esc(id)}',this.files,'document');this.value=''">
   </footer>`;
- return `<header class="bm-chat-head">
+ return `${aaBmWatermarkHTML()}<header class="bm-chat-head">
   <button type="button" class="bm-icon-btn bm-back" onclick="aaMsgBack()" aria-label="Back to chats">${aaBmIcon("back")}</button>
   <button type="button" class="bm-icon-btn bm-list-toggle" onclick="aaBmToggleList()" aria-label="${state.msgListDrawerOpen===false?"Show chat list":"Hide chat list"}" title="${state.msgListDrawerOpen===false?"Show chat list":"Hide chat list"}">${aaBmIcon("menu")}</button>
   <button type="button" class="bm-head-person" onclick="aaBmOpenInfo()" aria-label="Conversation details">
@@ -20889,7 +20889,6 @@ function aaMsgConversationPaneHTML(conv){
  </header>
  ${state.msgThreadSearch!=null?`<div class="bm-thread-search">${aaBmIcon("search")}<input id="bmThreadSearch" type="search" placeholder="Search in this conversation" value="${esc(state.msgThreadSearch)}" oninput="state.msgThreadSearch=this.value;render()"><span class="bm-thread-search-count">${q?`${hits} found`:""}</span><button type="button" class="bm-icon-btn bm-icon-btn-sm" onclick="aaBmToggleThreadSearch(false)" aria-label="Close search">${aaBmIcon("close")}</button></div>`:""}
  <div class="bm-thread" id="aaMsgThreadScroll" role="log" aria-live="polite">
-  ${aaBmWatermarkHTML()}
   <div class="bm-thread-inner">${!msgsAll.length?`<div class="bm-empty">No messages yet. Say hello 👋</div>`:bubbles}</div>
  </div>
  ${composer}
@@ -28170,7 +28169,7 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 #auto-arcade-widget .bm-avatar-xl .bm-online-dot{width:16px;height:16px;right:4px;bottom:4px}
 
 /* -- centre conversation -- */
-#auto-arcade-widget .bm-chat{background:var(--bm-chat);display:flex;flex-direction:column;min-width:0;min-height:0;position:relative}
+#auto-arcade-widget .bm-chat{background-color:var(--bm-chat);background-image:radial-gradient(rgba(var(--bm-blue-rgb),.06) 1px,transparent 0);background-size:24px 24px;display:flex;flex-direction:column;min-width:0;min-height:0;position:relative}
 #auto-arcade-widget .bm-chat-head{position:relative;display:flex;align-items:center;gap:10px;min-height:64px;padding:0 16px;border-bottom:1px solid var(--bm-line);background:rgba(11,19,43,.85);z-index:3}
 #auto-arcade-widget .bm-back{display:none}
 /* Reopens the chat-list wing from the chat header once it has been
@@ -28198,23 +28197,33 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 #auto-arcade-widget .bm-thread-search{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--bm-line);background:var(--bm-card);position:relative;color:#9ca3af}
 #auto-arcade-widget .bm-thread-search>.bm-ico{position:absolute;left:25px;width:16px;height:16px}
 #auto-arcade-widget .bm-thread-search-count{font-size:11px;white-space:nowrap}
-#auto-arcade-widget .bm-thread{flex:1;min-height:0;overflow-y:auto;position:relative;background-color:#08101E;background-image:radial-gradient(rgba(var(--bm-blue-rgb),.06) 1px,transparent 0);background-size:24px 24px}
+#auto-arcade-widget .bm-thread{flex:1;min-height:0;overflow-y:auto;position:relative}
+/* 30 Sep 2026 fix (real architectural fix, not a workaround): the
+   watermark used to live INSIDE .bm-thread (the overflow-y:auto element)
+   as a position:sticky box, so it stayed in view while messages
+   scrolled. Two real, compounding bugs came from that placement:
+   (1) a CSS transform's "ink overflow" counts toward its nearest
+   scrolling ancestor's scrollHeight even when the transformed box's own
+   untransformed layout is fully contained (spec-defined browser
+   behavior) - so .bm-thread's scrollHeight was inflated by roughly the
+   watermark's rotated corners on every conversation, and on a short/new
+   conversation that was enough for "scroll to latest message" to
+   overshoot into that phantom space, leaving the chat wall looking
+   empty; (2) independently of that, this exact
+   position:sticky-inside-CSS-Grid-inside-overflow:auto combination could
+   leave the whole message thread mispositioned off-screen the moment a
+   conversation was selected while the info drawer was in its default
+   closed (3-column grid) state - confirmed in the untouched original
+   file, and not fixed by re-rendering, resizing, or forcing a reflow.
+   The real fix is to stop asking a decorative background to be both
+   "inside the scrolling area" and "not affected by scrolling" via a
+   sticky hack, and instead give it its own home: it now renders once as
+   a plain, non-scrolling backdrop behind the whole chat column (header
+   included), a sibling of .bm-thread rather than a child of it. It is
+   never inside anything with overflow:auto, so it cannot inflate a
+   scrollHeight and needs no sticky/contain trick - and .bm-thread itself
+   goes back to being a completely ordinary scrolling box. */
 #auto-arcade-widget .bm-watermark{position:absolute;inset:0;pointer-events:none;overflow:hidden;opacity:.06;display:flex;flex-wrap:wrap;gap:50px 80px;padding:40px;user-select:none;font-family:Outfit,Inter,sans-serif;font-weight:700;color:var(--bm-cyan);transform:rotate(-12deg) scale(1.15);font-size:15px}
-/* 30 Sep 2026 fix: contain:paint added. A CSS transform's "ink overflow"
-   still counts toward its nearest scrolling ancestor's scrollHeight even
-   when the transformed box's own untransformed layout is fully contained
-   (a real, spec-defined browser behavior) - so .bm-thread's scrollHeight
-   was inflated by roughly this watermark's rotated corners on every
-   conversation, regardless of how many messages it actually held.
-   Invisible on a long thread (the extra space is a tiny fraction of the
-   total), but on a short/new conversation it was enough for "scroll to
-   latest message" to overshoot past the real content into that phantom
-   space, leaving the chat wall looking empty. contain:paint stops this
-   element's own painted content (including its rotated ink overflow)
-   from being counted in an ancestor's scrollable overflow, without
-   changing its visible position, rotation, or the sticky/zero-height
-   trick below that keeps it in view while messages scroll past it. */
-#auto-arcade-widget .bm-thread .bm-watermark{position:sticky;top:0;height:0;min-height:100%;margin-bottom:-100%;contain:paint}
 #auto-arcade-widget .bm-thread-inner{position:relative;z-index:1;padding:20px 22px;display:flex;flex-direction:column;gap:12px}
 #auto-arcade-widget .bm-date-sep{text-align:center}
 #auto-arcade-widget .bm-date-sep span{display:inline-block;font-size:10px;font-weight:700;color:#9ca3af;background:rgba(15,24,42,.9);border:1px solid #1f2937;border-radius:999px;padding:3px 10px}
