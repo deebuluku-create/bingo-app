@@ -24722,9 +24722,6 @@ Source specification: Complete Platform Changes & Feature Specification.
   function reapplyMeta(){if(!window.state?.listings)return;const m=metaMap();state.listings.forEach(c=>{const d=m[String(c.id)]||m['title:'+String(c.title||'').toLowerCase()];if(d){c.dawoodUpdateOne={...(c.dawoodUpdateOne||{}),...d};c.viewedAs=d.purpose;c.purposeLabel=purposeLabel(d.purpose)}})}
 
   function ensureGlobalUI(){
-    if(!document.getElementById('du1PostHub')){
-      root.insertAdjacentHTML('beforeend',`<div id="du1PostHub" class="du1-overlay" aria-hidden="true"><div class="du1-modal"><div class="du1-head"><div><b style="font-size:20px">POST ABOUT</b><div style="font-size:10px;color:rgba(242,237,225,.62)">Choose what you want to add to Bingo.</div></div><button class="du1-close" onclick="aaDU1Close('du1PostHub')">✕</button></div><div class="du1-post-about-grid">${CATEGORIES.map(x=>`<button type="button" data-du1-cat="${x}" onclick="aaDU1ChooseCategory('${x}',this)">${x}</button>`).join('')}</div><div id="du1PostHubHint" class="du1-hint" hidden>Choose a category above to continue.</div><button class="du1-camera-main" type="button" onclick="aaDU1Camera()">📷 CAMERA / RECORD VIDEO</button><button id="du1ContinueBtn" class="btn btn-red" style="width:100%;margin-top:8px" type="button" disabled onclick="aaDU1ContinuePost()">CONTINUE</button></div></div>`);
-    }
     if(!document.getElementById('du1Room')) root.insertAdjacentHTML('beforeend','<div id="du1Room" class="du1-overlay" aria-hidden="true"><div class="du1-modal" id="du1RoomBody"></div></div>');
     if(!document.getElementById('du1Offer')) root.insertAdjacentHTML('beforeend','<div id="du1Offer" class="du1-overlay" aria-hidden="true"><div class="du1-modal" id="du1OfferBody"></div></div>');
     if(!document.getElementById('du1JoinGate')) root.insertAdjacentHTML('beforeend',`<div id="du1JoinGate" class="du1-overlay" aria-hidden="true"><div class="du1-modal"><div class="du1-head"><div><b style="font-size:20px">Join Bingo</b></div><button class="du1-close" onclick="aaDU1Close('du1JoinGate')">✕</button></div><p class="du1-join-text">To post on Bingo, you need to Sign Up first or Log In if you already have a Bingo account.</p><button type="button" class="btn btn-red" style="width:100%;margin-bottom:8px" onclick="aaDU1Close('du1JoinGate');openAuth('register')">SIGN UP</button><button type="button" class="btn" style="width:100%" onclick="aaDU1Close('du1JoinGate');openAuth('login')">LOG IN</button></div></div>`);
@@ -24739,10 +24736,11 @@ Source specification: Complete Platform Changes & Feature Specification.
     const hint=document.getElementById('du1PostHubHint');if(hint)hint.hidden=true;
   }
   function openPostHub(){
-    ensureGlobalUI();
     if(!window.aaRequireMember({action:'post',mode:'register',destination:'/post'}))return;
-    du1ResetPostHubSelection();
-    openOverlay('du1PostHub');
+    if(typeof window.aaAssistantCloseDrawer==='function')window.aaAssistantCloseDrawer();
+    aaOpenBingoTopicsFeed();
+    aaFocusWallComposer();
+    const body=document.getElementById('topicBody');if(body)body.focus();
   }
   window.aaDU1OpenCreate=openPostHub;
   window.aaDU1ChooseCategory=function(cat,btn){
