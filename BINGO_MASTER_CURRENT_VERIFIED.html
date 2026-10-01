@@ -4934,7 +4934,53 @@ function gold(){
  const uid=String(state.user?.id||"");
  return Number(state.shareCount||0)>=10 || (!!uid&&aaAcceptedSolutionsFor(uid)>=aaGoldAcceptedTarget());
 }
-function toast(msg){state.toast=msg;render();setTimeout(()=>{state.toast="";render()},2600)}
+let aaFeedbackTimer=null;
+let aaUploadFeedbackCurrent=null;
+function aaFeedbackKind(message){
+ const text=String(message||"");
+ if(/(?:preview.*memory|nothing was (?:published|saved|uploaded))/i.test(text))return "info";
+ if(/(?:failed|failure|error|cancelled|not been submitted|\bnot\b|rejected|invalid|unable|could not|cannot|can't|denied|expired|interrupted|unavailable|not saved|not published|not uploaded)/i.test(text))return "error";
+ if(/(?:successfully|saved|published|submitted|uploaded|updated|deleted|removed|sent|complete)/i.test(text)&&!/(?:saving|publishing|uploading|sending|not yet|unconfirmed)/i.test(text))return "success";
+ return "info";
+}
+function aaFeedbackShow(message,kind="info",upload=null){
+ clearTimeout(aaFeedbackTimer);
+ let host=document.getElementById("bingo-feedback");
+ if(!host){host=document.createElement("aside");host.id="bingo-feedback";document.body.appendChild(host)}
+ host.className="bingo-feedback "+kind;host.setAttribute("role",kind==="error"?"alert":"status");
+ host.setAttribute("aria-live",kind==="error"?"assertive":"polite");
+ const percent=upload?Math.min(100,Math.max(0,Math.floor(upload.total?upload.bytes/upload.total*100:0))):0;
+ host.innerHTML=`${!upload?'<button type="button" class="bingo-feedback-close" aria-label="Dismiss alert">×</button>':''}${upload?`<div class="bingo-upload-file">${esc(upload.name||"Media upload")}</div><div class="bingo-upload-ring" role="progressbar" aria-label="Uploading media" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}" style="--progress:${percent*3.6}deg"><div><b>${percent}%</b><small>Uploading</small></div></div><div class="bingo-upload-bytes">${(upload.bytes/1048576).toFixed(1)} MB of ${(upload.total/1048576).toFixed(1)} MB</div>`:`<div class="bingo-feedback-symbol" aria-hidden="true">${kind==="success"?"✓":kind==="error"?"!":"i"}</div>`}<div class="bingo-feedback-message"></div>${upload?'<p>Keep this page open.</p><button type="button" class="bingo-upload-cancel">Cancel upload</button>':''}`;
+ host.querySelector('.bingo-feedback-message').textContent=String(message||"");
+ const close=host.querySelector('.bingo-feedback-close');if(close)close.onclick=()=>{host.remove()};
+ const cancel=host.querySelector('.bingo-upload-cancel');if(cancel)cancel.onclick=()=>{if(upload.cancel)upload.cancel()};
+ if(!upload)aaFeedbackTimer=setTimeout(()=>host.remove(),kind==="error"?12000:7000);
+}
+function aaUploadFeedbackStart(file){const item={name:file.name||"Media upload",bytes:0,total:Number(file.size||0),cancel:null};aaUploadFeedbackCurrent=item;aaFeedbackShow('Uploading media…','progress',item);return item}
+function aaUploadFeedbackProgress(item,bytes,total){if(aaUploadFeedbackCurrent!==item)return;item.bytes=bytes;item.total=total||item.total;aaFeedbackShow('Uploading media…','progress',item)}
+function aaUploadFeedbackFinish(item,error){if(aaUploadFeedbackCurrent!==item)return;aaUploadFeedbackCurrent=null;aaFeedbackShow(error?String(error.message||error):'Media uploaded successfully.',''+(error?'error':'success'))}
+function toast(msg,kind){state.toast="";render();aaFeedbackShow(msg,kind||aaFeedbackKind(msg))}
+/* Raw Storage POST retains the existing bucket, path, content type and upsert
+   choices. XHR supplies byte progress; server authorization remains unchanged. */
+async function aaUploadStorageWithFeedback(bucket,path,file,options={}){
+ if(file.size>AA_PROPERTY_TUS_THRESHOLD_BYTES){
+  const result=await aaUploadPropertyMediaTus(file,path,/^video\//.test(file.type||''),{},null,bucket,'Media Storage',options);
+  return result.ok?{data:{path},error:null}:{data:null,error:{message:result.cls.message,statusCode:result.cls.status||0}};
+ }
+ const item=aaUploadFeedbackStart(file);const token=await aaGetSupabaseAccessToken();
+ if(!token){const error={message:'Your session has expired. Please log in again.'};aaUploadFeedbackFinish(item,error);return {data:null,error}}
+ return new Promise(resolve=>{
+  const xhr=new XMLHttpRequest();let finished=false,timer=null,lastBytes=0;
+  const finish=(error,data)=>{if(finished)return;finished=true;clearTimeout(timer);aaUploadFeedbackFinish(item,error);resolve({data:error?null:(data||{path}),error:error||null})};
+  const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>{finish({message:'Upload interrupted: no upload progress for 60 seconds. Please retry.'});xhr.abort()},AA_PROPERTY_TUS_STALL_TIMEOUT_MS)};
+  const url=String(SUPABASE_URL).replace(/\/$/,'')+'/storage/v1/object/'+encodeURIComponent(bucket)+'/'+String(path).split('/').map(encodeURIComponent).join('/');
+  xhr.open('POST',url);xhr.setRequestHeader('Authorization','Bearer '+token);xhr.setRequestHeader('apikey',SUPABASE_PUBLISHABLE_KEY);xhr.setRequestHeader('x-upsert',String(!!options.upsert));xhr.setRequestHeader('Content-Type',options.contentType||file.type||'application/octet-stream');xhr.setRequestHeader('cache-control','max-age='+(options.cacheControl||'3600'));
+  xhr.upload.onprogress=e=>{if(finished)return;if(e.loaded>lastBytes){lastBytes=e.loaded;arm()}aaUploadFeedbackProgress(item,e.loaded,e.lengthComputable?e.total:file.size)};
+  xhr.onload=()=>{let data={};try{data=JSON.parse(xhr.responseText||'{}')}catch(e){};if(xhr.status>=200&&xhr.status<300)finish(null,{...data,path});else finish({message:data.message||data.error||'Storage upload failed ('+xhr.status+').',statusCode:xhr.status})};
+  xhr.onerror=()=>finish({message:'Upload interrupted: the storage server could not be reached.'});xhr.onabort=()=>finish({message:'Upload cancelled. Your form has not been submitted.'});
+  item.cancel=()=>{xhr.abort()};arm();try{xhr.send(file)}catch(error){finish(error)}
+ });
+}
 
 function aaOwnActiveListings(){
  const uid=String(state.user?.id||"");
@@ -5931,7 +5977,7 @@ async function aaEnsurePublicProfilePhoto(){
  try{
   const ext=blob.type==="image/png"?"png":"jpg";
   const path=`${state.user.id}/profile.${ext}`;
-  const up=await sb.storage.from("profile-images").upload(path,blob,{upsert:true,contentType:blob.type||"image/jpeg"});
+  const up=await aaUploadStorageWithFeedback("profile-images",path,blob,{upsert:true,contentType:blob.type||"image/jpeg"});
   if(up.error)throw up.error;
   const pub=sb.storage.from("profile-images").getPublicUrl(path);
   const url=pub?.data?.publicUrl||"";
@@ -6517,7 +6563,7 @@ async function aaPersistCover(){
   if(!blob)return {ok:false,stage:"upload",message:"the image could not be prepared"};
   try{
    const path=`${u.id}/cover-${Date.now()}.jpg`;
-   const up=await sb.storage.from("profile-images").upload(path,blob,{upsert:true,contentType:"image/jpeg"});
+   const up=await aaUploadStorageWithFeedback("profile-images",path,blob,{upsert:true,contentType:"image/jpeg"});
    if(up.error)throw up.error;
    url=sb.storage.from("profile-images").getPublicUrl(path)?.data?.publicUrl||"";
    if(!url)throw new Error("no public URL returned");
@@ -7027,7 +7073,7 @@ async function aaUploadVehicleVideo(file,userId,listingId){
   if(!listingId)throw new Error("A listing ID is required before the video can be stored.");
   const ext=String(file.name||"").split(".").pop().replace(/[^a-zA-Z0-9]/g,"").toLowerCase() || (String(file.type||"").includes("webm")?"webm":"mp4");
   const path=`${userId}/${listingId}/vehicle-video-${Date.now()}.${ext}`;
-  const up=await sb.storage.from("posts").upload(path,file,{
+  const up=await aaUploadStorageWithFeedback("posts",path,file,{
    upsert:false,
    contentType:file.type||"video/mp4",
    cacheControl:"31536000"
@@ -7900,9 +7946,7 @@ async function aaUploadVehicleImages(files,userId,listingId){
       const path=
         `${userId}/${listingId}/photo-${i+1}-${Date.now()}-${safe}`;
 
-      const up=await sb.storage
-        .from("posts")
-        .upload(path,file,{
+      const up=await aaUploadStorageWithFeedback("posts",path,file,{
           upsert:false,
           contentType:file.type||"image/jpeg",
           cacheControl:"3600"
@@ -8059,9 +8103,9 @@ async function aaUpdateVehicle(c,urls,videoMeta={}){
 }
 
 function aaVehicleUploadProgress(show,pct=0,stage="Preparing upload…",sub="Please keep this screen open while your video is being uploaded."){
- aaSyncMiniUploadProgress(show,pct,stage,sub);
- const box=document.getElementById("aaVehicleUploadProgress"),fill=document.getElementById("aaVehicleUploadFill"),p=document.getElementById("aaVehicleUploadPct"),st=document.getElementById("aaVehicleUploadStage"),sb=document.getElementById("aaVehicleUploadSub");
- if(box)box.classList.toggle("show",!!show);if(fill)fill.style.width=Math.max(0,Math.min(100,pct))+"%";if(p)p.textContent=Math.round(pct)+"%";if(st)st.textContent=stage;if(sb)sb.textContent=sub;
+ /* Publication stages are not byte percentages. Only the shared uploader
+    displays actual byte progress; stage messages stay indeterminate. */
+ if(show&&!aaUploadFeedbackCurrent)aaFeedbackShow(stage+" "+sub,"info");
 }
 async function publish(e){
  if(e)e.preventDefault();
@@ -10591,12 +10635,9 @@ const AA_PROPERTY_STANDARD_RETRY_DELAYS=[0,800,2000];
    systemically unreachable endpoint gains nothing from a long backoff;
    a genuinely transient blip is still caught within a few seconds. */
 const AA_PROPERTY_TUS_RETRY_DELAYS=[0,1200,3000];
-/* Hard ceiling on a single TUS attempt, independent of tus-js-client's
-   own retry schedule above - so a hang at the transport level (DNS/CORS/
-   connection stuck before any error event fires at all, which retryDelays
-   cannot help with since they only apply AFTER an error) still resolves
-   to a clear failure instead of leaving the UI spinning indefinitely. */
-const AA_PROPERTY_TUS_OVERALL_TIMEOUT_MS=25000;
+/* Stall timeout, reset only when uploaded bytes increase. Slow uploads
+   keep running while progress continues instead of failing at 25 seconds. */
+const AA_PROPERTY_TUS_STALL_TIMEOUT_MS=60000;
 function aaSupabaseStorageResumableEndpoint(){
  try{
   const m=String(SUPABASE_URL||'').match(/^https:\/\/([a-z0-9-]+)\.supabase\.co\/?$/i);
@@ -10629,6 +10670,8 @@ function aaClassifyPropertyStorageError(error,label='Property Storage'){
   return {kind:'mime',message:`This file type is not accepted by ${label}.`};
  if(status>=500)
   return {kind:'gateway',message:`${label} returned a temporary server error (${status}). Bingo retries automatically before giving up.`};
+ if(/upload cancelled/i.test(raw))return {kind:'cancelled',message:raw};
+ if(/no upload progress/i.test(raw))return {kind:'transport',message:raw};
  if(/failed to fetch|networkerror|load failed|aborted|timed?.?out/i.test(raw))
   return {kind:'network',message:'The upload connection was interrupted. Check your internet connection - large videos need a steadier connection - then try again.'};
  /* tus-js-client's own wording ("tus: failed to create upload, caused by
@@ -10641,10 +10684,10 @@ function aaClassifyPropertyStorageError(error,label='Property Storage'){
     network/CORS/reachability problem specifically with Supabase's
     dedicated Storage upload host, not a account/file/RLS problem. */
  if(/^tus:/i.test(raw)||/response code:\s*n\/a/i.test(raw))
-  return {kind:'transport',message:`${label}'s upload server could not be reached (the connection failed before any response came back - not a permission or file-size problem). This can be a network, firewall or ad-blocker issue specific to Supabase's Storage upload host. Your selected media and details are kept; please retry, ideally on a different network, and tell Bingo support if it persists.`};
+  return {kind:'transport',message:`${label}'s upload server could not be reached (the connection failed before any response came back - not a permission or file-size problem). Please retry. The exact cause has not been confirmed.`};
  return {kind:'unknown',message:(raw.replace(/[?&]apikey=[^&\s]+/gi,'').replace(/eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_.-]+/g,'[hidden]'))||'Media upload failed for an unknown reason.'};
 }
-/* Small/standard files (<=6MB): unchanged Supabase .upload(), but a 502/5xx
+/* Small/standard files (<=6MB): Storage POST with byte progress; a 502/5xx
    or a raw network failure now gets a short local retry before giving up -
    these are exactly the transient-gateway cases Supabase's own issue
    tracker documents for this endpoint. */
@@ -10653,7 +10696,7 @@ async function aaUploadPropertyMediaStandard(file,path,isVideo,diag,bucket=AA_PR
  for(let attempt=0;attempt<AA_PROPERTY_STANDARD_RETRY_DELAYS.length;attempt++){
   if(attempt>0)await aaSleep(AA_PROPERTY_STANDARD_RETRY_DELAYS[attempt]);
   try{
-   const up=await sb.storage.from(bucket).upload(path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
+   const up=await aaUploadStorageWithFeedback(bucket,path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
    if(up.error){
     const cls=aaClassifyPropertyStorageError(up.error,label);
     console.error(`[Bingo ${label} Upload Error]`,up.error,{...diag,attempt,transport:'standard'});
@@ -10675,7 +10718,7 @@ async function aaUploadPropertyMediaStandard(file,path,isVideo,diag,bucket=AA_PR
    hard-coded), Supabase's required 6MB chunk size, and tus-js-client's own
    fingerprint-based resume so an interrupted upload continues instead of
    restarting from byte zero. */
-async function aaUploadPropertyMediaTus(file,path,isVideo,diag,onByteProgress,bucket=AA_PROPERTY_MEDIA_BUCKET,label='Property Storage'){
+async function aaUploadPropertyMediaTus(file,path,isVideo,diag,onByteProgress,bucket=AA_PROPERTY_MEDIA_BUCKET,label='Property Storage',options={}){
  if(typeof window.tus==='undefined'||!window.tus.Upload){
   return {ok:false,cls:{kind:'unknown',message:'The large-file uploader could not load. Please retry - if this keeps happening, try a stronger connection.'}};
  }
@@ -10683,45 +10726,44 @@ async function aaUploadPropertyMediaTus(file,path,isVideo,diag,onByteProgress,bu
  if(!endpoint)return {ok:false,cls:{kind:'unknown',message:'Could not determine the Storage upload endpoint.'}};
  const token=await aaGetSupabaseAccessToken();
  if(!token)return {ok:false,cls:{kind:'auth',message:'Your session has expired. Please log in again and retry the upload.'}};
+ const item=aaUploadFeedbackStart(file);
  return new Promise(resolve=>{
-  let settled=false;
-  const settle=(result)=>{if(settled)return;settled=true;clearTimeout(overallTimer);resolve(result)};
-  /* Independent of tus-js-client's own retryDelays above: those only
-     apply AFTER an error event fires, so a transport-level hang (DNS/
-     CORS/connection stuck before anything errors at all) would never
-     reach onError and would leave the UI spinning indefinitely. This
-     gives every TUS attempt - across all of its internal retries - one
-     hard ceiling, after a live report of uploads "taking too much time
-     to respond" before finally failing. */
-  const overallTimer=setTimeout(()=>{
-   try{upload.abort()}catch(e){}
-   console.error(`[Bingo ${label} Upload Error]`,'client-side timeout',{...diag,transport:'tus',timeoutMs:AA_PROPERTY_TUS_OVERALL_TIMEOUT_MS});
-   settle({ok:false,cls:{kind:'transport',message:`${label}'s upload server did not respond in time. This usually means a network, firewall or ad-blocker issue reaching Supabase's Storage upload host, not a problem with your account or file. Your selected media and details are kept; please retry, ideally on a different network.`}});
-  },AA_PROPERTY_TUS_OVERALL_TIMEOUT_MS);
+  let settled=false,stallTimer=null,lastBytes=0;
+  const settle=(result)=>{if(settled)return;settled=true;clearTimeout(stallTimer);aaUploadFeedbackFinish(item,result.ok?null:{message:result.cls.message});resolve(result)};
+  const armStallTimer=()=>{clearTimeout(stallTimer);stallTimer=setTimeout(()=>{
+   settle({ok:false,cls:{kind:'transport',message:`${label} upload interrupted: no upload progress for 60 seconds. Please retry.`}});
+   upload.abort().catch(()=>{});
+  },AA_PROPERTY_TUS_STALL_TIMEOUT_MS)};
   const upload=new window.tus.Upload(file,{
    endpoint,
    retryDelays:AA_PROPERTY_TUS_RETRY_DELAYS,
    chunkSize:AA_PROPERTY_TUS_CHUNK_SIZE,
-   headers:{authorization:`Bearer ${token}`,apikey:SUPABASE_PUBLISHABLE_KEY,'x-upsert':'false'},
+   headers:{authorization:`Bearer ${token}`,apikey:SUPABASE_PUBLISHABLE_KEY,'x-upsert':String(!!options.upsert)},
    uploadDataDuringCreation:true,
    removeFingerprintOnSuccess:true,
-   metadata:{bucketName:bucket,objectName:path,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'},
+   metadata:{bucketName:bucket,objectName:path,contentType:options.contentType||file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:options.cacheControl||'3600'},
    onError:(error)=>{
     const cls=aaClassifyPropertyStorageError(error,label);
     console.error(`[Bingo ${label} Upload Error]`,error,{...diag,transport:'tus'});
     settle({ok:false,cls});
    },
    onProgress:(bytesUploaded,bytesTotal)=>{
+    if(settled)return;
+    if(bytesUploaded>lastBytes){lastBytes=bytesUploaded;armStallTimer()}
+    aaUploadFeedbackProgress(item,bytesUploaded,bytesTotal);
     if(typeof onByteProgress==='function')try{onByteProgress(bytesUploaded,bytesTotal)}catch(e){}
    },
    onSuccess:()=>{
     settle({ok:true});
    }
   });
+  item.cancel=()=>{settle({ok:false,cls:{kind:'cancelled',message:'Upload cancelled. Your form has not been submitted.'}});upload.abort().catch(()=>{})};
+  armStallTimer();
   upload.findPreviousUploads().then(previous=>{
+   if(settled)return;
    if(previous&&previous.length)upload.resumeFromPreviousUpload(previous[0]);
    upload.start();
-  }).catch(()=>upload.start());
+  }).catch(()=>{if(!settled)upload.start()});
  });
 }
 /* Shared by Property/Food-business/Food-menu-item uploads: try standard
@@ -10740,7 +10782,7 @@ async function aaUploadMediaFileWithFallback(file,path,isVideo,diag,byteProgress
  const standardResult=await aaUploadPropertyMediaStandard(file,path,isVideo,diag,bucket,label);
  if(standardResult.ok)return standardResult;
  const standardCls=standardResult.cls;
- if(standardCls.kind==='auth'||standardCls.kind==='rls'||standardCls.kind==='too_large'||standardCls.kind==='mime')return standardResult;
+ if(standardCls.kind==='auth'||standardCls.kind==='rls'||standardCls.kind==='too_large'||standardCls.kind==='mime'||standardCls.kind==='cancelled'||/upload cancelled/i.test(standardCls.message||''))return standardResult;
  console.warn(`Bingo: standard upload to ${label} failed (${standardCls.kind}), falling back to resumable upload for this file.`);
  const tusResult=await aaUploadPropertyMediaTus(file,path,isVideo,diag,byteProgress,bucket,label);
  if(tusResult.ok)return tusResult;
@@ -13065,6 +13107,7 @@ class BingoFoodMenuEditor{
  showError(message){
   const root=this.mount.querySelector(".bfme-error");
   root.textContent=message;root.classList.add("is-visible");
+  aaFeedbackShow(message,"error");
  }
  hideError(){
   const root=this.mount.querySelector(".bfme-error");
@@ -14294,7 +14337,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
     </div>
   </nav>
  </div>`}
- ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.propertyMediaViewerOpen?aaPropertyMediaViewerHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.foodBasketOpen?aaFoodBasketHTML():""}${state.marketCategoriesDrawerOpen?aaMarketCategoriesDrawerHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}${state.toast?`<div style="position:fixed;left:50%;bottom:78px;transform:translateX(-50%);z-index:120;background:#111b30;border:1px solid #3a4b69;color:white;padding:11px 15px;border-radius:10px;font-size:11px;font-weight:800;max-width:90%;text-align:center">${esc(state.toast)}</div>`:""}`;
+ ${state.msgActiveCall?aaCallOverlayHTML():""}${state.authOpen?authHTML():""}${state.successOpen?successHTML():""}${share?shareHTML(share):""}${boost?boostHTML(boost):""}${call?callHTML(call):""}${state.commentTarget?aaCommentsHTML(state.commentTarget):""}${state.reportTarget?reportHTML(state.reportTarget):""}${state.topicReportTarget?topicReportHTML(state.topicReportTarget):""}${state.connectionTarget?aaConnectionHTML(state.connectionTarget):""}${state.chatUnlockTarget?aaChatUnlockHTML(state.chatUnlockTarget):""}${state.foodMediaViewer?.open?aaFoodMediaViewerHTML():""}${state.foodItemPreviewOpen?aaFoodItemPreviewHTML():""}${state.propertyMediaViewerOpen?aaPropertyMediaViewerHTML():""}${state.memberEntranceOpen?aaMemberEntranceHTML():""}${state.moderationPanelTarget?aaModerationPanelHTML():""}${state.adOpen?aaAdHTML():""}${state.agentInviteTarget?aaInviteAgentModalHTML():""}${state.helpSellRulesTarget?aaHelpSellRulesHTML():""}${state.foodBasketOpen?aaFoodBasketHTML():""}${state.marketCategoriesDrawerOpen?aaMarketCategoriesDrawerHTML():""}${state.bingoBoxOpen?aaBingoBoxHTML():""}${state.installPrompt?`<div class="install-banner"><div><b>Install Bingo</b><span>Use Bingo like an app from your phone or desktop.</span></div><button class="btn btn-red" onclick="installApp()">Install</button><button class="close" onclick="state.installPrompt=false;render()">×</button></div>`:""}`;
  requestAnimationFrame(()=>{
   if(state.view==="home"){if(aaHomeOverlayOpen()){aaPauseAllFeedVideos();aaStopAdTimer()}else{aaInit360Feed();aaStartAdTimer()}}else{aaStopAdTimer()}
   if(state.view==="inbox"){if(!aaMsgAdTimer&&!aaMsgAdStarting){aaMsgAdStarting=true;aaStartMsgAdTimer();setTimeout(()=>{aaMsgAdStarting=false},15000)}}else{aaStopMsgAdTimer();aaMsgAdStarting=false}
@@ -15510,7 +15553,7 @@ async function aaUploadCommentMedia(file,userId,topicId){
   const path=`${userId}/${topicId}/${Date.now()}-${Math.random().toString(36).slice(2,7)}-${safe}`;
   let up;
   try{
-   up=await sb.storage.from(AA_COMMENT_MEDIA_BUCKET).upload(path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
+   up=await aaUploadStorageWithFeedback(AA_COMMENT_MEDIA_BUCKET,path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
   }catch(networkError){
    throw new Error(aaFriendlyStorageError(networkError));
   }
@@ -15647,7 +15690,7 @@ async function aaUploadTopicMedia(files,userId,topicId,onProgress){
    const path=`${userId}/${topicId}/${Date.now()}-${i+1}-${safe}`;
    let up;
    try{
-    up=await sb.storage.from(AA_TOPIC_MEDIA_BUCKET).upload(path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
+    up=await aaUploadStorageWithFeedback(AA_TOPIC_MEDIA_BUCKET,path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
    }catch(networkError){
     throw new Error(aaFriendlyStorageError(networkError));
    }
@@ -16135,7 +16178,7 @@ async function aaPublishBingoTopic(){
   state.wallComposerOpen=false;
   state.postTodayTopicOpen=false;
   state.topicDraft={title:"",body:""};
-  toast(hiddenFromPublic?"Post saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Post published to the Public Wall and your profile.");
+  toast(hiddenFromPublic?"Post saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Post published to the Public Wall and your profile.","success");
   aaNavigateToPublishedTopicInHome(t.id);
   return;
  }
@@ -16208,7 +16251,7 @@ async function aaPublishBingoTopic(){
   state.topicDraft={title:"",body:""};
   const titleEl=document.getElementById('topicTitle');if(titleEl)titleEl.value='';
   const bodyEl=document.getElementById('topicBody');if(bodyEl)bodyEl.value='';
-  toast(hiddenFromPublic?"Post saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Post published to the Public Wall and your profile.");
+  toast(hiddenFromPublic?"Post saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Post published to the Public Wall and your profile.","success");
   aaNavigateToPublishedTopicInHome(id);
  }finally{
   state.wallPublishBusy=false;
@@ -16758,6 +16801,11 @@ function aaSanitizeAdMarkup(html){
 #auto-arcade-widget .bingo-topic-page{max-width:680px;margin:auto;padding:20px 0 105px}#auto-arcade-widget .bingo-topic-brand{text-align:center;margin:12px 0 26px}#auto-arcade-widget .bingo-topic-brand h1{color:#ffc928;font-size:30px;margin:10px 0}#auto-arcade-widget .bingo-approved-topic{border:1px solid #ffc928;border-radius:24px;background:linear-gradient(140deg,#0d1a2d,#081424);padding:24px;margin:18px auto;max-width:680px;box-shadow:0 16px 60px #0005;color:#f5f7ff}#auto-arcade-widget .bingo-approved-topic .aa-post-head{display:flex;align-items:center;gap:14px;margin:0 0 22px}#auto-arcade-widget .bingo-approved-topic .aa-post-avatar{width:56px;height:56px;object-fit:cover;border-radius:50%}#auto-arcade-widget .bingo-topic-author{flex:1;min-width:0}#auto-arcade-widget .bingo-topic-author b{font-size:17px;color:#f5f7ff;cursor:pointer}#auto-arcade-widget .bingo-topic-author .meta{color:#b4bfd4;font-size:12px;margin-top:4px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{color:#ffc928!important;font:750 32px/1.2 system-ui!important;margin:0 0 8px;text-shadow:none!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#f5f7ff!important;font:400 20px/1.5 system-ui!important;white-space:pre-wrap;margin:0 0 20px}#auto-arcade-widget .bingo-approved-topic .aa-post-media{border-radius:16px;overflow:hidden;margin:0}#auto-arcade-widget .bingo-approved-topic .aa-post-media img{display:block;width:100%;height:auto;max-height:none;object-fit:contain}#auto-arcade-widget .bingo-topic-options{position:relative}#auto-arcade-widget .bingo-topic-options summary{cursor:pointer;list-style:none;color:#b4bfd4;font-size:24px}#auto-arcade-widget .bingo-topic-options>div{position:absolute;right:0;top:30px;z-index:5;background:#18283d;border:1px solid #34445b;border-radius:12px;padding:8px;width:175px}#auto-arcade-widget .bingo-topic-options button{display:block;border:0;background:none;color:white;padding:10px;cursor:pointer;text-align:left;width:100%}#auto-arcade-widget .bingo-topic-summary{display:flex;justify-content:space-between;gap:10px;color:#b4bfd4;font-size:14px;padding:18px 0;border-bottom:1px solid #2b3b50}#auto-arcade-widget .bingo-topic-actions{display:grid;grid-template-columns:repeat(3,1fr);padding:10px 0;border-bottom:1px solid #2b3b50}#auto-arcade-widget .bingo-topic-actions button{display:flex;align-items:center;justify-content:center;gap:10px;background:none;border:0;color:#f5f7ff;padding:12px 4px;font:700 15px system-ui;cursor:pointer}#auto-arcade-widget .bingo-topic-actions button+button{border-left:1px solid #223248}#auto-arcade-widget .bingo-topic-actions svg{width:27px;height:27px;fill:none;stroke:#ffc928}#auto-arcade-widget .bingo-topic-actions button[aria-pressed=true]{color:#ffc928}#auto-arcade-widget .bingo-topic-composer{display:flex;align-items:center;gap:12px;margin-top:20px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:42px;height:42px}#auto-arcade-widget .bingo-topic-field{display:flex;flex:1;min-width:0;align-items:center;border:1px solid #354760;border-radius:32px;background:#101e34;padding:6px 12px}#auto-arcade-widget .bingo-topic-field input.field{flex:1;min-width:0;background:none!important;border:0!important;box-shadow:none!important;margin:0;color:white;font-size:16px;padding:8px 0}#auto-arcade-widget .bingo-topic-field input::placeholder{color:#b4bfd4}#auto-arcade-widget .bingo-topic-send{border:1px solid #ffc928;background:none;color:#ffc928;border-radius:50%;width:46px;height:46px;flex-shrink:0;font-size:24px;cursor:pointer}@media(max-width:480px){#auto-arcade-widget .bingo-approved-topic{padding:16px;border-radius:20px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{font-size:26px!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{font-size:17px!important}#auto-arcade-widget .bingo-topic-actions button{font-size:13px;gap:6px}#auto-arcade-widget .bingo-topic-composer{gap:8px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:32px;height:32px}#auto-arcade-widget .bingo-topic-summary{font-size:12px}}
 html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{border:0!important;border-radius:0!important;box-shadow:none!important;background:none!important;padding:12px 4px!important;font:700 15px system-ui!important;color:#f5f7ff!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button+button{border-left:1px solid #223248!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button[aria-pressed=true]{color:#ffc928!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-send{border:1px solid #ffc928!important;border-radius:50%!important;background:none!important;box-shadow:none!important;color:#ffc928!important;width:46px!important;height:46px!important;padding:0!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-field .field{font-weight:400!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-camera-btn{border:0!important;box-shadow:none!important;background:none!important}
 </style>
+<style id="bingo-feedback-comments">
+.bingo-feedback{position:fixed;right:20px;bottom:90px;z-index:10050;width:min(340px,calc(100vw - 32px));padding:22px 20px;background:linear-gradient(135deg,#132a3a,#071725);border:1px solid #ffc928;border-radius:20px;color:white;text-align:center;font:14px/1.5 system-ui;box-shadow:0 18px 40px #0006}.bingo-feedback.success{background:linear-gradient(135deg,#06452b,#03281e);border-color:#4fd776}.bingo-feedback.error{background:linear-gradient(135deg,#491c20,#271518);border-color:#e44648}.bingo-feedback-close{position:absolute;right:10px;top:6px;border:0;background:none;color:#d6e1eb;font-size:23px;cursor:pointer}.bingo-feedback-symbol{width:48px;height:48px;border:3px solid #ffc928;border-radius:50%;display:grid;place-items:center;margin:0 auto 12px;font-size:28px}.success .bingo-feedback-symbol{border-color:#4fd776;color:#4fd776}.error .bingo-feedback-symbol{border-color:#e44648;color:#e44648}.bingo-feedback-message{font-weight:600;overflow-wrap:anywhere}.bingo-feedback p,.bingo-upload-bytes{color:#b6c2d5;font-size:12px}.bingo-upload-file{font-weight:600;overflow-wrap:anywhere;padding-right:12px}.bingo-upload-ring{width:138px;height:138px;margin:18px auto;background:conic-gradient(#ffc928 var(--progress),#263e51 0);border-radius:50%;padding:10px}.bingo-upload-ring>div{background:#0b1c2c;border-radius:50%;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column}.bingo-upload-ring b{font-size:32px}.bingo-upload-ring small{font-size:12px}.bingo-upload-cancel{border:1px solid #3b5161;background:#1c3041;border-radius:8px;color:white;padding:8px 18px;cursor:pointer}
+html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{font:400 14px/1.5 system-ui!important;color:#f5f7ff!important;text-shadow:none!important;letter-spacing:normal!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name{font-weight:600!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-row{padding:16px 0;border-bottom:1px solid #34475a;gap:12px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-bubble{border:0;background:none;padding:0;flex:1;min-width:0}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-avatar{width:42px;height:42px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta{font:400 12px system-ui;color:#b6c2d5;display:flex;align-items:center;gap:10px;margin-top:6px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button{border:0!important;background:none!important;box-shadow:none!important;padding:0!important;font:400 12px system-ui!important;color:#b6c2d5!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button:last-of-type{margin-left:auto;color:white!important;font-size:14px!important}html body #auto-arcade-widget .bingo-comments-heading{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-bottom:12px;border-bottom:1px solid #34475a}html body #auto-arcade-widget .bingo-comments-heading b{font-size:16px;color:white}html body #auto-arcade-widget .bingo-comments-heading select{background:#071525;color:white;border:1px solid #ffc928;border-radius:24px;padding:8px 12px;font:400 13px system-ui;width:auto}html body #auto-arcade-widget .bingo-comment-links button{display:block;background:none!important;border:0!important;box-shadow:none!important;color:#ffc928!important;padding:6px 0!important;font:600 14px system-ui!important;cursor:pointer}html body #auto-arcade-widget .bingo-comment-links{margin-top:12px}.bingo-comment-options{float:right;position:relative}.bingo-comment-options summary{list-style:none;cursor:pointer;color:#b6c2d5;font-size:20px}.bingo-comment-options button{position:absolute;right:0;z-index:5;background:#18283d;color:white;border:1px solid #34475a;border-radius:8px;padding:8px 16px;cursor:pointer}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-author-badge{font:600 10px system-ui!important;padding:2px 7px;border-radius:12px;color:#081423!important;background:#ffc928!important}@media(max-width:480px){.bingo-feedback{right:16px;bottom:90px}.bingo-comments-heading select{max-width:125px}}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-comments-heading select{border:1px solid #ffc928!important;border-radius:24px!important;background:#071525!important;color:white!important;font:400 13px system-ui!important;padding:8px 12px!important}
+</style>
 </body></html>`;
 }
 function aaAdCreativeFrame(srcdoc){
@@ -16866,7 +16914,7 @@ async function aaAdUploadMedia(input){
  if(file.size>60*1024*1024){toast("Please choose a file smaller than 60 MB.");return}
  try{
   const path=`campaigns/${state.adDraftId||"draft-"+Date.now()}/${Date.now()}-${file.name}`.replace(/\s+/g,"-");
-  const up=await sb.storage.from("ad-media").upload(path,file,{upsert:true});
+  const up=await aaUploadStorageWithFeedback("ad-media",path,file,{upsert:true});
   if(up.error)throw up.error;
   const {data}=sb.storage.from("ad-media").getPublicUrl(path);
   state.adDraft.media_url=data?.publicUrl||"";
@@ -17791,7 +17839,7 @@ async function aaTopicComment(id){
  if(sentFile&&aaCommentMediaUrlCache.has(sentFile)){URL.revokeObjectURL(aaCommentMediaUrlCache.get(sentFile));aaCommentMediaUrlCache.delete(sentFile)}
  delete aaCommentMediaFiles[id];
  const el=document.getElementById("topicComment_"+id);if(el)el.value="";
- render();
+ toast("Comment submitted successfully.","success");
 }
 async function aaDeleteTopicComment(topicId,commentId){
  if(state.testMode){
@@ -18402,11 +18450,23 @@ function aaBingoCelebratesKenyaPanelHTML(){
    profile feed (aaMyTopicsHTML) and reached from Home's compact preview
    via aaOpenExactTopic. One record, one card function: a love/comment/
    save made anywhere updates the same aaTopics() row everywhere else. */
+function aaTopicSetCommentView(id,action,value){
+ state.topicCommentViews=state.topicCommentViews||{};
+ const view=state.topicCommentViews[id]||(state.topicCommentViews[id]={limit:1,sort:'top'});
+ if(action==='more')view.limit=view.limit==='all'?'all':view.limit+3;
+ if(action==='all')view.limit='all';if(action==='less')view.limit=1;
+ if(action==='sort')view.sort=value==='newest'?'newest':'top';
+ render();
+}
 function aaTopicPostCardHTML(t){
  const author=aaTopicAuthorMeta(t);
  const saved=aaTopicIsSaved(t.id);
  const loved=aaTopicHasMyLove(t);
  const comments=aaTopicCommentsFor(t);
+ const commentView=(state.topicCommentViews||{})[t.id]||{limit:1,sort:'top'};
+ const sortedComments=[...comments].sort((a,b)=>commentView.sort==='newest'?new Date(b.createdAt||0)-new Date(a.createdAt||0):(Number(b.likes||0)-Number(a.likes||0)||new Date(b.createdAt||0)-new Date(a.createdAt||0)));
+ const visibleComments=sortedComments.slice(0,commentView.limit==='all'?comments.length:commentView.limit);
+
  const mediaList=Array.isArray(t.media)?t.media:[];
  const mediaIdx=aaTopicMediaIndex(t.id,mediaList.length);
  const mediaSrc=aaTopicMediaSrc(mediaList[mediaIdx]);
@@ -18434,10 +18494,8 @@ function aaTopicPostCardHTML(t){
  <button type="button" aria-pressed="${loved}" onclick="aaTopicLove(${id})">${AA_ICON_ACTION_SVG.heartOutline}<span>${loved?'Liked':'Like'}</span></button>
  <button type="button" onclick="aaFocusTopicComment(${id})">${AA_ICON_ACTION_SVG.comment}<span>Comment</span></button>
  <button type="button" onclick="aaTopicShare(${id})">${AA_ICON_ACTION_SVG.share}<span>Share</span></button></div>
- <div class="bingo-topic-composer"><img class="aa-post-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" alt="" onerror="aaProfileImgFallback(this)"><div class="bingo-topic-field"><input class="field" id="topicComment_${esc(t.id)}" aria-label="Write a comment" placeholder="Write a comment…" value="${esc(aaCommentDraftText[t.id]||'')}" oninput="aaCommentDraftInput(${id},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();aaTopicComment(${id})}"><button type="button" class="aa-comment-camera-btn" aria-label="Attach photo or video" onclick="document.getElementById('topicCommentMedia_'+${id}).click()">📷</button></div><input type="file" id="topicCommentMedia_${esc(t.id)}" accept="image/*,video/*" hidden onchange="aaHandleCommentMediaChange(${id})"><button class="bingo-topic-send" type="button" aria-label="Send comment" onclick="aaTopicComment(${id})">➤</button></div>
- ${aaCommentMediaPreviewHTML(t.id)}
- ${comments.length?`<div class="aa-top-comments-hd"><span>Comments</span>${comments.length>3?`<a onclick="aaOpenExactTopic(${id})">View all (${comments.length})</a>`:''}</div>`:''}
- ${comments.slice(0,3).map(c=>{
+ ${comments.length?`<div class="bingo-comments-heading"><b>Comments (${comments.length})</b><select aria-label="Sort comments" onchange="aaTopicSetCommentView(${id},'sort',this.value)"><option value="top" ${commentView.sort==='top'?'selected':''}>Top liked</option><option value="newest" ${commentView.sort==='newest'?'selected':''}>Newest</option></select></div>`:''}
+ ${visibleComments.map(c=>{
   const cIsAuthor=String(c.authorId||"")===String(t.authorId||"");
   const canDeleteComment=state.isLoggedIn&&(String(c.authorId||"")===String(state.user?.id||"")||(typeof aaIsSuperUser==="function"&&aaIsSuperUser()));
   const cIsVideo=c.mediaType==="video";
@@ -18448,18 +18506,22 @@ function aaTopicPostCardHTML(t){
   return `<div class="aa-comment-row">
    <img class="aa-comment-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(c.authorPhoto))}" onerror="aaProfileImgFallback(this)">
    <div class="aa-comment-bubble">
+    ${canDeleteComment?`<details class="bingo-comment-options"><summary aria-label="Comment options">⋮</summary><button type="button" onclick='aaDeleteTopicComment(${JSON.stringify(String(t.id))},${JSON.stringify(String(c.id))})'>Delete</button></details>`:''}
     <div class="aa-comment-name">${esc(c.authorName)}${cIsAuthor?`<span class="aa-comment-author-badge">Author</span>`:""}</div>
     ${c.text?`<div class="aa-comment-text ${bingoStyledTextClass(c.style)}">${esc(c.text)}</div>`:""}
     ${commentMediaHTML}
     <div class="aa-comment-meta">
      <span>${c.createdAt?esc(new Date(c.createdAt).toLocaleString("en-KE",{hour:"2-digit",minute:"2-digit"})):""}</span>
-     <button type="button" class="bingo-neon-micro bingo-neon-micro-pink" onclick='aaTopicCommentLike(${JSON.stringify(String(t.id))},${JSON.stringify(String(c.id))})'>Like${c.likes?" ("+c.likes+")":""}</button>
      <button type="button" class="bingo-neon-micro bingo-neon-micro-cyan" onclick='aaTopicReplyTo(${JSON.stringify(String(t.id))},${JSON.stringify(String(c.authorName||""))})'>Reply</button>
-     ${canDeleteComment?`<button type="button" class="bingo-neon-micro bingo-neon-micro-red" onclick='aaDeleteTopicComment(${JSON.stringify(String(t.id))},${JSON.stringify(String(c.id))})'>Delete</button>`:""}
+     <button type="button" class="bingo-neon-micro bingo-neon-micro-pink" onclick='aaTopicCommentLike(${JSON.stringify(String(t.id))},${JSON.stringify(String(c.id))})'>♡ ${Number(c.likes||0)}</button>
     </div>
    </div>
   </div>`;
  }).join("")}
+ ${comments.length>visibleComments.length?`<div class="bingo-comment-links"><button type="button" onclick="aaTopicSetCommentView(${id},'more')">Load more comments (${comments.length-visibleComments.length}) ⌄</button><button type="button" onclick="aaTopicSetCommentView(${id},'all')">View all ${comments.length} comments ›</button></div>`:''}
+ ${visibleComments.length>1?`<div class="bingo-comment-links"><button type="button" onclick="aaTopicSetCommentView(${id},'less')">Show fewer ⌃</button></div>`:''}
+ <div class="bingo-topic-composer"><img class="aa-post-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" alt="" onerror="aaProfileImgFallback(this)"><div class="bingo-topic-field"><input class="field" id="topicComment_${esc(t.id)}" aria-label="Write a comment" placeholder="Write a comment…" value="${esc(aaCommentDraftText[t.id]||'')}" oninput="aaCommentDraftInput(${id},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();aaTopicComment(${id})}"><button type="button" class="aa-comment-camera-btn" aria-label="Attach photo or video" onclick="document.getElementById('topicCommentMedia_'+${id}).click()">📷</button></div><input type="file" id="topicCommentMedia_${esc(t.id)}" accept="image/*,video/*" hidden onchange="aaHandleCommentMediaChange(${id})"><button class="bingo-topic-send" type="button" aria-label="Send comment" onclick="aaTopicComment(${id})">➤</button></div>
+ ${aaCommentMediaPreviewHTML(t.id)}
 </article>`;
 }
 function aaWallAdSlotAutoLoad(){
@@ -19177,6 +19239,11 @@ function aaMsgExportConversationPDF(conversationId){
  <style id="bingo-approved-topic-layout">
 #auto-arcade-widget .bingo-topic-page{max-width:680px;margin:auto;padding:20px 0 105px}#auto-arcade-widget .bingo-topic-brand{text-align:center;margin:12px 0 26px}#auto-arcade-widget .bingo-topic-brand h1{color:#ffc928;font-size:30px;margin:10px 0}#auto-arcade-widget .bingo-approved-topic{border:1px solid #ffc928;border-radius:24px;background:linear-gradient(140deg,#0d1a2d,#081424);padding:24px;margin:18px auto;max-width:680px;box-shadow:0 16px 60px #0005;color:#f5f7ff}#auto-arcade-widget .bingo-approved-topic .aa-post-head{display:flex;align-items:center;gap:14px;margin:0 0 22px}#auto-arcade-widget .bingo-approved-topic .aa-post-avatar{width:56px;height:56px;object-fit:cover;border-radius:50%}#auto-arcade-widget .bingo-topic-author{flex:1;min-width:0}#auto-arcade-widget .bingo-topic-author b{font-size:17px;color:#f5f7ff;cursor:pointer}#auto-arcade-widget .bingo-topic-author .meta{color:#b4bfd4;font-size:12px;margin-top:4px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{color:#ffc928!important;font:750 32px/1.2 system-ui!important;margin:0 0 8px;text-shadow:none!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#f5f7ff!important;font:400 20px/1.5 system-ui!important;white-space:pre-wrap;margin:0 0 20px}#auto-arcade-widget .bingo-approved-topic .aa-post-media{border-radius:16px;overflow:hidden;margin:0}#auto-arcade-widget .bingo-approved-topic .aa-post-media img{display:block;width:100%;height:auto;max-height:none;object-fit:contain}#auto-arcade-widget .bingo-topic-options{position:relative}#auto-arcade-widget .bingo-topic-options summary{cursor:pointer;list-style:none;color:#b4bfd4;font-size:24px}#auto-arcade-widget .bingo-topic-options>div{position:absolute;right:0;top:30px;z-index:5;background:#18283d;border:1px solid #34445b;border-radius:12px;padding:8px;width:175px}#auto-arcade-widget .bingo-topic-options button{display:block;border:0;background:none;color:white;padding:10px;cursor:pointer;text-align:left;width:100%}#auto-arcade-widget .bingo-topic-summary{display:flex;justify-content:space-between;gap:10px;color:#b4bfd4;font-size:14px;padding:18px 0;border-bottom:1px solid #2b3b50}#auto-arcade-widget .bingo-topic-actions{display:grid;grid-template-columns:repeat(3,1fr);padding:10px 0;border-bottom:1px solid #2b3b50}#auto-arcade-widget .bingo-topic-actions button{display:flex;align-items:center;justify-content:center;gap:10px;background:none;border:0;color:#f5f7ff;padding:12px 4px;font:700 15px system-ui;cursor:pointer}#auto-arcade-widget .bingo-topic-actions button+button{border-left:1px solid #223248}#auto-arcade-widget .bingo-topic-actions svg{width:27px;height:27px;fill:none;stroke:#ffc928}#auto-arcade-widget .bingo-topic-actions button[aria-pressed=true]{color:#ffc928}#auto-arcade-widget .bingo-topic-composer{display:flex;align-items:center;gap:12px;margin-top:20px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:42px;height:42px}#auto-arcade-widget .bingo-topic-field{display:flex;flex:1;min-width:0;align-items:center;border:1px solid #354760;border-radius:32px;background:#101e34;padding:6px 12px}#auto-arcade-widget .bingo-topic-field input.field{flex:1;min-width:0;background:none!important;border:0!important;box-shadow:none!important;margin:0;color:white;font-size:16px;padding:8px 0}#auto-arcade-widget .bingo-topic-field input::placeholder{color:#b4bfd4}#auto-arcade-widget .bingo-topic-send{border:1px solid #ffc928;background:none;color:#ffc928;border-radius:50%;width:46px;height:46px;flex-shrink:0;font-size:24px;cursor:pointer}@media(max-width:480px){#auto-arcade-widget .bingo-approved-topic{padding:16px;border-radius:20px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{font-size:26px!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{font-size:17px!important}#auto-arcade-widget .bingo-topic-actions button{font-size:13px;gap:6px}#auto-arcade-widget .bingo-topic-composer{gap:8px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:32px;height:32px}#auto-arcade-widget .bingo-topic-summary{font-size:12px}}
 html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{border:0!important;border-radius:0!important;box-shadow:none!important;background:none!important;padding:12px 4px!important;font:700 15px system-ui!important;color:#f5f7ff!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button+button{border-left:1px solid #223248!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button[aria-pressed=true]{color:#ffc928!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-send{border:1px solid #ffc928!important;border-radius:50%!important;background:none!important;box-shadow:none!important;color:#ffc928!important;width:46px!important;height:46px!important;padding:0!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-field .field{font-weight:400!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-camera-btn{border:0!important;box-shadow:none!important;background:none!important}
+</style>
+<style id="bingo-feedback-comments">
+.bingo-feedback{position:fixed;right:20px;bottom:90px;z-index:10050;width:min(340px,calc(100vw - 32px));padding:22px 20px;background:linear-gradient(135deg,#132a3a,#071725);border:1px solid #ffc928;border-radius:20px;color:white;text-align:center;font:14px/1.5 system-ui;box-shadow:0 18px 40px #0006}.bingo-feedback.success{background:linear-gradient(135deg,#06452b,#03281e);border-color:#4fd776}.bingo-feedback.error{background:linear-gradient(135deg,#491c20,#271518);border-color:#e44648}.bingo-feedback-close{position:absolute;right:10px;top:6px;border:0;background:none;color:#d6e1eb;font-size:23px;cursor:pointer}.bingo-feedback-symbol{width:48px;height:48px;border:3px solid #ffc928;border-radius:50%;display:grid;place-items:center;margin:0 auto 12px;font-size:28px}.success .bingo-feedback-symbol{border-color:#4fd776;color:#4fd776}.error .bingo-feedback-symbol{border-color:#e44648;color:#e44648}.bingo-feedback-message{font-weight:600;overflow-wrap:anywhere}.bingo-feedback p,.bingo-upload-bytes{color:#b6c2d5;font-size:12px}.bingo-upload-file{font-weight:600;overflow-wrap:anywhere;padding-right:12px}.bingo-upload-ring{width:138px;height:138px;margin:18px auto;background:conic-gradient(#ffc928 var(--progress),#263e51 0);border-radius:50%;padding:10px}.bingo-upload-ring>div{background:#0b1c2c;border-radius:50%;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column}.bingo-upload-ring b{font-size:32px}.bingo-upload-ring small{font-size:12px}.bingo-upload-cancel{border:1px solid #3b5161;background:#1c3041;border-radius:8px;color:white;padding:8px 18px;cursor:pointer}
+html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{font:400 14px/1.5 system-ui!important;color:#f5f7ff!important;text-shadow:none!important;letter-spacing:normal!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name{font-weight:600!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-row{padding:16px 0;border-bottom:1px solid #34475a;gap:12px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-bubble{border:0;background:none;padding:0;flex:1;min-width:0}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-avatar{width:42px;height:42px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta{font:400 12px system-ui;color:#b6c2d5;display:flex;align-items:center;gap:10px;margin-top:6px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button{border:0!important;background:none!important;box-shadow:none!important;padding:0!important;font:400 12px system-ui!important;color:#b6c2d5!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button:last-of-type{margin-left:auto;color:white!important;font-size:14px!important}html body #auto-arcade-widget .bingo-comments-heading{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-bottom:12px;border-bottom:1px solid #34475a}html body #auto-arcade-widget .bingo-comments-heading b{font-size:16px;color:white}html body #auto-arcade-widget .bingo-comments-heading select{background:#071525;color:white;border:1px solid #ffc928;border-radius:24px;padding:8px 12px;font:400 13px system-ui;width:auto}html body #auto-arcade-widget .bingo-comment-links button{display:block;background:none!important;border:0!important;box-shadow:none!important;color:#ffc928!important;padding:6px 0!important;font:600 14px system-ui!important;cursor:pointer}html body #auto-arcade-widget .bingo-comment-links{margin-top:12px}.bingo-comment-options{float:right;position:relative}.bingo-comment-options summary{list-style:none;cursor:pointer;color:#b6c2d5;font-size:20px}.bingo-comment-options button{position:absolute;right:0;z-index:5;background:#18283d;color:white;border:1px solid #34475a;border-radius:8px;padding:8px 16px;cursor:pointer}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-author-badge{font:600 10px system-ui!important;padding:2px 7px;border-radius:12px;color:#081423!important;background:#ffc928!important}@media(max-width:480px){.bingo-feedback{right:16px;bottom:90px}.bingo-comments-heading select{max-width:125px}}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-comments-heading select{border:1px solid #ffc928!important;border-radius:24px!important;background:#071525!important;color:white!important;font:400 13px system-ui!important;padding:8px 12px!important}
 </style>
 </body></html>`);
  w.document.close();
@@ -20390,7 +20457,7 @@ async function aaMsgSendFile(conversationId,files,kind){
  try{
   const safeName=String(file.name||"file").replace(/[^\w.\-]+/g,"_").slice(-80);
   const path=`${aaMsgMyId()}/${Date.now()}_${safeName}`;
-  const {error:upErr}=await sb.storage.from(AA_MSG_MEDIA_BUCKET).upload(path,file,{contentType:file.type||undefined});
+  const {error:upErr}=await aaUploadStorageWithFeedback(AA_MSG_MEDIA_BUCKET,path,file,{contentType:file.type||undefined});
   if(upErr)throw upErr;
   const {data:pub}=sb.storage.from(AA_MSG_MEDIA_BUCKET).getPublicUrl(path);
   if(!pub?.publicUrl)throw new Error("No public URL returned");
@@ -28724,6 +28791,11 @@ html body #auto-arcade-widget .bp-page .bp-cover .bp-cover-add:not(#bingo-flat-g
 <style id="bingo-approved-topic-layout">
 #auto-arcade-widget .bingo-topic-page{max-width:680px;margin:auto;padding:20px 0 105px}#auto-arcade-widget .bingo-topic-brand{text-align:center;margin:12px 0 26px}#auto-arcade-widget .bingo-topic-brand h1{color:#ffc928;font-size:30px;margin:10px 0}#auto-arcade-widget .bingo-approved-topic{border:1px solid #ffc928;border-radius:24px;background:linear-gradient(140deg,#0d1a2d,#081424);padding:24px;margin:18px auto;max-width:680px;box-shadow:0 16px 60px #0005;color:#f5f7ff}#auto-arcade-widget .bingo-approved-topic .aa-post-head{display:flex;align-items:center;gap:14px;margin:0 0 22px}#auto-arcade-widget .bingo-approved-topic .aa-post-avatar{width:56px;height:56px;object-fit:cover;border-radius:50%}#auto-arcade-widget .bingo-topic-author{flex:1;min-width:0}#auto-arcade-widget .bingo-topic-author b{font-size:17px;color:#f5f7ff;cursor:pointer}#auto-arcade-widget .bingo-topic-author .meta{color:#b4bfd4;font-size:12px;margin-top:4px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{color:#ffc928!important;font:750 32px/1.2 system-ui!important;margin:0 0 8px;text-shadow:none!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#f5f7ff!important;font:400 20px/1.5 system-ui!important;white-space:pre-wrap;margin:0 0 20px}#auto-arcade-widget .bingo-approved-topic .aa-post-media{border-radius:16px;overflow:hidden;margin:0}#auto-arcade-widget .bingo-approved-topic .aa-post-media img{display:block;width:100%;height:auto;max-height:none;object-fit:contain}#auto-arcade-widget .bingo-topic-options{position:relative}#auto-arcade-widget .bingo-topic-options summary{cursor:pointer;list-style:none;color:#b4bfd4;font-size:24px}#auto-arcade-widget .bingo-topic-options>div{position:absolute;right:0;top:30px;z-index:5;background:#18283d;border:1px solid #34445b;border-radius:12px;padding:8px;width:175px}#auto-arcade-widget .bingo-topic-options button{display:block;border:0;background:none;color:white;padding:10px;cursor:pointer;text-align:left;width:100%}#auto-arcade-widget .bingo-topic-summary{display:flex;justify-content:space-between;gap:10px;color:#b4bfd4;font-size:14px;padding:18px 0;border-bottom:1px solid #2b3b50}#auto-arcade-widget .bingo-topic-actions{display:grid;grid-template-columns:repeat(3,1fr);padding:10px 0;border-bottom:1px solid #2b3b50}#auto-arcade-widget .bingo-topic-actions button{display:flex;align-items:center;justify-content:center;gap:10px;background:none;border:0;color:#f5f7ff;padding:12px 4px;font:700 15px system-ui;cursor:pointer}#auto-arcade-widget .bingo-topic-actions button+button{border-left:1px solid #223248}#auto-arcade-widget .bingo-topic-actions svg{width:27px;height:27px;fill:none;stroke:#ffc928}#auto-arcade-widget .bingo-topic-actions button[aria-pressed=true]{color:#ffc928}#auto-arcade-widget .bingo-topic-composer{display:flex;align-items:center;gap:12px;margin-top:20px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:42px;height:42px}#auto-arcade-widget .bingo-topic-field{display:flex;flex:1;min-width:0;align-items:center;border:1px solid #354760;border-radius:32px;background:#101e34;padding:6px 12px}#auto-arcade-widget .bingo-topic-field input.field{flex:1;min-width:0;background:none!important;border:0!important;box-shadow:none!important;margin:0;color:white;font-size:16px;padding:8px 0}#auto-arcade-widget .bingo-topic-field input::placeholder{color:#b4bfd4}#auto-arcade-widget .bingo-topic-send{border:1px solid #ffc928;background:none;color:#ffc928;border-radius:50%;width:46px;height:46px;flex-shrink:0;font-size:24px;cursor:pointer}@media(max-width:480px){#auto-arcade-widget .bingo-approved-topic{padding:16px;border-radius:20px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{font-size:26px!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{font-size:17px!important}#auto-arcade-widget .bingo-topic-actions button{font-size:13px;gap:6px}#auto-arcade-widget .bingo-topic-composer{gap:8px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:32px;height:32px}#auto-arcade-widget .bingo-topic-summary{font-size:12px}}
 html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{border:0!important;border-radius:0!important;box-shadow:none!important;background:none!important;padding:12px 4px!important;font:700 15px system-ui!important;color:#f5f7ff!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button+button{border-left:1px solid #223248!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button[aria-pressed=true]{color:#ffc928!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-send{border:1px solid #ffc928!important;border-radius:50%!important;background:none!important;box-shadow:none!important;color:#ffc928!important;width:46px!important;height:46px!important;padding:0!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-field .field{font-weight:400!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-camera-btn{border:0!important;box-shadow:none!important;background:none!important}
+</style>
+<style id="bingo-feedback-comments">
+.bingo-feedback{position:fixed;right:20px;bottom:90px;z-index:10050;width:min(340px,calc(100vw - 32px));padding:22px 20px;background:linear-gradient(135deg,#132a3a,#071725);border:1px solid #ffc928;border-radius:20px;color:white;text-align:center;font:14px/1.5 system-ui;box-shadow:0 18px 40px #0006}.bingo-feedback.success{background:linear-gradient(135deg,#06452b,#03281e);border-color:#4fd776}.bingo-feedback.error{background:linear-gradient(135deg,#491c20,#271518);border-color:#e44648}.bingo-feedback-close{position:absolute;right:10px;top:6px;border:0;background:none;color:#d6e1eb;font-size:23px;cursor:pointer}.bingo-feedback-symbol{width:48px;height:48px;border:3px solid #ffc928;border-radius:50%;display:grid;place-items:center;margin:0 auto 12px;font-size:28px}.success .bingo-feedback-symbol{border-color:#4fd776;color:#4fd776}.error .bingo-feedback-symbol{border-color:#e44648;color:#e44648}.bingo-feedback-message{font-weight:600;overflow-wrap:anywhere}.bingo-feedback p,.bingo-upload-bytes{color:#b6c2d5;font-size:12px}.bingo-upload-file{font-weight:600;overflow-wrap:anywhere;padding-right:12px}.bingo-upload-ring{width:138px;height:138px;margin:18px auto;background:conic-gradient(#ffc928 var(--progress),#263e51 0);border-radius:50%;padding:10px}.bingo-upload-ring>div{background:#0b1c2c;border-radius:50%;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column}.bingo-upload-ring b{font-size:32px}.bingo-upload-ring small{font-size:12px}.bingo-upload-cancel{border:1px solid #3b5161;background:#1c3041;border-radius:8px;color:white;padding:8px 18px;cursor:pointer}
+html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{font:400 14px/1.5 system-ui!important;color:#f5f7ff!important;text-shadow:none!important;letter-spacing:normal!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name{font-weight:600!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-row{padding:16px 0;border-bottom:1px solid #34475a;gap:12px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-bubble{border:0;background:none;padding:0;flex:1;min-width:0}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-avatar{width:42px;height:42px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta{font:400 12px system-ui;color:#b6c2d5;display:flex;align-items:center;gap:10px;margin-top:6px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button{border:0!important;background:none!important;box-shadow:none!important;padding:0!important;font:400 12px system-ui!important;color:#b6c2d5!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button:last-of-type{margin-left:auto;color:white!important;font-size:14px!important}html body #auto-arcade-widget .bingo-comments-heading{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-bottom:12px;border-bottom:1px solid #34475a}html body #auto-arcade-widget .bingo-comments-heading b{font-size:16px;color:white}html body #auto-arcade-widget .bingo-comments-heading select{background:#071525;color:white;border:1px solid #ffc928;border-radius:24px;padding:8px 12px;font:400 13px system-ui;width:auto}html body #auto-arcade-widget .bingo-comment-links button{display:block;background:none!important;border:0!important;box-shadow:none!important;color:#ffc928!important;padding:6px 0!important;font:600 14px system-ui!important;cursor:pointer}html body #auto-arcade-widget .bingo-comment-links{margin-top:12px}.bingo-comment-options{float:right;position:relative}.bingo-comment-options summary{list-style:none;cursor:pointer;color:#b6c2d5;font-size:20px}.bingo-comment-options button{position:absolute;right:0;z-index:5;background:#18283d;color:white;border:1px solid #34475a;border-radius:8px;padding:8px 16px;cursor:pointer}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-author-badge{font:600 10px system-ui!important;padding:2px 7px;border-radius:12px;color:#081423!important;background:#ffc928!important}@media(max-width:480px){.bingo-feedback{right:16px;bottom:90px}.bingo-comments-heading select{max-width:125px}}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-comments-heading select{border:1px solid #ffc928!important;border-radius:24px!important;background:#071525!important;color:white!important;font:400 13px system-ui!important;padding:8px 12px!important}
 </style>
 </body>
 </html>
