@@ -85,6 +85,8 @@ html.bingo-preload #auto-arcade-widget{visibility:hidden!important}
 }
 </style>
 
+<link href="https://fonts.googleapis.com/css2?family=Alex+Brush&family=Allura&family=Anton&family=Bebas+Neue&family=Bungee&family=Caveat:wght@400..700&family=Cinzel:wght@400..900&family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&family=Dancing+Script:wght@400..700&family=Great+Vibes&family=Inter:ital,wght@0,100..900;1,100..900&family=Kaushan+Script&family=Lato:ital,wght@0,100;0,300;0,400;0,700;0,900;1,400;1,700&family=Lobster&family=Montserrat:ital,wght@0,100..900;1,100..900&family=Nunito:ital,wght@0,200..1000;1,200..1000&family=Open+Sans:ital,wght@0,300..800;1,300..800&family=Oswald:wght@200..700&family=Pacifico&family=Parisienne&family=Permanent+Marker&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,700&family=Roboto:ital,wght@0,100..900;1,100..900&family=Sacramento&family=Satisfy&family=Special+Elite&family=Ubuntu:ital,wght@0,300;0,400;0,500;0,700;1,400;1,700&family=UnifrakturCook:wght@700&family=Yellowtail&display=swap" rel="stylesheet">
+<!-- Review base: bingo-scoped-repairs-2026-10-01 @ dee580d; no deployment -->
 </head>
 <body style="margin:0;background:#050b14">
 <!-- =============================================================
@@ -15204,7 +15206,7 @@ function sellerHTML(s,cars){
   return `<div class="aa-review"><div><span class="aa-rating-stars">${starsHTML(r.rating)}</span>${r.rating?` <span style="font-size:9px;color:#7f8ba0">${r.rating}/5</span>`:""}${ownerEntry?` <span class="meta">(owner comment — not counted)</span>`:""}</div>${r.text?`<div style="font-size:11px;line-height:1.5;margin-top:4px">${esc(r.text)}</div>`:""}<div style="font-size:9px;color:#7f8ba0;margin-top:4px">${esc(r.author||"Bingo Member")}</div>${r.reply?`<div class="notice" style="margin-top:8px"><b>${esc(r.replyAuthor||s.name)} replied:</b><br>${esc(r.reply)}</div>`:""}${canReply?`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><textarea id="reviewReply_${esc(String(r.id))}" class="field" rows="2" placeholder="Reply to this review..."></textarea><button class="btn" style="width:100%;margin-top:6px" onclick='replyToProfileReview(${JSON.stringify(String(r.id))})'>Reply</button></div>`:""}</div>`;
  }).join(""):`<div class="notice">No reviews yet. Be the first logged-in member to review this profile.</div>`;
 
- return `<section style="padding:20px 0 100px"><button class="btn" onclick="goBack()">Back</button><div class="modal ${s.gold?"aa-gold-qualified":""}" style="max-height:none;margin-top:12px"><div class="profile-head"><div style="position:relative"><img class="profile-photo" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)"><div style="position:absolute;right:0;bottom:4px;background:#071020;border-radius:99px;padding:3px 5px">${aaPresenceBadge(s)}</div></div><div>${aaFollowTopControlHTML(s)}<h2>${esc(s.name)}</h2>${own&&aaIsAgentRole()?`<div class="aa-public-agent-badge">🎖 Bingo Agent${state.userRole?.territory?" — "+esc(state.userRole.territory):""}${state.userRole?.agent_since?` <span class="aa-public-agent-since">· Agent since ${esc(new Date(state.userRole.agent_since).toLocaleDateString("en-KE",{month:"short",year:"numeric"}))}</span>`:""}</div>`:!own?aaPublicAgentBadgeHTML(sellerKey):""}${aaFollowStatsHTML(sellerKey,true)}${s.location?`<p>${esc(s.location)}</p>`:""}${aaMemberSinceHTML(s)}<p>${esc(s.bio)}</p><small style="color:#f5b91e;font-weight:900">${s.gold?"Gold Member":"Bingo Member"}</small></div></div><div class="boost-summary" style="margin-top:12px"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div><div class="notice">${rs.count} review${rs.count===1?"":"s"}</div></div>${own?"":`<div class="details-actions" style="margin-top:14px"><button class="btn bingo-neon-action bingo-neon-action-purple" onclick="contact('chat',{sellerId:'${esc(sellerKey)}',sellerName:'${esc(s.name)}',sellerGold:${s.gold?"true":"false"},title:'Profile conversation'})">💬 Bingo Chat</button></div>`}${own?`${aaPostTodayHTML()}${aaMyTopicsHTML()}${aaAgentProfilePanelHTML()}${aaHelpSellPendingRequestsHTML()}${aaMyHelpSellListingsHTML()}<div class="aa-room-reward"><b>${gold()?"★ GOLD MEMBER":"Community Gold Progress"}</b><br>Accepted Solution Room answers: ${aaAcceptedSolutionsFor(state.user?.id)}/${aaGoldAcceptedTarget()}. Outstanding Gold Members may qualify for annual Bingo recognition and rewards.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+ return `<section style="padding:20px 0 100px"><button class="btn" onclick="goBack()">Back</button><div class="modal ${s.gold?"aa-gold-qualified":""}" style="max-height:none;margin-top:12px"><div class="profile-head"><div style="position:relative"><img class="profile-photo" src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||'Bingo member')}" onerror="aaProfileImgFallback(this)"><div style="position:absolute;right:0;bottom:4px;background:#071020;border-radius:99px;padding:3px 5px">${aaPresenceBadge(s)}</div></div><div>${aaFollowTopControlHTML(s)}<h2>${aaBingo50NameHTML(s.name,own&&state.isLoggedIn)}</h2>${own&&aaIsAgentRole()?`<div class="aa-public-agent-badge">🎖 Bingo Agent${state.userRole?.territory?" — "+esc(state.userRole.territory):""}${state.userRole?.agent_since?` <span class="aa-public-agent-since">· Agent since ${esc(new Date(state.userRole.agent_since).toLocaleDateString("en-KE",{month:"short",year:"numeric"}))}</span>`:""}</div>`:!own?aaPublicAgentBadgeHTML(sellerKey):""}${aaFollowStatsHTML(sellerKey,true)}${s.location?`<p>${esc(s.location)}</p>`:""}${aaMemberSinceHTML(s)}<p>${esc(s.bio)}</p><small style="color:#f5b91e;font-weight:900">${s.gold?"Gold Member":"Bingo Member"}</small></div></div><div class="boost-summary" style="margin-top:12px"><b>Profile Rating</b><div style="margin-top:6px"><span class="aa-rating-stars">${starsHTML(rs.average)}</span> <b style="font-size:13px">${avg}</b> <span class="meta">(${rs.ratings} rating${rs.ratings===1?"":"s"})</span></div><div class="notice">${rs.count} review${rs.count===1?"":"s"}</div></div>${own?"":`<div class="details-actions" style="margin-top:14px"><button class="btn bingo-neon-action bingo-neon-action-purple" onclick="contact('chat',{sellerId:'${esc(sellerKey)}',sellerName:'${esc(s.name)}',sellerGold:${s.gold?"true":"false"},title:'Profile conversation'})">💬 Bingo Chat</button></div>`}${own?`${aaPostTodayHTML()}${aaMyTopicsHTML()}${aaAgentProfilePanelHTML()}${aaHelpSellPendingRequestsHTML()}${aaMyHelpSellListingsHTML()}<div class="aa-room-reward"><b>${gold()?"★ GOLD MEMBER":"Community Gold Progress"}</b><br>Accepted Solution Room answers: ${aaAcceptedSolutionsFor(state.user?.id)}/${aaGoldAcceptedTarget()}. Outstanding Gold Members may qualify for annual Bingo recognition and rewards.</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
 <button class="btn btn-gold" style="width:100%" onclick="state.view='edit-profile';render();window.scrollTo(0,0)">Edit My Profile</button>
 <button class="btn" style="width:100%" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button>
 <button class="btn btn-glass" style="width:100%;grid-column:1/-1" type="button" onclick="if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio();">🎥 Record Video</button>
@@ -15998,6 +16000,7 @@ function aaBingoTopicComposerHTML(){
    <textarea class="field full" id="topicBody" style="${aaTextFormatCSS(d.bodyFmt)}" rows="3" placeholder="Post your view today…" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow();aaEnsureTopicDraftFmt();state.topicDraft.activeFmtField='body'" ${busy?"disabled":""}>${esc(d.body||"")}</textarea>
   </div>
 
+<button type="button" class="bingo50-trigger" aria-label="Choose 50 text styles and colours" title="50 text styles and colours" onclick="Bingo50Style.open(document.getElementById(&quot;topicBody&quot;),&quot;text&quot;)">Aa</button>
   ${mediaSectionHTML}
   <div class="details-actions" style="margin-top:8px">
    <button class="bingo-neon-action bingo-neon-action-glass" type="button" onclick="aaCancelWallComposer()" ${busy?"disabled":""}>Cancel</button>
@@ -18247,6 +18250,60 @@ const AA_FONT_FAMILY_GROUPS=[
  ]}
 ];
 const AA_FONT_FAMILY_MAP=(()=>{const m={};AA_FONT_FAMILY_GROUPS.forEach(g=>g.fonts.forEach(f=>m[f.key]=f));return m})();
+
+const AA_BINGO50_FONTS=[
+['Arial','Arial,sans-serif','Clean, plain sans-serif · neutral and readable'],
+['Helvetica','Helvetica,Arial,sans-serif','Smooth modern lettering · balanced and professional'],
+['Roboto','Roboto,Arial,sans-serif','Modern mobile-app lettering · clean mechanical shapes'],
+['Open Sans','Open Sans,Arial,sans-serif','Open, friendly letters · excellent readability'],
+['Lato','Lato,Arial,sans-serif','Soft modern shapes · clean but less formal'],
+['Montserrat','Montserrat,Arial,sans-serif','Wide geometric letters · strong and fashionable'],
+['Poppins','Poppins,Arial,sans-serif','Rounded geometric lettering · circular shapes'],
+['Inter','Inter,Arial,sans-serif','Compact modern UI font · designed for screens'],
+['Ubuntu','Ubuntu,Arial,sans-serif','Rounded and distinctive · slightly futuristic'],
+['Nunito','Nunito,Arial,sans-serif','Soft rounded ends · friendly and relaxed'],
+['Playfair Display','Playfair Display,Georgia,serif','Elegant thick/thin serif · luxury editorial'],
+['Cormorant Garamond','Cormorant Garamond,Garamond,serif','Thin graceful classical serif · artistic'],
+['Cinzel','Cinzel,Georgia,serif','Roman inscription capitals · formal and prestigious'],
+['Bebas Neue','Bebas Neue,Impact,sans-serif','Tall narrow uppercase · strong statements'],
+['Oswald','Oswald,Arial Narrow,sans-serif','Condensed upright lettering · strong and controlled'],
+['Anton','Anton,Impact,sans-serif','Very thick display letters · attention-grabbing'],
+['Bungee','Bungee,Impact,fantasy','Chunky display lettering · street-sign personality'],
+['Pacifico','Pacifico,Brush Script MT,cursive','Flowing brush handwriting · cheerful and expressive'],
+['Dancing Script','Dancing Script,Segoe Script,cursive','Bouncy connected handwriting · lively'],
+['Great Vibes','Great Vibes,cursive','Fine formal calligraphy · long flowing strokes'],
+['Allura','Allura,cursive','Delicate signature handwriting · light and elegant'],
+['Sacramento','Sacramento,cursive','Monoline signature lettering · personal'],
+['Parisienne','Parisienne,cursive','Romantic flowing cursive · elegant curves'],
+['Alex Brush','Alex Brush,cursive','Traditional brush calligraphy · strong flourishes'],
+['Satisfy','Satisfy,cursive','Informal brush writing · natural movement'],
+['Yellowtail','Yellowtail,cursive','Retro connected script · classic sign style'],
+['Lobster','Lobster,cursive','Thick rounded connected script · bold and playful'],
+['Kaushan Script','Kaushan Script,cursive','Energetic brush lettering · handwritten character'],
+['Caveat','Caveat,cursive','Quick pen handwriting · informal and personal'],
+['Permanent Marker','Permanent Marker,cursive','Thick marker-pen lettering · strong handwriting'],
+['Typewriter','Courier New,monospace','Classic mechanical typewriter · equal-width characters'],
+['Courier Prime','Courier Prime,Courier New,monospace','Clean polished traditional typewriter'],
+['Special Elite','Special Elite,Courier New,monospace','Distressed old typewriter · imperfect print'],
+['Gothic','UnifrakturCook,Old English Text MT,fantasy','Decorative medieval lettering · sharp complex strokes'],
+['Old English','UnifrakturCook,Old English Text MT,fantasy','Traditional blackletter · ornate medieval shapes'],
+['Fraktur','UnifrakturCook,Old English Text MT,fantasy','Angular historical blackletter · broken strokes'],
+['Bold','Arial,sans-serif','Heavy conventional lettering · stronger weight'],
+['Bold Sans','Arial,sans-serif','Thick modern sans-serif · no decorative strokes'],
+['Italic','Georgia,serif','Right-leaning letters · movement and emphasis'],
+['Bold Italic','Georgia,serif','Heavy right-leaning lettering · strong emphasis'],
+['Sans Italic','Inter,Arial,sans-serif','Clean modern letters · energetic forward slant'],
+['Monospace','Courier Prime,monospace','Equal-width characters · technical digital look'],
+['Double Line','Georgia,serif','Outlined/doubled-stroke visual treatment'],
+['Blackletter','UnifrakturCook,Old English Text MT,fantasy','Heavy medieval lettering · angular decoration'],
+['Small Caps','Arial,sans-serif','Miniature capital appearance · compact and stylish'],
+['Superscript','Georgia,serif','Tiny raised-character appearance · lightweight'],
+['Circled','Arial,sans-serif','Each character appears inside a circular outline'],
+['Dark Circled','Arial Black,sans-serif','Characters appear in heavier filled circles'],
+['Squared','Arial,sans-serif','Each character appears inside a square block'],
+['Negative Square','Arial Black,sans-serif','Strong filled-square characters · high contrast']
+];
+AA_BINGO50_FONTS.forEach((f,i)=>{AA_FONT_FAMILY_MAP['bingo50_'+i]={key:'bingo50_'+i,label:f[0],css:f[1]}});
 const AA_TEXT_SIZES=[{key:"s",label:"S",px:12},{key:"m",label:"M",px:14},{key:"l",label:"L",px:18},{key:"xl",label:"XL",px:22}];
 const AA_TEXT_COLORS=[
  {key:"default",label:"Default",css:"#f2ede1"},
@@ -18259,6 +18316,33 @@ const AA_TEXT_COLORS=[
  {key:"custom",label:"Custom"}
 ];
 function aaSafeHexColor(v){return /^#[0-9a-fA-F]{6}$/.test(String(v||""))?v:null}
+
+/* 50-style integration: topic choices use existing title_format/body_format.
+   Owner name preference is browser-local, keyed by signed-in account. */
+function aaBingo50ReadTopic(id){
+ aaEnsureTopicDraftFmt();const f=id==='topicTitle'?state.topicDraft.titleFmt:state.topicDraft.bodyFmt;
+ const index=String(f.font||'').startsWith('bingo50_')?Number(f.font.slice(8)):0;
+ return {font:index,color:f.color==='custom'?f.customColor:'#ffffff',bold:!!f.bold,italic:!!f.italic,underline:!!f.underline};
+}
+function aaBingo50SaveTopic(id,s){
+ aaEnsureTopicDraftFmt();const key=id==='topicTitle'?'titleFmt':'bodyFmt';
+ Object.assign(state.topicDraft[key],{font:'bingo50_'+s.font,color:'custom',customColor:s.color,bold:s.bold,italic:s.italic,underline:s.underline});
+ const el=document.getElementById(id);if(el){el.style.cssText=aaTextFormatCSS(state.topicDraft[key]);aaSyncTopicDraft({target:el})}
+}
+function aaBingo50ReadName(){
+ if(!state.isLoggedIn||!state.user?.id)return {};
+ try{return JSON.parse(localStorage.getItem('bingo_profile_name_style_'+state.user.id)||'{}')}catch(e){return {}}
+}
+function aaBingo50SaveName(s){
+ if(!state.isLoggedIn||!state.user?.id)return;
+ try{localStorage.setItem('bingo_profile_name_style_'+state.user.id,JSON.stringify(s))}catch(e){toast('Name style could not be saved in this browser.')}
+ document.querySelectorAll('[data-bingo-owner-name="true"]').forEach(el=>window.Bingo50Style.apply(el,s));
+}
+function aaBingo50NameHTML(name,owner){
+ const pref=owner?aaBingo50ReadName():{};
+ const fmt={font:'bingo50_'+(pref.font||0),color:'custom',customColor:pref.color||'#ffc629',bold:pref.bold!==false,italic:!!pref.italic,underline:!!pref.underline,size:'m'};
+ return '<span data-bingo-owner-name="'+(owner?'true':'false')+'" style="'+(owner?aaTextFormatCSS(fmt):'')+'">'+esc(name)+'</span>'+(owner?'<button type="button" class="bingo50-trigger" aria-label="Style your profile name" title="Style your profile name" onclick="event.stopPropagation();Bingo50Style.open(this.previousElementSibling,&quot;name&quot;)">Aa</button>':'');
+}
 function aaDefaultTextFmt(){return {font:"system",bold:false,italic:false,underline:false,size:"m",color:"default",customColor:"",neon:false,align:"left"}}
 function aaEnsureTopicDraftFmt(){
  state.topicDraft=state.topicDraft||{title:"",body:""};
@@ -18275,6 +18359,15 @@ function aaTextFormatCSS(fmt){
  const align=["left","center","right"].includes(fmt.align)?fmt.align:"left";
  let css=`font-family:${fam.css};font-size:${size}px;font-weight:${fmt.bold?800:400};font-style:${fmt.italic?"italic":"normal"};text-decoration:${fmt.underline?"underline":"none"};color:${colorHex};text-align:${align};`;
  if(fmt.neon)css+=`text-shadow:0 0 4px ${colorHex},0 0 10px ${colorHex},0 0 18px ${colorHex};`;
+ const idx=Number(String(fmt.font||'').replace('bingo50_',''));
+ if(String(fmt.font||'').startsWith('bingo50_')){
+  if(idx===44)css+='font-variant:small-caps;letter-spacing:.04em;';
+  if(idx===45)css+='font-size:'+Math.round(size*.78)+'px;vertical-align:super;';
+  if(idx===42||idx===46)css+='-webkit-text-stroke:.5px currentColor;';
+  if(idx>=46)css+='letter-spacing:.11em;';
+  if(idx===48)css+='border:1px solid currentColor;padding:2px 5px;border-radius:2px;';
+  if(idx===49)css+='background:#334155;padding:2px 5px;border-radius:2px;';
+ }
  return css;
 }
 function aaLoadFontsForGroup(groupName){
@@ -18348,7 +18441,7 @@ function aaFmtFieldToolbarHTML(which){
  const fmt=which==="title"?state.topicDraft.titleFmt:state.topicDraft.bodyFmt;
  return `<div class="aa-fmt-toolbar">
   <select class="aa-fmt-select" onchange="aaLoadFontsForGroup(this.options[this.selectedIndex].dataset.group);aaSetFmtField('${which}','font',this.value)">
-   ${AA_FONT_FAMILY_GROUPS.map(g=>`<optgroup label="${esc(g.group)}">${g.fonts.map(f=>`<option value="${f.key}" data-group="${esc(g.group)}" ${fmt.font===f.key?"selected":""}>${esc(f.label)}</option>`).join("")}</optgroup>`).join("")}
+   ${[{group:"Approved 50 Styles",fonts:AA_BINGO50_FONTS.map((f,i)=>({key:"bingo50_"+i,label:f[0]}))},...AA_FONT_FAMILY_GROUPS].map(g=>`<optgroup label="${esc(g.group)}">${g.fonts.map(f=>`<option value="${f.key}" data-group="${esc(g.group)}" ${fmt.font===f.key?"selected":""}>${esc(f.label)}</option>`).join("")}</optgroup>`).join("")}
   </select>
   <button type="button" class="aa-fmt-btn ${fmt.bold?"active":""}" title="Bold" aria-pressed="${fmt.bold?"true":"false"}" onclick="aaSetFmtField('${which}','bold',${!fmt.bold})"><b>B</b></button>
   <button type="button" class="aa-fmt-btn ${fmt.italic?"active":""}" title="Italic" aria-pressed="${fmt.italic?"true":"false"}" onclick="aaSetFmtField('${which}','italic',${!fmt.italic})"><i>I</i></button>
@@ -18470,7 +18563,7 @@ function aaTopicPostCardHTML(t){
  return `<article class="aa-post-card bingo-approved-topic" id="topic-card-${esc(t.id)}">
  <header class="aa-post-head">
  <img class="aa-post-avatar ${aaDecorationClassFor(t.authorId)}" src="${bingoSafeMediaAttr(aaProfilePhoto(author.photo))}" alt="" onerror="aaProfileImgFallback(this)" onclick="openSeller(${esc(JSON.stringify(String(t.authorId||"")))})">
- <div class="bingo-topic-author"><b onclick="openSeller(${esc(JSON.stringify(String(t.authorId||"")))})">${esc(author.name)}</b>${author.verified?'<span class="aa-post-verified">✓</span>':''}<div class="meta">${t.createdAt?esc(new Date(t.createdAt).toLocaleString("en-KE")):''} · 🌐 Public${wasEdited?' · Edited':''}</div></div>
+ <div class="bingo-topic-author"><b onclick="openSeller(${esc(JSON.stringify(String(t.authorId||"")))})">${aaBingo50NameHTML(author.name,isOwner&&state.isLoggedIn)}</b>${author.verified?'<span class="aa-post-verified">✓</span>':''}<div class="meta">${t.createdAt?esc(new Date(t.createdAt).toLocaleString("en-KE")):''} · 🌐 Public${wasEdited?' · Edited':''}</div></div>
  <details class="bingo-topic-options"><summary aria-label="Post options">•••</summary><div>
  ${canEditTopic?`<button type="button" onclick="aaOpenEditTopic(${id})">Edit post</button>`:''}
  ${state.isLoggedIn&&isOwner?`<button type="button" style="color:var(--red)" onclick="aaDeleteBingoTopic(${id})">Delete post</button>`:''}
@@ -18478,7 +18571,7 @@ function aaTopicPostCardHTML(t){
  <button type="button" onclick="aaTopicReport(${id})">Report post</button>
  ${aaFollowTopControlHTML({id:t.authorId,name:author.name})}
  </div></details></header>
- <div class="aa-post-content">${t.title?`<h2 class="aa-post-title">${esc(t.title)}</h2>`:''}${t.body?`<p class="aa-post-message">${esc(t.body)}</p>`:''}</div>
+ <div class="aa-post-content">${t.title?`<h2 class="aa-post-title" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):""}">${esc(t.title)}</h2>`:''}${t.body?`<p class="aa-post-message" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):""}">${esc(t.body)}</p>`:''}</div>
  ${mediaSrc?`<div class="aa-post-media">${isVideo?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'><video src="${bingoSafeMediaAttr(mediaSrc)}" muted playsinline preload="metadata"></video><button type="button" class="aa-video-play-overlay" aria-label="Play video" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'>▶</button></div>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}"${mediaClickAttr}>`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
 
  <div class="bingo-topic-summary"><span><span aria-hidden="true">👍 ❤️ 😆</span> ${aaTopicLoveCount(t)} ${aaTopicLoveCount(t)===1?'reaction':'reactions'}</span><span>${comments.length} ${comments.length===1?'comment':'comments'}</span></div>
@@ -28787,5 +28880,97 @@ html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{
 html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{font:400 14px/1.5 system-ui!important;color:#f5f7ff!important;text-shadow:none!important;letter-spacing:normal!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name{font-weight:600!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-row{padding:16px 0;border-bottom:1px solid #34475a;gap:12px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-bubble{border:0;background:none;padding:0;flex:1;min-width:0}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-avatar{width:42px;height:42px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta{font:400 12px system-ui;color:#b6c2d5;display:flex;align-items:center;gap:10px;margin-top:6px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button{border:0!important;background:none!important;box-shadow:none!important;padding:0!important;font:400 12px system-ui!important;color:#b6c2d5!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button:last-of-type{margin-left:auto;color:white!important;font-size:14px!important}html body #auto-arcade-widget .bingo-comments-heading{display:flex;align-items:center;justify-content:space-between;margin-top:18px;padding-bottom:12px;border-bottom:1px solid #34475a}html body #auto-arcade-widget .bingo-comments-heading b{font-size:16px;color:white}html body #auto-arcade-widget .bingo-comments-heading select{background:#071525;color:white;border:1px solid #ffc928;border-radius:24px;padding:8px 12px;font:400 13px system-ui;width:auto}html body #auto-arcade-widget .bingo-comment-links button{display:block;background:none!important;border:0!important;box-shadow:none!important;color:#ffc928!important;padding:6px 0!important;font:600 14px system-ui!important;cursor:pointer}html body #auto-arcade-widget .bingo-comment-links{margin-top:12px}.bingo-comment-options{float:right;position:relative}.bingo-comment-options summary{list-style:none;cursor:pointer;color:#b6c2d5;font-size:20px}.bingo-comment-options button{position:absolute;right:0;z-index:5;background:#18283d;color:white;border:1px solid #34475a;border-radius:8px;padding:8px 16px;cursor:pointer}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-author-badge{font:600 10px system-ui!important;padding:2px 7px;border-radius:12px;color:#081423!important;background:#ffc928!important}@media(max-width:480px){.bingo-feedback{right:16px;bottom:90px}.bingo-comments-heading select{max-width:125px}}
 html body #auto-arcade-widget .bingo-approved-topic .bingo-comments-heading select{border:1px solid #ffc928!important;border-radius:24px!important;background:#071525!important;color:white!important;font:400 13px system-ui!important;padding:8px 12px!important}
 </style>
+<!-- ===== Bingo 50 Font + Colour Expression Layer (review integration) ===== -->
+<style id="bingo50-style">
+.bingo50-trigger{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid rgba(243,190,43,.5);border-radius:9px;background:#101b2c;color:#f3be2b;font-weight:900;cursor:pointer;vertical-align:middle;margin-left:5px}
+#bingo50-panel{position:fixed;z-index:2147483000;left:50%;bottom:10px;transform:translateX(-50%);width:min(94vw,430px);max-height:72vh;background:#091321;border:1px solid #c99b27;border-radius:18px;box-shadow:0 18px 55px #000b;padding:12px;color:#fff;font-family:Arial,sans-serif;display:none}
+#bingo50-panel.open{display:block}.bingo50-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.bingo50-head b{color:#f3be2b}.bingo50-close{border:0;background:transparent;color:#fff;font-size:24px;cursor:pointer}
+.bingo50-colors{display:flex;gap:8px;overflow-x:auto;padding:4px 1px 9px}.bingo50-color{width:26px;height:26px;min-width:26px;border-radius:50%;border:2px solid #fff3;cursor:pointer}.bingo50-color.sel{outline:2px solid #f3be2b;outline-offset:2px}
+.bingo50-fonts{height:230px;overflow-y:auto;border-top:1px solid #ffffff12;border-bottom:1px solid #ffffff12}.bingo50-font{width:100%;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 11px;background:transparent;border:0;border-bottom:1px solid #ffffff0d;color:#fff;text-align:left;cursor:pointer}.bingo50-font.sel{box-shadow:inset 3px 0 #f3be2b;background:#ffffff08}.bingo50-sample{font-size:23px}.bingo50-check{color:#f3be2b;font-weight:900}
+.bingo50-tools{display:flex;gap:7px;padding-top:9px}.bingo50-tools button{flex:1;min-height:36px;border:1px solid #ffffff20;border-radius:9px;background:#132238;color:#fff;font-weight:800}.bingo50-tools button.on{border-color:#f3be2b;color:#f3be2b}
+.bingo50-name-dark{text-shadow:-1px -1px 0 #dff7ff,1px -1px 0 #dff7ff,-1px 1px 0 #dff7ff,1px 1px 0 #dff7ff,0 0 7px #45d8ff,0 0 15px currentColor}
+.bingo50-fx-smallcaps{font-variant:small-caps;letter-spacing:.04em}.bingo50-fx-super{font-size:.78em;vertical-align:super}.bingo50-fx-double{paint-order:stroke fill;-webkit-text-stroke:1px currentColor;color:transparent;text-shadow:0 0 0 currentColor}
+.bingo50-fx-circled,.bingo50-fx-darkcircled,.bingo50-fx-squared,.bingo50-fx-negative{letter-spacing:.11em}
+</style>
+<script id="bingo50-runtime">
+(function(){
+if(window.Bingo50Style)return;
+const F=[
+['Arial','Arial,sans-serif','Clean, plain sans-serif · neutral and readable'],
+['Helvetica','Helvetica,Arial,sans-serif','Smooth modern lettering · balanced and professional'],
+['Roboto','Roboto,Arial,sans-serif','Modern mobile-app lettering · clean mechanical shapes'],
+['Open Sans','Open Sans,Arial,sans-serif','Open, friendly letters · excellent readability'],
+['Lato','Lato,Arial,sans-serif','Soft modern shapes · clean but less formal'],
+['Montserrat','Montserrat,Arial,sans-serif','Wide geometric letters · strong and fashionable'],
+['Poppins','Poppins,Arial,sans-serif','Rounded geometric lettering · circular shapes'],
+['Inter','Inter,Arial,sans-serif','Compact modern UI font · designed for screens'],
+['Ubuntu','Ubuntu,Arial,sans-serif','Rounded and distinctive · slightly futuristic'],
+['Nunito','Nunito,Arial,sans-serif','Soft rounded ends · friendly and relaxed'],
+['Playfair Display','Playfair Display,Georgia,serif','Elegant thick/thin serif · luxury editorial'],
+['Cormorant Garamond','Cormorant Garamond,Garamond,serif','Thin graceful classical serif · artistic'],
+['Cinzel','Cinzel,Georgia,serif','Roman inscription capitals · formal and prestigious'],
+['Bebas Neue','Bebas Neue,Impact,sans-serif','Tall narrow uppercase · strong statements'],
+['Oswald','Oswald,Arial Narrow,sans-serif','Condensed upright lettering · strong and controlled'],
+['Anton','Anton,Impact,sans-serif','Very thick display letters · attention-grabbing'],
+['Bungee','Bungee,Impact,fantasy','Chunky display lettering · street-sign personality'],
+['Pacifico','Pacifico,Brush Script MT,cursive','Flowing brush handwriting · cheerful and expressive'],
+['Dancing Script','Dancing Script,Segoe Script,cursive','Bouncy connected handwriting · lively'],
+['Great Vibes','Great Vibes,cursive','Fine formal calligraphy · long flowing strokes'],
+['Allura','Allura,cursive','Delicate signature handwriting · light and elegant'],
+['Sacramento','Sacramento,cursive','Monoline signature lettering · personal'],
+['Parisienne','Parisienne,cursive','Romantic flowing cursive · elegant curves'],
+['Alex Brush','Alex Brush,cursive','Traditional brush calligraphy · strong flourishes'],
+['Satisfy','Satisfy,cursive','Informal brush writing · natural movement'],
+['Yellowtail','Yellowtail,cursive','Retro connected script · classic sign style'],
+['Lobster','Lobster,cursive','Thick rounded connected script · bold and playful'],
+['Kaushan Script','Kaushan Script,cursive','Energetic brush lettering · handwritten character'],
+['Caveat','Caveat,cursive','Quick pen handwriting · informal and personal'],
+['Permanent Marker','Permanent Marker,cursive','Thick marker-pen lettering · strong handwriting'],
+['Typewriter','Courier New,monospace','Classic mechanical typewriter · equal-width characters'],
+['Courier Prime','Courier Prime,Courier New,monospace','Clean polished traditional typewriter'],
+['Special Elite','Special Elite,Courier New,monospace','Distressed old typewriter · imperfect print'],
+['Gothic','UnifrakturCook,Old English Text MT,fantasy','Decorative medieval lettering · sharp complex strokes'],
+['Old English','UnifrakturCook,Old English Text MT,fantasy','Traditional blackletter · ornate medieval shapes'],
+['Fraktur','UnifrakturCook,Old English Text MT,fantasy','Angular historical blackletter · broken strokes'],
+['Bold','Arial,sans-serif','Heavy conventional lettering · stronger weight'],
+['Bold Sans','Arial,sans-serif','Thick modern sans-serif · no decorative strokes'],
+['Italic','Georgia,serif','Right-leaning letters · movement and emphasis'],
+['Bold Italic','Georgia,serif','Heavy right-leaning lettering · strong emphasis'],
+['Sans Italic','Inter,Arial,sans-serif','Clean modern letters · energetic forward slant'],
+['Monospace','Courier Prime,monospace','Equal-width characters · technical digital look'],
+['Double Line','Georgia,serif','Outlined/doubled-stroke visual treatment'],
+['Blackletter','UnifrakturCook,Old English Text MT,fantasy','Heavy medieval lettering · angular decoration'],
+['Small Caps','Arial,sans-serif','Miniature capital appearance · compact and stylish'],
+['Superscript','Georgia,serif','Tiny raised-character appearance · lightweight'],
+['Circled','Arial,sans-serif','Each character appears inside a circular outline'],
+['Dark Circled','Arial Black,sans-serif','Characters appear in heavier filled circles'],
+['Squared','Arial,sans-serif','Each character appears inside a square block'],
+['Negative Square','Arial Black,sans-serif','Strong filled-square characters · high contrast']
+];
+const C=['#ffffff','#ffc629','#ff8b32','#ff4057','#ed35df','#9147e8','#2874f0','#2bc6e5','#20c78d','#3be15e','#111a31','#8995a6'];
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){const p=document.getElementById('bingo50-panel');if(p)p.classList.remove('open')}});
+let target=null, kind='text', state={font:0,color:'#ffffff',bold:false,italic:false,underline:false,effect:null};
+const effects={42:'double',44:'smallcaps',45:'super',46:'circled',47:'darkcircled',48:'squared',49:'negative'};
+function styleObj(el){try{return JSON.parse(el.dataset.bingoStyle||'{}')}catch(e){return {}}}
+function save(el){
+ el.dataset.bingoStyle=JSON.stringify(state);apply(el,state);
+ if(kind==='name'){window.aaBingo50SaveName(state);return}
+ if(el.id==='topicBody'||el.id==='topicTitle')window.aaBingo50SaveTopic(el.id,state);
+}
+function lum(hex){let h=hex.replace('#','');if(h.length!==6)return 255;let n=parseInt(h,16);return .299*((n>>16)&255)+.587*((n>>8)&255)+.114*(n&255)}
+function apply(el,s){if(!el||!s)return; el.style.fontFamily=F[s.font||0][1];el.style.color=s.color||'';el.style.fontWeight=s.bold?'700':'';el.style.fontStyle=s.italic?'italic':'';el.style.textDecoration=s.underline?'underline':'';
+ [...el.classList].filter(x=>x.indexOf('bingo50-fx-')===0).forEach(x=>el.classList.remove(x));
+ if(s.effect)el.classList.add('bingo50-fx-'+s.effect);
+ el.classList.toggle('bingo50-name-dark',kind==='name'&&lum(s.color||'#fff')<95);
+}
+function panel(){let p=document.getElementById('bingo50-panel');if(p)return p;p=document.createElement('div');p.id='bingo50-panel';p.innerHTML='<div class="bingo50-head"><b>Text Style</b><button class="bingo50-close" type="button">×</button></div><div class="bingo50-colors"></div><div class="bingo50-fonts"></div><div class="bingo50-tools"><button data-t="bold">B</button><button data-t="italic"><i>I</i></button><button data-t="underline"><u>U</u></button><button data-t="reset">Reset</button></div>';document.body.appendChild(p);p.querySelector('.bingo50-close').onclick=()=>p.classList.remove('open');p.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{let t=b.dataset.t;if(t==='reset')state={font:0,color:'#ffffff',bold:false,italic:false,underline:false,effect:null};else state[t]=!state[t];save(target);draw();});return p}
+function draw(){let p=panel();p.querySelector('.bingo50-colors').innerHTML=C.map(c=>'<button type="button" class="bingo50-color '+(state.color===c?'sel':'')+'" data-c="'+c+'" style="background:'+c+'"></button>').join('');p.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{state.color=b.dataset.c;save(target);draw()});
+p.querySelector('.bingo50-fonts').innerHTML=F.map((f,i)=>'<button type="button" class="bingo50-font '+(state.font===i?'sel':'')+'" data-f="'+i+'"><span class="bingo50-sample" style="font-family:'+f[1]+'">Bingo</span><span class="bingo50-check">'+(state.font===i?'✓':'')+'</span></button>').join('');
+p.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{let i=+b.dataset.f;state.font=i;state.effect=effects[i]||null;state.bold=[36,37,39].includes(i);state.italic=[38,39,40].includes(i);save(target);draw()});p.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('on',!!state[b.dataset.t]))}
+function open(el,k){target=el;kind=k||'text';state=Object.assign({font:0,color:'#ffffff',bold:false,italic:false,underline:false,effect:null},(k==='name'?window.aaBingo50ReadName():window.aaBingo50ReadTopic(el.id)));draw();panel().querySelector('.bingo50-head b').textContent=kind==='name'?'Profile Name Style':'Text Style';panel().classList.add('open')}
+window.Bingo50Style={open,apply,fonts:F,colors:C};
+})();
+</script>
+<!-- ===== /Bingo 50 Font + Colour Expression Layer ===== -->
 </body>
 </html>
