@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><title>Bingo Live Guest wiring check</title>
+<h1>Bingo Live Guest wiring check</h1><pre id="o"></pre>
+<script>
+const out=[]; function ok(n,v){out.push((v?'PASS ':'FAIL ')+n)}
+ok('WebRTC available',typeof RTCPeerConnection==='function');
+ok('Camera API available',!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia));
+ok('CustomEvent available',typeof CustomEvent==='function');
+document.querySelector('#o').textContent=out.join('\n');
+</script>
