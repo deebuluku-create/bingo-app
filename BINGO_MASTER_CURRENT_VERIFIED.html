@@ -15982,7 +15982,7 @@ function aaBingoTopicComposerHTML(){
   <div class="form-grid" style="margin-top:8px">
    <textarea class="field full" id="topicBody" style="${aaTextFormatCSS(d.bodyFmt)}" rows="3" placeholder="Post your view today…" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow();aaEnsureTopicDraftFmt();state.topicDraft.activeFmtField='body'" ${busy?"disabled":""}>${esc(d.body||"")}</textarea>
   </div>
-  ${aaWriteWithStylePanelHTML()}
+
   ${mediaSectionHTML}
   <div class="details-actions" style="margin-top:8px">
    <button class="bingo-neon-action bingo-neon-action-glass" type="button" onclick="aaCancelWallComposer()" ${busy?"disabled":""}>Cancel</button>
@@ -16754,7 +16754,11 @@ function aaSanitizeAdMarkup(html){
   });
  }
  clean(doc.body);
- return `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;font-family:Arial,sans-serif}</style></head><body>${doc.body.innerHTML}</body></html>`;
+ return `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;font-family:Arial,sans-serif}</style></head><body>${doc.body.innerHTML}<style id="bingo-approved-topic-layout">
+#auto-arcade-widget .bingo-topic-page{max-width:680px;margin:auto;padding:20px 0 105px}#auto-arcade-widget .bingo-topic-brand{text-align:center;margin:12px 0 26px}#auto-arcade-widget .bingo-topic-brand h1{color:#ffc928;font-size:30px;margin:10px 0}#auto-arcade-widget .bingo-approved-topic{border:1px solid #ffc928;border-radius:24px;background:linear-gradient(140deg,#0d1a2d,#081424);padding:24px;margin:18px auto;max-width:680px;box-shadow:0 16px 60px #0005;color:#f5f7ff}#auto-arcade-widget .bingo-approved-topic .aa-post-head{display:flex;align-items:center;gap:14px;margin:0 0 22px}#auto-arcade-widget .bingo-approved-topic .aa-post-avatar{width:56px;height:56px;object-fit:cover;border-radius:50%}#auto-arcade-widget .bingo-topic-author{flex:1;min-width:0}#auto-arcade-widget .bingo-topic-author b{font-size:17px;color:#f5f7ff;cursor:pointer}#auto-arcade-widget .bingo-topic-author .meta{color:#b4bfd4;font-size:12px;margin-top:4px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{color:#ffc928!important;font:750 32px/1.2 system-ui!important;margin:0 0 8px;text-shadow:none!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#f5f7ff!important;font:400 20px/1.5 system-ui!important;white-space:pre-wrap;margin:0 0 20px}#auto-arcade-widget .bingo-approved-topic .aa-post-media{border-radius:16px;overflow:hidden;margin:0}#auto-arcade-widget .bingo-approved-topic .aa-post-media img{display:block;width:100%;height:auto;max-height:none;object-fit:contain}#auto-arcade-widget .bingo-topic-options{position:relative}#auto-arcade-widget .bingo-topic-options summary{cursor:pointer;list-style:none;color:#b4bfd4;font-size:24px}#auto-arcade-widget .bingo-topic-options>div{position:absolute;right:0;top:30px;z-index:5;background:#18283d;border:1px solid #34445b;border-radius:12px;padding:8px;width:175px}#auto-arcade-widget .bingo-topic-options button{display:block;border:0;background:none;color:white;padding:10px;cursor:pointer;text-align:left;width:100%}#auto-arcade-widget .bingo-topic-summary{display:flex;justify-content:space-between;gap:10px;color:#b4bfd4;font-size:14px;padding:18px 0;border-bottom:1px solid #2b3b50}#auto-arcade-widget .bingo-topic-actions{display:grid;grid-template-columns:repeat(3,1fr);padding:10px 0;border-bottom:1px solid #2b3b50}#auto-arcade-widget .bingo-topic-actions button{display:flex;align-items:center;justify-content:center;gap:10px;background:none;border:0;color:#f5f7ff;padding:12px 4px;font:700 15px system-ui;cursor:pointer}#auto-arcade-widget .bingo-topic-actions button+button{border-left:1px solid #223248}#auto-arcade-widget .bingo-topic-actions svg{width:27px;height:27px;fill:none;stroke:#ffc928}#auto-arcade-widget .bingo-topic-actions button[aria-pressed=true]{color:#ffc928}#auto-arcade-widget .bingo-topic-composer{display:flex;align-items:center;gap:12px;margin-top:20px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:42px;height:42px}#auto-arcade-widget .bingo-topic-field{display:flex;flex:1;min-width:0;align-items:center;border:1px solid #354760;border-radius:32px;background:#101e34;padding:6px 12px}#auto-arcade-widget .bingo-topic-field input.field{flex:1;min-width:0;background:none!important;border:0!important;box-shadow:none!important;margin:0;color:white;font-size:16px;padding:8px 0}#auto-arcade-widget .bingo-topic-field input::placeholder{color:#b4bfd4}#auto-arcade-widget .bingo-topic-send{border:1px solid #ffc928;background:none;color:#ffc928;border-radius:50%;width:46px;height:46px;flex-shrink:0;font-size:24px;cursor:pointer}@media(max-width:480px){#auto-arcade-widget .bingo-approved-topic{padding:16px;border-radius:20px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{font-size:26px!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{font-size:17px!important}#auto-arcade-widget .bingo-topic-actions button{font-size:13px;gap:6px}#auto-arcade-widget .bingo-topic-composer{gap:8px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:32px;height:32px}#auto-arcade-widget .bingo-topic-summary{font-size:12px}}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{border:0!important;border-radius:0!important;box-shadow:none!important;background:none!important;padding:12px 4px!important;font:700 15px system-ui!important;color:#f5f7ff!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button+button{border-left:1px solid #223248!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button[aria-pressed=true]{color:#ffc928!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-send{border:1px solid #ffc928!important;border-radius:50%!important;background:none!important;box-shadow:none!important;color:#ffc928!important;width:46px!important;height:46px!important;padding:0!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-field .field{font-weight:400!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-camera-btn{border:0!important;box-shadow:none!important;background:none!important}
+</style>
+</body></html>`;
 }
 function aaAdCreativeFrame(srcdoc){
  const frame=document.createElement("iframe");
@@ -17961,6 +17965,8 @@ function aaBingoBoxEntries(){
   .map(x=>x.t);
 }
 function aaEnsureMusheneCorner(){
+ if(state.view==="topics"){const tab=document.getElementById("musheneCornerTab");if(tab)tab.style.display="none";return}
+
  const root=document.getElementById("auto-arcade-widget");
  if(!root)return;
  let btn=document.getElementById("musheneCornerTab");
@@ -18171,33 +18177,7 @@ function aaSetProfileDecoration(kind){
  render();
 }
 function aaMbeaHeaderHTML(){
- const unread=typeof aaUnreadMessageCount==="function"?aaUnreadMessageCount():0;
- const me=state.user||{};
- return `<div class="aa-mbea-header">
-  <div class="aa-mbea-header-top">
-   <div class="aa-mbea-brand" onclick="goHome()" style="cursor:pointer">
-    <span class="bingo-crown bingo-crown-sm" aria-hidden="true">👑</span>
-    ${bingoAppLogoHTML({className:"bingo-app-logo--mobile"})}
-   </div>
-   <div class="aa-mbea-account">
-    <div class="aa-mbea-bell" onclick="openInbox()" title="Notifications">🔔${unread?`<span class="aa-mbea-bell-count">${unread>99?"99+":unread}</span>`:""}</div>
-    <img src="${bingoSafeMediaAttr(aaProfilePhoto(me.photo_url))}" class="${aaDecorationClassFor(me.id)}" onerror="aaProfileImgFallback(this)" onclick="${state.isLoggedIn?"goAccount()":"openAuth('login')"}" style="cursor:pointer">
-    <b>${esc(state.isLoggedIn?(me.firstName||"My Account"):"Guest")}</b>
-   </div>
-  </div>
-  <div class="aa-mbea-nav">
-   <button onclick="goHome()">🏠 Home</button>
-   <button class="active">💬 Mbea wa Mtaa</button>
-   <button class="btn-publish" onclick="${state.isLoggedIn?"aaTogglePostToday()":"openAuth('login')"}">➕ Create</button>
-   <button onclick="aaOpenBingoBox()">🧭 Explore</button>
-   <button onclick="openInbox()">✉ Messages${unread?` (${unread})`:""}</button>
-   <button onclick="${state.isLoggedIn?"goAccount()":"openAuth('login')"}">☰ More</button>
-  </div>
-  <div class="aa-mbea-banner">
-   <h1>Mbea wa Mtaa</h1>
-   <p>Kenya inazungumza nini leo? · Real People, Real Talk, Real Kenya</p>
-  </div>
- </div>`;
+ return `<header class="bingo-topic-brand">${bingoAppLogoHTML({className:"bingo-app-logo--mobile"})}<h1>Bingo Topic</h1></header>`;
 }
 const AA_FONT_STYLE_CATEGORIES=["All","Elegant","Bold","Fun","Cultural"];
 const AA_FONT_STYLE_CATEGORY_MAP={"Standard":"All","Bold":"Bold","Italic":"Elegant","Gold Premium":"Elegant","Colour Block":"Fun","Neon":"Fun","Celebration":"Fun","Kenyan Theme":"Cultural","Handwritten":"Elegant","Minimal":"All"};
@@ -18435,34 +18415,28 @@ function aaTopicPostCardHTML(t){
  const canEditTopic=state.isLoggedIn&&(isOwner||(typeof aaIsSuperUser==="function"&&aaIsSuperUser()));
  const wasEdited=t.updatedAt&&t.createdAt&&new Date(t.updatedAt).getTime()>new Date(t.createdAt).getTime()+1000;
  const mediaClickAttr=(mediaSrc&&!isVideo)?` onclick='aaOpenPhotoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})' style="cursor:zoom-in"`:'';
- return `<div class="aa-post-card" id="topic-card-${esc(t.id)}" style="margin-top:12px">
- <div class="aa-post-content">${t.title?`<div class="aa-post-title ${t.titleFmt?"":bingoStyledTextClass(t.style)}" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):"font-size:20px;font-weight:900;color:#f5b91e;text-shadow:0 0 10px rgba(245,185,30,.45)"}">${esc(t.title)}</div>`:""}${t.body?`<div class="aa-post-message ${t.bodyFmt?"":bingoStyledTextClass(t.style)}" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):"font-size:14.5px;color:#dfe6f0;line-height:1.5"}${t.title?"margin-top:8px":""}">${esc(t.body)}</div>`:""}${canEditTopic?`<button type="button" class="bingo-neon-micro bingo-neon-micro-glass aa-post-edit-btn" onclick='aaOpenEditTopic(${JSON.stringify(String(t.id))})'>✎ Edit Post</button>`:""}${wasEdited?`<span class="aa-post-edited-tag" title="${esc(new Date(t.updatedAt).toLocaleString("en-KE"))}">Edited</span>`:""}</div>
+ const id=esc(JSON.stringify(String(t.id)));
+ return `<article class="aa-post-card bingo-approved-topic" id="topic-card-${esc(t.id)}">
+ <header class="aa-post-head">
+ <img class="aa-post-avatar ${aaDecorationClassFor(t.authorId)}" src="${bingoSafeMediaAttr(aaProfilePhoto(author.photo))}" alt="" onerror="aaProfileImgFallback(this)" onclick="openSeller(${esc(JSON.stringify(String(t.authorId||"")))})">
+ <div class="bingo-topic-author"><b onclick="openSeller(${esc(JSON.stringify(String(t.authorId||"")))})">${esc(author.name)}</b>${author.verified?'<span class="aa-post-verified">✓</span>':''}<div class="meta">${t.createdAt?esc(new Date(t.createdAt).toLocaleString("en-KE")):''} · 🌐 Public${wasEdited?' · Edited':''}</div></div>
+ <details class="bingo-topic-options"><summary aria-label="Post options">•••</summary><div>
+ ${canEditTopic?`<button type="button" onclick="aaOpenEditTopic(${id})">Edit post</button>`:''}
+ <button type="button" onclick="aaTopicToggleSave(${id})">${saved?'Saved':'Save / Download'}</button>
+ <button type="button" onclick="aaTopicReport(${id})">Report post</button>
+ ${aaFollowTopControlHTML({id:t.authorId,name:author.name})}
+ </div></details></header>
+ <div class="aa-post-content">${t.title?`<h2 class="aa-post-title">${esc(t.title)}</h2>`:''}${t.body?`<p class="aa-post-message">${esc(t.body)}</p>`:''}</div>
  ${mediaSrc?`<div class="aa-post-media">${isVideo?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'><video src="${bingoSafeMediaAttr(mediaSrc)}" muted playsinline preload="metadata"></video><button type="button" class="aa-video-play-overlay" aria-label="Play video" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'>▶</button></div>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}"${mediaClickAttr}>`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
- <div class="aa-post-head" style="margin-top:12px">
-  <img class="aa-post-avatar ${aaDecorationClassFor(t.authorId)}" src="${bingoSafeMediaAttr(aaProfilePhoto(author.photo))}" alt="" onerror="aaProfileImgFallback(this)" onclick='openSeller(${JSON.stringify(String(t.authorId||""))})' style="cursor:pointer">
-  <div style="flex:1;min-width:0">
-   <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><b style="font-size:12px;color:#a9b6c9;cursor:pointer" onclick='openSeller(${JSON.stringify(String(t.authorId||""))})'>${esc(author.name)}</b>${author.verified?`<span class="aa-post-verified">✓</span>`:""}${aaFollowTopControlHTML({id:t.authorId,name:author.name})}</div>
-   <div class="meta">${t.createdAt?esc(new Date(t.createdAt).toLocaleString("en-KE",{hour:"2-digit",minute:"2-digit"}))+" ago":""}${t.location?` · 📍 ${esc(t.location)}`:""}</div>
-  </div>
- </div>
- ${aaTopicStatsRowHTML(t)}
- <div style="display:flex;gap:6px;margin-top:10px;align-items:center">
-  <img src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" style="width:28px;height:28px;border-radius:50%;object-fit:cover" onerror="aaProfileImgFallback(this)">
-  <input class="field" id="topicComment_${esc(t.id)}" placeholder="Write a comment..." style="flex:1" value="${esc(aaCommentDraftText[t.id]||"")}" oninput='aaCommentDraftInput(${JSON.stringify(String(t.id))},this.value)'>
-  <input type="file" id="topicCommentMedia_${esc(t.id)}" accept="image/*,video/*" style="display:none" onchange='aaHandleCommentMediaChange(${JSON.stringify(String(t.id))})'>
-  <button type="button" class="aa-comment-camera-btn" title="Attach a photo or video" aria-label="Attach a photo or video" onclick="document.getElementById('topicCommentMedia_${esc(t.id)}').click()">📷</button>
-  <button class="bingo-neon-action bingo-neon-action-cyan" onclick='aaTopicComment(${JSON.stringify(String(t.id))})'>SEND</button>
- </div>
+
+ <div class="bingo-topic-summary"><span><span aria-hidden="true">👍 ❤️ 😆</span> ${aaTopicLoveCount(t)} ${aaTopicLoveCount(t)===1?'reaction':'reactions'}</span><span>${comments.length} ${comments.length===1?'comment':'comments'}</span></div>
+ <div class="bingo-topic-actions" role="group" aria-label="Post actions">
+ <button type="button" aria-pressed="${loved}" onclick="aaTopicLove(${id})">${AA_ICON_ACTION_SVG.heartOutline}<span>${loved?'Liked':'Like'}</span></button>
+ <button type="button" onclick="aaFocusTopicComment(${id})">${AA_ICON_ACTION_SVG.comment}<span>Comment</span></button>
+ <button type="button" onclick="aaTopicShare(${id})">${AA_ICON_ACTION_SVG.share}<span>Share</span></button></div>
+ <div class="bingo-topic-composer"><img class="aa-post-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" alt="" onerror="aaProfileImgFallback(this)"><div class="bingo-topic-field"><input class="field" id="topicComment_${esc(t.id)}" aria-label="Write a comment" placeholder="Write a comment…" value="${esc(aaCommentDraftText[t.id]||'')}" oninput="aaCommentDraftInput(${id},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();aaTopicComment(${id})}"><button type="button" class="aa-comment-camera-btn" aria-label="Attach photo or video" onclick="document.getElementById('topicCommentMedia_'+${id}).click()">📷</button></div><input type="file" id="topicCommentMedia_${esc(t.id)}" accept="image/*,video/*" hidden onchange="aaHandleCommentMediaChange(${id})"><button class="bingo-topic-send" type="button" aria-label="Send comment" onclick="aaTopicComment(${id})">➤</button></div>
  ${aaCommentMediaPreviewHTML(t.id)}
- ${aaSmartReactionsBarHTML(t)}
- <div class="aa-icon-action-row" role="group" aria-label="Post actions">
-  ${aaIconActionBtn({rgb:"255,47,176",active:loved,label:"Love",activeLabel:"Loved",svg:AA_ICON_ACTION_SVG.heartOutline,activeSvg:AA_ICON_ACTION_SVG.heartFilled,onclick:`aaTopicLove(${JSON.stringify(String(t.id))})`})}
-  ${aaIconActionBtn({rgb:"96,165,250",label:"Comments",shortLabel:comments.length?String(comments.length):"Comments",svg:AA_ICON_ACTION_SVG.comment,onclick:`aaFocusTopicComment(${JSON.stringify(String(t.id))})`})}
-  ${aaIconActionBtn({rgb:"34,201,255",label:"Share",svg:AA_ICON_ACTION_SVG.share,onclick:`aaTopicShare(${JSON.stringify(String(t.id))})`})}
-  ${aaIconActionBtn({rgb:"243,190,43",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
-  ${aaIconActionBtn({rgb:"171,71,255",label:"Report",svg:AA_ICON_ACTION_SVG.flag,onclick:`aaTopicReport(${JSON.stringify(String(t.id))})`})}
- </div>
- <div class="aa-top-comments-hd"><span>Top Comments</span>${comments.length>3?`<a onclick='aaOpenExactTopic(${JSON.stringify(String(t.id))})'>View all comments (${comments.length}) ›</a>`:""}</div>
+ ${comments.length?`<div class="aa-top-comments-hd"><span>Comments</span>${comments.length>3?`<a onclick="aaOpenExactTopic(${id})">View all (${comments.length})</a>`:''}</div>`:''}
  ${comments.slice(0,3).map(c=>{
   const cIsAuthor=String(c.authorId||"")===String(t.authorId||"");
   const canDeleteComment=state.isLoggedIn&&(String(c.authorId||"")===String(state.user?.id||"")||(typeof aaIsSuperUser==="function"&&aaIsSuperUser()));
@@ -18486,7 +18460,7 @@ function aaTopicPostCardHTML(t){
    </div>
   </div>`;
  }).join("")}
-</div>`;
+</article>`;
 }
 function aaWallAdSlotAutoLoad(){
  if(state.wallAdQueueLoaded||state.testMode)return;
@@ -18523,49 +18497,10 @@ function aaWallListingCardHTML(kind,rec){
  </article>`;
 }
 function aaPublicTopicsFeedHTML(){
- const tagFilter=state.trendingTagFilter||"";
- let all=aaTopics().filter(t=>!t.hiddenFromPublic);
- if(tagFilter)all=all.filter(t=>aaExtractTopicTags(t).includes(tagFilter));
- /* Property/Stay listings on the Wall: no second post table, no
-    duplicate record - the same aaProperties() rows already shown on
-    Home/profile/Cockpit are woven into this same feed by date, each
-    rendered with the existing aaProfilePropertyCardHTML post card (same
-    gallery, same Edit/Delete, same id="property-card-<id>" convention),
-    not a new card type. Topic view-count/comment-load logic below stays
-    scoped to `all` (topics only) - properties don't have that tracking. */
- const wallProperties=tagFilter?[]:aaProperties().filter(p=>Array.isArray(p.media)&&p.media.length);
- const wallFoods=tagFilter?[]:aaFoods().filter(f=>aaFoodActive(f)&&Array.isArray(f.media)&&f.media.length);
- /* published vehicles (vehicle_listings status=published, already loaded) with a photo or video */
- const wallVehicles=tagFilter?[]:(state.listings||[]).filter(c=>String(c.status||"available").toLowerCase()!=="deleted"&&((aaMediaType(c)==="video"&&aaVideoUrl(c))||aaMainPhoto(c)));
- const feedItems=[
-  ...all.map(t=>({kind:"topic",data:t,ts:new Date(t.createdAt||0).getTime()})),
-  ...wallProperties.map(p=>({kind:"property",data:p,ts:new Date(p.created_at||0).getTime()})),
-  ...wallFoods.map(f=>({kind:"food",data:f,ts:new Date(f.created_at||0).getTime()})),
-  ...wallVehicles.map(c=>({kind:"vehicle",data:c,ts:new Date(c.createdAt||c.created_at||0).getTime()}))
- ].sort((a,b)=>b.ts-a.ts);
- aaWallAdSlotAutoLoad();
- return `<section style="padding:12px 0 105px">
-  <button class="btn" onclick="goBack()">← Back</button>
-  ${aaMbeaHeaderHTML()}
-  <div class="aa-mbea-layout" style="display:grid;grid-template-columns:1fr;gap:14px">
-   <div class="aa-mbea-sidebar" style="display:grid;gap:12px;align-content:start">
-    ${aaTrendingTopicsSidebarHTML()}
-    ${aaKenyanHolidaysLauncherHTML()}
-    ${aaAdSlotHTML("wall-sidebar")}
-   </div>
-   <div class="aa-mbea-main" style="min-width:0">
-    ${state.isLoggedIn?aaWallComposerSectionHTML():`<div class="aa-v69-card" style="margin-top:10px;text-align:center"><p>Sign up or log in to post, comment, like, save or follow.</p><button class="btn btn-red" onclick="openAuth('login')">Sign Up / Log In</button></div>`}
-    ${(()=>{aaLoadTopicCounts(all.map(t=>t.id));all.forEach(t=>{if(typeof aaRecordFeedView==="function")aaRecordFeedView("topic_"+t.id,"topic",t.id);if(String(t.authorId||"")!==String(state.user?.id||""))aaRecordTopicViewOnce(t.id)});return"";})()}
-    ${!feedItems.length?`<div class="empty" style="margin-top:12px">No posts yet. Be the first to post.</div>`:feedItems.map(it=>it.kind==="topic"?aaTopicPostCardHTML(it.data):aaWallListingCardHTML(it.kind,it.data)).join("")}
-   </div>
-   <div class="aa-mbea-right" style="display:grid;gap:12px;align-content:start">
-    ${aaProfileDecorationsPanelHTML()}
-    ${aaBingoCelebratesKenyaPanelHTML()}
-   </div>
-  </div>
-  ${state.trendingTopicsExpanded?aaAllTrendingTopicsHTML():""}
-  ${state.kenyanHolidaysOpen?aaKenyanCalendarOverlayHTML():""}
- </section>`;
+ const all=aaTopics().filter(t=>!t.hiddenFromPublic).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+ aaLoadTopicCounts(all.map(t=>t.id));
+ all.forEach(t=>{if(typeof aaRecordFeedView==="function")aaRecordFeedView("topic_"+t.id,"topic",t.id);if(String(t.authorId||"")!==String(state.user?.id||""))aaRecordTopicViewOnce(t.id)});
+ return `<section class="bingo-topic-page"><button class="btn btn-glass" onclick="goBack()">← Back</button>${aaMbeaHeaderHTML()}${state.isLoggedIn?aaWallComposerSectionHTML():`<button class="btn btn-gold" onclick="openAuth('login')">Log in to post or comment</button>`}${all.length?all.map(aaTopicPostCardHTML).join(''):'<div class="empty">No topics yet. Be the first to post.</div>'}</section>`;
 }
 /* The Reply button previously built its onclick as a double-quoted HTML
    attribute containing JSON.stringify(c.authorName) - which itself
@@ -19239,7 +19174,11 @@ function aaMsgExportConversationPDF(conversationId){
  w.document.write(`<html><head><title>Bingo Conversation Export</title></head><body style="font-family:sans-serif;max-width:700px;margin:20px auto">
   <h2>Bingo Conversation with ${esc(aaMsgOtherParticipantName(conv))}</h2>
   <p style="color:#888">Exported ${esc(new Date().toLocaleString())}</p><hr>${rows||"<p>No messages.</p>"}
- </body></html>`);
+ <style id="bingo-approved-topic-layout">
+#auto-arcade-widget .bingo-topic-page{max-width:680px;margin:auto;padding:20px 0 105px}#auto-arcade-widget .bingo-topic-brand{text-align:center;margin:12px 0 26px}#auto-arcade-widget .bingo-topic-brand h1{color:#ffc928;font-size:30px;margin:10px 0}#auto-arcade-widget .bingo-approved-topic{border:1px solid #ffc928;border-radius:24px;background:linear-gradient(140deg,#0d1a2d,#081424);padding:24px;margin:18px auto;max-width:680px;box-shadow:0 16px 60px #0005;color:#f5f7ff}#auto-arcade-widget .bingo-approved-topic .aa-post-head{display:flex;align-items:center;gap:14px;margin:0 0 22px}#auto-arcade-widget .bingo-approved-topic .aa-post-avatar{width:56px;height:56px;object-fit:cover;border-radius:50%}#auto-arcade-widget .bingo-topic-author{flex:1;min-width:0}#auto-arcade-widget .bingo-topic-author b{font-size:17px;color:#f5f7ff;cursor:pointer}#auto-arcade-widget .bingo-topic-author .meta{color:#b4bfd4;font-size:12px;margin-top:4px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{color:#ffc928!important;font:750 32px/1.2 system-ui!important;margin:0 0 8px;text-shadow:none!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#f5f7ff!important;font:400 20px/1.5 system-ui!important;white-space:pre-wrap;margin:0 0 20px}#auto-arcade-widget .bingo-approved-topic .aa-post-media{border-radius:16px;overflow:hidden;margin:0}#auto-arcade-widget .bingo-approved-topic .aa-post-media img{display:block;width:100%;height:auto;max-height:none;object-fit:contain}#auto-arcade-widget .bingo-topic-options{position:relative}#auto-arcade-widget .bingo-topic-options summary{cursor:pointer;list-style:none;color:#b4bfd4;font-size:24px}#auto-arcade-widget .bingo-topic-options>div{position:absolute;right:0;top:30px;z-index:5;background:#18283d;border:1px solid #34445b;border-radius:12px;padding:8px;width:175px}#auto-arcade-widget .bingo-topic-options button{display:block;border:0;background:none;color:white;padding:10px;cursor:pointer;text-align:left;width:100%}#auto-arcade-widget .bingo-topic-summary{display:flex;justify-content:space-between;gap:10px;color:#b4bfd4;font-size:14px;padding:18px 0;border-bottom:1px solid #2b3b50}#auto-arcade-widget .bingo-topic-actions{display:grid;grid-template-columns:repeat(3,1fr);padding:10px 0;border-bottom:1px solid #2b3b50}#auto-arcade-widget .bingo-topic-actions button{display:flex;align-items:center;justify-content:center;gap:10px;background:none;border:0;color:#f5f7ff;padding:12px 4px;font:700 15px system-ui;cursor:pointer}#auto-arcade-widget .bingo-topic-actions button+button{border-left:1px solid #223248}#auto-arcade-widget .bingo-topic-actions svg{width:27px;height:27px;fill:none;stroke:#ffc928}#auto-arcade-widget .bingo-topic-actions button[aria-pressed=true]{color:#ffc928}#auto-arcade-widget .bingo-topic-composer{display:flex;align-items:center;gap:12px;margin-top:20px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:42px;height:42px}#auto-arcade-widget .bingo-topic-field{display:flex;flex:1;min-width:0;align-items:center;border:1px solid #354760;border-radius:32px;background:#101e34;padding:6px 12px}#auto-arcade-widget .bingo-topic-field input.field{flex:1;min-width:0;background:none!important;border:0!important;box-shadow:none!important;margin:0;color:white;font-size:16px;padding:8px 0}#auto-arcade-widget .bingo-topic-field input::placeholder{color:#b4bfd4}#auto-arcade-widget .bingo-topic-send{border:1px solid #ffc928;background:none;color:#ffc928;border-radius:50%;width:46px;height:46px;flex-shrink:0;font-size:24px;cursor:pointer}@media(max-width:480px){#auto-arcade-widget .bingo-approved-topic{padding:16px;border-radius:20px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{font-size:26px!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{font-size:17px!important}#auto-arcade-widget .bingo-topic-actions button{font-size:13px;gap:6px}#auto-arcade-widget .bingo-topic-composer{gap:8px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:32px;height:32px}#auto-arcade-widget .bingo-topic-summary{font-size:12px}}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{border:0!important;border-radius:0!important;box-shadow:none!important;background:none!important;padding:12px 4px!important;font:700 15px system-ui!important;color:#f5f7ff!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button+button{border-left:1px solid #223248!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button[aria-pressed=true]{color:#ffc928!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-send{border:1px solid #ffc928!important;border-radius:50%!important;background:none!important;box-shadow:none!important;color:#ffc928!important;width:46px!important;height:46px!important;padding:0!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-field .field{font-weight:400!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-camera-btn{border:0!important;box-shadow:none!important;background:none!important}
+</style>
+</body></html>`);
  w.document.close();
  w.print();
 }
@@ -28782,5 +28721,9 @@ html body #auto-arcade-widget .bp-page .bp-cover .bp-cover-add:not(#bingo-flat-g
 #auto-arcade-widget .bp-quote{display:none}
 </style>
 
+<style id="bingo-approved-topic-layout">
+#auto-arcade-widget .bingo-topic-page{max-width:680px;margin:auto;padding:20px 0 105px}#auto-arcade-widget .bingo-topic-brand{text-align:center;margin:12px 0 26px}#auto-arcade-widget .bingo-topic-brand h1{color:#ffc928;font-size:30px;margin:10px 0}#auto-arcade-widget .bingo-approved-topic{border:1px solid #ffc928;border-radius:24px;background:linear-gradient(140deg,#0d1a2d,#081424);padding:24px;margin:18px auto;max-width:680px;box-shadow:0 16px 60px #0005;color:#f5f7ff}#auto-arcade-widget .bingo-approved-topic .aa-post-head{display:flex;align-items:center;gap:14px;margin:0 0 22px}#auto-arcade-widget .bingo-approved-topic .aa-post-avatar{width:56px;height:56px;object-fit:cover;border-radius:50%}#auto-arcade-widget .bingo-topic-author{flex:1;min-width:0}#auto-arcade-widget .bingo-topic-author b{font-size:17px;color:#f5f7ff;cursor:pointer}#auto-arcade-widget .bingo-topic-author .meta{color:#b4bfd4;font-size:12px;margin-top:4px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{color:#ffc928!important;font:750 32px/1.2 system-ui!important;margin:0 0 8px;text-shadow:none!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#f5f7ff!important;font:400 20px/1.5 system-ui!important;white-space:pre-wrap;margin:0 0 20px}#auto-arcade-widget .bingo-approved-topic .aa-post-media{border-radius:16px;overflow:hidden;margin:0}#auto-arcade-widget .bingo-approved-topic .aa-post-media img{display:block;width:100%;height:auto;max-height:none;object-fit:contain}#auto-arcade-widget .bingo-topic-options{position:relative}#auto-arcade-widget .bingo-topic-options summary{cursor:pointer;list-style:none;color:#b4bfd4;font-size:24px}#auto-arcade-widget .bingo-topic-options>div{position:absolute;right:0;top:30px;z-index:5;background:#18283d;border:1px solid #34445b;border-radius:12px;padding:8px;width:175px}#auto-arcade-widget .bingo-topic-options button{display:block;border:0;background:none;color:white;padding:10px;cursor:pointer;text-align:left;width:100%}#auto-arcade-widget .bingo-topic-summary{display:flex;justify-content:space-between;gap:10px;color:#b4bfd4;font-size:14px;padding:18px 0;border-bottom:1px solid #2b3b50}#auto-arcade-widget .bingo-topic-actions{display:grid;grid-template-columns:repeat(3,1fr);padding:10px 0;border-bottom:1px solid #2b3b50}#auto-arcade-widget .bingo-topic-actions button{display:flex;align-items:center;justify-content:center;gap:10px;background:none;border:0;color:#f5f7ff;padding:12px 4px;font:700 15px system-ui;cursor:pointer}#auto-arcade-widget .bingo-topic-actions button+button{border-left:1px solid #223248}#auto-arcade-widget .bingo-topic-actions svg{width:27px;height:27px;fill:none;stroke:#ffc928}#auto-arcade-widget .bingo-topic-actions button[aria-pressed=true]{color:#ffc928}#auto-arcade-widget .bingo-topic-composer{display:flex;align-items:center;gap:12px;margin-top:20px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:42px;height:42px}#auto-arcade-widget .bingo-topic-field{display:flex;flex:1;min-width:0;align-items:center;border:1px solid #354760;border-radius:32px;background:#101e34;padding:6px 12px}#auto-arcade-widget .bingo-topic-field input.field{flex:1;min-width:0;background:none!important;border:0!important;box-shadow:none!important;margin:0;color:white;font-size:16px;padding:8px 0}#auto-arcade-widget .bingo-topic-field input::placeholder{color:#b4bfd4}#auto-arcade-widget .bingo-topic-send{border:1px solid #ffc928;background:none;color:#ffc928;border-radius:50%;width:46px;height:46px;flex-shrink:0;font-size:24px;cursor:pointer}@media(max-width:480px){#auto-arcade-widget .bingo-approved-topic{padding:16px;border-radius:20px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{font-size:26px!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{font-size:17px!important}#auto-arcade-widget .bingo-topic-actions button{font-size:13px;gap:6px}#auto-arcade-widget .bingo-topic-composer{gap:8px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:32px;height:32px}#auto-arcade-widget .bingo-topic-summary{font-size:12px}}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{border:0!important;border-radius:0!important;box-shadow:none!important;background:none!important;padding:12px 4px!important;font:700 15px system-ui!important;color:#f5f7ff!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button+button{border-left:1px solid #223248!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button[aria-pressed=true]{color:#ffc928!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-send{border:1px solid #ffc928!important;border-radius:50%!important;background:none!important;box-shadow:none!important;color:#ffc928!important;width:46px!important;height:46px!important;padding:0!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-field .field{font-weight:400!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-camera-btn{border:0!important;box-shadow:none!important;background:none!important}
+</style>
 </body>
 </html>
