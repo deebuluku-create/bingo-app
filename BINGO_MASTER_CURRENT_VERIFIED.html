@@ -18430,6 +18430,25 @@ function aaTopicSetCommentView(id,action,value){
  if(action==='sort')view.sort=value==='newest'?'newest':'top';
  render();
 }
+async function aaDeleteBingoTopic(id){
+ const topic=aaTopics().find(t=>String(t.id)===String(id));
+ if(!state.isLoggedIn||!state.user?.id||!topic||String(topic.authorId)!==String(state.user.id)){
+  toast('You can only delete your own post.');return;
+ }
+ if(!confirm('Delete this post? This cannot be undone.'))return;
+ if(state.testMode){
+  aaV69Write('aa_bingo_topics',aaTopics().filter(t=>String(t.id)!==String(id)));
+ }else{
+  if(!sb){toast('Could not delete post: connection unavailable.');return}
+  try{
+   const {data,error}=await sb.from('bingo_topics').delete().eq('id',id).eq('user_id',state.user.id).select('id');
+   if(error)throw error;
+   if(!data?.some(row=>String(row.id)===String(id)))throw new Error('The post was not deleted. Refresh and try again.');
+   state.wallTopics=(state.wallTopics||[]).filter(t=>String(t.id)!==String(id));
+  }catch(error){toast('Could not delete post: '+(error?.message||error));return}
+ }
+ render();toast('Post deleted successfully.','success');
+}
 function aaTopicPostCardHTML(t){
  const author=aaTopicAuthorMeta(t);
  const saved=aaTopicIsSaved(t.id);
@@ -18454,6 +18473,7 @@ function aaTopicPostCardHTML(t){
  <div class="bingo-topic-author"><b onclick="openSeller(${esc(JSON.stringify(String(t.authorId||"")))})">${esc(author.name)}</b>${author.verified?'<span class="aa-post-verified">✓</span>':''}<div class="meta">${t.createdAt?esc(new Date(t.createdAt).toLocaleString("en-KE")):''} · 🌐 Public${wasEdited?' · Edited':''}</div></div>
  <details class="bingo-topic-options"><summary aria-label="Post options">•••</summary><div>
  ${canEditTopic?`<button type="button" onclick="aaOpenEditTopic(${id})">Edit post</button>`:''}
+ ${state.isLoggedIn&&isOwner?`<button type="button" style="color:var(--red)" onclick="aaDeleteBingoTopic(${id})">Delete post</button>`:''}
  <button type="button" onclick="aaTopicToggleSave(${id})">${saved?'Saved':'Save / Download'}</button>
  <button type="button" onclick="aaTopicReport(${id})">Report post</button>
  ${aaFollowTopControlHTML({id:t.authorId,name:author.name})}
