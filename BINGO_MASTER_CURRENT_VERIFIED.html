@@ -5971,16 +5971,10 @@ async function persistProfile(){
   updated_at:new Date().toISOString()
  };
  try{
-  let r=await sb.from("profiles").upsert(richPayload,{onConflict:"id"});
-  if(!r.error)return {ok:true};
-  console.warn("Extended profile fields unavailable; retrying core profile fields.",r.error.message);
-  const corePayload={
-   id:u.id,full_name:fullName,first_name:u.firstName||"",last_name:u.lastName||"",
-   email:u.email||"",phone:u.phone||"",updated_at:new Date().toISOString()
-  };
-  r=await sb.from("profiles").upsert(corePayload,{onConflict:"id"});
-  if(r.error)console.warn("Profile persistence skipped.",r.error.message);
-  return {ok:!r.error,error:r.error||null};
+  const r=await sb.from("profiles").upsert(richPayload,{onConflict:"id"}).select("id,photo_url").single();
+  if(r.error)return {ok:false,error:r.error};
+  if(!r.data||r.data.id!==u.id)return {ok:false,error:new Error("Profile save could not be verified.")};
+  return {ok:true};
  }catch(e){console.warn("Profile persistence skipped",e);return {ok:false,error:e}}
 }
 async function aaLoadAuthenticatedProfile(authUser){
@@ -6006,9 +6000,11 @@ async function aaLoadAuthenticatedProfile(authUser){
     now and only await it once the profile data (which IS a real
     dependency below) has already been applied. */
  const roleFetchPromise=aaLoadUserRole();
+ let profileMissing=false;
  if(sb){
   try{
    const {data,error}=await sb.from("profiles").select("*").eq("id",authUser.id).maybeSingle();
+   profileMissing=!error&&!data;
    if(!error&&data){
     state.user.firstName=data.first_name||state.user.firstName||"";
     state.user.lastName=data.last_name||state.user.lastName||"";
@@ -6025,6 +6021,14 @@ async function aaLoadAuthenticatedProfile(authUser){
     if(typeof data.show_phone==="boolean")state.user.showPhone=data.show_phone;
    }
   }catch(e){console.warn("Profile fetch fallback used.",e)}
+ }
+ if(profileMissing){
+  const providerName=String(md.full_name||md.name||"").trim().split(/\s+/);
+  state.user.firstName=md.given_name||md.first_name||providerName[0]||"";
+  state.user.lastName=md.family_name||md.last_name||providerName.slice(1).join(" ")||"";
+  state.user.photo_url=md.avatar_url||md.picture||md.photo_url||"";
+  const saved=await persistProfile();
+  if(!saved.ok)toast("Signed in, but your profile could not be saved: "+String(saved.error?.message||"Please retry from Edit Profile."));
  }
  state.isLoggedIn=true;
  state.user.isVerified=!!authUser.email_confirmed_at;
@@ -11045,6 +11049,16 @@ async function aaUploadFoodMedia(files,userId,businessId,onProgress){
   return {media,paths,error:error instanceof Error?error:new Error(aaFriendlyStorageError(error,'food'))};
  }
 }
+/* Retain successful uploads in the draft so a row-save retry reuses them. */
+function aaFoodRememberUploadedMedia(media){
+ const draft=aaMediaDraftGet('food');let index=0;
+ draft.items=draft.items.map(item=>{
+  if(item.kind!=='new'||index>=media.length)return item;
+  const saved=media[index++];
+  if(item.url?.startsWith('blob:'))try{URL.revokeObjectURL(item.url)}catch(e){}
+  return {kind:'existing',type:saved.type,url:saved.url,path:saved.storagePath,name:saved.name};
+ });
+}
 async function aaDeleteUploadedFoodMedia(paths){
  if(!sb||!Array.isArray(paths)||!paths.length)return;
  try{await sb.storage.from(AA_FOOD_MEDIA_BUCKET).remove(paths)}catch(e){console.warn('Could not clean up failed food media upload',e)}
@@ -11059,14 +11073,8 @@ async function aaDeleteUploadedFoodMedia(paths){
    the database rejects the write, the real PostgREST error is returned
    as-is and the caller (aaSubmitFood) surfaces it and preserves the
    entered form/media (see aaSubmitFood's own comment on that), instead
-   of quietly saving a partial record. Whether "category" is a genuine
-   missing/renamed column or a stale PostgREST schema cache has not been
-   confirmed against the live database from this sandbox - see
-   supabase/migrations/20260930n_bingo_food_businesses_category_column_INSPECT_READ_ONLY.sql
-   for the exact read-only query to run, and
-   supabase/migrations/20260930o_bingo_food_businesses_reload_schema_cache.sql
-   for the separate, non-read-only fix to apply only if that inspection
-   shows the column already exists. */
+   of quietly saving a partial record. The live schema was checked on
+   1 Oct 2026 and the missing form fields were added explicitly. */
 async function aaInsertFoodBusiness(payload){
  if(!sb||!state.user?.id)return {data:null,error:new Error('No database session')};
  return await sb.from('food_businesses').insert(payload).select().single();
@@ -12377,14 +12385,7 @@ async function aaSubmitFood(e){
    phone:fd.get('phone')||'',whatsapp:fd.get('whatsapp')||'',opening_hours:fd.get('opening_hours')||'',
    price_range:fd.get('price_range')||'',delivery_available:fd.get('delivery_available')==='yes',
    description:fd.get('description')||'',
-   /* "delicacies" (the approved "Delicacies Served" 21-item field) is a
-      NEW client-side field - written here the same way "category" already
-      is, but whether public.food_businesses has a matching column has not
-      been confirmed (this sandbox has no live Supabase connection). If it
-      doesn't yet, PostgREST silently ignores an unknown key on insert/
-      update rather than rejecting it - Publish/Save still succeed, this
-      one field just never persists. See the read-only inspection file
-      supabase/migrations/20260930m_food_businesses_delicacies_column_INSPECT_READ_ONLY.sql. */
+   /* Persisted in the live schema; confirmed 1 Oct 2026. */
    delicacies:fd.getAll('delicacies').join(', ')||''
   };
   if(state.testMode){
@@ -12422,6 +12423,7 @@ async function aaSubmitFood(e){
     if(!canUploadMedia){toast('The business owner has not permitted media management.');return}
    }
    const upload=newFiles.length?await aaUploadFoodMedia(newFiles,original.user_id,editId,(n,total)=>{state.foodPublishProgress=`Uploading file ${n} of ${total}…`;render()}):{media:[],paths:[],error:null};
+   aaFoodRememberUploadedMedia(upload.media);
    if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error));return}
    const payload={...basePayload,...aaFoodMediaToColumns([...keptMedia,...upload.media])};
    state.foodPublishProgress='Saving listing…';render();
@@ -12456,7 +12458,8 @@ async function aaSubmitFood(e){
    aaOpenFood('mine');
    return;
   }
-  const businessId=aaNewFoodBusinessId();
+  const foodDraft=aaMediaDraftGet('food');
+  const businessId=foodDraft.businessId||(foodDraft.businessId=aaNewFoodBusinessId());
   const userId=state.user.id;
   /* Media is no longer required before saving - the live table permits
      an empty image_urls array, and the form's own copy already said
@@ -12468,6 +12471,7 @@ async function aaSubmitFood(e){
      selected, exactly like the edit path already does. */
   const files=aaMediaDraftFilesForUpload('food');
   const upload=files.length?await aaUploadFoodMedia(files,userId,businessId,(n,total)=>{state.foodPublishProgress=`Uploading file ${n} of ${total}…`;render()}):{media:[],paths:[],error:null};
+  aaFoodRememberUploadedMedia(upload.media);
   if(upload.error){toast('Media upload failed: '+String(upload.error.message||upload.error)+' Your entered details are kept - you can save without media now, or retry the upload.');return}
   /* owner_id (not user_id) and image_urls/video_url/cover_url (not a
      single media column) match the live public.food_businesses schema,
@@ -12475,7 +12479,7 @@ async function aaSubmitFood(e){
      for the full mapping. status starts as 'draft' (the live enum has
      no 'inactive') - a draft is never publicly visible regardless of
      subscription_expires_at. */
-  const payload={id:businessId,owner_id:userId,...basePayload,...aaFoodMediaToColumns(upload.media),status:'draft',subscription_expires_at:null};
+  const payload={id:businessId,owner_id:userId,...basePayload,...aaFoodMediaToColumns(aaMediaDraftKeptExisting('food')),status:'draft',subscription_expires_at:null};
   state.foodPublishProgress='Saving listing…';render();
   const ins=await aaInsertFoodBusiness(payload);
   if(ins.error){
@@ -12483,8 +12487,7 @@ async function aaSubmitFood(e){
       not delete media this same attempt just finished uploading only
       because the business row failed to save (e.g. the 'category'
       schema-cache error under investigation). Keeping the files means a
-      retry after aaInsertFoodBusiness's own column-drop-and-retry loop
-      still exhausts its attempts, or after a genuinely different error,
+      retry after a row-save error
       does not force the owner to re-upload. */
    toast('Could not save Food business: '+String(ins.error.message||ins.error)+' Your entered details and uploaded media are unchanged - try Save again.');
    return;
@@ -19561,7 +19564,7 @@ function aaCallStartDurationTimer(){
  clearInterval(bingoCallDurationTimer);
  bingoCallDurationTimer=setInterval(()=>{
   const el=document.getElementById("bingoCallDuration");
-  if(el&&state.msgActiveCall?.connectedAt)el.textContent=aaCallFormatDuration(Date.now()-state.msgActiveCall.connectedAt);
+  if(state.msgActiveCall?.connectedAt){const duration=aaCallFormatDuration(Date.now()-state.msgActiveCall.connectedAt);if(el)el.textContent=duration;const mini=document.getElementById("bingoCallMiniDuration");if(mini)mini.textContent=duration;}
  },1000);
 }
 function aaCallHandleSignal(payload){
@@ -19717,6 +19720,26 @@ function aaCallHangup(){
  aaCallTeardown();
  render();
 }
+function aaCallSetMinimized(minimized){
+ const call=state.msgActiveCall;if(!call)return;
+ call.minimized=!!minimized;
+ document.querySelector('.msg-call-screen')?.classList.toggle('is-minimized',call.minimized);
+}
+async function aaCallFlipCamera(){
+ if(!state.msgActiveCall||state.msgActiveCall.type!=="video"||!bingoCallLocalStream)return;
+ const previous=bingoCallLocalStream.getVideoTracks()[0];
+ const facing=previous?.getSettings?.().facingMode==="environment"?"user":"environment";
+ let stream;
+ try{
+  stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:facing},width:{ideal:640}}});
+  const track=stream.getVideoTracks()[0];if(!track)throw new Error("Camera unavailable");
+  const sender=bingoCallPC?.getSenders().find(s=>s.track?.kind==="video");
+  if(sender)await sender.replaceTrack(track);
+  if(previous){bingoCallLocalStream.removeTrack(previous);previous.stop()}
+  track.enabled=!bingoCallCameraOff;bingoCallLocalStream.addTrack(track);
+  aaCallReattachMediaElements();
+ }catch(e){stream?.getTracks().forEach(t=>t.stop());toast("Could not switch camera: "+String(e?.message||e))}
+}
 function aaCallToggleMute(){
  bingoCallMuted=!bingoCallMuted;
  bingoCallLocalStream?.getAudioTracks().forEach(t=>{t.enabled=!bingoCallMuted});
@@ -19822,7 +19845,9 @@ function aaCallOverlayHTML(){
  const statusLabel=awaitingAcceptance?(call.direction==="link-host"?"Someone wants to join":"Incoming "+(call.type==="video"?"video":"voice")+" call"):call.status==="ringing"?"Ringing…":call.status==="connecting"?"Connecting…":call.status==="reconnecting"?"Reconnecting…":"";
  const themeId=bingoMsgThemeRoot()?.dataset.msgTheme||"cyan";
  const showBigAvatar=call.type!=="video"||call.status!=="connected";
- return `<div class="msg-call-screen is-active" data-msg-theme="${esc(themeId)}">
+ return `<div class="msg-call-screen is-active${call.minimized?" is-minimized":""}" data-msg-theme="${esc(themeId)}">
+  <button type="button" class="msg-call-back" onclick="aaCallSetMinimized(true)">‹ Back to chat</button>
+  <div class="msg-call-mini"><button type="button" onclick="aaCallSetMinimized(false)" aria-label="Return to call">${call.type==="video"?"▣":"☎"} ${esc(name)} · ${esc(call.status==="connected"?"In call":statusLabel)} <span id="bingoCallMiniDuration"></span></button><button type="button" onclick="aaCallHangup()" aria-label="End call">End</button></div>
   ${call.type==="video"?`<video id="bingoCallRemoteMedia" class="msg-call-remote-video" autoplay playsinline></video><video id="bingoCallLocalMedia" class="msg-call-local-video" autoplay playsinline muted></video>`:`<audio id="bingoCallRemoteMedia" autoplay></audio><audio id="bingoCallLocalMedia" autoplay muted></audio>`}
   ${showBigAvatar?(photo?`<img class="msg-call-avatar" src="${bingoSafeMediaAttr(photo)}" alt="" onerror="aaProfileImgFallback(this)">`:`<span class="msg-call-avatar msg-call-avatar-fallback">${esc(aaThreadInitials(name))}</span>`):`<span></span>`}
   <div>
@@ -19834,9 +19859,10 @@ function aaCallOverlayHTML(){
     <button type="button" class="msg-call-btn msg-call-end" onclick="aaCallDeclineIncoming()" aria-label="Decline call">✕</button>
     <button type="button" class="msg-call-btn msg-call-accept" onclick="aaCallAcceptIncoming()" aria-label="Accept call">✓</button>
    `:`
-    <button type="button" class="msg-call-btn${bingoCallMuted?" is-active":""}" onclick="aaCallToggleMute()" aria-label="${bingoCallMuted?"Unmute":"Mute"}">${bingoCallMuted?"🔇":"🎤"}</button>
-    ${call.type==="video"?`<button type="button" class="msg-call-btn${bingoCallCameraOff?" is-active":""}" onclick="aaCallToggleCamera()" aria-label="${bingoCallCameraOff?"Turn camera on":"Turn camera off"}">${bingoCallCameraOff?"📷":"🎥"}</button>`:""}
-    <button type="button" class="msg-call-btn msg-call-end" onclick="aaCallHangup()" aria-label="End call">☎</button>
+    <button type="button" class="msg-call-btn${bingoCallMuted?" is-active":""}" onclick="aaCallToggleMute()" aria-label="${bingoCallMuted?"Unmute":"Mute"}">${aaBmIcon("mic")}</button>
+    ${call.type==="video"?`<button type="button" class="msg-call-btn${bingoCallCameraOff?" is-active":""}" onclick="aaCallToggleCamera()" aria-label="${bingoCallCameraOff?"Turn camera on":"Turn camera off"}">${aaBmIcon("video")}</button>`:""}
+    ${call.type==="video"?`<button type="button" class="msg-call-btn" onclick="aaCallFlipCamera()" aria-label="Switch camera">↻</button>`:""}
+    <button type="button" class="msg-call-btn msg-call-end" onclick="aaCallHangup()" aria-label="End call">${aaBmIcon("phone")}</button>
    `}
   </div>
  </div>`;
@@ -22420,13 +22446,6 @@ function bingoSafeMediaAttr(value){
   </div>
   <div id="aa92LiveGoalProgress" class="meta" style="margin-bottom:6px"></div>
   <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span id="aa92ConnStatus" class="badge">Checking…</span></div>
-  <div class="aa92-social-grid">
-    <button type="button" class="aa92-social connected" data-social="bingo"><span class="aa92-social-icon">B</span><b>Bingo</b><small>Always available</small><i class="aa92-social-status on">ON</i></button>
-    <button type="button" class="aa92-social" data-social="facebook"><span class="aa92-social-icon">f</span><b>Facebook</b><small>Tap to connect</small><i class="aa92-social-status">OFF</i></button>
-    <button type="button" class="aa92-social" data-social="instagram"><span class="aa92-social-icon">◎</span><b>Instagram</b><small>Tap to connect</small><i class="aa92-social-status">OFF</i></button>
-    <button type="button" class="aa92-social" data-social="youtube"><span class="aa92-social-icon">▶</span><b>YouTube</b><small>Tap to connect</small><i class="aa92-social-status">OFF</i></button>
-    <button type="button" class="aa92-social" data-social="tiktok"><span class="aa92-social-icon">♪</span><b>TikTok</b><small>Tap to connect</small><i class="aa92-social-status">OFF</i></button>
-  </div>
   <div class="aa92-backend-note" id="aa92BackendNote">Not live yet. Going live requires the Bingo streaming server to confirm the broadcast before anything is shown as LIVE.</div>
 </div>
 
@@ -23110,26 +23129,6 @@ function bingoSafeMediaAttr(value){
 (function(){
  const root=document.getElementById("auto-arcade-widget");if(!root)return;
  const $=(s,c=root)=>c.querySelector(s);
- const connected={bingo:true,facebook:false,instagram:false,youtube:false,tiktok:false};
- const selected={bingo:true,facebook:false,instagram:false,youtube:false,tiktok:false};
- try{Object.assign(connected,JSON.parse(localStorage.getItem("aa92_social_connections")||"null")||{})}catch(e){}
- function refresh(){
-  root.querySelectorAll(".aa92-social").forEach(btn=>{
-   const k=btn.dataset.social,st=btn.querySelector(".aa92-social-status"),sm=btn.querySelector("small");
-   if(k==="bingo"){btn.classList.add("connected");if(st){st.textContent="ON";st.classList.add("on")}return}
-   btn.classList.toggle("connected",!!connected[k]);
-   if(st){st.textContent=connected[k]?(selected[k]?"ON":"READY"):"OFF";st.classList.toggle("on",!!connected[k]&&!!selected[k])}
-   if(sm)sm.textContent=connected[k]?(selected[k]?"Selected for live":"Connected"):"Tap to connect";
-  });
- }
- root.querySelectorAll(".aa92-social").forEach(btn=>btn.addEventListener("click",()=>{
-  const k=btn.dataset.social;if(k==="bingo")return;
-  if(!connected[k]){
-   if(!confirm(`Connect ${k} to Bingo Live Studio?\n\nThis website preview stores the connection choice locally. Production uses the platform's secure authorization flow.`))return;
-   connected[k]=true;selected[k]=true;try{localStorage.setItem("aa92_social_connections",JSON.stringify(connected))}catch(e){}
-  }else selected[k]=!selected[k];
-  refresh();
- }));
  async function openCamera(){const cam=$("#aa82Camera");if(cam?.classList.contains("open"))return true;($("#aa82CameraTool")||$("#aa82CameraTop"))?.click();await new Promise(r=>setTimeout(r,500));return !!cam?.classList.contains("open")}
  /* 30 Sep 2026 fix: LIVE must never show, and the "start" side effects
     (watermark comment, live layer/badge, #aa92LiveState text, the
@@ -23145,7 +23144,7 @@ function bingoSafeMediaAttr(value){
  async function start(){
   if($("#aa92ShareLive")?.classList.contains("live"))return;
   if(!await openCamera()){alert("Camera did not open. Check HTTPS and camera/microphone permission.");return}
-  const dest=Object.keys(selected).filter(k=>selected[k]&&connected[k]);if(!dest.includes("bingo"))dest.unshift("bingo");
+  const dest=["bingo"];
   const payload={title:($("#aa92LiveTitle")?.value||"Bingo Live").trim(),destinations:dest,watermark:{text:"BINGO",position:"top-right"},source:"browser-camera"};
   /* URL path deliberately left unchanged: no server route by any name is
      defined in this repo (Hostinger serves static files only), so we
@@ -23193,7 +23192,6 @@ function bingoSafeMediaAttr(value){
   const opened=await openCamera();
   if(mode==="live"&&opened!==false&&!$("#aa92ShareLive")?.classList.contains("live"))start();
  };
- refresh();
 })();
 </script>
 
@@ -28045,6 +28043,16 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 #auto-arcade-widget .msg-toggle::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform 200ms ease}
 #auto-arcade-widget .msg-toggle.is-on::after{transform:translateX(18px)}
 /* Call screen */
+
+#auto-arcade-widget .msg-call-back{position:absolute;left:16px;top:16px;z-index:3;background:#101d2b;color:#ffc928;border:1px solid #ffc928;border-radius:12px;padding:10px 14px;font-weight:700}
+#auto-arcade-widget .msg-call-mini{display:none}
+#auto-arcade-widget .msg-call-screen.is-minimized{inset:auto 12px 112px auto;width:min(340px,calc(100vw - 24px));height:auto;padding:0;border:1px solid #ffc928;border-radius:14px;background:#101d2b;box-shadow:0 4px 20px #0008}
+#auto-arcade-widget .msg-call-screen.is-minimized>:not(.msg-call-mini){display:none!important}
+#auto-arcade-widget .msg-call-screen.is-minimized::before{display:none}
+#auto-arcade-widget .msg-call-screen.is-minimized .msg-call-mini{display:flex;width:100%;gap:8px;padding:10px}
+#auto-arcade-widget .msg-call-mini button{border:0;background:transparent;color:#ffc928;font-weight:700;padding:8px}
+#auto-arcade-widget .msg-call-mini button:first-child{flex:1;text-align:left}
+#auto-arcade-widget .msg-call-mini button:last-child{color:#ff8391}
 #auto-arcade-widget .msg-call-screen{position:fixed;inset:0;z-index:300;background:radial-gradient(circle at 50% 20%,rgba(var(--msg-accent-rgb),.18),transparent 50%),linear-gradient(160deg,#02040b,var(--msg-bg));display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:40px 20px;color:var(--msg-text);overflow:hidden}
 #auto-arcade-widget .msg-call-screen::before{content:"";position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.55),transparent 25%,transparent 70%,rgba(0,0,0,.65));z-index:1;pointer-events:none}
 #auto-arcade-widget .msg-call-remote-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;background:#000}
