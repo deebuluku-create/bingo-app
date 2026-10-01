@@ -13559,8 +13559,8 @@ function aaFoodItemPreviewHTML(){
  return `<div class="overlay" onclick="if(event.target===this)aaCloseFoodItemPreview()"><div class="modal">
   <div style="display:flex;justify-content:space-between;align-items:center"><h2 style="margin:0">Preview</h2><button class="close" onclick="aaCloseFoodItemPreview()">×</button></div>
   <p class="notice" style="margin-top:0">This is exactly how the item will look on your public menu once published. Nothing has been saved yet.</p>
-  <div class="aa-food-menu-grid" style="max-width:240px;margin:0 auto">
-   <div style="pointer-events:none">${aaFoodMenuItemCardHTML(it)}</div>
+  <div class="aa-food-item-preview-card" style="display:block;width:min(100%,320px);margin:0 auto">
+   <div>${aaFoodMenuItemCardHTML(it,true,true)}</div>
   </div>
   <button class="btn" style="width:100%;margin-top:14px" onclick="aaCloseFoodItemPreview()">Close Preview</button>
  </div></div>`;
@@ -13575,13 +13575,13 @@ function aaFoodItemFormHTML(){
   <div id="bingo-food-menu-editor-mount"></div>
  </div>`;
 }
-function aaFoodMenuItemCardHTML(it,own){
+function aaFoodMenuItemCardHTML(it,own,preview=false){
  const media=it.media?.[0];
  const tags=[...(Array.isArray(it.dietary_tags)?it.dietary_tags:[]),...(Array.isArray(it.delicacy_tags)?it.delicacy_tags:[])];
  return `<div class="aa-food-menu-card">
-  <button type="button" style="all:unset;display:block;width:100%;cursor:pointer" onclick="aaOpenFoodItemDetail('${esc(it.id)}')">
-  <div class="aa-food-menu-card-media">
-   ${media?(media.type==='video'?`<video src="${bingoSafeMediaAttr(media.url)}" muted playsinline preload="metadata"></video><span class="aa-media-play">▶</span>`:`<img src="${bingoSafeMediaAttr(media.url)}" alt="">`):''}
+  ${preview?'<div>':`<button type="button" style="all:unset;display:block;width:100%;cursor:pointer" onclick="aaOpenFoodItemDetail('${esc(it.id)}')">`}
+  <div class="aa-food-menu-card-media" ${preview?'style="aspect-ratio:auto;min-height:180px"':''}>
+   ${media?(media.type==='video'?`<video src="${bingoSafeMediaAttr(media.url)}" ${preview?'controls style="position:relative;max-height:320px;object-fit:contain"':'muted'} playsinline preload="metadata"></video>${preview?'':'<span class="aa-media-play">▶</span>'}`:`<img src="${bingoSafeMediaAttr(media.url)}" ${preview?'style="position:relative;max-height:320px;object-fit:contain"':''} alt="">`):''}
    ${it.status==='draft'?'<span class="badge badge-gold" style="position:absolute;top:6px;left:6px">DRAFT</span>':''}
    ${!it.available?'<span class="badge badge-red" style="position:absolute;top:6px;right:6px">UNAVAILABLE</span>':''}
    ${it.category?`<span class="aa-food-menu-card-cuisine">${esc(it.category)}</span>`:''}
@@ -13592,7 +13592,7 @@ function aaFoodMenuItemCardHTML(it,own){
    <div class="price" style="margin-top:6px;font-size:12px">KSh ${money(it.price_kes)}</div>
    ${tags.length?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">${tags.map(t=>`<span class="badge">${esc(t)}</span>`).join('')}</div>`:''}
   </div>
-  </button>
+  ${preview?'</div>':'</button>'}
   ${!own&&it.available!==false?`<button type="button" class="btn btn-publish" style="width:calc(100% - 16px);margin:8px" onclick='aaFoodBasketAdd("${esc(it.business_id)}",${JSON.stringify({id:it.id,name:it.name,price_kes:it.price_kes,available:it.available})})'>+ Add to Order</button>`:''}
  </div>`;
 }
@@ -13934,74 +13934,46 @@ function aaFoodBusinessProfileHTML(){
   ${own&&state.foodProfileOrdersOpen?`<div class="boost-summary" style="margin-top:14px;border-color:var(--gold)"><b style="color:var(--gold)">Orders Dashboard</b>${aaFoodBusinessOrdersHTML(f.id)}</div>`:''}
  </section>`;
 }
+let aaFoodPaymentPollGeneration=0;
+async function aaFoodPaymentInvoke(body){
+ const {data,error}=await sb.functions.invoke('mpesa-food-subscription',{body});
+ if(error){let detail='';try{detail=(await error.context.json()).error||''}catch(e){}throw new Error(detail||error.message||'Payment service is unavailable.');}
+ if(!data?.ok)throw new Error(data?.error||'Payment request was not accepted.');
+ return data;
+}
 async function aaStartFoodSubscription(id,months){
- months=1;
- const amount=1000;
- if(state.testMode){
-  const a=aaFoods(),f=a.find(x=>String(x.id)===String(id));
-  if(f){
-   const base=Math.max(Date.now(),new Date(f.subscription_expires_at||0).getTime()||0);
-   f.subscription_expires_at=new Date(base+30*86400000).toISOString();
-   f.status='active';
-   aaV69Write('aa_v69_foods',a);
-   /* Activation, not first-publish: the business is genuinely public
-      now, so - unlike a brand-new (still-inactive) business, which
-      correctly stays in My Food Business - this goes straight to Home
-      Feed and highlights the exact card, the same one this business
-      will always be (aaRedirectToHomeAndHighlightFeedItem only
-      navigates/highlights; it never creates a second record). */
-   toast('30-day restaurant subscription activated for KES 1,000. Opening Home Feed…');
-   aaRedirectToHomeAndHighlightFeedItem(String(id)+'_fv0');
-  }
-  return
- }
+ if(state.testMode){toast('Demo mode: no M-Pesa payment is sent and no paid subscription is activated.');return}
  if(!state.isLoggedIn){openAuth('login');return}
- if(!sb){toast('Payment service is not connected. Deploy the food subscription Edge Function first.');return}
+ if(!sb){toast('Payment service is not connected.');return}
  try{
   const phone=state.user?.phone||prompt('Enter the Safaricom M-Pesa phone number');if(!phone)return;
-  const {data,error}=await sb.functions.invoke('mpesa-food-subscription',{body:{action:'stk',food_business_id:id,months:1,amount:1000,phone}});
-  if(error)throw error;
-  toast(data?.message||'M-Pesa request sent for KES 1,000. The 30-day subscription activates only after successful Safaricom confirmation.');
-  /* The M-Pesa confirmation that actually flips status to 'active'
-     happens server-side (Safaricom -> the Edge Function), asynchronously,
-     well after this function returns - there was previously no code path
-     that ever learned activation had happened, so "immediately after
-     successful activation, enter the public feed" could never fire for
-     a real payment. Watches this exact business row and redirects the
-     moment (and only the moment) Supabase confirms status=active. */
-  aaWatchFoodActivation(id);
+  const data=await aaFoodPaymentInvoke({action:'stk',food_business_id:id,phone});
+  toast(data.message||'Confirm the M-Pesa request on your phone.');
+  if(data.payment_id)aaWatchFoodPayment(id,data.payment_id);
  }catch(err){toast('M-Pesa subscription request could not start: '+(err?.message||err))}
 }
-let aaFoodActivationChannel=null,aaFoodActivationId=null;
-function aaWatchFoodActivation(id){
- if(!sb)return;
- id=String(id);
- if(aaFoodActivationId===id&&aaFoodActivationChannel)return;
- if(aaFoodActivationChannel){try{sb.removeChannel(aaFoodActivationChannel)}catch(e){}aaFoodActivationChannel=null}
- aaFoodActivationId=id;
- try{
-  aaFoodActivationChannel=sb.channel("food_activation_"+id)
-   .on("postgres_changes",{event:"UPDATE",schema:"public",table:"food_businesses",filter:"id=eq."+id},payload=>{
-    const row=payload.new;
-    /* Whatever server-side process (the mpesa-food-subscription Edge
-       Function, not present in this repo, so not independently
-       verified) actually flips this row on successful payment MUST
-       write 'published', not the old 'active', for this listener to
-       ever fire again - flagged clearly in the delivery report as an
-       unconfirmed dependency this fix cannot verify from source alone. */
-    if(!row||row.status!=='published')return;
-    try{sb.removeChannel(aaFoodActivationChannel)}catch(e){}
-    aaFoodActivationChannel=null;aaFoodActivationId=null;
+async function aaWatchFoodPayment(id,paymentId){
+ const generation=++aaFoodPaymentPollGeneration,started=Date.now();
+ while(generation===aaFoodPaymentPollGeneration&&Date.now()-started<300000){
+  try{
+   const data=await aaFoodPaymentInvoke({action:'status',payment_id:paymentId});
+   if(generation!==aaFoodPaymentPollGeneration)return;
+   if(data.status==='failed'){toast('Payment failed: '+data.message);return}
+   if(data.status==='paid'){
+    if(!data.activated){toast(data.message);return}
+    const {data:row,error}=await sb.from('food_businesses').select('*').eq('id',id).maybeSingle();
+    if(error||!row||row.status!=='published'||new Date(row.subscription_expires_at).getTime()<=Date.now())throw new Error('Confirmed restaurant status is not available yet.');
     const mapped=aaMapFoodBusinessRow(row);
     if(!Array.isArray(state.foodBusinesses))state.foodBusinesses=[];
-    const idx=state.foodBusinesses.findIndex(x=>String(x.id)===id);
+    const idx=state.foodBusinesses.findIndex(x=>String(x.id)===String(id));
     if(idx>=0)state.foodBusinesses[idx]=mapped;else state.foodBusinesses.unshift(mapped);
-    toast('Subscription confirmed — your restaurant is now live on Home Feed.');
-    const videoIdx=(Array.isArray(mapped.media)?mapped.media:[]).findIndex(m=>m.type==='video');
-    aaRedirectToHomeAndHighlightFeedItem(id+'_f');
-   })
-   .subscribe();
- }catch(e){console.warn("Bingo: could not watch for food subscription activation - the business will still go live once confirmed, just without the automatic redirect.",e)}
+    toast('Payment confirmed successfully — your restaurant subscription is active.');
+    aaRedirectToHomeAndHighlightFeedItem(String(id)+'_f');return;
+   }
+  }catch(e){/* Keep checking; a network error never means payment succeeded. */}
+  await new Promise(resolve=>setTimeout(resolve,12000));
+ }
+ if(generation===aaFoodPaymentPollGeneration)toast('Payment is still pending. Do not pay again. Use Renew / Pay to check the existing request.');
 }
 function aaCancelFoodSubscription(id){
  const a=aaFoods(),f=a.find(x=>String(x.id)===String(id));if(!f)return;
