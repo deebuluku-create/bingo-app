@@ -63,3 +63,31 @@ function run(){hideLegacy();wireComments();}
 new MutationObserver(run).observe(document.documentElement,{childList:true,subtree:true});
 run();
 })();
+
+/* Canonical Home guard: never show the retired 360View empty landing.
+   Home remains the swipe feed surface and re-renders when async post data arrives. */
+(function installBingoHomeFeedGuard(){
+ function install(){
+   if(typeof window.homeHTML!=='function'||window.__bingoHomeFeedGuard)return false;
+   window.__bingoHomeFeedGuard=true;
+   const original=window.homeHTML;
+   window.homeHTML=function(boosted,rows,all,pages){
+     let items=[]; try{items=typeof window.aaMixedFeedItems==='function'?window.aaMixedFeedItems():[]}catch(e){}
+     if(items&&items.length) return original.apply(this,arguments);
+     return '<section class="aa360-shell"><div class="aa360-feed" id="bingoHomeFeedWaiting" aria-live="polite"></div></section>';
+   };
+   let tries=0;
+   const timer=setInterval(function(){
+     tries++;
+     try{
+       if(window.state&&state.view==='home'&&typeof window.aaMixedFeedItems==='function'&&aaMixedFeedItems().length){
+         clearInterval(timer); if(typeof window.render==='function')render();
+       } else if(tries>=40) clearInterval(timer);
+     }catch(e){if(tries>=40)clearInterval(timer)}
+   },250);
+   return true;
+ }
+ if(!install()){
+   let n=0,t=setInterval(()=>{if(install()||++n>40)clearInterval(t)},100);
+ }
+})();
