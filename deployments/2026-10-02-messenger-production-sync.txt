@@ -1,0 +1,23 @@
+Bingo App Kenya — Messenger production sync
+Date: 2026-10-02
+Deployment branch: bingo-storage-preview-repair-2026-09-27
+
+Purpose:
+Trigger Hostinger auto-deployment from the canonical deployment branch after completing the Messenger server dependencies.
+
+Live Supabase migrations applied successfully:
+- 20260928_bingo_messenger_communication_requests
+- 20260928_bingo_messenger_direct_conversation_rpc
+- 20260928_bingo_messenger_media_bucket
+- 20260928_bingo_messenger_membership_lockdown
+
+The existing approved Messenger UI in BINGO_MASTER_CURRENT_VERIFIED.html is retained unchanged:
+- independent left/right drawers
+- central chat surface
+- Messenger top navigation
+- approved watermark/background
+- in-chat calls
+- live conversation RPC integration
+- message-media bucket integration
+
+No unrelated Bingo feature or uploaded content was replaced.
