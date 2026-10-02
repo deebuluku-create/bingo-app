@@ -1,4 +1,4 @@
-name: Remove unwanted 360View empty landing
+name: Apply flat white Bingo Wall
 on:
   push:
     branches: [bingo-storage-preview-repair-2026-09-27]
@@ -14,35 +14,58 @@ jobs:
         with:
           ref: bingo-storage-preview-repair-2026-09-27
           fetch-depth: 0
-      - name: Surgically remove unwanted empty landing
+      - name: Surgically flatten Wall post container
         shell: python
         run: |
           from pathlib import Path
           p=Path("BINGO_MASTER_CURRENT_VERIFIED.html")
           s=p.read_text(encoding="utf-8")
-          old='''${videos.length?`<div class="aa360-feed">${aaFeedSoundBtnHTML()}${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div>`:`<div class="aa360-empty"><div><h2>360View is ready</h2><p>No vehicle, property or food video has been published yet.</p><button class="btn btn-red" onclick="openPostVehicle()">Post a Vehicle</button></div></div>`}'''
-          new='''<div class="aa360-feed">${aaFeedSoundBtnHTML()}${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div>'''
-          if old not in s:
-              raise SystemExit("Exact current 360View empty-state branch not found; refusing broad rewrite")
-          if s.count(old) != 1:
-              raise SystemExit(f"Expected one exact anchor, found {s.count(old)}; refusing broad rewrite")
-          s=s.replace(old,new,1)
-          p.write_text(s,encoding="utf-8")
-      - name: Verify surgical scope
+          if 'id="bingo-flat-white-wall"' in s:
+              print("Flat white Wall already present")
+          else:
+              marker='</style>\n<style id="bingo-feedback-comments">'
+              if s.count(marker) != 1:
+                  raise SystemExit("Expected one Wall style anchor; refusing broad rewrite")
+              css='''</style>
+<style id="bingo-flat-white-wall">
+#auto-arcade-widget .bingo-topic-page{background:#fff!important;color:#111!important}
+#auto-arcade-widget .bingo-approved-topic{border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#111!important;margin:0 auto 18px!important;padding:16px 16px 22px!important}
+#auto-arcade-widget .bingo-topic-author b,#auto-arcade-widget .bingo-approved-topic .aa-post-message,#auto-arcade-widget .bingo-approved-topic .aa-comment-name,#auto-arcade-widget .bingo-approved-topic .aa-comment-text,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{color:#111!important}
+#auto-arcade-widget .bingo-topic-author .meta,#auto-arcade-widget .bingo-topic-summary,#auto-arcade-widget .bingo-approved-topic .aa-comment-meta,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta{color:#667085!important}
+#auto-arcade-widget .bingo-topic-options summary{color:#667085!important}
+#auto-arcade-widget .bingo-topic-summary,#auto-arcade-widget .bingo-topic-actions,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-row{border-color:#e5e7eb!important}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{color:#111!important}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button+button{border-left-color:#e5e7eb!important}
+#auto-arcade-widget .bingo-topic-field{background:#f7f8fa!important;border-color:#d0d5dd!important}
+#auto-arcade-widget .bingo-topic-field input.field{color:#111!important}
+#auto-arcade-widget .bingo-topic-field input::placeholder{color:#98a2b3!important}
+#auto-arcade-widget .bingo-comments-heading{color:#111!important}
+@media(max-width:480px){#auto-arcade-widget .bingo-approved-topic{border-radius:0!important;padding:14px 14px 20px!important}}
+</style>
+<style id="bingo-feedback-comments">'''
+              s=s.replace(marker,css,1)
+              p.write_text(s,encoding="utf-8")
+      - name: Verify Wall surface
         shell: python
         run: |
           from pathlib import Path
           s=Path("BINGO_MASTER_CURRENT_VERIFIED.html").read_text(encoding="utf-8")
-          assert "360View is ready" not in s
-          assert "No vehicle, property or food video has been published yet." not in s
-          assert "aaFeedSoundBtnHTML()" in s
-          assert "aaMixedFeedCardHTML(c,i)" in s
-      - name: Commit only mother-snippet landing fix
+          assert 'id="bingo-flat-white-wall"' in s
+          block=s.split('id="bingo-flat-white-wall"',1)[1].split('</style>',1)[0]
+          assert 'background:#fff!important' in block
+          assert 'border:0!important' in block
+          assert 'background:transparent!important' in block
+          assert 'box-shadow:none!important' in block
+          assert 'function aaTopicPostCardHTML' in s
+      - name: Commit only Wall presentation fix
         run: |
+          if git diff --quiet -- BINGO_MASTER_CURRENT_VERIFIED.html; then
+            echo "No Wall change needed"
+            exit 0
+          fi
           git config user.name "Bingo Deployment Bot"
           git config user.email "actions@users.noreply.github.com"
           git add BINGO_MASTER_CURRENT_VERIFIED.html
           git diff --cached --check
-          git diff --cached --stat
-          git commit -m "Remove unwanted 360View empty landing from Bingo mother snippet"
+          git commit -m "Flatten Bingo Wall posts onto approved white surface"
           git push origin HEAD:bingo-storage-preview-repair-2026-09-27
