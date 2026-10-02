@@ -1,0 +1,19 @@
+/* Bingo global performance/feedback layer — 2026-10-02 */
+html{content-visibility:auto}
+#auto-arcade-widget img,#auto-arcade-widget video{max-width:100%}
+#auto-arcade-widget img:not(.bingo-app-logo):not(.profile-photo){content-visibility:auto}
+#auto-arcade-widget .card,#auto-arcade-widget .aa360-item,#auto-arcade-widget .msg-conv-row{contain:layout paint style}
+#bingoFastFeedback{
+ position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+ z-index:2147483647;max-width:min(88vw,430px);padding:14px 18px;border-radius:16px;
+ background:rgba(255,255,255,.98);color:#111827;border:1px solid #dbe3ef;
+ box-shadow:0 18px 60px rgba(15,23,42,.22);font:800 14px/1.35 system-ui,-apple-system,Segoe UI,sans-serif;
+ text-align:center;opacity:0;pointer-events:none;transition:opacity .18s ease;
+}
+#bingoFastFeedback.show{opacity:1}
+#bingoFastFeedback.ok{border-color:#86efac;box-shadow:0 18px 60px rgba(22,163,74,.18)}
+#bingoFastFeedback.err{border-color:#fca5a5;box-shadow:0 18px 60px rgba(220,38,38,.16)}
+@media(max-width:760px){
+ #auto-arcade-widget img:not(.bingo-app-logo){height:auto}
+ #auto-arcade-widget video{background:#000}
+}
