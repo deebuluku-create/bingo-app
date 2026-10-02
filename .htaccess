@@ -1,5 +1,1 @@
-DirectoryIndex BINGO_MASTER_CURRENT_VERIFIED.html
-
-# Surgical external Bingo UI addons. Master HTML remains untouched.
-AddOutputFilterByType SUBSTITUTE text/html
-Substitute "s|</body>|<script src='/assets/bingo-home-feed-clean-override.js?v=20261002a' defer></script><script src='/assets/bingo-social-graph-addon.js?v=20261002a' defer></script></body>|ni"
+DirectoryIndex index.php BINGO_MASTER_CURRENT_VERIFIED.html
