@@ -1,0 +1,108 @@
+name: Surgical Messenger Mobile Drawer Fix
+
+on:
+  push:
+    branches:
+      - bingo-storage-preview-repair-2026-09-27
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-messenger:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bingo-storage-preview-repair-2026-09-27
+          fetch-depth: 0
+
+      - name: Patch only Messenger mobile drawer behavior
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path("BINGO_MASTER_CURRENT_VERIFIED.html")
+          s = p.read_text(encoding="utf-8")
+
+          old_header = """function aaBmListHeaderHTML(title,count,withNew){
+           return \`<header class="bm-list-head">
+            <button type="button" class="bm-icon-btn bm-nav-toggle" onclick="aaBmToggleNav()" aria-label="Open Messenger menu">\${aaBmIcon("menu")}</button>
+            <h2>\${esc(title)}</h2>\${count!=null?\`<span class="bm-count-pill">\${count}</span>\`:""}
+            \${withNew?\`<button type="button" class="bm-icon-btn bm-new-btn" onclick="aaMsgOpenNewMessagePicker()" aria-label="New chat">\${aaBmIcon("plus")}</button>\`:""}
+           </header>\`;
+          }""".replace("\\\`","\`").replace("\\\${","\${")
+
+          new_header = """function aaBmListHeaderHTML(title,count,withNew){
+           return \`<header class="bm-list-head">
+            <button type="button" class="bm-icon-btn bm-nav-toggle" onclick="aaBmToggleNav()" aria-label="Open Messenger menu">\${aaBmIcon("menu")}</button>
+            <button type="button" class="bm-icon-btn bm-list-close" onclick="aaBmToggleList()" aria-label="Close chat list" title="Close chat list">\${aaBmIcon("back")}</button>
+            <h2>\${esc(title)}</h2>\${count!=null?\`<span class="bm-count-pill">\${count}</span>\`:""}
+            \${withNew?\`<button type="button" class="bm-icon-btn bm-new-btn" onclick="aaMsgOpenNewMessagePicker()" aria-label="New chat">\${aaBmIcon("plus")}</button>\`:""}
+           </header>\`;
+          }""".replace("\\\`","\`").replace("\\\${","\${")
+
+          old_phone = """/* -- phone: one pane at a time; an open conversation fills the screen -- */
+          @media(max-width:700px){
+            #auto-arcade-widget .bm-page{padding:0}
+            #auto-arcade-widget .bm-shell{display:block;height:calc(100dvh - var(--bm-top,60px));min-height:0;border-radius:0;border-width:0}
+            #auto-arcade-widget .bm-list,#auto-arcade-widget .bm-chat{height:100%;border:0}
+            #auto-arcade-widget .bm-shell.is-conv-open .bm-list{display:none}
+            #auto-arcade-widget .bm-shell.is-list-only .bm-chat{display:none}
+            #auto-arcade-widget .bm-back{display:inline-flex}
+            #auto-arcade-widget .bm-chat-head{padding:0 8px;gap:6px;min-height:58px}
+            #auto-arcade-widget .bm-head-actions{gap:6px}
+            #auto-arcade-widget .bm-head-actions .bm-icon-btn{width:34px;height:34px;min-width:34px}
+            #auto-arcade-widget .bm-hide-xs{display:none!important}
+            #auto-arcade-widget .bm-head-name{font-size:15px}
+            #auto-arcade-widget .bm-thread-inner{padding:14px 10px}
+            #auto-arcade-widget .bm-msg{max-width:86%}
+            #auto-arcade-widget .bm-tools-row{display:none}
+            #auto-arcade-widget .bm-composer{padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+            #auto-arcade-widget .bm-info{width:100%}
+            #auto-arcade-widget .bm-rail{width:104px}
+          }"""
+
+          new_phone = """/* -- phone: central chat stays as the floor; list/nav/info are independent drawers -- */
+          #auto-arcade-widget .bm-list-close{display:none!important}
+          @media(max-width:700px){
+            #auto-arcade-widget .bm-page{padding:0}
+            #auto-arcade-widget .bm-shell{display:block;height:calc(100dvh - var(--bm-top,60px));min-height:0;border-radius:0;border-width:0;position:relative;overflow:hidden}
+            #auto-arcade-widget .bm-chat{display:flex!important;height:100%;border:0;position:relative;z-index:1}
+            #auto-arcade-widget .bm-list{display:block!important;position:absolute;top:0;left:0;bottom:0;width:min(88vw,340px);height:100%;z-index:28;border:0;border-right:1px solid var(--bm-line);box-shadow:14px 0 34px rgba(0,0,0,.58);transform:translateX(-105%);transition:transform .2s ease;background:var(--bm-col)}
+            #auto-arcade-widget .bm-shell.is-list-open .bm-list{transform:none}
+            #auto-arcade-widget .bm-shell.is-list-closed .bm-list{transform:translateX(-105%)}
+            #auto-arcade-widget .bm-list-close{display:inline-flex!important}
+            #auto-arcade-widget .bm-shell.is-list-open .bm-scrim,#auto-arcade-widget .bm-shell.is-info-open .bm-scrim,#auto-arcade-widget .bm-shell.is-nav-open .bm-scrim{display:block;position:absolute;inset:0;background:rgba(3,8,18,.48);z-index:25}
+            #auto-arcade-widget .bm-back{display:inline-flex}
+            #auto-arcade-widget .bm-no-conv-list-toggle{display:inline-flex!important;position:absolute!important;top:12px;left:12px;z-index:4}
+            #auto-arcade-widget .bm-chat-head{padding:0 8px;gap:6px;min-height:58px}
+            #auto-arcade-widget .bm-head-actions{gap:6px}
+            #auto-arcade-widget .bm-head-actions .bm-icon-btn{width:34px;height:34px;min-width:34px}
+            #auto-arcade-widget .bm-hide-xs{display:none!important}
+            #auto-arcade-widget .bm-head-name{font-size:15px}
+            #auto-arcade-widget .bm-thread-inner{padding:14px 10px}
+            #auto-arcade-widget .bm-msg{max-width:86%}
+            #auto-arcade-widget .bm-tools-row{display:none}
+            #auto-arcade-widget .bm-composer{padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+            #auto-arcade-widget .bm-info{width:100%}
+            #auto-arcade-widget .bm-rail{width:104px}
+          }"""
+
+          if old_header not in s:
+              raise SystemExit("Messenger header anchor not found; refusing broad rewrite")
+          if old_phone not in s:
+              raise SystemExit("Messenger phone CSS anchor not found; refusing broad rewrite")
+
+          s = s.replace(old_header, new_header, 1).replace(old_phone, new_phone, 1)
+          p.write_text(s, encoding="utf-8")
+
+      - name: Commit surgical Messenger patch
+        run: |
+          git config user.name "Bingo Deployment Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add BINGO_MASTER_CURRENT_VERIFIED.html
+          git diff --cached --check
+          git commit -m "Fix Messenger mobile drawers; preserve central chat surface"
+          git push origin HEAD:bingo-storage-preview-repair-2026-09-27
