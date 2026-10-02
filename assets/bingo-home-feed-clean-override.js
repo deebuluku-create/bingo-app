@@ -91,3 +91,29 @@ run();
    let n=0,t=setInterval(()=>{if(install()||++n>40)clearInterval(t)},100);
  }
 })();
+
+/* Emergency stale/broken modal guard: remove raw-template Agent invitation overlay
+   if it ever leaks into the public landing route; return Home to feed. */
+(function bingoBrokenAgentModalGuard(){
+ const bad='invite a bingo agent';
+ function clean(){
+   const all=[...document.querySelectorAll('div,section,aside,dialog')];
+   for(const el of all){
+     const txt=(el.textContent||'').toLowerCase();
+     if(txt.includes(bad) && (txt.includes('${') || txt.includes('foundagent') || txt.includes('perms.map'))){
+       const modal=el.closest('[role="dialog"],dialog,.modal,.overlay,.sheet')||el;
+       modal.remove();
+       document.body.style.overflow='';
+       document.documentElement.style.overflow='';
+       try{
+         if(window.state) state.view='home';
+         if(typeof window.goHome==='function') window.goHome();
+         else if(typeof window.render==='function') window.render();
+       }catch(e){}
+       break;
+     }
+   }
+ }
+ new MutationObserver(clean).observe(document.documentElement,{childList:true,subtree:true});
+ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',clean,{once:true}); else clean();
+})();
