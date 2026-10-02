@@ -14329,7 +14329,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
 }
 function homeHTML(boosted,rows,all,pages){
  const videos=aaMixedFeedItems();
- return `<section class="aa360-shell">${aaFeedFilterHTML()}${aaAdSlotHTML("home-banner")}${videos.length?`<div class="aa360-feed">${aaFeedSoundBtnHTML()}${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div>`:`<div class="aa360-empty"><div><h2>360View is ready</h2><p>No vehicle, property or food video has been published yet.</p><button class="btn btn-red" onclick="openPostVehicle()">Post a Vehicle</button></div></div>`}</section>`;
+ return `<section class="aa360-shell">${aaFeedFilterHTML()}${aaAdSlotHTML("home-banner")}<div class="aa360-feed">${aaFeedSoundBtnHTML()}${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div></section>`;
 }
 function listingType(c){return String(c?.listingType||"sale").toLowerCase()==="hire"?"hire":"sale"}
 function listingBadge(c){return listingType(c)==="hire"?'<span class="badge badge-green">FOR HIRE</span>':'<span class="badge badge-red">FOR SALE</span>'}
