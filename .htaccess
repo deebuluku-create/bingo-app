@@ -1,1 +1,6 @@
 DirectoryIndex BINGO_MASTER_CURRENT_VERIFIED.html
+
+# Bingo Wall surgical presentation injection — 2026-10-02.
+# The master HTML and all Supabase/media wiring remain untouched.
+AddOutputFilterByType SUBSTITUTE text/html
+Substitute "s|</head>|<link rel='stylesheet' href='/assets/bingo-wall-white-2026-10-02.css?v=20261002'><script defer src='/assets/bingo-wall-white-2026-10-02.js?v=20261002'></script></head>|ni"
