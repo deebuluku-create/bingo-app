@@ -20,30 +20,33 @@ jobs:
           from pathlib import Path
           p=Path("BINGO_MASTER_CURRENT_VERIFIED.html")
           s=p.read_text(encoding="utf-8")
-          if 'id="bingo-flat-white-wall"' in s:
-              print("Flat white Wall already present")
-          else:
-              marker='</style>\n<style id="bingo-feedback-comments">'
-              if s.count(marker) != 1:
-                  raise SystemExit("Expected one Wall style anchor; refusing broad rewrite")
-              css='''</style>
-<style id="bingo-flat-white-wall">
-#auto-arcade-widget .bingo-topic-page{background:#fff!important;color:#111!important}
-#auto-arcade-widget .bingo-approved-topic{border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#111!important;margin:0 auto 18px!important;padding:16px 16px 22px!important}
-#auto-arcade-widget .bingo-topic-author b,#auto-arcade-widget .bingo-approved-topic .aa-post-message,#auto-arcade-widget .bingo-approved-topic .aa-comment-name,#auto-arcade-widget .bingo-approved-topic .aa-comment-text,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{color:#111!important}
-#auto-arcade-widget .bingo-topic-author .meta,#auto-arcade-widget .bingo-topic-summary,#auto-arcade-widget .bingo-approved-topic .aa-comment-meta,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta{color:#667085!important}
-#auto-arcade-widget .bingo-topic-options summary{color:#667085!important}
-#auto-arcade-widget .bingo-topic-summary,#auto-arcade-widget .bingo-topic-actions,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-row{border-color:#e5e7eb!important}
-html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{color:#111!important}
-html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button+button{border-left-color:#e5e7eb!important}
-#auto-arcade-widget .bingo-topic-field{background:#f7f8fa!important;border-color:#d0d5dd!important}
-#auto-arcade-widget .bingo-topic-field input.field{color:#111!important}
-#auto-arcade-widget .bingo-topic-field input::placeholder{color:#98a2b3!important}
-#auto-arcade-widget .bingo-comments-heading{color:#111!important}
-@media(max-width:480px){#auto-arcade-widget .bingo-approved-topic{border-radius:0!important;padding:14px 14px 20px!important}}
-</style>
-<style id="bingo-feedback-comments">'''
-              s=s.replace(marker,css,1)
+          if 'id="bingo-flat-white-wall"' not in s:
+              start=s.find('<style id="bingo-approved-topic-layout">')
+              if start < 0:
+                  raise SystemExit("Approved topic style block not found")
+              close=s.find('</style>',start)
+              if close < 0:
+                  raise SystemExit("Approved topic style closing tag not found")
+              lines=[
+                  '<style id="bingo-flat-white-wall">',
+                  '#auto-arcade-widget .bingo-topic-page{background:#fff!important;color:#111!important}',
+                  '#auto-arcade-widget .bingo-approved-topic{border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#111!important;margin:0 auto 18px!important;padding:16px 16px 22px!important}',
+                  '#auto-arcade-widget .bingo-topic-author b,#auto-arcade-widget .bingo-approved-topic .aa-post-message,#auto-arcade-widget .bingo-approved-topic .aa-comment-name,#auto-arcade-widget .bingo-approved-topic .aa-comment-text,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{color:#111!important}',
+                  '#auto-arcade-widget .bingo-topic-author .meta,#auto-arcade-widget .bingo-topic-summary,#auto-arcade-widget .bingo-approved-topic .aa-comment-meta,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta{color:#667085!important}',
+                  '#auto-arcade-widget .bingo-topic-options summary{color:#667085!important}',
+                  '#auto-arcade-widget .bingo-topic-summary,#auto-arcade-widget .bingo-topic-actions,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-row{border-color:#e5e7eb!important}',
+                  'html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{color:#111!important}',
+                  'html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button+button{border-left-color:#e5e7eb!important}',
+                  '#auto-arcade-widget .bingo-topic-field{background:#f7f8fa!important;border-color:#d0d5dd!important}',
+                  '#auto-arcade-widget .bingo-topic-field input.field{color:#111!important}',
+                  '#auto-arcade-widget .bingo-topic-field input::placeholder{color:#98a2b3!important}',
+                  '#auto-arcade-widget .bingo-comments-heading{color:#111!important}',
+                  '@media(max-width:480px){#auto-arcade-widget .bingo-approved-topic{border-radius:0!important;padding:14px 14px 20px!important}}',
+                  '</style>'
+              ]
+              css='\n'+'\n'.join(lines)
+              insert_at=close+len('</style>')
+              s=s[:insert_at]+css+s[insert_at:]
               p.write_text(s,encoding="utf-8")
       - name: Verify Wall surface
         shell: python
