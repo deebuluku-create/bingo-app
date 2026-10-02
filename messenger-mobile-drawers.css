@@ -1,0 +1,13 @@
+/* Bingo Messenger mobile drawer patch — surgical, 2026-10-02 */
+#auto-arcade-widget .bm-list-close{display:none!important}
+@media(max-width:700px){
+ #auto-arcade-widget .bm-page{padding:0}
+ #auto-arcade-widget .bm-shell{display:block;height:calc(100dvh - var(--bm-top,60px));min-height:0;border-radius:0;border-width:0;position:relative;overflow:hidden}
+ #auto-arcade-widget .bm-chat{display:flex!important;height:100%;border:0;position:relative;z-index:1}
+ #auto-arcade-widget .bm-list{display:block!important;position:absolute;top:0;left:0;bottom:0;width:min(88vw,340px);height:100%;z-index:28;border:0;border-right:1px solid var(--bm-line);box-shadow:14px 0 34px rgba(0,0,0,.58);transform:translateX(-105%);transition:transform .2s ease;background:var(--bm-col)}
+ #auto-arcade-widget .bm-shell.is-list-open .bm-list{transform:none}
+ #auto-arcade-widget .bm-shell.is-list-closed .bm-list{transform:translateX(-105%)}
+ #auto-arcade-widget .bm-list-close{display:inline-flex!important}
+ #auto-arcade-widget .bm-shell.is-list-open .bm-scrim,#auto-arcade-widget .bm-shell.is-info-open .bm-scrim,#auto-arcade-widget .bm-shell.is-nav-open .bm-scrim{display:block;position:absolute;inset:0;background:rgba(3,8,18,.48);z-index:25}
+ #auto-arcade-widget .bm-no-conv-list-toggle{display:inline-flex!important;position:absolute!important;top:12px;left:12px;z-index:4}
+}
