@@ -2,7 +2,7 @@ DirectoryIndex BINGO_MASTER_CURRENT_VERIFIED.html
 
 # Surgical presentation/performance injections — master HTML and Supabase/media/message wiring remain untouched.
 AddOutputFilterByType SUBSTITUTE text/html
-Substitute "s|</head>|<link rel='stylesheet' href='/assets/bingo-wall-white-2026-10-02.css?v=20261002'><script defer src='/assets/bingo-wall-white-2026-10-02.js?v=20261002'></script><link rel='stylesheet' href='/assets/bingo-messenger-white-colorful-2026-10-02.css?v=20261002'><script defer src='/assets/bingo-messenger-white-colorful-2026-10-02.js?v=20261002'></script><link rel='stylesheet' href='/assets/bingo-performance-feedback-2026-10-02.css?v=20261002'><script defer src='/assets/bingo-performance-feedback-2026-10-02.js?v=20261002'></script></head>|ni"
+Substitute "s|</head>|<link rel='stylesheet' href='/assets/bingo-wall-white-2026-10-02.css?v=20261002'><script defer src='/assets/bingo-wall-white-2026-10-02.js?v=20261002'></script><link rel='stylesheet' href='/assets/bingo-messenger-white-colorful-2026-10-02.css?v=20261002'><script defer src='/assets/bingo-messenger-white-colorful-2026-10-02.js?v=20261002'></script><link rel='stylesheet' href='/assets/bingo-performance-feedback-2026-10-02.css?v=20261002'><script defer src='/assets/bingo-performance-feedback-2026-10-02.js?v=20261002'></script><script defer src='/assets/bingo-home-landing-repair-2026-10-02.js?v=20261002b'></script></head>|ni"
 
 # Browser caching for static Bingo assets; HTML remains revalidated so deployments appear promptly.
 <IfModule mod_expires.c>
