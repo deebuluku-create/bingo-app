@@ -1,0 +1,42 @@
+name: Remove unwanted 360View empty landing
+on:
+  push:
+    branches: [bingo-storage-preview-repair-2026-09-27]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bingo-storage-preview-repair-2026-09-27
+          fetch-depth: 0
+      - name: Surgically remove unwanted empty landing
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path("BINGO_MASTER_CURRENT_VERIFIED.html")
+          s=p.read_text(encoding="utf-8")
+          old='''function homeHTML(boosted,rows,all,pages){
+           const videos=aaMixedFeedItems();
+           return \`<section class="aa360-shell">\${aaFeedFilterHTML()}\${aaAdSlotHTML("home-banner")}\${videos.length?\`<div class="aa360-feed">\${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div>\`:\`<div class="aa360-empty"><div><h2>360View is ready</h2><p>No vehicle, property or food video has been published yet.</p><button class="btn btn-red" onclick="openPostVehicle()">Post a Vehicle</button></div></div>\`}</section>\`;
+          }'''.replace("\\\`","\`").replace("\\\${","\${")
+          new='''function homeHTML(boosted,rows,all,pages){
+           const videos=aaMixedFeedItems();
+           return \`<section class="aa360-shell">\${aaFeedFilterHTML()}\${aaAdSlotHTML("home-banner")}<div class="aa360-feed">\${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div></section>\`;
+          }'''.replace("\\\`","\`").replace("\\\${","\${")
+          if old not in s:
+              raise SystemExit("Exact 360View empty landing anchor not found; refusing broad rewrite")
+          s=s.replace(old,new,1)
+          p.write_text(s,encoding="utf-8")
+      - name: Commit only mother-snippet landing fix
+        run: |
+          git config user.name "Bingo Deployment Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add BINGO_MASTER_CURRENT_VERIFIED.html
+          git diff --cached --check
+          git commit -m "Remove unwanted 360View empty landing from Bingo mother snippet"
+          git push origin HEAD:bingo-storage-preview-repair-2026-09-27
