@@ -8,8 +8,8 @@ if ($html === false) {
   echo 'Bingo is temporarily unavailable.';
   exit;
 }
-$addons = "\n<script src=\"/assets/bingo-home-feed-clean-override.js?v=20261002c\" defer></script>\n"
-        . "<script src=\"/assets/bingo-social-graph-addon.js?v=20261002c\" defer></script>\n";
+$addons = "\n<script src=\"/assets/bingo-home-feed-clean-override.js?v=20261002d\" defer></script>\n"
+        . "<script src=\"/assets/bingo-social-graph-addon.js?v=20261002d\" defer></script>\n";
 if (strpos($html, 'bingo-home-feed-clean-override.js') === false) {
   $html = str_replace('</body>', $addons . '</body>', $html);
 }
