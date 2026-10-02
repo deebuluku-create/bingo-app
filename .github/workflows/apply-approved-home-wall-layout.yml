@@ -1,8 +1,8 @@
-name: Apply approved Home Feed and Bingo Wall layout
+name: Apply approved Home Wall
 on:
   push:
-    branches: [bingo-storage-preview-repair-2026-09-27]
-  workflow_dispatch:
+    branches:
+      - bingo-storage-preview-repair-2026-09-27
 permissions:
   contents: write
 jobs:
@@ -13,106 +13,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: bingo-storage-preview-repair-2026-09-27
-          fetch-depth: 0
-      - name: Apply surgical approved Home/Wall presentation
-        shell: python
+      - name: Patch mother file
+        env:
+          BINGO_PATCH_B64: PHN0eWxlIGlkPSJiaW5nby1hcHByb3ZlZC1ob21lLXdhbGwtMjAyNjEwMDIiPgojYXV0by1hcmNhZGUtd2lkZ2V0IC5iaW5nby10b3BpYy1wYWdlLCNhdXRvLWFyY2FkZS13aWRnZXQgLmJpbmdvLXRvcGljLWJyYW5ke2JhY2tncm91bmQ6I2ZmZiFpbXBvcnRhbnQ7Y29sb3I6IzEwMTgyMCFpbXBvcnRhbnR9CiNhdXRvLWFyY2FkZS13aWRnZXQgLmJpbmdvLWFwcHJvdmVkLXRvcGlje2JhY2tncm91bmQ6I2ZmZiFpbXBvcnRhbnQ7Y29sb3I6IzEwMTgyMCFpbXBvcnRhbnQ7Ym9yZGVyOjAhaW1wb3J0YW50O2JvcmRlci1yYWRpdXM6MCFpbXBvcnRhbnQ7Ym94LXNoYWRvdzpub25lIWltcG9ydGFudDttYXJnaW46MCBhdXRvIDE4cHghaW1wb3J0YW50O3BhZGRpbmc6MCAxNnB4IDE4cHghaW1wb3J0YW50O21heC13aWR0aDo3NjBweCFpbXBvcnRhbnR9CiNhdXRvLWFyY2FkZS13aWRnZXQgLmJpbmdvLWFwcHJvdmVkLXRvcGljIC5hYS1wb3N0LW1lZGlhe2JvcmRlci1yYWRpdXM6MCFpbXBvcnRhbnQ7bWFyZ2luLWxlZnQ6LTE2cHghaW1wb3J0YW50O21hcmdpbi1yaWdodDotMTZweCFpbXBvcnRhbnR9CiNhdXRvLWFyY2FkZS13aWRnZXQgLmJpbmdvLWFwcHJvdmVkLXRvcGljIC5iaW5nby10b3BpYy1hdXRob3IgYiwjYXV0by1hcmNhZGUtd2lkZ2V0IC5iaW5nby1hcHByb3ZlZC10b3BpYyAuYWEtcG9zdC10aXRsZSwjYXV0by1hcmNhZGUtd2lkZ2V0IC5iaW5nby1hcHByb3ZlZC10b3BpYyAuYWEtcG9zdC1tZXNzYWdle2NvbG9yOiMxMDE4MjAhaW1wb3J0YW50O3RleHQtc2hhZG93Om5vbmUhaW1wb3J0YW50fQojYXV0by1hcmNhZGUtd2lkZ2V0IC5iaW5nby1hcHByb3ZlZC10b3BpYyAuYmluZ28tdG9waWMtYXV0aG9yIC5tZXRhLCNhdXRvLWFyY2FkZS13aWRnZXQgLmJpbmdvLWFwcHJvdmVkLXRvcGljIC5iaW5nby10b3BpYy1zdW1tYXJ5e2NvbG9yOiM2OTczODYhaW1wb3J0YW50fQojYXV0by1hcmNhZGUtd2lkZ2V0IC5iaW5nby1hcHByb3ZlZC10b3BpYyAuYmluZ28tdG9waWMtc3VtbWFyeSwjYXV0by1hcmNhZGUtd2lkZ2V0IC5iaW5nby1hcHByb3ZlZC10b3BpYyAuYmluZ28tdG9waWMtYWN0aW9uc3tib3JkZXItY29sb3I6I2U2ZThlYyFpbXBvcnRhbnR9CiNhdXRvLWFyY2FkZS13aWRnZXQgLmJpbmdvLWFwcHJvdmVkLXRvcGljIC5iaW5nby10b3BpYy1hY3Rpb25zIGJ1dHRvbntjb2xvcjojMTAxODIwIWltcG9ydGFudH0KI2F1dG8tYXJjYWRlLXdpZGdldCAuYmluZ28tYXBwcm92ZWQtdG9waWMgLmJpbmdvLXRvcGljLWZpZWxke2JhY2tncm91bmQ6I2Y2ZjdmOSFpbXBvcnRhbnQ7Ym9yZGVyLWNvbG9yOiNkOWRkZTMhaW1wb3J0YW50fQojYXV0by1hcmNhZGUtd2lkZ2V0IC5hYTM2MC1zaGVsbCwjYXV0by1hcmNhZGUtd2lkZ2V0IC5hYTM2MC1mZWVke2JhY2tncm91bmQ6I2ZmZiFpbXBvcnRhbnQ7Y29sb3I6IzEwMTgyMCFpbXBvcnRhbnR9CiNhdXRvLWFyY2FkZS13aWRnZXQgLmFhMzYwLWl0ZW17YmFja2dyb3VuZDojZmZmIWltcG9ydGFudDtib3JkZXI6MCFpbXBvcnRhbnQ7Ym9yZGVyLXJhZGl1czowIWltcG9ydGFudDtib3gtc2hhZG93Om5vbmUhaW1wb3J0YW50O2NvbG9yOiMxMDE4MjAhaW1wb3J0YW50O21hcmdpbjowIWltcG9ydGFudH0KI2F1dG8tYXJjYWRlLXdpZGdldCAuYWEzNjAtaXRlbSAuYWEzNjAtc2hhZGV7ZGlzcGxheTpub25lIWltcG9ydGFudH0KI2F1dG8tYXJjYWRlLXdpZGdldCAuYWEzNjAtaXRlbSAuYWEzNjAtaW5mb3twb3NpdGlvbjpyZWxhdGl2ZSFpbXBvcnRhbnQ7bGVmdDphdXRvIWltcG9ydGFudDtyaWdodDphdXRvIWltcG9ydGFudDtib3R0b206YXV0byFpbXBvcnRhbnQ7YmFja2dyb3VuZDojZmZmIWltcG9ydGFudDtjb2xvcjojMTAxODIwIWltcG9ydGFudDtiYWNrZHJvcC1maWx0ZXI6bm9uZSFpbXBvcnRhbnQ7cGFkZGluZzo4cHggMTRweCAxNHB4IWltcG9ydGFudH0KI2F1dG8tYXJjYWRlLXdpZGdldCAuYWEzNjAtaXRlbSAuYWEzNjAtaW5mbyAqe3RleHQtc2hhZG93Om5vbmUhaW1wb3J0YW50fQojYXV0by1hcmNhZGUtd2lkZ2V0IC5hYTM2MC1pdGVtIC5hYTM2MC1kZXNjLCNhdXRvLWFyY2FkZS13aWRnZXQgLmFhMzYwLWl0ZW0gLmFhMzYwLXNpZGUtYWN0aW9ucywjYXV0by1hcmNhZGUtd2lkZ2V0IC5hYTM2MC1pdGVtIC5hYTM2MC1zb3VuZCwjYXV0by1hcmNhZGUtd2lkZ2V0IC5hYTM2MC1pdGVtIC5hYS1mZWVkLXNvdW5kLWJ0bntkaXNwbGF5Om5vbmUhaW1wb3J0YW50fQojYXV0by1hcmNhZGUtd2lkZ2V0IC5hYTM2MC1pdGVtIC5hYTM2MC1wcm9maWxlLW5hbWUtc3VyZmFjZXtiYWNrZ3JvdW5kOnRyYW5zcGFyZW50IWltcG9ydGFudDtib3JkZXI6MCFpbXBvcnRhbnQ7Ym94LXNoYWRvdzpub25lIWltcG9ydGFudDtwYWRkaW5nOjAhaW1wb3J0YW50fQojYXV0by1hcmNhZGUtd2lkZ2V0IC5hYTM2MC1pdGVtIC5hYTM2MC1wcm9maWxlLW5hbWUtc3VyZmFjZSBpbWcsI2F1dG8tYXJjYWRlLXdpZGdldCAuYWEzNjAtaXRlbSAuYWEzNjAtYXZhdGFye3dpZHRoOjMwcHghaW1wb3J0YW50O2hlaWdodDozMHB4IWltcG9ydGFudDttaW4td2lkdGg6MzBweCFpbXBvcnRhbnQ7Ym9yZGVyLXJhZGl1czo1MCUhaW1wb3J0YW50fQojYXV0by1hcmNhZGUtd2lkZ2V0IC5hYTM2MC1pdGVtIC5hYTM2MC1hY3Rpb25ze2JhY2tncm91bmQ6I2ZmZiFpbXBvcnRhbnQ7Ym9yZGVyOjAhaW1wb3J0YW50O2JveC1zaGFkb3c6bm9uZSFpbXBvcnRhbnQ7cGFkZGluZzo2cHggMTRweCAxMnB4IWltcG9ydGFudH0KI2F1dG8tYXJjYWRlLXdpZGdldCAuYWEzNjAtaXRlbSAuYWEzNjAtYWN0aW9ucz4qe2Rpc3BsYXk6bm9uZSFpbXBvcnRhbnR9CiNhdXRvLWFyY2FkZS13aWRnZXQgLmFhMzYwLWl0ZW0gLmFhMzYwLWFjdGlvbnM+W2RhdGEtYmluZ28ta2VlcC1ob21lPSIxIl17ZGlzcGxheTppbmxpbmUtZmxleCFpbXBvcnRhbnR9CkBtZWRpYShtYXgtd2lkdGg6NjAwcHgpeyNhdXRvLWFyY2FkZS13aWRnZXQgLmFhMzYwLWl0ZW17bWluLWhlaWdodDphdXRvIWltcG9ydGFudDtoZWlnaHQ6YXV0byFpbXBvcnRhbnR9I2F1dG8tYXJjYWRlLXdpZGdldCAuYWEzNjAtbWVkaWF7bWF4LWhlaWdodDo2OHZoIWltcG9ydGFudH19Cjwvc3R5bGU+CjxzY3JpcHQgaWQ9ImJpbmdvLWFwcHJvdmVkLWhvbWUtd2FsbC1iZWhhdmlvdXItMjAyNjEwMDIiPgooZnVuY3Rpb24oKXsKIGZ1bmN0aW9uIGxhYmVsKGVsKXtyZXR1cm4gKGVsJiZlbC50ZXh0Q29udGVudHx8IiIpLnJlcGxhY2UoL1xzKy9nLCIgIikudHJpbSgpfQogZnVuY3Rpb24gd2lyZSgpewogIGRvY3VtZW50LnF1ZXJ5U2VsZWN0b3JBbGwoIiNhdXRvLWFyY2FkZS13aWRnZXQgLmFhMzYwLWl0ZW0iKS5mb3JFYWNoKGZ1bmN0aW9uKGNhcmQpewogICB2YXIgYnV0dG9ucz1BcnJheS5mcm9tKGNhcmQucXVlcnlTZWxlY3RvckFsbCgiYnV0dG9uLGEiKSk7CiAgIHZhciBwb3N0PWJ1dHRvbnMuZmluZChmdW5jdGlvbihiKXtyZXR1cm4gL3ZpZXcgcG9zdHxjb21tZW50cy9pLnRlc3QobGFiZWwoYikpfSk7CiAgIHZhciBzaGFyZT1idXR0b25zLmZpbmQoZnVuY3Rpb24oYil7cmV0dXJuIC9zaGFyZS9pLnRlc3QobGFiZWwoYikpfSk7CiAgIHZhciBjcm93bj1idXR0b25zLmZpbmQoZnVuY3Rpb24oYil7cmV0dXJuIC9jcm93bi9pLnRlc3QobGFiZWwoYikpfSk7CiAgIFtjcm93bixwb3N0LHNoYXJlXS5maWx0ZXIoQm9vbGVhbikuZm9yRWFjaChmdW5jdGlvbihiKXtiLnNldEF0dHJpYnV0ZSgiZGF0YS1iaW5nby1rZWVwLWhvbWUiLCIxIil9KTsKICAgaWYocG9zdCYmIWNhcmQuZGF0YXNldC5iaW5nb1dhbGxPcGVuKXtjYXJkLmRhdGFzZXQuYmluZ29XYWxsT3Blbj0iMSI7Y2FyZC5zdHlsZS5jdXJzb3I9InBvaW50ZXIiO2NhcmQuYWRkRXZlbnRMaXN0ZW5lcigiY2xpY2siLGZ1bmN0aW9uKGUpe2lmKGUudGFyZ2V0LmNsb3Nlc3QoImJ1dHRvbixhLGlucHV0LHRleHRhcmVhLHZpZGVvIikpcmV0dXJuO3Bvc3QuY2xpY2soKX0pfQogIH0pCiB9CiB2YXIgcm9vdD1kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgiYXV0by1hcmNhZGUtd2lkZ2V0Iik7aWYoIXJvb3QpcmV0dXJuO3dpcmUoKTtuZXcgTXV0YXRpb25PYnNlcnZlcih3aXJlKS5vYnNlcnZlKHJvb3Qse2NoaWxkTGlzdDp0cnVlLHN1YnRyZWU6dHJ1ZX0pCn0pKCk7Cjwvc2NyaXB0Pg==
         run: |
-          from pathlib import Path
-          p=Path("BINGO_MASTER_CURRENT_VERIFIED.html")
-          s=p.read_text(encoding="utf-8")
-          marker="bingo-approved-home-wall-20261002"
-          if marker in s:
-              raise SystemExit("Approved Home/Wall patch already present")
-          patch=r'''<style id="bingo-approved-home-wall-20261002">
-/* Approved 2026-10-02: white flat Wall + view-only Home discovery. Presentation only. */
-#auto-arcade-widget .bingo-topic-page{background:#fff!important;color:#101820!important;max-width:760px!important;padding-left:0!important;padding-right:0!important}
-#auto-arcade-widget .bingo-topic-brand{background:#fff!important}
-#auto-arcade-widget .bingo-topic-brand h1{color:#101820!important}
-#auto-arcade-widget .bingo-approved-topic{background:#fff!important;color:#101820!important;border:0!important;border-radius:0!important;box-shadow:none!important;margin:0 auto 18px!important;padding:0 16px 18px!important;max-width:760px!important}
-#auto-arcade-widget .bingo-approved-topic .aa-post-media{border-radius:0!important;margin-left:-16px!important;margin-right:-16px!important}
-#auto-arcade-widget .bingo-approved-topic .aa-post-head{padding-top:14px!important;margin-bottom:14px!important}
-#auto-arcade-widget .bingo-approved-topic .bingo-topic-author b,
-#auto-arcade-widget .bingo-approved-topic .aa-post-title,
-#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#101820!important;text-shadow:none!important}
-#auto-arcade-widget .bingo-approved-topic .bingo-topic-author .meta,
-#auto-arcade-widget .bingo-approved-topic .bingo-topic-summary{color:#697386!important}
-#auto-arcade-widget .bingo-approved-topic .bingo-topic-summary,
-#auto-arcade-widget .bingo-approved-topic .bingo-topic-actions{border-color:#e6e8ec!important}
-#auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{color:#101820!important}
-#auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button+button{border-left-color:#e6e8ec!important}
-#auto-arcade-widget .bingo-approved-topic .bingo-topic-field{background:#f6f7f9!important;border-color:#d9dde3!important}
-#auto-arcade-widget .bingo-approved-topic .bingo-topic-field input.field{color:#101820!important}
-#auto-arcade-widget .bingo-approved-topic .bingo-topic-field input::placeholder{color:#7b8493!important}
-/* Home Feed becomes a clean, flat discovery surface; cards do not get a second housing panel. */
-#auto-arcade-widget .aa360-shell{background:#fff!important;color:#101820!important}
-#auto-arcade-widget .aa360-feed{background:#fff!important;gap:0!important}
-#auto-arcade-widget .aa360-item{background:#fff!important;border:0!important;border-radius:0!important;box-shadow:none!important;color:#101820!important;margin:0!important}
-#auto-arcade-widget .aa360-item .aa360-shade{display:none!important}
-#auto-arcade-widget .aa360-item .aa360-info{position:relative!important;left:auto!important;right:auto!important;bottom:auto!important;background:#fff!important;color:#101820!important;backdrop-filter:none!important;padding:8px 14px 14px!important}
-#auto-arcade-widget .aa360-item .aa360-info *{text-shadow:none!important}
-#auto-arcade-widget .aa360-item .aa360-title{color:#101820!important}
-#auto-arcade-widget .aa360-item .aa360-desc{display:none!important}
-#auto-arcade-widget .aa360-item .aa360-profile-name-surface{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important}
-#auto-arcade-widget .aa360-item .aa360-profile-name-surface img,
-#auto-arcade-widget .aa360-item .aa360-avatar{width:30px!important;height:30px!important;min-width:30px!important;border-radius:50%!important}
-#auto-arcade-widget .aa360-item .aa360-actions .bingo-neon-action:not([data-bingo-keep-home]){display:none!important}
-#auto-arcade-widget .aa360-item .aa360-actions{background:#fff!important;border:0!important;box-shadow:none!important;padding:6px 14px 12px!important}
-#auto-arcade-widget .aa360-item .aa360-side-actions{display:none!important}
-#auto-arcade-widget .aa360-item .aa360-sound,
-#auto-arcade-widget .aa360-item .aa-feed-sound-btn{display:none!important}
-@media(max-width:600px){
- #auto-arcade-widget .aa360-item{min-height:auto!important;height:auto!important}
- #auto-arcade-widget .aa360-media,#auto-arcade-widget .aa360-item>video,#auto-arcade-widget .aa360-item>img{max-height:68vh!important}
- #auto-arcade-widget .bingo-approved-topic .aa-post-title{font-size:25px!important}
-}
-</style>
-<script id="bingo-approved-home-wall-behaviour-20261002">
-(function(){
- const MARK="bingoHomeWallWired";
- function text(el){return (el&&el.textContent||"").replace(/\\s+/g," ").trim()}
- function wireHome(){
-   document.querySelectorAll("#auto-arcade-widget .aa360-item").forEach(card=>{
-     if(card.dataset[MARK])return; card.dataset[MARK]="1";
-     const buttons=[...card.querySelectorAll("button,a")];
-     const original=buttons.find(b=>/view post|comments/i.test(text(b)));
-     const share=buttons.find(b=>/share/i.test(text(b)));
-     const crown=buttons.find(b=>/crown/i.test(text(b)));
-     [crown,original,share].filter(Boolean).forEach(b=>{b.dataset.bingoKeepHome="1";b.style.display=""});
-     if(original){
-       card.style.cursor="pointer";
-       card.addEventListener("click",e=>{
-         if(e.target.closest("button,a,input,textarea,video"))return;
-         original.click();
-       });
-     }
-   });
- }
- const obs=new MutationObserver(wireHome);
- function start(){const root=document.getElementById("auto-arcade-widget");if(!root)return;wireHome();obs.observe(root,{childList:true,subtree:true})}
- if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
-})();
-</script>'''
-          if "</body>" not in s:
-              raise SystemExit("Mother file has no closing body; refusing patch")
-          s=s.replace("</body>",patch+"\\n</body>",1)
-          p.write_text(s,encoding="utf-8")
-      - name: Verify surgical scope
-        shell: python
-        run: |
-          from pathlib import Path
-          s=Path("BINGO_MASTER_CURRENT_VERIFIED.html").read_text(encoding="utf-8")
-          assert s.count("bingo-approved-home-wall-20261002")==1
-          assert "bingo-approved-topic" in s
-          assert "aa360-item" in s
-          assert "aaTopicComment" in s
-          assert "aaTopicShare" in s
-          assert "aaTopicLove" in s
-      - name: Commit approved Home/Wall patch only
+          python3 -c "import os,base64,pathlib; p=pathlib.Path('BINGO_MASTER_CURRENT_VERIFIED.html'); s=p.read_text(); marker='bingo-approved-home-wall-20261002'; patch=base64.b64decode(os.environ['BINGO_PATCH_B64']).decode(); assert marker not in s; assert '</body>' in s; p.write_text(s.replace('</body>',patch+'\\n</body>',1))"
+      - name: Commit
         run: |
           git config user.name "Bingo Deployment Bot"
           git config user.email "actions@users.noreply.github.com"
           git add BINGO_MASTER_CURRENT_VERIFIED.html
           git diff --cached --check
-          git diff --cached --stat
-          git commit -m "Apply approved view-only Home Feed and flat white Bingo Wall"
+          git commit -m "Apply approved view-only Home Feed and white Bingo Wall"
           git push origin HEAD:bingo-storage-preview-repair-2026-09-27
