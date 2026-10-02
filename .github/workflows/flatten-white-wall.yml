@@ -1,0 +1,110 @@
+name: Flatten Bingo Wall posts on white surface
+on:
+  push:
+    branches: [bingo-storage-preview-repair-2026-09-27]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bingo-storage-preview-repair-2026-09-27
+          fetch-depth: 0
+      - name: Apply approved flat white Wall styling
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path("BINGO_MASTER_CURRENT_VERIFIED.html")
+          s=p.read_text(encoding="utf-8")
+          marker='''</style>
+<style id="bingo-feedback-comments">'''
+          override='''</style>
+<style id="bingo-flat-white-wall">
+/* Approved Wall: posts sit directly on one white surface — no housing card. */
+#auto-arcade-widget .bingo-topic-page{
+  background:#fff!important;
+  color:#111!important;
+}
+#auto-arcade-widget .bingo-approved-topic{
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:#111!important;
+  margin:0 auto 18px!important;
+  padding:16px 16px 22px!important;
+}
+#auto-arcade-widget .bingo-topic-author b,
+#auto-arcade-widget .bingo-approved-topic .aa-post-message,
+#auto-arcade-widget .bingo-approved-topic .aa-comment-name,
+#auto-arcade-widget .bingo-approved-topic .aa-comment-text,
+html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,
+html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{
+  color:#111!important;
+}
+#auto-arcade-widget .bingo-topic-author .meta,
+#auto-arcade-widget .bingo-topic-summary,
+#auto-arcade-widget .bingo-approved-topic .aa-comment-meta,
+html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta{
+  color:#667085!important;
+}
+#auto-arcade-widget .bingo-topic-options summary{color:#667085!important}
+#auto-arcade-widget .bingo-topic-summary,
+#auto-arcade-widget .bingo-topic-actions,
+html body #auto-arcade-widget .bingo-approved-topic .aa-comment-row{
+  border-color:#e5e7eb!important;
+}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{
+  color:#111!important;
+}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button+button{
+  border-left-color:#e5e7eb!important;
+}
+#auto-arcade-widget .bingo-topic-field{
+  background:#f7f8fa!important;
+  border-color:#d0d5dd!important;
+}
+#auto-arcade-widget .bingo-topic-field input.field{
+  color:#111!important;
+}
+#auto-arcade-widget .bingo-topic-field input::placeholder{color:#98a2b3!important}
+#auto-arcade-widget .bingo-comments-heading{color:#111!important}
+@media(max-width:480px){
+  #auto-arcade-widget .bingo-approved-topic{
+    border-radius:0!important;
+    padding:14px 14px 20px!important;
+  }
+}
+</style>
+<style id="bingo-feedback-comments">'''
+          if 'id="bingo-flat-white-wall"' in s:
+              raise SystemExit("Flat white Wall override already present; refusing duplicate insertion")
+          if s.count(marker)!=1:
+              raise SystemExit(f"Expected one Wall style insertion anchor, found {s.count(marker)}; refusing broad rewrite")
+          s=s.replace(marker,override,1)
+          p.write_text(s,encoding="utf-8")
+      - name: Verify only intended Wall styling
+        shell: python
+        run: |
+          from pathlib import Path
+          s=Path("BINGO_MASTER_CURRENT_VERIFIED.html").read_text(encoding="utf-8")
+          assert 'id="bingo-flat-white-wall"' in s
+          block=s.split('id="bingo-flat-white-wall"',1)[1].split('</style>',1)[0]
+          for required in ('background:#fff!important','border:0!important','border-radius:0!important','background:transparent!important','box-shadow:none!important'):
+              assert required in block
+          assert 'function aaTopicPostCardHTML' in s
+          assert 'bingo-topic-actions' in s
+          assert 'bingo-topic-composer' in s
+      - name: Commit mother-snippet Wall surface fix
+        run: |
+          git config user.name "Bingo Deployment Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add BINGO_MASTER_CURRENT_VERIFIED.html
+          git diff --cached --check
+          git diff --cached --stat
+          git commit -m "Flatten Bingo Wall posts onto approved white surface"
+          git push origin HEAD:bingo-storage-preview-repair-2026-09-27
