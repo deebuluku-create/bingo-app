@@ -1,0 +1,116 @@
+/* Bingo Messenger — approved colorful modern UI on WHITE surfaces.
+   Presentation-only. Existing Inbox/chat/message handlers and Supabase wiring remain untouched. */
+#auto-arcade-widget .msg-app,
+#auto-arcade-widget .msg-shell,
+#auto-arcade-widget .msg-layout,
+#auto-arcade-widget .msg-panel,
+#auto-arcade-widget .msg-list,
+#auto-arcade-widget .msg-conversations,
+#auto-arcade-widget .msg-thread,
+#auto-arcade-widget .msg-details,
+#auto-arcade-widget .msg-info{
+  background:#fff!important;
+  color:#111827!important;
+}
+#auto-arcade-widget .msg-thread{
+  background-color:#fff!important;
+  /* keep the existing blessing texture, but make it suitable for white */
+  background-blend-mode:multiply;
+}
+#auto-arcade-widget .msg-header,
+#auto-arcade-widget .msg-topbar,
+#auto-arcade-widget .msg-list-head,
+#auto-arcade-widget .msg-composer,
+#auto-arcade-widget .msg-compose,
+#auto-arcade-widget .msg-details-head{
+  background:#fff!important;
+  color:#111827!important;
+  border-color:#e5e7eb!important;
+}
+#auto-arcade-widget .msg-conv-row,
+#auto-arcade-widget .msg-conversation,
+#auto-arcade-widget .msg-contact-row{
+  background:#fff!important;
+  color:#111827!important;
+  border-color:#eef2f7!important;
+}
+#auto-arcade-widget .msg-conv-row:hover,
+#auto-arcade-widget .msg-conversation:hover{
+  background:#f8f7ff!important;
+}
+#auto-arcade-widget .msg-conv-row.active,
+#auto-arcade-widget .msg-conversation.active,
+#auto-arcade-widget .msg-tab.active{
+  background:linear-gradient(135deg,#f3e8ff,#eef2ff)!important;
+  color:#5b21b6!important;
+  box-shadow:inset 3px 0 #8b5cf6,0 4px 16px rgba(124,58,237,.10)!important;
+}
+#auto-arcade-widget .msg-bubble.received{
+  background:#f1f5f9!important;
+  color:#111827!important;
+  border:1px solid #e2e8f0!important;
+  box-shadow:none!important;
+}
+#auto-arcade-widget .msg-bubble.sent{
+  background:linear-gradient(135deg,#7c3aed,#a21caf)!important;
+  color:#fff!important;
+  border:1px solid #7c3aed!important;
+  box-shadow:0 6px 18px rgba(124,58,237,.20)!important;
+}
+#auto-arcade-widget .msg-date-sep{
+  background:#f1f5f9!important;
+  color:#475569!important;
+}
+#auto-arcade-widget .msg-muted,
+#auto-arcade-widget .msg-empty,
+#auto-arcade-widget .msg-sender-label,
+#auto-arcade-widget .msg-doc-size{
+  color:#64748b!important;
+}
+#auto-arcade-widget .msg-search input,
+#auto-arcade-widget .msg-composer input,
+#auto-arcade-widget .msg-composer textarea,
+#auto-arcade-widget .msg-compose input,
+#auto-arcade-widget .msg-compose textarea{
+  background:#f8fafc!important;
+  color:#111827!important;
+  border:1px solid #dbe3ef!important;
+}
+#auto-arcade-widget .msg-search input::placeholder,
+#auto-arcade-widget .msg-composer input::placeholder,
+#auto-arcade-widget .msg-composer textarea::placeholder{
+  color:#94a3b8!important;
+}
+/* Colorful modern navigation/action controls. Existing click handlers stay intact. */
+#auto-arcade-widget .msg-tab,
+#auto-arcade-widget .msg-icon-btn,
+#auto-arcade-widget .msg-action,
+#auto-arcade-widget .msg-nav button{
+  border-radius:999px!important;
+  border:1px solid #e5e7eb!important;
+  background:#fff!important;
+  color:#475569!important;
+  box-shadow:0 3px 10px rgba(15,23,42,.06)!important;
+}
+#auto-arcade-widget .msg-tab:nth-child(4n+1),
+#auto-arcade-widget .msg-action:nth-child(4n+1),
+#auto-arcade-widget .msg-icon-btn:nth-child(4n+1){color:#7c3aed!important;border-color:#ddd6fe!important;background:#f5f3ff!important}
+#auto-arcade-widget .msg-tab:nth-child(4n+2),
+#auto-arcade-widget .msg-action:nth-child(4n+2),
+#auto-arcade-widget .msg-icon-btn:nth-child(4n+2){color:#0284c7!important;border-color:#bae6fd!important;background:#f0f9ff!important}
+#auto-arcade-widget .msg-tab:nth-child(4n+3),
+#auto-arcade-widget .msg-action:nth-child(4n+3),
+#auto-arcade-widget .msg-icon-btn:nth-child(4n+3){color:#059669!important;border-color:#a7f3d0!important;background:#ecfdf5!important}
+#auto-arcade-widget .msg-tab:nth-child(4n),
+#auto-arcade-widget .msg-action:nth-child(4n),
+#auto-arcade-widget .msg-icon-btn:nth-child(4n){color:#db2777!important;border-color:#fbcfe8!important;background:#fdf2f8!important}
+#auto-arcade-widget .msg-conv-badge{
+  background:linear-gradient(135deg,#7c3aed,#d946ef)!important;
+  color:#fff!important;
+  box-shadow:0 0 12px rgba(168,85,247,.35)!important;
+}
+#auto-arcade-widget .msg-tick.is-read{color:#0284c7!important}
+@media(max-width:760px){
+ #auto-arcade-widget .msg-thread{padding:12px!important}
+ #auto-arcade-widget .msg-bubble-wrap{max-width:88%!important}
+}
