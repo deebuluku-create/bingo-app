@@ -106,8 +106,8 @@ run();
       every 250ms up to a 5-minute safety ceiling (1200 tries) instead of
       a 10-second one - real data arriving at any point up to that ceiling
       still replaces the placeholder immediately. */
-/* Canonical Home lifecycle fix (2026-10-03): splash release and "first
-   Home post ready" are different events. aaMixedFeedItems().length>0
+/* Canonical Home lifecycle fix (2026-10-03, revised): splash release and
+   "first Home post ready" are different events. aaMixedFeedItems().length>0
    only means SOME data exists - the first (soon-to-be-visible) item's
    own author/profile (aaResolveMemberMeta, same fetch-then-cache path
    topics/properties/food all share) and, for a topic, its signed media
@@ -119,22 +119,31 @@ run();
    photo being shown, but the same post's own loading state being
    exposed before replacement.
    bingoHomeFirstItemReady() below extends the existing wait so the
-   REAL feed is only swapped in once the first item's author and (for
-   topics) media have actually resolved - the loading placeholder stays
-   up a little longer instead. This never blocks on VIDEO playback
-   itself (buffering happens inside the already-stable, already-visible
-   card via the existing aaInit360Feed/play() pipeline - a slow video
-   must not hold the whole feed hostage), and it has its own short
-   grace period independent of the existing 5-minute "any data at all"
-   ceiling, so a stuck/erroring profile fetch degrades to the old
-   behavior (show it anyway) rather than stalling Home indefinitely. */
+   REAL feed is only swapped in once the first item's OWN author and
+   (for a topic) media have resolved - the loading placeholder stays up
+   a little longer instead. This never blocks on VIDEO playback itself
+   (buffering happens inside the already-stable, already-visible card
+   via the existing aaInit360Feed/play() pipeline - a slow video must
+   not hold the whole feed hostage).
+   REVISED: this no longer waits for aaLoadBingoWall()'s entire topics
+   query to settle (state.wallTopics becoming an array) before checking
+   readiness. On a real cold load nothing is in state.listings at boot
+   (var demoListings=[] - public feeds show only real published records,
+   no placeholder data) - real vehicles only arrive after
+   sb.auth.getSession() then aaLoadVehicles() each complete a real
+   network round trip, and topics load in parallel on their own query.
+   Requiring BOTH to settle before showing anything stacked extra, very
+   real wait on top of that - exactly what produced a visible "stuck at
+   Loading your feed" rather than the intended short, bounded delay.
+   This now only checks whatever item is CURRENTLY first: its own
+   author-meta and (topic) media resolution, nothing about the rest of
+   the list. A short grace period, independent of the existing 5-minute
+   "any data at all" ceiling, still bounds the wait so a stuck/erroring
+   profile fetch degrades to the old behavior (show it anyway) rather
+   than stalling Home indefinitely. */
 function bingoHomeFirstItemReady(items){
  if(!items||!items.length)return false;
  try{
-  // aaTopics() in test mode never touches state.wallTopics (it reads a
-  // separate local-only store) - this "has the one-time wall load
-  // settled" check only applies when there is a real backend to wait on.
-  if(window.sb&&!(window.state&&window.state.testMode)&&!Array.isArray(window.state&&window.state.wallTopics))return false;
   var first=items[0];
   var meta=first&&first.feed_sellerMeta;
   if(meta&&meta.loading)return false;
@@ -148,7 +157,7 @@ function bingoHomeFirstItemReady(items){
    window.__bingoHomeFeedGuard=true;
    const original=window.homeHTML;
    let firstItemWaitTries=0;
-   const FIRST_ITEM_WAIT_CEILING=16; // ~4s at 250ms - a short, bounded grace period, not a long loading screen
+   const FIRST_ITEM_WAIT_CEILING=8; // ~2s at 250ms - author/media-URL lookups are small, fast fetches once the item itself exists; not a long loading screen
    window.homeHTML=function(boosted,rows,all,pages){
      let items=[]; try{items=typeof window.aaMixedFeedItems==='function'?window.aaMixedFeedItems():[]}catch(e){}
      if(items&&items.length&&(bingoHomeFirstItemReady(items)||firstItemWaitTries>=FIRST_ITEM_WAIT_CEILING)){

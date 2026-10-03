@@ -29814,7 +29814,51 @@ const originalOverlay=aaHomeOverlayOpen;
 aaHomeOverlayOpen=function(){return originalOverlay()||!!document.getElementById('aaVideoLightbox')||!!document.getElementById('aaPhotoLightbox')||!!document.getElementById('bingoSoundDialog')||!!document.getElementById('aaGuestProfileOverlay')};
 new MutationObserver(()=>{if(aaHomeOverlayOpen())aaPauseAllFeedVideos();else if(state.view==='home')aaInit360Feed()}).observe(document.body,{childList:true});
 const originalRender=render;
-render=function(){const feed=document.querySelector('#auto-arcade-widget .aa360-feed'),scroll=feed?.scrollTop||0;const playing=[...document.querySelectorAll('#auto-arcade-widget video.aa360-video')].map(v=>({id:identity(v),time:v.currentTime}));originalRender.apply(this,arguments);const next=document.querySelector('#auto-arcade-widget .aa360-feed');if(feed&&next)next.scrollTop=scroll;for(const saved of playing){if(!saved.id||!saved.time)continue;const host=[...document.querySelectorAll('#auto-arcade-widget [data-canon]')].find(x=>x.dataset.canon===key(saved.id.type,saved.id.id)),v=host?.querySelector('video.aa360-video');if(v){const restore=()=>{if(saved.time<v.duration)v.currentTime=saved.time};if(v.readyState>=1)restore();else v.addEventListener('loadedmetadata',restore,{once:true})}}clearTimeout(renderTimer);renderTimer=setTimeout(()=>{measure();patchStats()},0)};
+/* Preserve the active video's actual DOM node (not just its currentTime)
+   across render() - homeHTML() rebuilds the whole feed's innerHTML on
+   EVERY render() call, including ones triggered by a completely
+   unrelated item's own async author/media resolving (aaResolveMemberMeta/
+   aaTopicMediaUrl both call render() on their own once their fetch
+   completes) - not just by something the active post itself did. That
+   was destroying and recreating the active, already-buffering <video>
+   element on every such incidental re-render. A freshly created element
+   starts readyState back at 0 and has none of its dataset state, so
+   installBingoFirstVideoPriority's per-element "already prioritized"
+   guard (first.dataset.bingoStartupPriority) was reset every time too,
+   and its own "if(first.readyState<2) first.load()" branch kept firing
+   on the new element - repeatedly restarting a large video's buffering
+   from zero, which is why one could appear to never finish loading.
+   Detaching the live node before the rebuild and splicing it back into
+   its same position afterward (instead of letting it be torn down) keeps
+   its buffered ranges, readyState, playback position, and that priority
+   flag intact no matter how many renders happen around it. Scoped to the
+   active video and its immediate previous/next neighbors only - the
+   ones actually worth not re-buffering; everything further off-screen
+   still rebuilds normally via the existing currentTime-restore fallback
+   below, which stays in place unchanged for every other video. */
+render=function(){
+ const feed=document.querySelector('#auto-arcade-widget .aa360-feed'),scroll=feed?.scrollTop||0;
+ const preserved=[];
+ if(window.state&&state.view==='home'){
+  const active=document.querySelector('#auto-arcade-widget .aa360-feed .aa360-item.bingo-media-active');
+  const neighbors=[active,active&&active.previousElementSibling,active&&active.nextElementSibling].filter(Boolean);
+  for(const item of neighbors){
+   const host=item.closest&&item.closest('[data-canon]');
+   const v=item.querySelector&&item.querySelector('video.aa360-video');
+   if(v&&host&&host.dataset.canon){preserved.push({canon:host.dataset.canon,el:v});v.remove()}
+  }
+ }
+ const playing=[...document.querySelectorAll('#auto-arcade-widget video.aa360-video')].map(v=>({id:identity(v),time:v.currentTime}));
+ originalRender.apply(this,arguments);
+ const next=document.querySelector('#auto-arcade-widget .aa360-feed');if(feed&&next)next.scrollTop=scroll;
+ for(const p of preserved){
+  const newHost=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed [data-canon]')].find(x=>x.dataset.canon===p.canon);
+  const newVideo=newHost&&newHost.querySelector('video.aa360-video');
+  if(newVideo&&newVideo.parentNode)newVideo.replaceWith(p.el);
+ }
+ for(const saved of playing){if(!saved.id||!saved.time)continue;const host=[...document.querySelectorAll('#auto-arcade-widget [data-canon]')].find(x=>x.dataset.canon===key(saved.id.type,saved.id.id)),v=host?.querySelector('video.aa360-video');if(v){const restore=()=>{if(saved.time<v.duration)v.currentTime=saved.time};if(v.readyState>=1)restore();else v.addEventListener('loadedmetadata',restore,{once:true})}}
+ clearTimeout(renderTimer);renderTimer=setTimeout(()=>{measure();patchStats()},0);
+};
 const originalLoad=aaLoadVehicles;
 aaLoadVehicles=async function(){await originalLoad.apply(this,arguments);await Promise.allSettled([loadCategories(),aaLoadProperties(),aaLoadFoods()])};
 // Purge legacy sample and local-only public records. Unsaved forms remain drafts.
