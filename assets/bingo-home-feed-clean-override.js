@@ -208,3 +208,125 @@ run();
  new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
  window.addEventListener('pageshow',schedule);
 })();
+
+
+/* Bingo approved mobile Home surface — 2026-10-03 */
+(function installApprovedBingoMobileHome(){
+'use strict';
+if(window.__bingoApprovedMobileHome)return; window.__bingoApprovedMobileHome=true;
+const ICON={
+ speakerOn:'<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="white" d="M4 12v8h6l7 6V6l-7 6H4z"/><path d="M21 11c2.5 2.5 2.5 7.5 0 10M24 8c4.5 4.5 4.5 11.5 0 16" fill="none" stroke="#35b8ff" stroke-width="2.8" stroke-linecap="round"/></svg>',
+ speakerOff:'<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="white" d="M4 12v8h6l7 6V6l-7 6H4z"/><path d="M20 9l9 14" stroke="#ff4b55" stroke-width="3.2" stroke-linecap="round"/></svg>',
+ crown:'<svg viewBox="0 0 32 32"><path fill="#ffc928" d="M4 10l6 5 6-10 6 10 6-5-3 15H7z"/><path fill="none" stroke="#ffe47a" stroke-width="1.4" d="M7 25h18"/></svg>',
+ comment:'<svg viewBox="0 0 32 32"><path d="M5 6h22v16H14l-7 5v-5H5z" fill="none" stroke="white" stroke-width="2.4" stroke-linejoin="round"/><circle cx="11" cy="14" r="1.3" fill="white"/><circle cx="16" cy="14" r="1.3" fill="white"/><circle cx="21" cy="14" r="1.3" fill="white"/></svg>',
+ share:'<svg viewBox="0 0 32 32"><path d="M5 25c4-9 10-11 17-11V8l6 7-6 7v-5c-7 0-12 2-17 8z" fill="none" stroke="white" stroke-width="2.4" stroke-linejoin="round"/></svg>',
+ home:'<svg viewBox="0 0 32 32"><path d="M4 15L16 5l12 10v13h-9v-8h-6v8H4z" fill="currentColor"/></svg>',
+ live:'<svg viewBox="0 0 32 32"><rect x="5" y="8" width="17" height="16" rx="1" fill="none" stroke="currentColor" stroke-width="2.3"/><path d="M22 13l6-4v14l-6-4z" fill="currentColor"/></svg>',
+ market:'<svg viewBox="0 0 32 32"><path d="M5 12h22l-2-6H7zM7 14v13h18V14M12 27v-8h8v8" fill="none" stroke="currentColor" stroke-width="2.2"/></svg>',
+ messages:'<svg viewBox="0 0 32 32"><path d="M5 6h22v17H14l-7 5v-5H5z" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="11" cy="14" r="1.2" fill="currentColor"/><circle cx="16" cy="14" r="1.2" fill="currentColor"/><circle cx="21" cy="14" r="1.2" fill="currentColor"/></svg>'
+};
+const css=document.createElement('style');css.id='bingo-approved-mobile-home-css';css.textContent=`
+@media(max-width:820px){
+ html,body{width:100%;max-width:100%;overflow-x:hidden}
+ body.bingo-approved-home{background:#030713!important}
+ body.bingo-approved-home #auto-arcade-widget{width:100%!important;max-width:none!important;margin:0!important}
+ body.bingo-approved-home .aa360-shell,body.bingo-approved-home .aa360-feed{width:100%!important;max-width:none!important;margin:0!important}
+ body.bingo-approved-home .aa360-feed{height:100dvh!important;scroll-snap-type:y mandatory!important;overflow-y:auto!important}
+ body.bingo-approved-home .aa360-feed>article,body.bingo-approved-home .aa360-feed>[data-post-id],body.bingo-approved-home .aa360-feed>.aa360-item{min-height:100dvh!important;height:100dvh!important;scroll-snap-align:start!important;position:relative!important;background:#030713!important}
+ body.bingo-approved-home video.aa360-video{width:100%!important;height:100%!important;object-fit:cover!important;display:block!important}
+ .bingo-approved-top{position:fixed;z-index:2147482000;top:max(12px,env(safe-area-inset-top));left:14px;right:14px;height:48px;display:flex;align-items:center;pointer-events:none}
+ .bingo-approved-logo{font:900 28px/1 Arial,sans-serif;color:#ffc928;text-shadow:0 0 10px #f0a900;pointer-events:auto}
+ .bingo-approved-filters{position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:7px;pointer-events:auto}
+ .bingo-approved-filter{border:1px solid #48505e;background:#111722;color:#fff;border-radius:18px;padding:8px 13px;font:700 12px Arial}
+ .bingo-approved-filter.active{border-color:#ffc928;box-shadow:0 0 12px #ffc928;color:#fff}
+ .bingo-approved-speaker{position:absolute;right:0;border:0;background:transparent!important;padding:0;width:36px;height:36px;pointer-events:auto}
+ .bingo-approved-speaker svg{width:36px;height:36px;display:block}
+ .bingo-approved-actions{position:fixed;z-index:2147481900;right:12px;bottom:calc(96px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:center;gap:13px;color:#fff}
+ .bingo-approved-profile{position:relative;width:48px;height:48px}
+ .bingo-approved-profile img{width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #ffc928;display:block}
+ .bingo-approved-follow{position:absolute;right:-9px;bottom:3px;border:0;background:transparent;color:#fff;font:400 30px/1 Arial;padding:0;text-shadow:0 1px 3px #000;cursor:pointer}
+ .bingo-approved-action{display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:transparent;color:#fff;padding:0;font:800 12px Arial;min-width:46px}
+ .bingo-approved-action svg{width:34px;height:34px;display:block}
+ .bingo-approved-action .count{display:block;line-height:16px;min-height:16px}
+ .bingo-approved-more{font:900 24px/1 Arial;letter-spacing:2px}
+ .bingo-approved-meta{position:fixed;z-index:2147481800;left:14px;right:78px;bottom:calc(91px + env(safe-area-inset-bottom));color:#fff;text-shadow:0 1px 3px #000;pointer-events:none}
+ .bingo-approved-posted{display:flex;align-items:center;gap:7px;font:800 13px Arial;margin-bottom:5px}
+ .bingo-approved-posted img{width:28px;height:28px;border-radius:50%;object-fit:cover;border:1.5px solid #ffc928}
+ .bingo-approved-caption{font:500 12px/1.35 Arial;margin:0 0 7px;max-width:90%}
+ .bingo-approved-sound{display:inline-flex;align-items:center;gap:4px;font:600 9px/1.2 Arial;background:#0007;border-radius:8px;padding:3px 6px}
+ .bingo-approved-views{display:flex;align-items:center;gap:4px;font:600 9px/1.2 Arial;margin-top:3px}
+ .bingo-approved-nav{position:fixed;z-index:2147482100;left:0;right:0;bottom:0;height:calc(72px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:#05080d;display:grid;grid-template-columns:repeat(5,1fr);align-items:center;border-top:1px solid #151a22}
+ .bingo-approved-nav button{border:0;background:transparent;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:600 10px Arial;height:68px;padding:0}
+ .bingo-approved-nav button svg{width:25px;height:25px}
+ .bingo-approved-nav button.active{color:#ffc928}
+ .bingo-approved-nav .bingo-approved-create{font:300 40px/1 Arial;color:#fff}
+ body.bingo-approved-home .bingo-feed-clean-avatar{display:none!important}
+}
+`;document.head.appendChild(css);
+
+let soundOn=true,lastVideo=null;
+function home(){return !window.state||String(window.state.view||'home')==='home'}
+function firstVisibleVideo(){
+ const vs=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed video.aa360-video')];
+ return vs.find(v=>{const r=v.getBoundingClientRect();return r.bottom>innerHeight*.25&&r.top<innerHeight*.75})||vs[0]||null;
+}
+function clickExisting(words){
+ const els=[...document.querySelectorAll('button,a')].filter(e=>!e.closest('.bingo-approved-ui'));
+ const hit=els.find(e=>words.some(w=>(e.textContent||'').trim().toLowerCase().includes(w)));
+ if(hit){hit.click();return true}return false;
+}
+function numNear(words,fallback){
+ const els=[...document.querySelectorAll('button,a,span,div')].filter(e=>words.some(w=>(e.textContent||'').toLowerCase().includes(w)));
+ for(const e of els){const m=(e.textContent||'').match(/\b\d+(?:\.\d+)?[km]?\b/i);if(m)return m[0]}
+ return fallback;
+}
+function findAvatar(){
+ const imgs=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed img')].filter(i=>i.offsetWidth>0&&i.offsetHeight>0);
+ return imgs.find(i=>/profile|avatar|user/i.test((i.alt||'')+' '+(i.className||'')))||imgs.find(i=>i.naturalWidth&&i.naturalHeight)||null;
+}
+function findPoster(){
+ const txt=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed *')].map(e=>(e.textContent||'').trim()).find(t=>/^posted by /i.test(t));
+ return txt?txt.replace(/^posted by\s*/i,'').split('\n')[0].trim():'';
+}
+function ensureUI(){
+ if(!home()){document.body.classList.remove('bingo-approved-home');document.querySelectorAll('.bingo-approved-ui').forEach(x=>x.remove());return}
+ document.body.classList.add('bingo-approved-home');
+ if(document.querySelector('.bingo-approved-top'))return;
+ const top=document.createElement('div');top.className='bingo-approved-ui bingo-approved-top';
+ top.innerHTML='<div class="bingo-approved-logo">Bingo</div><div class="bingo-approved-filters"><button class="bingo-approved-filter active">All</button><button class="bingo-approved-filter">Following</button><button class="bingo-approved-filter">Nearby</button></div><button class="bingo-approved-speaker" aria-label="Sound on">'+ICON.speakerOn+'</button>';
+ document.body.appendChild(top);
+ top.querySelectorAll('.bingo-approved-filter').forEach(b=>b.onclick=()=>{top.querySelectorAll('.bingo-approved-filter').forEach(x=>x.classList.remove('active'));b.classList.add('active');if(b.textContent!=='All')clickExisting([b.textContent.toLowerCase()])});
+ top.querySelector('.bingo-approved-speaker').onclick=()=>{soundOn=!soundOn;const b=top.querySelector('.bingo-approved-speaker');b.innerHTML=soundOn?ICON.speakerOn:ICON.speakerOff;b.setAttribute('aria-label',soundOn?'Sound on':'Sound off');document.querySelectorAll('video').forEach(v=>v.muted=!soundOn);if(soundOn){const v=firstVisibleVideo();if(v)v.play().catch(()=>{})}};
+ const nav=document.createElement('nav');nav.className='bingo-approved-ui bingo-approved-nav';
+ nav.innerHTML='<button class="active" data-go="home">'+ICON.home+'<span>Home</span></button><button data-go="live">'+ICON.live+'<span>Live</span></button><button class="bingo-approved-create" data-go="post">+</button><button data-go="marketplace">'+ICON.market+'<span>Marketplace</span></button><button data-go="messages">'+ICON.messages+'<span>Messages</span></button>';
+ document.body.appendChild(nav);
+ nav.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>clickExisting([b.dataset.go,b.textContent.trim().toLowerCase()]));
+ const actions=document.createElement('aside');actions.className='bingo-approved-ui bingo-approved-actions';
+ actions.innerHTML='<div class="bingo-approved-profile"><img alt="Profile"><button class="bingo-approved-follow" aria-label="Add">+</button></div><button class="bingo-approved-action crown">'+ICON.crown+'<span class="count">0</span></button><button class="bingo-approved-action comments">'+ICON.comment+'<span class="count">0</span></button><button class="bingo-approved-action share">'+ICON.share+'<span class="count">0</span></button><button class="bingo-approved-action bingo-approved-more">•••</button>';
+ document.body.appendChild(actions);
+ actions.querySelector('.bingo-approved-follow').onclick=()=>clickExisting(['follow','add']);
+ actions.querySelector('.crown').onclick=()=>clickExisting(['crown']);
+ actions.querySelector('.comments').onclick=()=>clickExisting(['comment']);
+ actions.querySelector('.share').onclick=()=>clickExisting(['share']);
+ actions.querySelector('.bingo-approved-more').onclick=()=>clickExisting(['more','report']);
+ const meta=document.createElement('div');meta.className='bingo-approved-ui bingo-approved-meta';
+ meta.innerHTML='<div class="bingo-approved-posted"><img alt=""><span></span></div><p class="bingo-approved-caption"></p><div class="bingo-approved-sound">♫ Original Sound</div><div class="bingo-approved-views">◉ <span>0 views</span></div>';
+ document.body.appendChild(meta);
+ refresh();
+}
+function refresh(){
+ if(!home())return;
+ const a=findAvatar(),src=a&&a.src;
+ document.querySelectorAll('.bingo-approved-profile img,.bingo-approved-posted img').forEach(i=>{if(src)i.src=src});
+ const poster=findPoster();const ps=document.querySelector('.bingo-approved-posted span');if(ps)ps.textContent=poster?'Posted by '+poster:'Posted';
+ const ac=document.querySelector('.bingo-approved-actions');if(ac){ac.querySelector('.crown .count').textContent=numNear(['crown'],'0');ac.querySelector('.comments .count').textContent=numNear(['comment'],'0');ac.querySelector('.share .count').textContent=numNear(['share'],'0')}
+ const vv=document.querySelector('.bingo-approved-views span');if(vv)vv.textContent=numNear(['view'],'0')+' views';
+ const v=firstVisibleVideo();
+ if(v&&v!==lastVideo){lastVideo=v;v.playsInline=true;v.preload='auto';v.muted=!soundOn;try{v.load()}catch(e){};v.play().catch(()=>{v.muted=true;v.play().catch(()=>{})})}
+}
+let pending=false;function schedule(){if(pending)return;pending=true;setTimeout(()=>{pending=false;ensureUI();refresh()},120)}
+new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
+document.addEventListener('pointerdown',()=>{if(soundOn){const v=firstVisibleVideo();if(v){v.muted=false;v.play().catch(()=>{})}}},{passive:true});
+window.addEventListener('pageshow',schedule);window.addEventListener('resize',schedule);
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();
+})();
