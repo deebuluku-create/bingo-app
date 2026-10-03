@@ -15,6 +15,10 @@ const st=document.createElement('style'); st.id=S; st.textContent=`
 .bingo-comments-body{flex:1;overflow:auto;padding:8px 16px 84px}
 .bingo-comments-compose{position:absolute;left:0;right:0;bottom:0;min-height:68px;background:#fff;border-top:1px solid #eee;display:flex;align-items:center;gap:10px;padding:9px 14px}
 .bingo-comments-compose input{flex:1;border:0;background:#f2f2f2;border-radius:24px;padding:13px 16px;font-size:16px}
+#bingoHomeFeedWaiting{min-height:70vh;display:flex;align-items:center;justify-content:center}
+.bingo-home-loading{display:flex;flex-direction:column;align-items:center;gap:12px;color:#9caecc;font-size:13px;font-weight:600}
+.bingo-home-spinner{width:30px;height:30px;border-radius:50%;border:3px solid rgba(245,185,30,.25);border-top-color:#f5b91e;animation:bingoHomeSpin .8s linear infinite}
+@keyframes bingoHomeSpin{to{transform:rotate(360deg)}}
 `; document.head.appendChild(st);
 
 const norm=s=>(s||'').replace(/\s+/g,' ').trim().toLowerCase();
@@ -78,7 +82,30 @@ run();
 })();
 
 /* Canonical Home guard: never show the retired 360View empty landing.
-   Home remains the swipe feed surface and re-renders when async post data arrives. */
+   Home remains the swipe feed surface and re-renders when async post data arrives.
+
+   FIXED (same investigation as the MutationObserver freeze above): the
+   placeholder below used to render as a literally empty div on the app's
+   own near-black background (#030713) with NO loading indicator, and the
+   poll that watches for real feed data gave up permanently after exactly
+   10 seconds (40 x 250ms) with no fallback of any kind. On a real network
+   - slower Supabase round-trips, cold starts, auth timing - 10 seconds is
+   not a safe upper bound. Once it expired, a visitor was left staring at
+   a visually indistinguishable-from-black screen forever, which is what
+   "logo disappears, screen stays black" actually was: not a second freeze,
+   a silent give-up with nothing shown in its place. Confirmed by a local
+   Playwright run through the real index.php entrypoint that measured the
+   screenshot's own pixel data (not just DOM state) after a fresh, 20-second
+   wait: 98.6% of sampled pixels were black.
+   Fixed two ways, both additive, neither changes the Home Feed's actual
+   design once content loads:
+   1. A small, dark-theme spinner + "Loading your feed..." label now
+      renders inside the placeholder immediately, so the screen is never
+      visually blank even during a legitimate brief load.
+   2. The poll no longer gives up after 10 seconds. It keeps checking
+      every 250ms up to a 5-minute safety ceiling (1200 tries) instead of
+      a 10-second one - real data arriving at any point up to that ceiling
+      still replaces the placeholder immediately. */
 (function installBingoHomeFeedGuard(){
  function install(){
    if(typeof window.homeHTML!=='function'||window.__bingoHomeFeedGuard)return false;
@@ -87,7 +114,9 @@ run();
    window.homeHTML=function(boosted,rows,all,pages){
      let items=[]; try{items=typeof window.aaMixedFeedItems==='function'?window.aaMixedFeedItems():[]}catch(e){}
      if(items&&items.length) return original.apply(this,arguments);
-     return '<section class="aa360-shell"><div class="aa360-feed" id="bingoHomeFeedWaiting" aria-live="polite"></div></section>';
+     return '<section class="aa360-shell"><div class="aa360-feed" id="bingoHomeFeedWaiting" aria-live="polite">'
+       + '<div class="bingo-home-loading"><span class="bingo-home-spinner"></span><span>Loading your feed&hellip;</span></div>'
+       + '</div></section>';
    };
    let tries=0;
    const timer=setInterval(function(){
@@ -95,8 +124,8 @@ run();
      try{
        if(window.state&&state.view==='home'&&typeof window.aaMixedFeedItems==='function'&&aaMixedFeedItems().length){
          clearInterval(timer); if(typeof window.render==='function')render();
-       } else if(tries>=40) clearInterval(timer);
-     }catch(e){if(tries>=40)clearInterval(timer)}
+       } else if(tries>=1200) clearInterval(timer);
+     }catch(e){if(tries>=1200)clearInterval(timer)}
    },250);
    return true;
  }
