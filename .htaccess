@@ -1,1 +1,6 @@
 DirectoryIndex index.php BINGO_MASTER_CURRENT_VERIFIED.html
+<IfModule mod_headers.c>
+  <Files "index.php">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </Files>
+</IfModule>
