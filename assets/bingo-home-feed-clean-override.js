@@ -178,3 +178,33 @@ run();
  new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',clean,{once:true}); else clean();
 })();
+
+
+/* Startup media priority: once the canonical Home feed exists, give only the
+   first visible video eager buffering and immediately hand playback to the
+   app's existing aaInit360Feed controller. Off-screen 4K videos remain
+   metadata/lazy so they do not compete with the first frame for bandwidth. */
+(function installBingoFirstVideoPriority(){
+ let pending=false;
+ function prioritize(){
+  pending=false;
+  try{
+   if(String(window.state?.view||'home')!=='home')return;
+   const videos=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed video.aa360-video')];
+   if(!videos.length)return;
+   const first=videos[0];
+   videos.forEach((v,i)=>{v.preload=i===0?'auto':'metadata';v.playsInline=true;});
+   if(first.dataset.bingoStartupPriority==='1')return;
+   first.dataset.bingoStartupPriority='1';
+   if(first.readyState===0){try{first.load()}catch(e){}}
+   requestAnimationFrame(()=>{try{if(typeof window.aaInit360Feed==='function')window.aaInit360Feed()}catch(e){}});
+  }catch(e){}
+ }
+ function schedule(){
+  if(pending)return;pending=true;
+  setTimeout(prioritize,80);
+ }
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();
+ new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
+ window.addEventListener('pageshow',schedule);
+})();
