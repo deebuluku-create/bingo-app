@@ -8,7 +8,7 @@ if ($html === false) {
   echo 'Bingo is temporarily unavailable.';
   exit;
 }
-$addons = "\n<script src=\"/assets/bingo-performance-bootstrap.js?v=20261003a\" defer></script>\n"
+$addons = "\n<script src=\"/assets/bingo-performance-bootstrap.js?v=20261003b\" defer></script>\n"
         . "<script src=\"/assets/bingo-home-feed-clean-override.js?v=20261002e\" defer></script>\n"
         . "<script src=\"/assets/bingo-social-graph-addon.js?v=20261002e\" defer></script>\n";
 if (strpos($html, 'bingo-home-feed-clean-override.js') === false) {
