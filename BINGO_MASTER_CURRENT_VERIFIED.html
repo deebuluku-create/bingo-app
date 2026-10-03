@@ -14335,6 +14335,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
  // of the state.view-based bingo-form-open check above which cannot see
  // these (they are not tied to state.view).
  if(root)root.classList.toggle("bingo-modal-open",!!document.querySelector("#auto-arcade-widget .overlay"));
+ if(typeof aaLiveCommentStreamSync==="function")aaLiveCommentStreamSync();
 }
 function homeHTML(boosted,rows,all,pages){
  const videos=aaMixedFeedItems();
@@ -15478,6 +15479,60 @@ function aaCommentFmtPopoverHTML(topicId){
   </div>
   <div class="bingo-cfmt-row">${AA_COMMENT_FMT_COLORS.map(c=>`<button type="button" class="bingo-cfmt-dot ${f.color===c?'active':''}" style="background:${c}" aria-label="Color ${c}" onclick="aaCommentFmtSet(${id},'color',${esc(JSON.stringify(c))})"></button>`).join('')}</div>
  </div>`;
+}
+/* Live auto-sliding comment ticker ("🔴 LIVE" strip above the full
+   Comments list). Purely a cosmetic, ephemeral presentation layer - it
+   never writes to the database and never affects the real comment
+   count/list/sort/delete/reply below it, which keep working exactly as
+   before. Real comments ARE mirrored into it the moment they're
+   submitted (aaTopicComment calls aaLiveCommentStreamPush); the preset
+   "community" lines are local filler text only, clearly not persisted.
+   Mounted and ticked imperatively (appendChild/removeChild) rather than
+   through the normal render()-rebuilds-everything template string,
+   because render() fires often enough elsewhere in the app that a
+   template-rendered list of mid-animation items would be wiped out
+   constantly - exactly like the existing #bingo-feedback toast, this
+   is deliberately self-managed DOM. */
+const AA_LIVE_COMMENT_PRESETS=["This is amazing! 🔥","Love this!! ❤️","So good 😍","Where is this?? 📍","First time seeing this, wow","Kenyans we did it again 🇰🇪","This made my day","🙌🙌🙌","Can't stop watching this","Need more content like this!"];
+const AA_LIVE_PRESET_NAMES=["Mwangi K.","Faith A.","Brian O.","Amina S.","Kevin M.","Grace W.","Peter N.","Wanjiru T."];
+window.__bingoLiveStream=window.__bingoLiveStream||{};
+function aaLiveCommentStreamPush(topicId,name,text,fmtCSS){
+ const host=document.getElementById("liveStream_"+topicId);
+ if(!host||!text)return;
+ const item=document.createElement("div");
+ item.className="live-comment-item";
+ item.innerHTML=`<b style="${esc(fmtCSS||'')}">${esc(name)}</b><span style="${esc(fmtCSS||'')}">${esc(text)}</span>`;
+ item.addEventListener("animationend",()=>item.remove());
+ host.appendChild(item);
+ while(host.children.length>12)host.removeChild(host.firstChild);
+}
+function aaLiveCommentStreamEnsure(topicId){
+ const reg=window.__bingoLiveStream;
+ if(reg[topicId]&&reg[topicId].interval)return;
+ reg[topicId]={interval:setInterval(()=>{
+  if(!document.getElementById("liveStream_"+topicId)){aaLiveCommentStreamStop(topicId);return}
+  const name=AA_LIVE_PRESET_NAMES[Math.floor(Math.random()*AA_LIVE_PRESET_NAMES.length)];
+  const text=AA_LIVE_COMMENT_PRESETS[Math.floor(Math.random()*AA_LIVE_COMMENT_PRESETS.length)];
+  aaLiveCommentStreamPush(topicId,name,text,"");
+ },1500+Math.random()*500)};
+}
+function aaLiveCommentStreamStop(topicId){
+ const reg=window.__bingoLiveStream;
+ if(reg[topicId]&&reg[topicId].interval){clearInterval(reg[topicId].interval);reg[topicId].interval=null}
+}
+function aaLiveCommentStreamSync(){
+ const reg=window.__bingoLiveStream;
+ const activeId=(state.view==="topic-post"||state.view==="topics")?String(state.topicPostId||""):"";
+ Object.keys(reg).forEach(id=>{if(id!==activeId||!document.getElementById("liveStream_"+id))aaLiveCommentStreamStop(id)});
+ if(activeId&&document.getElementById("liveStream_"+activeId))aaLiveCommentStreamEnsure(activeId);
+ // On the Wall ("topics") view every visible post card has its own strip -
+ // start one per card actually in the DOM, not just the single-post view's.
+ if(state.view==="topics"){
+  document.querySelectorAll('[id^="liveStream_"]').forEach(el=>{
+   const tid=el.id.slice("liveStream_".length);
+   aaLiveCommentStreamEnsure(tid);
+  });
+ }
 }
 /* Signed URLs expire (createSignedUrl's ttl below) - caching the string
    forever would silently start serving a dead link once that ttl passes
@@ -17833,6 +17888,10 @@ async function aaTopicComment(id){
   state.commentFmtPopoverFor=null;
   const el=document.getElementById("topicComment_"+id);if(el)el.value="";
   render();
+  // Pushed only AFTER render(): render() rebuilds the whole live-stream
+  // container from the template (always empty), so appending before it
+  // would just be discarded immediately.
+  aaLiveCommentStreamPush(id,customName||aaOwnProfileName(),text,bingoCommentFmtCSS(commentFmt));
   return;
  }
  if(!sb||!state.user?.id)return;
@@ -17879,6 +17938,9 @@ async function aaTopicComment(id){
  state.commentFmtPopoverFor=null;
  const el=document.getElementById("topicComment_"+id);if(el)el.value="";
  toast("Comment submitted successfully.","success");
+ // toast() calls render() internally, which rebuilds the live-stream
+ // container from the (always-empty) template - push only after that.
+ aaLiveCommentStreamPush(id,customName||aaOwnProfileName(),text,bingoCommentFmtCSS(commentFmt));
 }
 async function aaDeleteTopicComment(topicId,commentId){
  if(state.testMode){
@@ -18674,6 +18736,7 @@ function aaTopicPostCardHTML(t){
  <button type="button" aria-pressed="${loved}" onclick="aaTopicLove(${id})">${AA_ICON_ACTION_SVG.heartOutline}<span>${loved?'Liked':'Like'}</span></button>
  <button type="button" onclick="aaFocusTopicComment(${id})">${AA_ICON_ACTION_SVG.comment}<span>Comment</span></button>
  <button type="button" onclick="aaTopicShare(${id})">${AA_ICON_ACTION_SVG.share}<span>Share</span></button></div>
+ <div class="live-comments-wrap"><span class="live-comments-badge">🔴 LIVE</span><div class="live-comments-stream" id="liveStream_${esc(t.id)}" aria-live="polite" aria-label="Live comments"></div></div>
  ${comments.length?`<div class="bingo-comments-heading"><b>Comments (${comments.length})</b><select aria-label="Sort comments" onchange="aaTopicSetCommentView(${id},'sort',this.value)"><option value="top" ${commentView.sort==='top'?'selected':''}>Top liked</option><option value="newest" ${commentView.sort==='newest'?'selected':''}>Newest</option></select></div>`:''}
  ${visibleComments.map(c=>{
   const cIsAuthor=String(c.authorId||"")===String(t.authorId||"");
@@ -29112,6 +29175,17 @@ window.Bingo50Style={open,apply,fonts:F,colors:C};
 #auto-arcade-widget .bingo-cfmt-style-btn.active{border-color:#22c9ff;background:#133357;color:#22c9ff}
 #auto-arcade-widget .bingo-cfmt-dot{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
 #auto-arcade-widget .bingo-cfmt-dot.active{border-color:#fff;transform:scale(1.15)}
+#auto-arcade-widget .live-comments-wrap{position:relative;margin:14px 0 2px}
+#auto-arcade-widget .live-comments-badge{position:absolute;top:0;left:0;z-index:2;background:#1a0a0e;color:#ff4d6d;border:0;border-radius:10px;padding:2px 8px;font:800 10px system-ui;letter-spacing:.04em}
+#auto-arcade-widget .live-comments-stream{position:relative;height:132px;overflow:hidden;padding:22px 0 0;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;pointer-events:none;mask-image:linear-gradient(to bottom, transparent 0%, black 22%, black 85%, transparent 100%);-webkit-mask-image:linear-gradient(to bottom, transparent 0%, black 22%, black 85%, transparent 100%)}
+#auto-arcade-widget .live-comment-item{display:flex;gap:6px;align-items:baseline;font-size:13px;line-height:1.35;color:#f5f7ff;animation:slideUpFade 2.8s ease-out forwards}
+#auto-arcade-widget .live-comment-item b{color:#ffc928;font-weight:800;flex-shrink:0}
+@keyframes slideUpFade{
+ 0%{transform:translateY(30px);opacity:0}
+ 15%{transform:translateY(0);opacity:1}
+ 78%{transform:translateY(0);opacity:1}
+ 100%{transform:translateY(-30px);opacity:0}
+}
 </style>
 <script id="bingo-integrated-sounds-script">
 /* Bingo reusable sounds: real Supabase records; no demo identities or local-only attribution. */
