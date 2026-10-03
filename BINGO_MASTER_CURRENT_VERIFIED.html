@@ -15480,57 +15480,160 @@ function aaCommentFmtPopoverHTML(topicId){
   <div class="bingo-cfmt-row">${AA_COMMENT_FMT_COLORS.map(c=>`<button type="button" class="bingo-cfmt-dot ${f.color===c?'active':''}" style="background:${c}" aria-label="Color ${c}" onclick="aaCommentFmtSet(${id},'color',${esc(JSON.stringify(c))})"></button>`).join('')}</div>
  </div>`;
 }
-/* Live auto-sliding comment ticker ("🔴 LIVE" strip above the full
-   Comments list). Purely a cosmetic, ephemeral presentation layer - it
-   never writes to the database and never affects the real comment
-   count/list/sort/delete/reply below it, which keep working exactly as
-   before. Real comments ARE mirrored into it the moment they're
-   submitted (aaTopicComment calls aaLiveCommentStreamPush); the preset
-   "community" lines are local filler text only, clearly not persisted.
-   Mounted and ticked imperatively (appendChild/removeChild) rather than
-   through the normal render()-rebuilds-everything template string,
-   because render() fires often enough elsewhere in the app that a
-   template-rendered list of mid-animation items would be wiped out
-   constantly - exactly like the existing #bingo-feedback toast, this
-   is deliberately self-managed DOM. */
-const AA_LIVE_COMMENT_PRESETS=["This is amazing! 🔥","Love this!! ❤️","So good 😍","Where is this?? 📍","First time seeing this, wow","Kenyans we did it again 🇰🇪","This made my day","🙌🙌🙌","Can't stop watching this","Need more content like this!"];
-const AA_LIVE_PRESET_NAMES=["Mwangi K.","Faith A.","Brian O.","Amina S.","Kevin M.","Grace W.","Peter N.","Wanjiru T."];
-window.__bingoLiveStream=window.__bingoLiveStream||{};
-function aaLiveCommentStreamPush(topicId,name,text,fmtCSS){
+/* Live circular comment rotation ("🔴 LIVE" strip above the full
+   Comments list). Cycles endlessly through a post's REAL, already-stored
+   comments (A->B->C->D->A->B->C->D...) - it NEVER manufactures filler
+   text. Replaying an already-seen comment is purely a visual replay: the
+   real comment count always comes straight from aaTopicCommentsFor(t)
+   .length wherever it's rendered (bingo-comments-heading /
+   bingo-topic-summary), so a replay can never inflate or deflate it.
+   A genuinely NEW stored comment is pushed into the queue once, by its
+   real id (deduping against anything already seen - including a future
+   Supabase realtime echo of the same insert, via aaLiveReceiveReal
+   below), and plays immediately rather than waiting for its turn.
+   Visibility is driven by a single shared IntersectionObserver per post
+   card (not one permanent timer per post): rotation starts only while a
+   card is actually on screen (>=35% visible) and stops the instant it
+   scrolls away, so there is never a running timer for an off-screen
+   post. Mounted and ticked imperatively (appendChild/removeChild)
+   rather than through the normal render()-rebuilds-everything template
+   string, for the same reason the existing #bingo-feedback toast is
+   self-managed DOM: render() fires often enough elsewhere in the app
+   that template-rendered mid-animation items would be wiped out
+   constantly. */
+window.__bingoLive=window.__bingoLive||{states:{},observer:null,observed:new WeakSet(),observedList:[]};
+function aaLiveState(topicId){
+ const reg=window.__bingoLive.states;
+ if(!reg[topicId])reg[topicId]={queue:[],cursor:0,seen:new Set(),timer:null,active:false,seededOnce:false};
+ return reg[topicId];
+}
+function aaLiveSeedQueue(topicId,t){
+ const st=aaLiveState(topicId);
+ // Only comments discovered AFTER the very first seed pass are flashed
+ // immediately (genuinely new activity on a post already being watched).
+ // The initial pass queues everything silently so a post that already
+ // has several comments doesn't burst them all out at once the moment it
+ // scrolls into view - they reveal gradually through the normal interval
+ // instead, same as any other entry in the rotation.
+ const firstPass=!st.seededOnce;
+ aaTopicCommentsFor(t).forEach(c=>{
+  const cid=String(c.id);
+  if(st.seen.has(cid))return;
+  st.seen.add(cid);
+  st.queue.push(c);
+  if(!firstPass&&document.getElementById("liveStream_"+topicId))aaLiveInject(topicId,c);
+ });
+ st.seededOnce=true;
+}
+function aaLiveInject(topicId,c){
  const host=document.getElementById("liveStream_"+topicId);
- if(!host||!text)return;
+ if(!host||!c)return;
+ const name=c.customName||c.authorName||"Bingo Member";
+ const text=String(c.text||"");
+ if(!text)return;
+ const fmtCSS=bingoCommentFmtCSS(c.commentFmt)||"";
  const item=document.createElement("div");
- item.className="live-comment-item";
- item.innerHTML=`<b style="${esc(fmtCSS||'')}">${esc(name)}</b><span style="${esc(fmtCSS||'')}">${esc(text)}</span>`;
- item.addEventListener("animationend",()=>item.remove());
+ item.className="live-stream-item";
+ item.innerHTML=`<div class="live-avatar">${esc((name.charAt(0)||"B").toUpperCase())}</div><div class="live-copy"><div class="live-name" style="${esc(fmtCSS)}">${esc(name)}</div><div class="live-text" style="${esc(fmtCSS)}">${esc(text)}</div></div>`;
+ item.addEventListener("animationend",()=>item.remove(),{once:true});
  host.appendChild(item);
- while(host.children.length>12)host.removeChild(host.firstChild);
+ // Temporary animated nodes only - never touches st.queue/the real data.
+ while(host.children.length>8)host.removeChild(host.firstChild);
 }
-function aaLiveCommentStreamEnsure(topicId){
- const reg=window.__bingoLiveStream;
- if(reg[topicId]&&reg[topicId].interval)return;
- reg[topicId]={interval:setInterval(()=>{
-  if(!document.getElementById("liveStream_"+topicId)){aaLiveCommentStreamStop(topicId);return}
-  const name=AA_LIVE_PRESET_NAMES[Math.floor(Math.random()*AA_LIVE_PRESET_NAMES.length)];
-  const text=AA_LIVE_COMMENT_PRESETS[Math.floor(Math.random()*AA_LIVE_COMMENT_PRESETS.length)];
-  aaLiveCommentStreamPush(topicId,name,text,"");
- },1500+Math.random()*500)};
+function aaLiveEmitNext(topicId){
+ const st=aaLiveState(topicId);
+ if(!st.active||!st.queue.length)return;
+ const c=st.queue[st.cursor%st.queue.length];
+ st.cursor=(st.cursor+1)%st.queue.length;
+ aaLiveInject(topicId,c);
 }
-function aaLiveCommentStreamStop(topicId){
- const reg=window.__bingoLiveStream;
- if(reg[topicId]&&reg[topicId].interval){clearInterval(reg[topicId].interval);reg[topicId].interval=null}
+function aaLiveStart(topicId){
+ const st=aaLiveState(topicId);
+ if(st.active)return;
+ st.active=true;
+ aaLiveEmitNext(topicId);
+ // 1.65s stagger + the CSS travel duration below => several comments
+ // visibly in flight at once, never waiting for one to finish first.
+ st.timer=setInterval(()=>aaLiveEmitNext(topicId),1650);
+}
+function aaLiveStop(topicId){
+ const st=aaLiveState(topicId);
+ st.active=false;
+ if(st.timer){clearInterval(st.timer);st.timer=null}
+ // Queue/seen/cursor deliberately survive a stop - only the ticking pauses.
+}
+function aaLivePushReal(topicId,c){
+ const st=aaLiveState(topicId);
+ const cid=String(c?.id||"");
+ if(!cid||st.seen.has(cid))return false;
+ st.seen.add(cid);
+ st.queue.splice(st.cursor,0,c);
+ // Inject immediately whenever this post's strip is actually in the DOM,
+ // rather than gating on st.active: a comment can only be submitted from
+ // a composer that's part of THIS currently-rendered card, so the card is
+ // on screen right now even if the IntersectionObserver's callback for a
+ // just-recreated card element (e.g. from a format-toggle re-render a
+ // moment earlier) hasn't landed yet and st.active is momentarily stale.
+ if(document.getElementById("liveStream_"+topicId))aaLiveInject(topicId,c);
+ return true;
+}
+// Bridge for a future/existing Supabase realtime INSERT handler on
+// bingo_topic_comments - dedupes by real row id against whatever this
+// tab already added locally, so the same comment is never double-counted
+// or double-queued. Does not itself open any realtime subscription.
+window.aaLiveReceiveReal=function(topicId,dbComment){
+ if(!dbComment)return false;
+ return aaLivePushReal(String(topicId),{
+  id:dbComment.id,
+  authorName:dbComment.authorName||dbComment.author_name||"Bingo Member",
+  customName:dbComment.custom_name||dbComment.customName||"",
+  commentFmt:dbComment.fmt||dbComment.commentFmt||null,
+  text:dbComment.body||dbComment.text||""
+ });
+};
+function aaLiveObserver(){
+ const reg=window.__bingoLive;
+ if(reg.observer)return reg.observer;
+ reg.observer=new IntersectionObserver(entries=>{
+  entries.forEach(entry=>{
+   const topicId=entry.target.dataset.liveTopic;
+   if(!topicId)return;
+   if(entry.isIntersecting&&entry.intersectionRatio>=0.35)aaLiveStart(topicId);
+   else aaLiveStop(topicId);
+  });
+ },{threshold:[0,.35,.6,1]});
+ return reg.observer;
 }
 function aaLiveCommentStreamSync(){
- const reg=window.__bingoLiveStream;
- const activeId=(state.view==="topic-post"||state.view==="topics")?String(state.topicPostId||""):"";
- Object.keys(reg).forEach(id=>{if(id!==activeId||!document.getElementById("liveStream_"+id))aaLiveCommentStreamStop(id)});
- if(activeId&&document.getElementById("liveStream_"+activeId))aaLiveCommentStreamEnsure(activeId);
- // On the Wall ("topics") view every visible post card has its own strip -
- // start one per card actually in the DOM, not just the single-post view's.
- if(state.view==="topics"){
-  document.querySelectorAll('[id^="liveStream_"]').forEach(el=>{
-   const tid=el.id.slice("liveStream_".length);
-   aaLiveCommentStreamEnsure(tid);
+ const reg=window.__bingoLive;
+ const observer=aaLiveObserver();
+ const nodes=document.querySelectorAll('[id^="liveStream_"]');
+ const presentIds=new Set();
+ nodes.forEach(host=>{
+  const topicId=host.id.slice("liveStream_".length);
+  presentIds.add(topicId);
+  const t=aaTopics().find(x=>String(x.id)===String(topicId));
+  if(t)aaLiveSeedQueue(topicId,t);
+  const card=host.closest('[data-canon^="topic:"]')||host;
+  if(!reg.observed.has(card)){
+   card.dataset.liveTopic=topicId;
+   observer.observe(card);
+   reg.observed.add(card);
+   reg.observedList.push(card);
+  }
+ });
+ // A topic whose strip left the DOM this render (scrolled out and
+ // rebuilt, or navigated away from) - stop its ticking; its queue/seen
+ // ids are kept so re-entering the viewport resumes the same rotation
+ // rather than restarting it from scratch.
+ Object.keys(reg.states).forEach(id=>{if(!presentIds.has(id))aaLiveStop(id)});
+ // Housekeeping only - drop bookkeeping for nodes render() has since
+ // discarded, so this list doesn't grow forever across renders.
+ if(reg.observedList.length>200){
+  reg.observedList=reg.observedList.filter(card=>{
+   const keep=card.isConnected;
+   if(!keep)observer.unobserve(card);
+   return keep;
   });
  }
 }
@@ -17882,7 +17985,8 @@ async function aaTopicComment(id){
   if(!t)return;
   t.comments=t.comments||[];
   const isVideo=!!(file&&/^video\//.test(file.type||''));
-  t.comments.push({id:"c_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),authorId:state.user?.id||"",authorName:aaOwnProfileName(),authorPhoto:state.user?.photo_url||"",style:(state.topicDraft?.style)||"Standard",customName,commentFmt,text,mediaUrl:file?aaCommentMediaObjectUrl(file):"",mediaType:file?(isVideo?"video":"image"):"",likes:0,likedBy:[],createdAt:new Date().toISOString()});
+  const newComment={id:"c_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),authorId:state.user?.id||"",authorName:aaOwnProfileName(),authorPhoto:state.user?.photo_url||"",style:(state.topicDraft?.style)||"Standard",customName,commentFmt,text,mediaUrl:file?aaCommentMediaObjectUrl(file):"",mediaType:file?(isVideo?"video":"image"):"",likes:0,likedBy:[],createdAt:new Date().toISOString()};
+  t.comments.push(newComment);
   aaV69Write("aa_bingo_topics",list);
   aaCommentDraftText[id]="";delete aaCommentMediaFiles[id];delete aaCommentDraftName[id];delete aaCommentDraftFmt[id];
   state.commentFmtPopoverFor=null;
@@ -17890,8 +17994,10 @@ async function aaTopicComment(id){
   render();
   // Pushed only AFTER render(): render() rebuilds the whole live-stream
   // container from the template (always empty), so appending before it
-  // would just be discarded immediately.
-  aaLiveCommentStreamPush(id,customName||aaOwnProfileName(),text,bingoCommentFmtCSS(commentFmt));
+  // would just be discarded immediately. Uses the comment's REAL id so
+  // it dedupes correctly against the rotation's seed pass on the next
+  // render (aaLiveSeedQueue would otherwise see the same id again).
+  aaLivePushReal(id,{id:newComment.id,authorName:newComment.authorName,customName,commentFmt,text});
   return;
  }
  if(!sb||!state.user?.id)return;
@@ -17930,7 +18036,8 @@ async function aaTopicComment(id){
   toast('Could not post comment: '+String(error.message||error));
   return;
  }
- state.wallComments=[...(state.wallComments||[]),data||{...row,created_at:new Date().toISOString()}];
+ const storedRow=data||{...row,id:"pending_"+Date.now(),created_at:new Date().toISOString()};
+ state.wallComments=[...(state.wallComments||[]),storedRow];
  aaCommentDraftText[id]="";
  const sentFile=aaCommentMediaFiles[id];
  if(sentFile&&aaCommentMediaUrlCache.has(sentFile)){URL.revokeObjectURL(aaCommentMediaUrlCache.get(sentFile));aaCommentMediaUrlCache.delete(sentFile)}
@@ -17940,7 +18047,10 @@ async function aaTopicComment(id){
  toast("Comment submitted successfully.","success");
  // toast() calls render() internally, which rebuilds the live-stream
  // container from the (always-empty) template - push only after that.
- aaLiveCommentStreamPush(id,customName||aaOwnProfileName(),text,bingoCommentFmtCSS(commentFmt));
+ // Uses the real DB-assigned id so a later Supabase realtime echo of
+ // this same insert (if/when one exists) dedupes correctly instead of
+ // appearing as a second copy of the same comment.
+ aaLivePushReal(id,{id:storedRow.id,authorName:aaOwnProfileName(),customName,commentFmt,text});
 }
 async function aaDeleteTopicComment(topicId,commentId){
  if(state.testMode){
@@ -18736,7 +18846,8 @@ function aaTopicPostCardHTML(t){
  <button type="button" aria-pressed="${loved}" onclick="aaTopicLove(${id})">${AA_ICON_ACTION_SVG.heartOutline}<span>${loved?'Liked':'Like'}</span></button>
  <button type="button" onclick="aaFocusTopicComment(${id})">${AA_ICON_ACTION_SVG.comment}<span>Comment</span></button>
  <button type="button" onclick="aaTopicShare(${id})">${AA_ICON_ACTION_SVG.share}<span>Share</span></button></div>
- <div class="live-comments-wrap"><span class="live-comments-badge">🔴 LIVE</span><div class="live-comments-stream" id="liveStream_${esc(t.id)}" aria-live="polite" aria-label="Live comments"></div></div>
+ <div class="live-comments-heading"><span class="live-dot"></span> Live comments</div>
+ <div class="live-comments-stream" id="liveStream_${esc(t.id)}" aria-live="polite" aria-label="Live rotating comments"></div>
  ${comments.length?`<div class="bingo-comments-heading"><b>Comments (${comments.length})</b><select aria-label="Sort comments" onchange="aaTopicSetCommentView(${id},'sort',this.value)"><option value="top" ${commentView.sort==='top'?'selected':''}>Top liked</option><option value="newest" ${commentView.sort==='newest'?'selected':''}>Newest</option></select></div>`:''}
  ${visibleComments.map(c=>{
   const cIsAuthor=String(c.authorId||"")===String(t.authorId||"");
@@ -29175,17 +29286,23 @@ window.Bingo50Style={open,apply,fonts:F,colors:C};
 #auto-arcade-widget .bingo-cfmt-style-btn.active{border-color:#22c9ff;background:#133357;color:#22c9ff}
 #auto-arcade-widget .bingo-cfmt-dot{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
 #auto-arcade-widget .bingo-cfmt-dot.active{border-color:#fff;transform:scale(1.15)}
-#auto-arcade-widget .live-comments-wrap{position:relative;margin:14px 0 2px}
-#auto-arcade-widget .live-comments-badge{position:absolute;top:0;left:0;z-index:2;background:#1a0a0e;color:#ff4d6d;border:0;border-radius:10px;padding:2px 8px;font:800 10px system-ui;letter-spacing:.04em}
-#auto-arcade-widget .live-comments-stream{position:relative;height:132px;overflow:hidden;padding:22px 0 0;display:flex;flex-direction:column;justify-content:flex-end;gap:7px;pointer-events:none;mask-image:linear-gradient(to bottom, transparent 0%, black 22%, black 85%, transparent 100%);-webkit-mask-image:linear-gradient(to bottom, transparent 0%, black 22%, black 85%, transparent 100%)}
-#auto-arcade-widget .live-comment-item{display:flex;gap:6px;align-items:baseline;font-size:13px;line-height:1.35;color:#f5f7ff;animation:slideUpFade 2.8s ease-out forwards}
-#auto-arcade-widget .live-comment-item b{color:#ffc928;font-weight:800;flex-shrink:0}
+#auto-arcade-widget .live-comments-heading{display:flex;align-items:center;gap:8px;margin:14px 0 4px;font:900 12px system-ui;letter-spacing:.12em;text-transform:uppercase;color:#ff4d6d}
+#auto-arcade-widget .live-dot{width:8px;height:8px;border-radius:50%;background:#ff0a52;box-shadow:0 0 12px #ff0a52;animation:livePulse 1.15s infinite}
+@keyframes livePulse{50%{opacity:.35;transform:scale(.72)}}
+#auto-arcade-widget .live-comments-stream{position:relative;height:150px;overflow:hidden;margin:2px 0 10px;padding:18px 0;pointer-events:none;mask-image:linear-gradient(to bottom,transparent 0,#000 18%,#000 82%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 18%,#000 82%,transparent 100%)}
+#auto-arcade-widget .live-stream-item{position:absolute;left:0;right:0;bottom:8px;display:flex;gap:8px;align-items:flex-start;padding:5px 0;border:0;background:transparent;animation:slideUpFade 8s linear forwards;will-change:transform,opacity}
+#auto-arcade-widget .live-stream-item .live-avatar{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;background:#132947;color:#ffc928;font-weight:900;font-size:12px}
+#auto-arcade-widget .live-stream-item .live-copy{min-width:0}
+#auto-arcade-widget .live-stream-item .live-name{font-size:12px;font-weight:800;color:#f5f7ff}
+#auto-arcade-widget .live-stream-item .live-text{font-size:13px;line-height:1.3;color:#c7d3e8;margin-top:1px}
 @keyframes slideUpFade{
  0%{transform:translateY(30px);opacity:0}
- 15%{transform:translateY(0);opacity:1}
- 78%{transform:translateY(0);opacity:1}
- 100%{transform:translateY(-30px);opacity:0}
+ 10%{transform:translateY(0);opacity:1}
+ 58%{transform:translateY(-58px);opacity:1}
+ 84%{transform:translateY(-96px);opacity:.78}
+ 100%{transform:translateY(-136px);opacity:0}
 }
+@media(max-width:480px){#auto-arcade-widget .live-comments-stream{height:130px}}
 </style>
 <script id="bingo-integrated-sounds-script">
 /* Bingo reusable sounds: real Supabase records; no demo identities or local-only attribution. */
