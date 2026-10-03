@@ -56,7 +56,7 @@ if ($head_pos !== false && strpos($html, 'bingo-startup-hard-guard') === false) 
 }
 
 $addons = "\n<script src=\"/assets/bingo-performance-bootstrap.js?v=20261003c\" defer></script>\n"
-        . "<script src=\"/assets/bingo-home-feed-clean-override.js?v=20261003f\" defer></script>\n"
+        . "<script src=\"/assets/bingo-home-feed-clean-override.js?v=20261003g\" defer></script>\n"
         . "<script src=\"/assets/bingo-social-graph-addon.js?v=20261002e\" defer></script>\n";
 if (strpos($html, 'bingo-home-feed-clean-override.js') === false) {
   $pos = strripos($html, '</body>');
