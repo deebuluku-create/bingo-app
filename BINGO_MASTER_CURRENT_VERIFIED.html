@@ -14872,7 +14872,7 @@ function aaProfileDestyBadgesHTML(own,sellerKey,sellerName){
  const list=own?AA_DESTY_BADGES_OWNER:AA_DESTY_BADGES_VISITOR;
  return `<div class="aa-desty-badges">${list.map(b=>`<button type="button" class="aa-desty-badge" onclick="aaProfileDestyBadgeClick('${b.key}',${JSON.stringify(sellerKey)},${JSON.stringify(sellerName||"")})"><span class="aa-desty-badge-icon">${b.icon}</span><span>${esc(b.label)}</span></button>`).join("")}</div>`;
 }
-const AA_BP_OWNER_ONLY_DRAWERS=["saved","helpsell","trash","rewards","promote","analytics"];
+const AA_BP_OWNER_ONLY_DRAWERS=["saved","helpsell","trash","rewards","promote","analytics","crown-agent"];
 function aaProfileDestyDrawerHTML(sellerKey){
  const key=state.profileDrawer;
  if(!key)return "";
@@ -14880,7 +14880,7 @@ function aaProfileDestyDrawerHTML(sellerKey){
     when that user is viewing their own profile (auth id === profile id). */
  const me=String(state.user?.id||"");
  if(AA_BP_OWNER_ONLY_DRAWERS.includes(key)&&!(state.isLoggedIn&&me&&String(sellerKey||"")===me))return "";
- const titles={friends:"Followers & Following",saved:"Saved Items",helpsell:"Help Sell",trash:"Deleted Items · 30-day recovery",rewards:"Gold Rewards",promote:"Promotions",analytics:"Insights",reviews:"Ratings & Reviews"};
+ const titles={friends:"Followers & Following",saved:"Saved Items",helpsell:"Help Sell",trash:"Deleted Items · 30-day recovery",rewards:"Gold Rewards",promote:"Promotions",analytics:"Insights",reviews:"Ratings & Reviews","crown-agent":"My Crown Agent Dashboard"};
  const bodies={
   friends:()=>aaProfileFriendsDrawerHTML(sellerKey),
   saved:()=>aaProfileSavedItemsHTML(),
@@ -14889,7 +14889,8 @@ function aaProfileDestyDrawerHTML(sellerKey){
   rewards:()=>aaProfileRewardsDrawerHTML(),
   promote:()=>aaProfilePromoteDrawerHTML(sellerKey),
   analytics:()=>aaProfileAnalyticsDrawerHTML(),
-  reviews:()=>state.__bpReviewsHTML||""
+  reviews:()=>state.__bpReviewsHTML||"",
+  "crown-agent":()=>aaCreatorCrownAgentDashboardHTML()
  };
  const body=(bodies[key]||(()=>""))();
  if(!body&&!titles[key])return "";
@@ -15004,6 +15005,7 @@ function aaBpMenuGroups(){
    {icon:"☆",label:"Saved",run:go("saved")},
    {icon:"🗑",label:"Trash",run:go("trash"),note:"30-day recovery"}]},
   {title:"Account",items:[
+   {icon:"👑",label:"My Crown Agent Dashboard",run:go("crown-agent"),note:"Creator monetization"},
    agent?{icon:"💰",label:"Wallet & Earnings",run:"aaSwitchToAgent()",note:"Agent earnings"}:{icon:"💰",label:"Wallet & Earnings",na:"No wallet exists yet"},
    {icon:"▣",label:"QR Code",na:"Profile QR codes are not built yet"},
    {icon:"⚙",label:"Settings",na:"No settings screen yet - use Edit Profile"},
@@ -15018,7 +15020,7 @@ function aaBpMenuGo(key){
  if(!(state.view==="seller"&&state.seller&&aaIsOwnSeller(state.seller)))goAccount();
  if(key==="posts"||key==="reels"){aaBpSetTab(key);aaBpScrollToTabs();return}
  if(key==="friends"){aaBpOpenPeople(String(state.user?.id||""),"followers");return}
- if(["saved","analytics","promote","helpsell","trash","rewards"].includes(key)){state.profileDrawer=null;aaProfileDrawerOpen(key);return}
+ if(["saved","analytics","promote","helpsell","trash","rewards","crown-agent"].includes(key)){state.profileDrawer=null;aaProfileDrawerOpen(key);return}
  render();
 }
 function aaBpToggleMenu(open){
@@ -19801,6 +19803,128 @@ function aaCrownBadgeHTML(userId,size){
  if(!status)return "";
  const px=size==="full"?"20px":"13px";
  return `<span class="aa-crown-badge" title="Bingo Crown - recognised for sustained genuine engagement" style="display:inline-block;font-size:${px};line-height:1;vertical-align:middle;margin-left:3px">👑</span>`;
+}
+/* ============================================================
+   Private Creator Crown Agent Dashboard (monetization).
+   Entirely separate from the badge above (profiles.crown_status) and from
+   the single untiered "Crown" reaction button elsewhere (aaTopicLove,
+   relabeled Crown on the compact feed card only) - this is the real,
+   tiered, money-bearing Gold/Silver/Bronze Crown-gift system backed by
+   supabase/migrations/20261003_bingo_creator_crown_monetization_REVIEW_
+   NOT_APPLIED.sql (not yet applied to any live project). Every number
+   shown here comes from that backend; nothing is computed client-side as
+   the source of truth, and nothing is fabricated when sb/testMode has no
+   real data - the safe default below is all zeros, never invented
+   earnings.
+   ============================================================ */
+const AA_CREATOR_WITHDRAWAL_MINIMUM=5000;
+function aaCreatorDashboardDefault(){
+ return {monetization_enabled:false,withdrawable_balance:0,withdrawal_minimum:AA_CREATOR_WITHDRAWAL_MINIMUM,withdrawal_eligible:false,pending_withdrawal:0,competition_pool:0,competition_pool_settled:false,cycle_start:null,cycle_end:null,gold_count:0,silver_count:0,bronze_count:0,gold_total:0,silver_total:0,bronze_total:0,gold_rate:200,silver_rate:80,bronze_rate:40};
+}
+async function aaCreatorDashboardLoad(){
+ if(!state.isLoggedIn||!sb||state.testMode){state.creatorDashboard=state.testMode?aaCreatorDashboardDefault():null;render();return state.creatorDashboard}
+ const {data,error}=await sb.rpc("bingo_creator_dashboard");
+ if(error){console.warn("Bingo Crown Agent dashboard failed to load.",String(error?.message||error));state.creatorDashboard=null;render();return null}
+ state.creatorDashboard=data||aaCreatorDashboardDefault();
+ render();
+ return state.creatorDashboard;
+}
+async function aaCreatorSetMonetization(enabled){
+ if(!state.isLoggedIn){openAuth("login");return}
+ if(!sb){toast(enabled?"Monetization needs a live connection - not available in this preview.":"");return}
+ const {error}=await sb.rpc("bingo_creator_set_monetization",{p_enabled:enabled});
+ if(error){toast("Could not update monetization: "+String(error.message||error));return}
+ toast(enabled?"Monetization turned on. Your Crown Agent Dashboard is now active.":"Monetization turned off.","success");
+ await aaCreatorDashboardLoad();
+ render();
+}
+async function aaCreatorRequestWithdrawal(phone){
+ if(!sb){toast("Withdrawal needs a live connection - not available in this preview.");return}
+ const clean=String(phone||"").replace(/\D/g,"");
+ const normalized=clean.startsWith("254")?clean:clean.startsWith("0")?"254"+clean.slice(1):clean.startsWith("7")||clean.startsWith("1")?"254"+clean:clean;
+ if(!/^254[17][0-9]{8}$/.test(normalized)){toast("Enter a valid Safaricom M-Pesa number, e.g. 2547XXXXXXXX.");return}
+ const {error}=await sb.rpc("bingo_creator_request_withdrawal",{p_phone:normalized});
+ if(error){toast("Withdrawal request failed: "+String(error.message||error));return}
+ toast("Withdrawal request submitted for review. You will be paid via M-Pesa once an administrator confirms it.","success");
+ state.creatorWithdrawPhone="";
+ await aaCreatorDashboardLoad();
+ render();
+}
+/* Super user / developer-only test tools - never reachable by an
+   ordinary creator (no button renders unless aaIsSuperUser(), and the
+   backend RPCs re-check bingo_is_super_user() themselves regardless of
+   what the client sends, so this cannot be used to manufacture a real
+   creator's earnings even if someone forged the request). */
+async function aaCreatorAdminTestCredit(tier){
+ if(!aaIsSuperUser()||!sb)return;
+ const {error}=await sb.rpc("bingo_admin_test_award_crown_gift",{p_creator_id:state.user.id,p_tier:tier});
+ if(error){toast("Test credit failed: "+String(error.message||error));return}
+ toast("Test "+tier+" Crown credited (admin test only).");
+ await aaCreatorDashboardLoad();
+ render();
+}
+async function aaCreatorAdminTestSettleCycle(){
+ if(!aaIsSuperUser()||!sb)return;
+ const {data,error}=await sb.rpc("bingo_admin_test_settle_current_cycle");
+ if(error){toast("Cycle settlement failed: "+String(error.message||error));return}
+ toast("Cycle settled for "+(data?.settled_count||0)+" creator(s).");
+ await aaCreatorDashboardLoad();
+ render();
+}
+function aaCreatorCountdownLabel(cycleEndIso){
+ if(!cycleEndIso)return "";
+ const ms=new Date(cycleEndIso).getTime()-Date.now();
+ if(ms<=0)return "Resetting…";
+ const d=Math.floor(ms/86400000),h=Math.floor(ms%86400000/3600000),m=Math.floor(ms%3600000/60000);
+ return `${d}d : ${String(h).padStart(2,"0")}h : ${String(m).padStart(2,"0")}m`;
+}
+function aaCreatorCrownAgentDashboardHTML(){
+ if(!state.isLoggedIn)return `<p class="notice">Sign in to turn on monetization and view your Crown Agent Dashboard.</p>`;
+ if(state.creatorDashboard===undefined){state.creatorDashboard=null;aaCreatorDashboardLoad();return `<p class="notice">Loading your Crown Agent Dashboard…</p>`}
+ if(state.creatorDashboard===null)return `<p class="notice">Loading your Crown Agent Dashboard…</p>`;
+ const data=state.creatorDashboard||aaCreatorDashboardDefault();
+ if(!data.monetization_enabled){
+  return `<div class="aa-crown-agent">
+   <p class="notice">Turn on monetization to become eligible for the weekly Crown competition and open your private Crown Agent Dashboard. Genuine Gold, Silver and Bronze Crowns received on your posts will count toward your earnings once this is on.</p>
+   <button type="button" class="bingo-neon-action bingo-neon-action-gold" onclick="aaCreatorSetMonetization(true)">👑 Turn On Monetization</button>
+  </div>`;
+ }
+ const pct=Math.min(100,(Number(data.withdrawable_balance||0)/Number(data.withdrawal_minimum||AA_CREATOR_WITHDRAWAL_MINIMUM))*100);
+ const remaining=Math.max(0,Number(data.withdrawal_minimum||AA_CREATOR_WITHDRAWAL_MINIMUM)-Number(data.withdrawable_balance||0));
+ const deduction=Number(data.competition_pool||0)*0.30, net=Number(data.competition_pool||0)*0.70;
+ const rows=[["Gold","gold",data.gold_count,data.gold_total,data.gold_rate],["Silver","silver",data.silver_count,data.silver_total,data.silver_rate],["Bronze","bronze",data.bronze_count,data.bronze_total,data.bronze_rate]];
+ return `<div class="aa-crown-agent">
+  <p class="notice" style="margin-bottom:10px">Private view: only your own genuine Crown earnings are shown here. Platform fees and other creators' balances are never visible.</p>
+
+  <div class="aa-crown-wallet-card">
+   <div class="aa-crown-wallet-head"><span>Withdrawable Balance</span><b>KSh ${Number(data.withdrawable_balance||0).toLocaleString()}</b></div>
+   <div class="aa-crown-progress-track"><span style="width:${pct}%"></span></div>
+   <div class="aa-crown-progress-labels"><span>${pct.toFixed(1)}% of KSh ${Number(data.withdrawal_minimum||AA_CREATOR_WITHDRAWAL_MINIMUM).toLocaleString()}</span><span>${remaining>0?`KSh ${remaining.toLocaleString()} to go`:"Eligible"}</span></div>
+   ${data.pending_withdrawal>0?`<p class="notice" style="margin-top:8px">A withdrawal of KSh ${Number(data.pending_withdrawal).toLocaleString()} is pending admin review.</p>`:data.withdrawal_eligible?`<div class="aa-crown-withdraw-row"><input class="field" type="tel" placeholder="M-Pesa number e.g. 2547XXXXXXXX" value="${esc(state.creatorWithdrawPhone||"")}" oninput="state.creatorWithdrawPhone=this.value"><button type="button" class="bingo-neon-action bingo-neon-action-gold" onclick="aaCreatorRequestWithdrawal(state.creatorWithdrawPhone)">Withdraw via M-Pesa</button></div><p class="notice" style="margin-top:6px">Payouts are reviewed and sent by a Bingo administrator, the same way Agent commission withdrawals work today - this is not an instant automated transfer.</p>`:`<button type="button" class="bingo-neon-action" disabled>🔒 Locked - need KSh ${remaining.toLocaleString()} more</button>`}
+  </div>
+
+  <div class="aa-crown-cycle-card">
+   <div class="aa-crown-wallet-head"><span>Active Weekly Crown Competition</span><b>${esc(aaCreatorCountdownLabel(data.cycle_end))}</b></div>
+   <div class="spec"><span>This cycle's pool</span><b>KSh ${Number(data.competition_pool||0).toLocaleString()}</b></div>
+   <p class="notice">At cycle reset, 30% (KSh ${deduction.toLocaleString()}) is a competition fee and the remaining 70% (KSh ${net.toLocaleString()}) is credited to your withdrawable balance.</p>
+  </div>
+
+  <div class="aa-crown-rate-grid">
+   ${rows.map(([label,tier,count,total,rate])=>`<div class="aa-crown-rate-card aa-crown-rate-${tier}"><span>${label==="Gold"?"👑":label==="Silver"?"🥈":"🥉"}</span><b>${label}</b><small>${Number(count||0)} received</small><em>+KSh ${Number(rate||0)}</em></div>`).join("")}
+  </div>
+
+  <button type="button" class="bingo-neon-action" style="margin-top:10px" onclick="aaCreatorSetMonetization(false)">Turn off monetization</button>
+
+  ${aaIsSuperUser()?`<div class="aa-crown-admin-test">
+   <p class="notice">Development test tools - visible to super users only, never to an ordinary creator. These credit YOUR OWN account for verification and are clearly logged as admin_test events, separate from any genuine Crown gift.</p>
+   <div class="aa-crown-admin-test-row">
+    <button type="button" class="bingo-neon-action" onclick="aaCreatorAdminTestCredit('gold')">+1 Gold (test)</button>
+    <button type="button" class="bingo-neon-action" onclick="aaCreatorAdminTestCredit('silver')">+1 Silver (test)</button>
+    <button type="button" class="bingo-neon-action" onclick="aaCreatorAdminTestCredit('bronze')">+1 Bronze (test)</button>
+    <button type="button" class="bingo-neon-action" onclick="aaCreatorAdminTestSettleCycle()">Settle cycle (test)</button>
+   </div>
+  </div>`:""}
+ </div>`;
 }
 /* ============================================================
    Bingo Messenger accent-theme manager. Rotates the MESSAGING accent
@@ -29462,6 +29586,27 @@ window.Bingo50Style={open,apply,fonts:F,colors:C};
 #auto-arcade-widget .live-item-popover .live-item-delete,.live-item-popover .live-item-delete{color:#ff4d6d}
 #auto-arcade-widget .bingo-topic-comments-view{border:0;background:transparent;margin-top:2px}
 #auto-arcade-widget .live-view-more-btn{display:block;width:100%;border:0;background:transparent;color:#ffc400;font-weight:800;font-size:12px;padding:4px 0 8px;cursor:pointer;text-align:left}
+#auto-arcade-widget .aa-crown-agent{display:flex;flex-direction:column;gap:12px}
+#auto-arcade-widget .aa-crown-wallet-card,#auto-arcade-widget .aa-crown-cycle-card{background:var(--panel,#0b1324);border:1px solid rgba(245,185,30,.35);border-radius:14px;padding:14px;box-shadow:0 0 18px rgba(245,185,30,.08)}
+#auto-arcade-widget .aa-crown-wallet-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:12px;color:#9caecc;margin-bottom:8px}
+#auto-arcade-widget .aa-crown-wallet-head b{font-size:20px;color:#fff;font-weight:900}
+#auto-arcade-widget .aa-crown-progress-track{height:10px;background:#050a16;border:1px solid #223248;border-radius:999px;overflow:hidden;padding:1px}
+#auto-arcade-widget .aa-crown-progress-track span{display:block;height:100%;border-radius:999px;background:linear-gradient(135deg,#ffe066,#ffb703 50%,#d97706);transition:width .4s}
+#auto-arcade-widget .aa-crown-progress-labels{display:flex;justify-content:space-between;font-size:11px;color:#9caecc;margin-top:4px;font-family:ui-monospace,monospace}
+#auto-arcade-widget .aa-crown-withdraw-row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+#auto-arcade-widget .aa-crown-withdraw-row input{flex:1;min-width:140px}
+#auto-arcade-widget .aa-crown-rate-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+#auto-arcade-widget .aa-crown-rate-card{background:#0b1324;border:1px solid #223248;border-radius:12px;padding:10px;text-align:center;display:flex;flex-direction:column;gap:2px}
+#auto-arcade-widget .aa-crown-rate-card span{font-size:20px}
+#auto-arcade-widget .aa-crown-rate-card b{font-size:12px;color:#f5f7ff}
+#auto-arcade-widget .aa-crown-rate-card small{font-size:10px;color:#9caecc}
+#auto-arcade-widget .aa-crown-rate-card em{font-style:normal;font-weight:900;font-size:13px;color:#ffc400}
+#auto-arcade-widget .aa-crown-rate-gold{border-color:rgba(245,185,30,.5)}
+#auto-arcade-widget .aa-crown-rate-silver em{color:#cfd8e3}
+#auto-arcade-widget .aa-crown-rate-bronze em{color:#d97706}
+#auto-arcade-widget .aa-crown-admin-test{border:1px dashed #ff4d6d;border-radius:12px;padding:10px;margin-top:4px}
+#auto-arcade-widget .aa-crown-admin-test-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+@media(max-width:480px){#auto-arcade-widget .aa-crown-rate-grid{grid-template-columns:1fr}}
 .lightbox-live-comments{position:absolute;left:0;right:0;bottom:0;z-index:4;padding:10px 14px 14px;pointer-events:none;background:linear-gradient(to top,rgba(0,0,0,.55),transparent)}
 .lightbox-live-comments .live-comments-stream{height:140px}
 @keyframes slideUpFade{
