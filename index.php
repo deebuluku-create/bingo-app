@@ -19,10 +19,20 @@ if ($html === false) {
   exit;
 }
 $early_guard = <<<'HTML'
-<style id="bingo-prepaint-guard">body{visibility:hidden!important}#bingoSplash{visibility:visible!important}</style>
+<style id="bingo-prepaint-guard">html{background:#030713!important}body{visibility:hidden!important}#bingoSplash{visibility:visible!important}</style>
 <script id="bingo-startup-hard-guard">
 (function(){
   var released=false;
+  /* Create the montage shell inside this parser-blocking head script. The old
+     document body cannot paint first because body is still visibility:hidden. */
+  function mountEarlySplash(){
+    if(document.getElementById('bingoEarlySplash'))return;
+    var s=document.createElement('div');s.id='bingoEarlySplash';
+    s.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#030713;display:flex;align-items:center;justify-content:center;visibility:visible!important';
+    s.innerHTML='<div style="font:900 clamp(42px,10vw,88px)/1 Arial,sans-serif;color:#ffc928;text-shadow:0 0 24px rgba(255,201,40,.6)">Bingo</div>';
+    (document.documentElement||document).appendChild(s);
+  }
+  mountEarlySplash();
   // The old post-splash welcome mark is a second logo animation mounted on body,
   // outside #bingoSplash. Remove it immediately so splash effects cannot leak onto Home.
   try{
@@ -39,6 +49,7 @@ $early_guard = <<<'HTML'
       document.documentElement.classList.remove('bingo-preload');
       var s=document.getElementById('bingoSplash');
       if(s){s.classList.add('hide');s.style.pointerEvents='none';setTimeout(function(){try{s.remove()}catch(e){}},700);}
+      var es=document.getElementById('bingoEarlySplash');if(es)es.remove();
       document.documentElement.style.overflow='';
       if(document.body)document.body.style.overflow='';
       var pg=document.getElementById('bingo-prepaint-guard');if(pg)pg.remove();
@@ -71,7 +82,7 @@ if (strpos($html, 'bingo-home-feed-clean-override.js') === false) {
 }
 // Allow browser revalidation instead of forcing a full 4.2MB re-download on every repeat visit.
 // no-cache permits storage but requires validation; ETag lets unchanged responses return 304.
-$etag = '"bingo-' . md5_file($master) . '-20261003c"';
+$etag = '"bingo-' . md5_file($master) . '-20261003d"';
 header('Content-Type: text/html; charset=UTF-8');
 header('Cache-Control: public, no-cache, max-age=0, must-revalidate');
 header('ETag: ' . $etag);
