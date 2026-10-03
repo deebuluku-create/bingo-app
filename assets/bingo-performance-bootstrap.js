@@ -56,3 +56,39 @@ try{
   }
 }catch(_){}
 })();
+
+/* Splash watchdog — the logo may never trap the user.
+   Normal app timing remains untouched; 60s is an absolute recovery ceiling. */
+(function bingoSplashWatchdog(){
+  var MAX_SPLASH_MS=60000, done=false;
+  function visible(el){
+    if(!el||!el.isConnected)return false;
+    var s=getComputedStyle(el),r=el.getBoundingClientRect();
+    return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)>0&&r.width>0&&r.height>0;
+  }
+  function splashCandidates(){
+    return Array.from(document.querySelectorAll('[id*="splash" i],[class*="splash" i],[id*="intro" i],[class*="intro" i]'))
+      .filter(visible);
+  }
+  function release(){
+    if(done)return; done=true;
+    splashCandidates().forEach(function(el){
+      el.style.setProperty('display','none','important');
+      el.style.setProperty('pointer-events','none','important');
+      el.setAttribute('aria-hidden','true');
+    });
+    document.documentElement.style.overflow='';
+    document.body.style.overflow='';
+    try{
+      if(window.state) state.view='home';
+      if(typeof window.goHome==='function') window.goHome();
+      else if(typeof window.render==='function') window.render();
+    }catch(_){}
+  }
+  /* If the app successfully leaves splash itself, cancel the forced recovery. */
+  var watch=setInterval(function(){
+    if(!splashCandidates().length){done=true;clearInterval(watch);clearTimeout(kill)}
+  },500);
+  var kill=setTimeout(function(){clearInterval(watch);release()},MAX_SPLASH_MS);
+})();
+
