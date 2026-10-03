@@ -15501,29 +15501,52 @@ function aaCommentFmtPopoverHTML(topicId){
    self-managed DOM: render() fires often enough elsewhere in the app
    that template-rendered mid-animation items would be wiped out
    constantly. */
-window.__bingoLive=window.__bingoLive||{states:{},observer:null,observed:new WeakSet(),observedList:[]};
+window.__bingoLive=window.__bingoLive||{states:{},observer:null,observed:new WeakSet(),observedList:[],visibleCount:{}};
 function aaLiveState(topicId){
  const reg=window.__bingoLive.states;
- if(!reg[topicId])reg[topicId]={queue:[],cursor:0,seen:new Set(),timer:null,active:false,seededOnce:false};
+ if(!reg[topicId])reg[topicId]={queue:[],cursor:0,seen:new Set(),timer:null,active:false,opened:false,loadedCount:0};
  return reg[topicId];
+}
+function aaLiveHosts(topicId){
+ return [...document.querySelectorAll('.live-comments-stream[data-live-topic="'+topicId+'"]')];
+}
+// Marks a topic's comments as "opened" (the user clicked Comment, or a
+// video for this post was opened fullscreen) and loads the first batch of
+// up to 5 real comments into the rotation - a no-op if already opened.
+function aaLiveOpenComments(topicId){
+ const st=aaLiveState(topicId);
+ if(st.opened)return;
+ st.opened=true;
+ const t=aaTopics().find(x=>String(x.id)===String(topicId));
+ const total=t?aaTopicCommentsFor(t).length:0;
+ st.loadedCount=Math.min(5,total);
+}
+// Loads the next batch of up to 5 real comments into the SAME circular
+// queue (never a second list) - called from the "View more comments"
+// button.
+function aaLiveLoadMore(topicId){
+ const st=aaLiveState(topicId);
+ const t=aaTopics().find(x=>String(x.id)===String(topicId));
+ if(!t)return;
+ const total=aaTopicCommentsFor(t).length;
+ st.loadedCount=Math.min((st.loadedCount||0)+5,total);
+ render();
 }
 function aaLiveSeedQueue(topicId,t){
  const st=aaLiveState(topicId);
- // Only comments discovered AFTER the very first seed pass are flashed
- // immediately (genuinely new activity on a post already being watched).
- // The initial pass queues everything silently so a post that already
- // has several comments doesn't burst them all out at once the moment it
- // scrolls into view - they reveal gradually through the normal interval
- // instead, same as any other entry in the rotation.
- const firstPass=!st.seededOnce;
- aaTopicCommentsFor(t).forEach(c=>{
+ if(!st.opened)return;
+ // Only comments within the currently "loaded" batch (initial 5, plus
+ // whatever View More has added) are eligible to join the queue here -
+ // they're queued silently and reveal gradually through the normal
+ // rotation, same as every other entry, never bursting out all at once.
+ // A brand-new submission bypasses this cap entirely via aaLivePushReal.
+ const eligible=aaTopicCommentsFor(t).slice(0,st.loadedCount||0);
+ eligible.forEach(c=>{
   const cid=String(c.id);
   if(st.seen.has(cid))return;
   st.seen.add(cid);
   st.queue.push(c);
-  if(!firstPass&&document.getElementById("liveStream_"+topicId))aaLiveInject(topicId,c);
  });
- st.seededOnce=true;
 }
 // Closes whichever live-item "..." menu is currently open (if any) and
 // resumes that item's animation. Only one is ever open at a time.
@@ -15549,14 +15572,18 @@ function aaLiveRemoveReal(topicId,commentId){
  st.queue.splice(idx,1);
  if(st.cursor>idx)st.cursor--;
  if(st.queue.length)st.cursor=st.cursor%st.queue.length;else st.cursor=0;
+ if(st.loadedCount>0)st.loadedCount--;
 }
 function aaLiveInject(topicId,c){
- const host=document.getElementById("liveStream_"+topicId);
- if(!host||!c)return;
+ const hosts=aaLiveHosts(topicId);
+ if(!hosts.length||!c)return;
  const name=c.customName||c.authorName||"Bingo Member";
  const text=String(c.text||"");
  const mediaUrl=String(c.mediaUrl||"");
  if(!text&&!mediaUrl)return;
+ hosts.forEach(host=>aaLiveInjectIntoHost(host,topicId,c,name,text,mediaUrl));
+}
+function aaLiveInjectIntoHost(host,topicId,c,name,text,mediaUrl){
  const fmtCSS=bingoCommentFmtCSS(c.commentFmt)||"";
  const commentId=String(c.id||"");
  const item=document.createElement("div");
@@ -15670,9 +15697,9 @@ function aaLiveStart(topicId){
  if(st.active)return;
  st.active=true;
  aaLiveEmitNext(topicId);
- // 1.65s stagger + the CSS travel duration below => several comments
+ // ~1s stagger + the CSS travel duration below => several comments
  // visibly in flight at once, never waiting for one to finish first.
- st.timer=setInterval(()=>aaLiveEmitNext(topicId),1650);
+ st.timer=setInterval(()=>aaLiveEmitNext(topicId),1000);
 }
 function aaLiveStop(topicId){
  const st=aaLiveState(topicId);
@@ -15686,13 +15713,18 @@ function aaLivePushReal(topicId,c){
  if(!cid||st.seen.has(cid))return false;
  st.seen.add(cid);
  st.queue.splice(st.cursor,0,c);
- // Inject immediately whenever this post's strip is actually in the DOM,
- // rather than gating on st.active: a comment can only be submitted from
- // a composer that's part of THIS currently-rendered card, so the card is
- // on screen right now even if the IntersectionObserver's callback for a
- // just-recreated card element (e.g. from a format-toggle re-render a
- // moment earlier) hasn't landed yet and st.active is momentarily stale.
- if(document.getElementById("liveStream_"+topicId))aaLiveInject(topicId,c);
+ // A brand-new comment is also "loaded" from this point on, so the
+ // View More remaining-count stays correct regardless of how many of
+ // the older comments were already loaded into the batch.
+ st.loadedCount=(st.loadedCount||0)+1;
+ // Inject immediately into whichever host(s) are currently in the DOM
+ // (Wall comments surface and/or a fullscreen video overlay for this
+ // same post), rather than gating on st.active: a comment can only be
+ // submitted from a composer that's part of a currently-rendered host,
+ // so it's on screen right now even if the IntersectionObserver's
+ // callback for a just-recreated element hasn't landed yet and
+ // st.active is momentarily stale.
+ if(aaLiveHosts(topicId).length)aaLiveInject(topicId,c);
  return true;
 }
 // Bridge for a future/existing Supabase realtime INSERT handler on
@@ -15709,6 +15741,13 @@ window.aaLiveReceiveReal=function(topicId,dbComment){
   text:dbComment.body||dbComment.text||""
  });
 };
+// A topic's rotation can now be visible in more than one place at once
+// (the Wall post's own comments surface AND a fullscreen video overlay
+// for that same post), each observed as its own container. Tracks a
+// per-topic count of currently-intersecting containers so the rotation
+// only stops once ALL of them are off screen, and only (re)starts on the
+// 0->1 transition - two independent containers toggling individually
+// never fight each other into starting/stopping on every frame.
 function aaLiveObserver(){
  const reg=window.__bingoLive;
  if(reg.observer)return reg.observer;
@@ -15716,7 +15755,12 @@ function aaLiveObserver(){
   entries.forEach(entry=>{
    const topicId=entry.target.dataset.liveTopic;
    if(!topicId)return;
-   if(entry.isIntersecting&&entry.intersectionRatio>=0.35)aaLiveStart(topicId);
+   const nowVisible=entry.isIntersecting&&entry.intersectionRatio>=0.35;
+   const wasVisible=!!entry.target.__bingoLiveVisible;
+   if(nowVisible===wasVisible)return;
+   entry.target.__bingoLiveVisible=nowVisible;
+   reg.visibleCount[topicId]=Math.max(0,(reg.visibleCount[topicId]||0)+(nowVisible?1:-1));
+   if(reg.visibleCount[topicId]>0)aaLiveStart(topicId);
    else aaLiveStop(topicId);
   });
  },{threshold:[0,.35,.6,1]});
@@ -15725,32 +15769,33 @@ function aaLiveObserver(){
 function aaLiveCommentStreamSync(){
  const reg=window.__bingoLive;
  const observer=aaLiveObserver();
- const nodes=document.querySelectorAll('[id^="liveStream_"]');
+ const hosts=document.querySelectorAll('.live-comments-stream[data-live-topic]');
  const presentIds=new Set();
- nodes.forEach(host=>{
-  const topicId=host.id.slice("liveStream_".length);
+ hosts.forEach(host=>{
+  const topicId=host.dataset.liveTopic;
+  if(!topicId)return;
   presentIds.add(topicId);
   const t=aaTopics().find(x=>String(x.id)===String(topicId));
   if(t)aaLiveSeedQueue(topicId,t);
-  const card=host.closest('[data-canon^="topic:"]')||host;
-  if(!reg.observed.has(card)){
-   card.dataset.liveTopic=topicId;
-   observer.observe(card);
-   reg.observed.add(card);
-   reg.observedList.push(card);
+  const container=host.closest('[data-canon^="topic:"]')||host.closest('#aaVideoLightbox')||host;
+  if(!reg.observed.has(container)){
+   container.dataset.liveTopic=topicId;
+   observer.observe(container);
+   reg.observed.add(container);
+   reg.observedList.push(container);
   }
  });
- // A topic whose strip left the DOM this render (scrolled out and
- // rebuilt, or navigated away from) - stop its ticking; its queue/seen
- // ids are kept so re-entering the viewport resumes the same rotation
- // rather than restarting it from scratch.
- Object.keys(reg.states).forEach(id=>{if(!presentIds.has(id))aaLiveStop(id)});
- // Housekeeping only - drop bookkeeping for nodes render() has since
- // discarded, so this list doesn't grow forever across renders.
+ // A topic with no host left anywhere in the DOM this render (Wall
+ // comments collapsed AND no fullscreen overlay open) - force its
+ // ticking off outright; its queue/seen ids are kept so reopening
+ // resumes the same rotation rather than restarting it from scratch.
+ Object.keys(reg.states).forEach(id=>{if(!presentIds.has(id)){aaLiveStop(id);reg.visibleCount[id]=0}});
+ // Housekeeping only - drop bookkeeping for containers render() has
+ // since discarded, so these lists don't grow forever across renders.
  if(reg.observedList.length>200){
-  reg.observedList=reg.observedList.filter(card=>{
-   const keep=card.isConnected;
-   if(!keep)observer.unobserve(card);
+  reg.observedList=reg.observedList.filter(container=>{
+   const keep=container.isConnected;
+   if(!keep)observer.unobserve(container);
    return keep;
   });
  }
@@ -18115,7 +18160,7 @@ async function aaTopicComment(id){
   // would just be discarded immediately. Uses the comment's REAL id so
   // it dedupes correctly against the rotation's seed pass on the next
   // render (aaLiveSeedQueue would otherwise see the same id again).
-  aaLivePushReal(id,{id:newComment.id,authorName:newComment.authorName,customName,commentFmt,text});
+  aaLivePushReal(id,{id:newComment.id,authorName:newComment.authorName,customName,commentFmt,text,mediaUrl:newComment.mediaUrl,mediaType:newComment.mediaType});
   return;
  }
  if(!sb||!state.user?.id)return;
@@ -18168,7 +18213,7 @@ async function aaTopicComment(id){
  // Uses the real DB-assigned id so a later Supabase realtime echo of
  // this same insert (if/when one exists) dedupes correctly instead of
  // appearing as a second copy of the same comment.
- aaLivePushReal(id,{id:storedRow.id,authorName:aaOwnProfileName(),customName,commentFmt,text});
+ aaLivePushReal(id,{id:storedRow.id,authorName:aaOwnProfileName(),customName,commentFmt,text,mediaUrl:storedRow.media_path?aaCommentMediaResolvedUrl(storedRow.media_path):"",mediaType:storedRow.media_type||""});
 }
 async function aaDeleteTopicComment(topicId,commentId){
  if(state.testMode){
@@ -18932,6 +18977,7 @@ function aaTopicPostCardHTML(t){
  const saved=aaTopicIsSaved(t.id);
  const loved=aaTopicHasMyLove(t);
  const comments=aaTopicCommentsFor(t);
+ const commentsOpen=state.topicCommentsOpenFor&&state.topicCommentsOpenFor.has(String(t.id));
 
  const mediaList=Array.isArray(t.media)?t.media:[];
  const mediaIdx=aaTopicMediaIndex(t.id,mediaList.length);
@@ -18959,12 +19005,15 @@ function aaTopicPostCardHTML(t){
  <div class="bingo-topic-summary"><span><span aria-hidden="true">👍 ❤️ 😆</span> ${aaTopicLoveCount(t)} ${aaTopicLoveCount(t)===1?'reaction':'reactions'}</span><span>${comments.length} ${comments.length===1?'comment':'comments'}</span></div>
  <div class="bingo-topic-actions" role="group" aria-label="Post actions">
  <button type="button" aria-pressed="${loved}" onclick="aaTopicLove(${id})">${AA_ICON_ACTION_SVG.heartOutline}<span>${loved?'Liked':'Like'}</span></button>
- <button type="button" onclick="aaFocusTopicComment(${id})">${AA_ICON_ACTION_SVG.comment}<span>Comment</span></button>
+ <button type="button" onclick="aaToggleTopicComments(${id})">${AA_ICON_ACTION_SVG.comment}<span>Comment</span></button>
  <button type="button" onclick="aaTopicShare(${id})">${AA_ICON_ACTION_SVG.share}<span>Share</span></button></div>
+ ${commentsOpen?`<div class="bingo-topic-comments-view" data-comments-view="${esc(t.id)}">
  <div class="live-comments-heading">${comments.length?`<b>Comments (${comments.length})</b> · `:''}<span class="live-dot"></span> LIVE COMMENTS</div>
- <div class="live-comments-stream" id="liveStream_${esc(t.id)}" aria-live="polite" aria-label="Live rotating comments"></div>
+ <div class="live-comments-stream" data-live-topic="${esc(t.id)}" aria-live="polite" aria-label="Live rotating comments"></div>
+ ${comments.length>(aaLiveState(t.id).loadedCount||0)?`<button type="button" class="live-view-more-btn" onclick="aaLiveLoadMore(${id})">View more comments (${comments.length-(aaLiveState(t.id).loadedCount||0)}) ↓</button>`:''}
  <div class="bingo-topic-composer" style="position:relative"><img class="aa-post-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" alt="" onerror="aaProfileImgFallback(this)"><div class="bingo-topic-field"><input class="field" id="topicComment_${esc(t.id)}" aria-label="Write a comment" placeholder="Write a comment…" style="${bingoCommentFmtCSS(aaCommentDraftFmt[t.id])}" value="${esc(aaCommentDraftText[t.id]||'')}" oninput="aaCommentDraftInput(${id},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();aaTopicComment(${id})}"><button type="button" class="aa-comment-camera-btn" aria-label="Attach photo or video" onclick="document.getElementById('topicCommentMedia_'+${id}).click()">📷</button><button type="button" class="aa-comment-camera-btn" aria-label="Text style and display name" onclick="event.stopPropagation();aaToggleCommentFmtPopover(${id})">•••</button></div><input type="file" id="topicCommentMedia_${esc(t.id)}" accept="image/*,video/*" hidden onchange="aaHandleCommentMediaChange(${id})"><button class="bingo-topic-send" type="button" aria-label="Send comment" onclick="aaTopicComment(${id})">➤</button>${aaCommentFmtPopoverHTML(t.id)}</div>
  ${aaCommentMediaPreviewHTML(t.id)}
+ </div>`:''}
 </article>`;
 }
 function aaWallAdSlotAutoLoad(){
@@ -19018,6 +19067,24 @@ function aaPublicTopicsFeedHTML(){
 function aaFocusTopicComment(topicId){
  const el=document.getElementById("topicComment_"+topicId);
  if(el){el.focus();el.scrollIntoView({behavior:"smooth",block:"center"})}
+}
+state.topicCommentsOpenFor=state.topicCommentsOpenFor||new Set();
+function aaToggleTopicComments(topicId){
+ const key=String(topicId);
+ const willOpen=!state.topicCommentsOpenFor.has(key);
+ if(willOpen){
+  state.topicCommentsOpenFor.add(key);
+  aaLiveOpenComments(key);
+ }else{
+  state.topicCommentsOpenFor.delete(key);
+ }
+ render();
+ if(willOpen){
+  setTimeout(()=>{
+   const view=document.querySelector('[data-comments-view="'+key+'"]');
+   if(view)view.scrollIntoView({behavior:"smooth",block:"nearest"});
+  },20);
+ }
 }
 function aaTopicReplyTo(topicId,authorName){
  const val="@"+authorName+" ";
@@ -29375,24 +29442,28 @@ window.Bingo50Style={open,apply,fonts:F,colors:C};
 #auto-arcade-widget .bingo-cfmt-style-btn.active{border-color:#22c9ff;background:#133357;color:#22c9ff}
 #auto-arcade-widget .bingo-cfmt-dot{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
 #auto-arcade-widget .bingo-cfmt-dot.active{border-color:#fff;transform:scale(1.15)}
-#auto-arcade-widget .live-comments-heading{display:flex;align-items:center;gap:5px;margin:12px 0 2px;font:900 9px system-ui;letter-spacing:.10em;text-transform:uppercase;color:#ff244f;line-height:1}
-#auto-arcade-widget .live-comments-heading b{font-size:13px;letter-spacing:normal;text-transform:none;color:#f5f7ff;margin-right:2px}
-#auto-arcade-widget .live-dot{width:5px;height:5px;border-radius:50%;background:#ff0a52;box-shadow:0 0 7px #ff0a52;animation:livePulse 1.15s infinite}
+#auto-arcade-widget .live-comments-heading,.live-comments-heading{display:flex;align-items:center;gap:5px;margin:12px 0 2px;font:900 9px system-ui;letter-spacing:.10em;text-transform:uppercase;color:#ff244f;line-height:1}
+#auto-arcade-widget .live-comments-heading b,.live-comments-heading b{font-size:13px;letter-spacing:normal;text-transform:none;color:#f5f7ff;margin-right:2px}
+#auto-arcade-widget .live-dot,.live-dot{width:5px;height:5px;border-radius:50%;background:#ff0a52;box-shadow:0 0 7px #ff0a52;animation:livePulse 1.15s infinite}
 @keyframes livePulse{50%{opacity:.35;transform:scale(.72)}}
-#auto-arcade-widget .live-comments-stream{position:relative;height:150px;overflow:hidden;margin:2px 0 10px;padding:18px 0;pointer-events:none;mask-image:linear-gradient(to bottom,transparent 0,#000 18%,#000 82%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 18%,#000 82%,transparent 100%)}
-#auto-arcade-widget .live-stream-item{position:absolute;left:0;right:0;bottom:8px;display:flex;gap:8px;align-items:flex-start;padding:5px 0;border:0;background:transparent;animation:slideUpFade 8s linear forwards;will-change:transform,opacity}
-#auto-arcade-widget .live-stream-item .live-avatar{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;background:#132947;color:#ffc928;font-weight:900;font-size:12px}
-#auto-arcade-widget .live-stream-item .live-copy{min-width:0;flex:1}
-#auto-arcade-widget .live-stream-item .live-name{font-size:12px;font-weight:800;color:#f5f7ff}
-#auto-arcade-widget .live-stream-item .live-text{font-size:13px;line-height:1.3;color:#fff;margin-top:1px}
-#auto-arcade-widget .live-stream-item .live-thumb{width:34px;height:34px;object-fit:cover;border-radius:6px;margin-top:4px;display:block}
-#auto-arcade-widget .live-item-menu{position:relative;flex:0 0 auto;pointer-events:auto}
-#auto-arcade-widget .live-item-dots{background:none;border:0;color:#9caecc;font-size:11px;padding:2px 4px;cursor:pointer;line-height:1}
-#auto-arcade-widget .live-item-dots:hover{color:#fff}
-#auto-arcade-widget .live-item-popover{position:absolute;right:0;top:100%;z-index:6;background:#101e34;border:1px solid #2b3b50;border-radius:10px;padding:4px;min-width:84px;box-shadow:0 8px 20px #0007}
-#auto-arcade-widget .live-item-popover button{display:block;width:100%;text-align:left;background:none;border:0;color:#f5f7ff;font-size:12px;padding:6px 8px;border-radius:6px;cursor:pointer;white-space:nowrap}
-#auto-arcade-widget .live-item-popover button:hover{background:#1c2c42}
-#auto-arcade-widget .live-item-popover .live-item-delete{color:#ff4d6d}
+#auto-arcade-widget .live-comments-stream,.live-comments-stream{position:relative;height:150px;overflow:hidden;margin:2px 0 10px;padding:18px 0;pointer-events:none;mask-image:linear-gradient(to bottom,transparent 0,#000 18%,#000 82%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 18%,#000 82%,transparent 100%)}
+#auto-arcade-widget .live-stream-item,.live-stream-item{position:absolute;left:0;right:0;bottom:8px;display:flex;gap:8px;align-items:flex-start;padding:5px 0;border:0;background:transparent;animation:slideUpFade 8s linear forwards;will-change:transform,opacity}
+#auto-arcade-widget .live-stream-item .live-avatar,.live-stream-item .live-avatar{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;background:#132947;color:#ffc928;font-weight:900;font-size:12px}
+#auto-arcade-widget .live-stream-item .live-copy,.live-stream-item .live-copy{min-width:0;flex:1}
+#auto-arcade-widget .live-stream-item .live-name,.live-stream-item .live-name{font-size:12px;font-weight:800;color:#f5f7ff}
+#auto-arcade-widget .live-stream-item .live-text,.live-stream-item .live-text{font-size:13px;line-height:1.3;color:#fff;margin-top:1px}
+#auto-arcade-widget .live-stream-item .live-thumb,.live-stream-item .live-thumb{width:34px;height:34px;object-fit:cover;border-radius:6px;margin-top:4px;display:block}
+#auto-arcade-widget .live-item-menu,.live-item-menu{position:relative;flex:0 0 auto;pointer-events:auto}
+#auto-arcade-widget .live-item-dots,.live-item-dots{background:none;border:0;color:#9caecc;font-size:11px;padding:2px 4px;cursor:pointer;line-height:1}
+#auto-arcade-widget .live-item-dots:hover,.live-item-dots:hover{color:#fff}
+#auto-arcade-widget .live-item-popover,.live-item-popover{position:absolute;right:0;top:100%;z-index:6;background:#101e34;border:1px solid #2b3b50;border-radius:10px;padding:4px;min-width:84px;box-shadow:0 8px 20px #0007}
+#auto-arcade-widget .live-item-popover button,.live-item-popover button{display:block;width:100%;text-align:left;background:none;border:0;color:#f5f7ff;font-size:12px;padding:6px 8px;border-radius:6px;cursor:pointer;white-space:nowrap}
+#auto-arcade-widget .live-item-popover button:hover,.live-item-popover button:hover{background:#1c2c42}
+#auto-arcade-widget .live-item-popover .live-item-delete,.live-item-popover .live-item-delete{color:#ff4d6d}
+#auto-arcade-widget .bingo-topic-comments-view{border:0;background:transparent;margin-top:2px}
+#auto-arcade-widget .live-view-more-btn{display:block;width:100%;border:0;background:transparent;color:#ffc400;font-weight:800;font-size:12px;padding:4px 0 8px;cursor:pointer;text-align:left}
+.lightbox-live-comments{position:absolute;left:0;right:0;bottom:0;z-index:4;padding:10px 14px 14px;pointer-events:none;background:linear-gradient(to top,rgba(0,0,0,.55),transparent)}
+.lightbox-live-comments .live-comments-stream{height:140px}
 @keyframes slideUpFade{
  0%{transform:translateY(30px);opacity:0}
  10%{transform:translateY(0);opacity:1}
@@ -29400,7 +29471,7 @@ window.Bingo50Style={open,apply,fonts:F,colors:C};
  84%{transform:translateY(-96px);opacity:.78}
  100%{transform:translateY(-136px);opacity:0}
 }
-@media(max-width:480px){#auto-arcade-widget .live-comments-stream{height:130px}}
+@media(max-width:480px){#auto-arcade-widget .live-comments-stream,.live-comments-stream{height:130px}}
 </style>
 <script id="bingo-integrated-sounds-script">
 /* Bingo reusable sounds: real Supabase records; no demo identities or local-only attribution. */
@@ -29559,6 +29630,22 @@ aaFoodBusinessProfileHTML=detailWrap(aaFoodBusinessProfileHTML,'food',()=>aaFood
 function sourceIdentity(src,id){const topic=aaTopics().find(t=>(t.media||[]).some(m=>aaTopicMediaSrc(m)===src));if(topic)return {type:'topic',id:topic.id};const vehicle=(state.listings||[]).find(x=>aaVideoUrl(x)===src||(x.images||[]).includes(src)||x.image===src);if(vehicle)return {type:'vehicle',id:vehicle.id};for(const [kind,rows] of [['property',aaProperties()],['food',aaFoods()]]){const found=rows.find(x=>(x.media||[]).some(m=>m.url===src));if(found)return {type:kind,id:found.id}}return null}
 const originalVideoOpen=aaOpenVideoLightbox;
 aaOpenVideoLightbox=function(src,title,id){originalVideoOpen(src,title,id);const box=document.getElementById('aaVideoLightbox'),source=sourceIdentity(src,id);if(box&&source){box.dataset.canon=key(source.type,source.id);box.querySelector('.aa-lightbox-inner')?.insertAdjacentHTML('beforeend',statsHTML(source.type,source.id,true));measure()}};
+const originalVideoOpenForLiveComments=aaOpenVideoLightbox;
+aaOpenVideoLightbox=function(src,title,id){
+ originalVideoOpenForLiveComments(src,title,id);
+ const box=document.getElementById('aaVideoLightbox');
+ if(!box)return;
+ const source=sourceIdentity(src,id);
+ const topicId=source&&source.type==='topic'?String(source.id):null;
+ if(!topicId)return;
+ const inner=box.querySelector('.aa-lightbox-inner');
+ if(!inner||inner.querySelector('.live-comments-stream'))return;
+ const t=aaTopics().find(x=>String(x.id)===topicId);
+ const n=t?aaTopicCommentsFor(t).length:0;
+ inner.insertAdjacentHTML('beforeend','<div class="lightbox-live-comments"><div class="live-comments-heading">'+(n?'<b>Comments ('+n+')</b> · ':'')+'<span class="live-dot"></span> LIVE COMMENTS</div><div class="live-comments-stream" data-live-topic="'+esc(topicId)+'" aria-live="polite" aria-label="Live rotating comments"></div></div>');
+ aaLiveOpenComments(topicId);
+ if(typeof aaLiveCommentStreamSync==='function')aaLiveCommentStreamSync();
+};
 const originalPhotoOpen=aaOpenPhotoLightbox;
 aaOpenPhotoLightbox=function(src,title,id){originalPhotoOpen(src,title,id);aaPauseAllFeedVideos();const box=document.getElementById('aaPhotoLightbox'),source=sourceIdentity(src,id);if(box&&source){box.dataset.canon=key(source.type,source.id);box.querySelector('.aa-lightbox-inner')?.insertAdjacentHTML('beforeend',statsHTML(source.type,source.id,false));measure()}};
 const originalOverlay=aaHomeOverlayOpen;
