@@ -28159,7 +28159,16 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 
   var savedPos=null; /* {x,y} once the user has actually dragged it */
   var dragged=false; /* true once moved away from the default corner spot */
-  var centered=true; /* true until first dismissed from the centered entrance spot, once per session */
+  /* Was true (a "centered entrance" phase, defaultPos() resolving to
+     centerPos() - the logo starting in the middle of the viewport on
+     every first visit, dismissed to the corner by a close-tap or drag)
+     until proven wrong by the 16-frame capture: that centered spot sits
+     on top of the video/post, which a real visitor could only read as
+     the logo "behaving like feed content" - not the approved Cockpit-
+     launcher presentation. cornerPos() (the previously-approved upper-
+     left position, already implemented below) is now the only default -
+     no centered phase to dismiss out of. */
+  var centered=false;
   var boundHandle=null;
   var boundCloseBtn=null;
 
@@ -28189,17 +28198,41 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
   function pressHereSeen(){
     try{ return localStorage.getItem(PRESS_HERE_KEY)==="1"; }catch(e){ return true; }
   }
+  /* In-memory latch, separate from the localStorage flag above: once the
+     auto-dismiss (or a drag/tap) has fired once in THIS page session, it
+     must never be shown again on this load regardless of whether the
+     localStorage write/read round-trips correctly - sync() (below) calls
+     showPressHereIfDue() on every Home DOM mutation, likely many times
+     within a few seconds, and relying on pressHereSeen() alone would let
+     any one of those re-add the visible class right after the timer had
+     just removed it, the instant that storage read came back unreliable. */
+  var pressHereDismissed=false;
   function markPressHereSeen(){
     try{ localStorage.setItem(PRESS_HERE_KEY,"1"); }catch(e){}
+    pressHereDismissed=true;
     hidePressHere();
   }
   function hidePressHere(){
     var el=getPressHere(); if(el)el.classList.remove("bingo-press-here-visible");
   }
+  /* Auto-dismiss: previously this stayed up indefinitely until a drag or
+     tap explicitly dismissed it - fine for a centered, obtrusive card
+     that demanded a reaction, wrong for a small corner hint that must
+     not "remain persistently visible" on its own. A brief, timed
+     dismissal (marks it seen too, so it won't reappear on this browser)
+     keeps it a hint instead of a fixture. The timer itself is also only
+     ever started once (guarded separately below), for the same reason
+     sync()'s call frequency is called out above. */
+  var pressHereTimerStarted=false;
   function showPressHereIfDue(){
-    if(pressHereSeen()||!isHome())return;
+    if(pressHereDismissed||pressHereSeen()||!isHome())return;
     if(!document.body.classList.contains("bingo-splash-done"))return;
-    var el=getPressHere(); if(el)el.classList.add("bingo-press-here-visible");
+    var el=getPressHere(); if(!el)return;
+    el.classList.add("bingo-press-here-visible");
+    if(!pressHereTimerStarted){
+      pressHereTimerStarted=true;
+      setTimeout(markPressHereSeen,4000);
+    }
   }
 
   /* Both resting spots below are anchored to the currently active feed
