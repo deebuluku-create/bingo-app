@@ -19,6 +19,7 @@ if ($html === false) {
   exit;
 }
 $early_guard = <<<'HTML'
+<style id="bingo-prepaint-guard">body{visibility:hidden!important}#bingoSplash{visibility:visible!important}</style>
 <script id="bingo-startup-hard-guard">
 (function(){
   var released=false;
@@ -40,6 +41,7 @@ $early_guard = <<<'HTML'
       if(s){s.classList.add('hide');s.style.pointerEvents='none';setTimeout(function(){try{s.remove()}catch(e){}},700);}
       document.documentElement.style.overflow='';
       if(document.body)document.body.style.overflow='';
+      var pg=document.getElementById('bingo-prepaint-guard');if(pg)pg.remove();
     }catch(e){}
   }
   /* Absolute startup ceiling. Normal splash now clears itself around
@@ -50,9 +52,12 @@ $early_guard = <<<'HTML'
 })();
 </script>
 HTML;
-$head_pos = stripos($html, '</head>');
+$head_pos = stripos($html, '<head');
 if ($head_pos !== false && strpos($html, 'bingo-startup-hard-guard') === false) {
-  $html = substr_replace($html, "\n".$early_guard."\n", $head_pos, 0);
+  // Inject immediately after the opening <head>, before legacy Home/feed CSS or DOM can paint.
+  // This restores the pre-paint gate that prevents old screens flashing before the Bingo montage.
+  $head_open_end = strpos($html, '>', $head_pos);
+  if ($head_open_end !== false) $html = substr_replace($html, "\n".$early_guard."\n", $head_open_end + 1, 0);
 }
 
 $addons = "\n<script src=\"/assets/bingo-startup-route-splash-fix.js?v=20261003a\" defer></script>\n"
@@ -66,7 +71,7 @@ if (strpos($html, 'bingo-home-feed-clean-override.js') === false) {
 }
 // Allow browser revalidation instead of forcing a full 4.2MB re-download on every repeat visit.
 // no-cache permits storage but requires validation; ETag lets unchanged responses return 304.
-$etag = '"bingo-' . md5_file($master) . '-20261003b"';
+$etag = '"bingo-' . md5_file($master) . '-20261003c"';
 header('Content-Type: text/html; charset=UTF-8');
 header('Cache-Control: public, no-cache, max-age=0, must-revalidate');
 header('ETag: ' . $etag);
