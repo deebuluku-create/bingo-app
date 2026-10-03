@@ -14015,11 +14015,19 @@ function aaMixedFeedTopicCardHTML(c){
  const timeLine=t.createdAt?esc(new Date(t.createdAt).toLocaleString("en-KE",{hour:"2-digit",minute:"2-digit"}))+" ago":"";
  const locLine=t.location?` · 📍 ${esc(t.location)}`:"";
  const authorBlock=`<button type="button" class="aa360-seller" ${authorUnavailable?'disabled':`onclick='event.stopPropagation();openSeller(${JSON.stringify(c.feed_sellerId||"")})'`}><img src="${bingoSafeMediaAttr(aaProfilePhoto(c.feed_sellerPhoto))}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.feed_seller)}</b>${authorMeta.verified?`<span class="aa-post-verified">✓</span>`:''}${!authorUnavailable?`<br><small style="color:#ffd700;font-weight:800;text-decoration:underline">View Profile</small>`:''}${(timeLine||locLine)?`<small>${timeLine}${locLine}</small>`:''}</span></button>`;
- const compactStats=`<div class="aa-post-stats" style="margin-top:6px">${[`❤ ${aaTopicLoveCount(t)}`,`💬 ${aaTopicCommentsFor(t).length}`,topicCounts?`👁 ${topicCounts.views} views`:''].filter(Boolean).map(s=>`<span>${s}</span>`).join('')}</div>`;
+ const compactStats=`<div class="aa-post-stats" style="margin-top:6px">${[topicCounts?`👁 ${topicCounts.views} views`:''].filter(Boolean).map(s=>`<span>${s}</span>`).join('')}</div>`;
+ /* Original Sound is NOT rendered here: the already-deployed
+    "bingo-integrated-sounds" script wraps this very function at runtime
+    (const oldFeed=aaMixedFeedTopicCardHTML; aaMixedFeedTopicCardHTML=
+    function(c){return oldFeed(c).replace('<div class="aa-icon-action-row"',
+    bar(c.source)+...)}) and inserts BingoSounds.bar(t) immediately before
+    the action row below. Adding our own bar here would render it twice -
+    confirmed by inspecting the actual DOM output, not just the source. */
  return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}" data-canon="topic:${esc(t.id)}">${media}<div class="aa360-shade"></div>${videoPlayOverlay}<span class="aa-type-label">POST</span>${multiTag}<div class="aa360-info" style="cursor:pointer"><div class="aa360-seller-wrap">${authorBlock}</div>${c.feed_title?`<div class="aa360-title">${esc(c.feed_title)}</div>`:''}${c.feed_desc?`<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc,140)}</div>`:''}${compactStats}<div class="aa-icon-action-row" role="group" aria-label="Post actions" style="margin-top:8px" onclick="event.stopPropagation()">
-  ${aaIconActionBtn({rgb:"255,58,110",active:loved,label:"Love",activeLabel:"Loved",svg:AA_ICON_ACTION_SVG.heartOutline,activeSvg:AA_ICON_ACTION_SVG.heartFilled,onclick:`aaTopicLove(${JSON.stringify(String(t.id))})`})}
+  ${aaIconActionBtn({rgb:"245,185,30",active:loved,label:"Crown",activeLabel:"Crowned",svg:AA_ICON_ACTION_SVG.crownOutline,activeSvg:AA_ICON_ACTION_SVG.crownFilled,onclick:`aaTopicLove(${JSON.stringify(String(t.id))})`})}
+  ${aaIconActionBtn({rgb:"96,165,250",label:"Comments",shortLabel:aaTopicCommentsFor(t).length?String(aaTopicCommentsFor(t).length):"Comments",svg:AA_ICON_ACTION_SVG.comment,onclick:openPostCall})}
   ${aaIconActionBtn({rgb:"34,201,255",label:"Share",svg:AA_ICON_ACTION_SVG.share,onclick:`aaTopicShare(${JSON.stringify(String(t.id))})`})}
-  ${aaIconActionBtn({rgb:"245,185,30",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
+  ${aaIconActionBtn({rgb:"243,190,43",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"171,71,255",label:"Report",svg:AA_ICON_ACTION_SVG.flag,onclick:`aaTopicReport(${JSON.stringify(String(t.id))})`})}
  </div><div class="aa360-actions" onclick="event.stopPropagation()"><button type="button" class="bingo-neon-action bingo-neon-action-cyan" onclick='${openPostCall}'>View Post &amp; Comments</button></div></div></section>`;
 }
@@ -15387,7 +15395,9 @@ const AA_ICON_ACTION_SVG={
  share:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>',
  starOutline:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21l1.2-6.9-5-4.9 6.9-1L12 2z"/></svg>',
  starFilled:'<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="none"><path d="M12 2l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 17.8 5.8 21l1.2-6.9-5-4.9 6.9-1L12 2z"/></svg>',
- flag:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/></svg>'
+ flag:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 21V4"/><path d="M5 4h13l-3 4 3 4H5"/></svg>',
+ crownOutline:'<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18h18l-1.5-9-4.5 4-3-7-3 7-4.5-4L3 18z"/><path d="M5.5 21h13"/></svg>',
+ crownFilled:'<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" stroke="none"><path d="M3 18h18l-1.5-9-4.5 4-3-7-3 7-4.5-4L3 18z"/><rect x="5" y="19.5" width="14" height="1.6" rx=".8"/></svg>'
 };
 function aaIconActionBtn(opts){
  const rgb=opts.rgb;
@@ -27862,6 +27872,28 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 @media(max-width:400px){
   #auto-arcade-widget .aa360-title{font-size:24px!important}
   #auto-arcade-widget .aa360-price{font-size:25px!important}
+}
+</style>
+
+<!-- =========================================================
+ BINGO — Home Feed POST (Bingo Wall topic/post) compact feed
+ typography. The redesign-final block above intentionally enlarges
+ .aa360-title/.aa360-seller to near-heading size for VEHICLE/
+ PROPERTY/FOOD listings (left untouched - out of scope here) - but
+ the same shared classes make a user's Home Feed POST read like a
+ webpage H1 instead of ordinary social-feed caption text. Scoped by
+ [data-canon^="topic:"] (aaMixedFeedTopicCardHTML's own marker) so
+ only post cards are affected; appended after the redesign-final
+ block so it wins the cascade for posts specifically. No new font
+ family - same stack, just the existing compact aa360-desc scale. -->
+<style id="bingo-home-post-compact-caption">
+#auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa360-seller b{font-size:12px!important;font-weight:800!important;line-height:1.25!important}
+#auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa360-seller small{font-size:10px!important;line-height:1.2!important}
+#auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa360-title{font-size:13px!important;font-weight:700!important;line-height:1.3!important;margin:2px 0!important;color:#f7fbff!important;text-shadow:0 1px 4px rgba(0,0,0,.6)!important;white-space:normal!important}
+#auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa360-desc{font-size:12px!important;font-weight:500!important;line-height:1.3!important}
+#auto-arcade-widget .aa360-item[data-canon^="topic:"] .bingo-sound-bar{margin:4px 0}
+@media(max-width:400px){
+  #auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa360-title{font-size:13px!important}
 }
 </style>
 
