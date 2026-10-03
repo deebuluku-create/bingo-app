@@ -15525,6 +15525,31 @@ function aaLiveSeedQueue(topicId,t){
  });
  st.seededOnce=true;
 }
+// Closes whichever live-item "..." menu is currently open (if any) and
+// resumes that item's animation. Only one is ever open at a time.
+window.__bingoLiveOpenMenu=null;
+function aaLiveCloseOpenMenu(){
+ const open=window.__bingoLiveOpenMenu;
+ if(!open)return;
+ open.popover.hidden=true;
+ open.item.style.animationPlayState="";
+ window.__bingoLiveOpenMenu=null;
+}
+document.addEventListener("click",()=>aaLiveCloseOpenMenu());
+document.addEventListener("keydown",e=>{if(e.key==="Escape")aaLiveCloseOpenMenu()});
+// Removes one comment id from a topic's live rotation queue (e.g. after a
+// real delete succeeds) so it stops circulating. Never touches the real
+// stored comment - that's already gone by the time this runs - this only
+// stops the ticker from replaying a comment that no longer exists.
+function aaLiveRemoveReal(topicId,commentId){
+ const st=aaLiveState(topicId);
+ const cid=String(commentId);
+ const idx=st.queue.findIndex(c=>String(c.id)===cid);
+ if(idx===-1)return;
+ st.queue.splice(idx,1);
+ if(st.cursor>idx)st.cursor--;
+ if(st.queue.length)st.cursor=st.cursor%st.queue.length;else st.cursor=0;
+}
 function aaLiveInject(topicId,c){
  const host=document.getElementById("liveStream_"+topicId);
  if(!host||!c)return;
@@ -15533,14 +15558,105 @@ function aaLiveInject(topicId,c){
  const mediaUrl=String(c.mediaUrl||"");
  if(!text&&!mediaUrl)return;
  const fmtCSS=bingoCommentFmtCSS(c.commentFmt)||"";
- const thumbHTML=mediaUrl?`<img class="live-thumb" src="${bingoSafeMediaAttr(mediaUrl)}" alt="">`:"";
+ const commentId=String(c.id||"");
  const item=document.createElement("div");
  item.className="live-stream-item";
- item.innerHTML=`<div class="live-avatar">${esc((name.charAt(0)||"B").toUpperCase())}</div><div class="live-copy"><div class="live-name" style="${esc(fmtCSS)}">${esc(name)}</div>${text?`<div class="live-text" style="${esc(fmtCSS)}">${esc(text)}</div>`:""}${thumbHTML}</div>`;
- item.addEventListener("animationend",()=>item.remove(),{once:true});
+
+ const avatar=document.createElement("div");
+ avatar.className="live-avatar";
+ avatar.textContent=(name.charAt(0)||"B").toUpperCase();
+
+ const copy=document.createElement("div");
+ copy.className="live-copy";
+ const nameEl=document.createElement("div");
+ nameEl.className="live-name";
+ nameEl.setAttribute("style",fmtCSS);
+ nameEl.textContent=name;
+ copy.appendChild(nameEl);
+ if(text){
+  const textEl=document.createElement("div");
+  textEl.className="live-text";
+  textEl.setAttribute("style",fmtCSS);
+  textEl.textContent=text;
+  copy.appendChild(textEl);
+ }
+ if(mediaUrl){
+  const img=document.createElement("img");
+  img.className="live-thumb";
+  img.src=bingoSafeMediaAttr(mediaUrl);
+  img.alt="";
+  copy.appendChild(img);
+ }
+ item.appendChild(avatar);
+ item.appendChild(copy);
+
+ // Per-comment "..." menu: Reply / Like / Delete (owner or Super User
+ // only), using the SAME existing functions the old static list called -
+ // this is not a second comments list, just actions on this one item.
+ const menu=document.createElement("div");
+ menu.className="live-item-menu";
+ const dots=document.createElement("button");
+ dots.type="button";
+ dots.className="live-item-dots";
+ dots.setAttribute("aria-label","Comment actions");
+ dots.textContent="•••";
+ const popover=document.createElement("div");
+ popover.className="live-item-popover";
+ popover.hidden=true;
+
+ const isOwner=String(c.authorId||"")===String(state.user?.id||"");
+ const canDelete=state.isLoggedIn&&(isOwner||(typeof aaIsSuperUser==="function"&&aaIsSuperUser()));
+
+ const replyBtn=document.createElement("button");
+ replyBtn.type="button";
+ replyBtn.textContent="Reply";
+ replyBtn.onclick=e=>{e.stopPropagation();aaLiveCloseOpenMenu();aaTopicReplyTo(topicId,name)};
+ popover.appendChild(replyBtn);
+
+ const likeBtn=document.createElement("button");
+ likeBtn.type="button";
+ likeBtn.textContent="♡ "+Number(c.likes||0);
+ likeBtn.onclick=e=>{e.stopPropagation();aaLiveCloseOpenMenu();aaTopicCommentLike(topicId,commentId)};
+ popover.appendChild(likeBtn);
+
+ if(canDelete){
+  const delBtn=document.createElement("button");
+  delBtn.type="button";
+  delBtn.className="live-item-delete";
+  delBtn.textContent="Delete";
+  delBtn.onclick=async e=>{
+   e.stopPropagation();
+   aaLiveCloseOpenMenu();
+   await aaDeleteTopicComment(topicId,commentId);
+   aaLiveRemoveReal(topicId,commentId);
+  };
+  popover.appendChild(delBtn);
+ }
+
+ dots.onclick=e=>{
+  e.stopPropagation();
+  const alreadyOpenForThis=window.__bingoLiveOpenMenu&&window.__bingoLiveOpenMenu.popover===popover;
+  aaLiveCloseOpenMenu();
+  if(alreadyOpenForThis)return;
+  popover.hidden=false;
+  // Hold this one item in place (pause its slide/fade) for exactly as
+  // long as the menu stays open, so it's readable while interacting
+  // with it; closing the menu (click-outside, Escape, or an action)
+  // resumes normal circulation via aaLiveCloseOpenMenu above.
+  item.style.animationPlayState="paused";
+  window.__bingoLiveOpenMenu={item,popover};
+ };
+ popover.onclick=e=>e.stopPropagation();
+
+ menu.appendChild(dots);
+ menu.appendChild(popover);
+ item.appendChild(menu);
+
+ item.addEventListener("animationend",()=>{if(window.__bingoLiveOpenMenu?.item!==item)item.remove()},{once:true});
  host.appendChild(item);
  // Temporary animated nodes only - never touches st.queue/the real data.
- while(host.children.length>8)host.removeChild(host.firstChild);
+ // Never prune a currently held-open item out from under the user.
+ while(host.children.length>8&&host.firstChild!==window.__bingoLiveOpenMenu?.item)host.removeChild(host.firstChild);
 }
 function aaLiveEmitNext(topicId){
  const st=aaLiveState(topicId);
@@ -29266,10 +29382,17 @@ window.Bingo50Style={open,apply,fonts:F,colors:C};
 #auto-arcade-widget .live-comments-stream{position:relative;height:150px;overflow:hidden;margin:2px 0 10px;padding:18px 0;pointer-events:none;mask-image:linear-gradient(to bottom,transparent 0,#000 18%,#000 82%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 18%,#000 82%,transparent 100%)}
 #auto-arcade-widget .live-stream-item{position:absolute;left:0;right:0;bottom:8px;display:flex;gap:8px;align-items:flex-start;padding:5px 0;border:0;background:transparent;animation:slideUpFade 8s linear forwards;will-change:transform,opacity}
 #auto-arcade-widget .live-stream-item .live-avatar{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;background:#132947;color:#ffc928;font-weight:900;font-size:12px}
-#auto-arcade-widget .live-stream-item .live-copy{min-width:0}
+#auto-arcade-widget .live-stream-item .live-copy{min-width:0;flex:1}
 #auto-arcade-widget .live-stream-item .live-name{font-size:12px;font-weight:800;color:#f5f7ff}
 #auto-arcade-widget .live-stream-item .live-text{font-size:13px;line-height:1.3;color:#fff;margin-top:1px}
 #auto-arcade-widget .live-stream-item .live-thumb{width:34px;height:34px;object-fit:cover;border-radius:6px;margin-top:4px;display:block}
+#auto-arcade-widget .live-item-menu{position:relative;flex:0 0 auto;pointer-events:auto}
+#auto-arcade-widget .live-item-dots{background:none;border:0;color:#9caecc;font-size:11px;padding:2px 4px;cursor:pointer;line-height:1}
+#auto-arcade-widget .live-item-dots:hover{color:#fff}
+#auto-arcade-widget .live-item-popover{position:absolute;right:0;top:100%;z-index:6;background:#101e34;border:1px solid #2b3b50;border-radius:10px;padding:4px;min-width:84px;box-shadow:0 8px 20px #0007}
+#auto-arcade-widget .live-item-popover button{display:block;width:100%;text-align:left;background:none;border:0;color:#f5f7ff;font-size:12px;padding:6px 8px;border-radius:6px;cursor:pointer;white-space:nowrap}
+#auto-arcade-widget .live-item-popover button:hover{background:#1c2c42}
+#auto-arcade-widget .live-item-popover .live-item-delete{color:#ff4d6d}
 @keyframes slideUpFade{
  0%{transform:translateY(30px);opacity:0}
  10%{transform:translateY(0);opacity:1}
