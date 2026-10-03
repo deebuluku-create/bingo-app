@@ -22,8 +22,10 @@ $early_guard = <<<'HTML'
       if(document.body)document.body.style.overflow='';
     }catch(e){}
   }
-  /* Absolute startup ceiling. Normal splash still clears itself around 7s. */
-  setTimeout(releaseBingo,10000);
+  /* Absolute startup ceiling. Normal splash now clears itself around
+     1.2s (compressed from 7s); this backstop only needs to be a short
+     margin past that, not a distant worst case. */
+  setTimeout(releaseBingo,2500);
   window.addEventListener('pageshow',function(e){if(e.persisted)setTimeout(releaseBingo,1200);},{once:true});
 })();
 </script>
@@ -34,7 +36,7 @@ if ($head_pos !== false && strpos($html, 'bingo-startup-hard-guard') === false) 
 }
 
 $addons = "\n<script src=\"/assets/bingo-performance-bootstrap.js?v=20261003c\" defer></script>\n"
-        . "<script src=\"/assets/bingo-home-feed-clean-override.js?v=20261002e\" defer></script>\n"
+        . "<script src=\"/assets/bingo-home-feed-clean-override.js?v=20261003f\" defer></script>\n"
         . "<script src=\"/assets/bingo-social-graph-addon.js?v=20261002e\" defer></script>\n";
 if (strpos($html, 'bingo-home-feed-clean-override.js') === false) {
   $pos = strripos($html, '</body>');

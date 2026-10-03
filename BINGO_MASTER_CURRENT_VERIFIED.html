@@ -110,21 +110,20 @@ that lifts the CSS-driven .bingo-preload hide once, right as the
 splash itself begins fading out.
 ============================================================= -->
 <style id="bingo-splash-early-style">
-#bingoSplash{position:fixed;inset:0;z-index:2147483640;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#172033 0%,#08101e 48%,#02050a 100%);overflow:hidden;transition:opacity .55s ease,visibility .55s ease}
+#bingoSplash{position:fixed;inset:0;z-index:2147483640;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#172033 0%,#08101e 48%,#02050a 100%);overflow:hidden;transition:opacity .2s ease,visibility .2s ease}
 #bingoSplash.hide{opacity:0;visibility:hidden;pointer-events:none}
-#bingoSplash .inner{position:relative;width:min(83.6vw,572px);display:grid;place-items:center;transform:scale(.35);opacity:.1;filter:blur(9px);animation:bingoZoom 2s cubic-bezier(.15,.84,.18,1) forwards}
-#bingoSplash .inner img{animation:bingoSplashTremble .9s ease-in-out 2s 4}
+/* Timings below are compressed ~6x from the original (6.3s total ->
+   ~1s) so the logo displays briefly and Home is released fast, while
+   keeping the same zoom/shine/disperse choreography. The tremble
+   keyframe effect (previously a 2s-delayed, 3.6s-long wobble) has no
+   room left in a ~1s window and is intentionally dropped rather than
+   rendered as a truncated stub. */
+#bingoSplash .inner{position:relative;width:min(83.6vw,572px);display:grid;place-items:center;transform:scale(.35);opacity:.1;filter:blur(9px);animation:bingoZoom .45s cubic-bezier(.15,.84,.18,1) forwards}
+#bingoSplash .inner img{animation:none}
 #bingoSplash.disperse .inner img{animation:none}
-@keyframes bingoSplashTremble{
-  0%,100%{transform:translate(0,0) rotate(0deg) scale(1)}
-  20%{transform:translate(-2.4px,1.3px) rotate(-1.1deg) scale(1.012)}
-  40%{transform:translate(2.4px,-1.3px) rotate(1.1deg) scale(1)}
-  60%{transform:translate(-1.8px,-2px) rotate(-.8deg) scale(1.012)}
-  80%{transform:translate(1.8px,2px) rotate(.8deg) scale(1)}
-}
 #bingoSplash img{width:100%;height:auto;display:block;filter:drop-shadow(0 24px 44px rgba(0,0,0,.62))}
-#bingoSplash .shine{position:absolute;inset:6%;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.82) 47%,rgba(255,174,0,.9) 53%,transparent 70%);transform:translateX(-145%) skewX(-12deg);mix-blend-mode:screen;animation:bingoShine .65s ease 1.4s forwards;pointer-events:none}
-#bingoSplash.disperse .inner{animation:bingoDisperse .95s ease forwards}
+#bingoSplash .shine{position:absolute;inset:6%;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.82) 47%,rgba(255,174,0,.9) 53%,transparent 70%);transform:translateX(-145%) skewX(-12deg);mix-blend-mode:screen;animation:bingoShine .2s ease .45s forwards;pointer-events:none}
+#bingoSplash.disperse .inner{animation:bingoDisperse .3s ease forwards}
 #bingoDust{position:absolute;inset:0;pointer-events:none}
 @keyframes bingoZoom{0%{transform:scale(.35);opacity:.1;filter:blur(9px)}72%{transform:scale(1.05);opacity:1;filter:blur(0)}100%{transform:scale(1);opacity:1;filter:blur(0)}}
 @keyframes bingoShine{0%{opacity:0;transform:translateX(-145%) skewX(-12deg)}20%{opacity:1}100%{opacity:0;transform:translateX(145%) skewX(-12deg)}}
@@ -137,11 +136,11 @@ splash itself begins fading out.
     ONLY thing that reveals #auto-arcade-widget (see the matching
     html.bingo-preload rule in <head>). Kept independent of the visual
     dust-burst/logo code below so a failure there can never strand the
-    app hidden. Timing (6300ms) matches the existing splash.hide()
-    call below exactly - both were shortened together so the opening
-    montage runs exactly 4 logo pulses instead of sitting on screen
-    for several extra seconds. */
- setTimeout(()=>{document.documentElement.classList.remove('bingo-preload')},6300);
+    app hidden. Timing (1000ms) matches the existing splash.hide() call
+    below exactly - both were compressed together, from 6300ms, so the
+    logo displays for about a second and Home is released fast rather
+    than the visitor waiting through a multi-second montage. */
+ setTimeout(()=>{document.documentElement.classList.remove('bingo-preload')},1000);
 
  const splash=document.getElementById('bingoSplash'),canvas=document.getElementById('bingoDust');
  if(splash){
@@ -172,9 +171,9 @@ splash itself begins fading out.
    for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,sp=1.4+Math.random()*4.2;particles.push({x:cx+(Math.random()-.5)*180,y:cy+(Math.random()-.5)*130,vx:Math.cos(a)*sp+1.2,vy:Math.sin(a)*sp-1.5,r:1+Math.random()*4,c:colors[i%colors.length],o:.95})}
    let f=0;(function tick(){ctx.clearRect(0,0,canvas.width,canvas.height);for(const p of particles){p.x+=p.vx;p.y+=p.vy;p.vx*=1.015;p.vy-=.015;p.o*=.965;ctx.globalAlpha=p.o;ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;if(++f<46)requestAnimationFrame(tick)})();
   }
-  setTimeout(()=>{splash.classList.add('disperse');burst()},5600);
-  setTimeout(()=>splash.classList.add('hide'),6300);
-  setTimeout(()=>splash.remove(),7000);
+  setTimeout(()=>{splash.classList.add('disperse');burst()},700);
+  setTimeout(()=>splash.classList.add('hide'),1000);
+  setTimeout(()=>splash.remove(),1200);
   /* Welcome sequence only: a small animated Bingo mark settles briefly
      below the top-left "Ad" position on Home right as the splash
      clears, then disappears for good — never during normal browsing. */
@@ -192,7 +191,7 @@ splash itself begins fading out.
      setTimeout(()=>w.remove(),500);
     },2600);
    }catch(e){}
-  },6405);
+  },1020);
  }
 })();
 </script>
@@ -26043,21 +26042,20 @@ Only requested areas changed:
 
 <style id="bingo-brand-runtime-v2">
 :root{--bingo-orange:#ff9800;--bingo-gold:#f3be2b;--bingo-black:#05070b;--bingo-navy:#071225;--bingo-white:#fff;--bingo-red:#ef1f2f;}
-#bingoSplash{position:fixed;inset:0;z-index:2147483640;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#172033 0%,#08101e 48%,#02050a 100%);overflow:hidden;transition:opacity .55s ease,visibility .55s ease}
+#bingoSplash{position:fixed;inset:0;z-index:2147483640;display:grid;place-items:center;background:radial-gradient(circle at 50% 42%,#172033 0%,#08101e 48%,#02050a 100%);overflow:hidden;transition:opacity .2s ease,visibility .2s ease}
 #bingoSplash.hide{opacity:0;visibility:hidden;pointer-events:none}
-#bingoSplash .inner{position:relative;width:min(83.6vw,572px);display:grid;place-items:center;transform:scale(.35);opacity:.1;filter:blur(9px);animation:bingoZoom 2s cubic-bezier(.15,.84,.18,1) forwards}
-#bingoSplash .inner img{animation:bingoSplashTremble .9s ease-in-out 2s 4}
+/* Timings below are compressed ~6x from the original (6.3s total ->
+   ~1s) so the logo displays briefly and Home is released fast, while
+   keeping the same zoom/shine/disperse choreography. The tremble
+   keyframe effect (previously a 2s-delayed, 3.6s-long wobble) has no
+   room left in a ~1s window and is intentionally dropped rather than
+   rendered as a truncated stub. */
+#bingoSplash .inner{position:relative;width:min(83.6vw,572px);display:grid;place-items:center;transform:scale(.35);opacity:.1;filter:blur(9px);animation:bingoZoom .45s cubic-bezier(.15,.84,.18,1) forwards}
+#bingoSplash .inner img{animation:none}
 #bingoSplash.disperse .inner img{animation:none}
-@keyframes bingoSplashTremble{
-  0%,100%{transform:translate(0,0) rotate(0deg) scale(1)}
-  20%{transform:translate(-2.4px,1.3px) rotate(-1.1deg) scale(1.012)}
-  40%{transform:translate(2.4px,-1.3px) rotate(1.1deg) scale(1)}
-  60%{transform:translate(-1.8px,-2px) rotate(-.8deg) scale(1.012)}
-  80%{transform:translate(1.8px,2px) rotate(.8deg) scale(1)}
-}
 #bingoSplash img{width:100%;height:auto;display:block;filter:drop-shadow(0 24px 44px rgba(0,0,0,.62))}
-#bingoSplash .shine{position:absolute;inset:6%;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.82) 47%,rgba(255,174,0,.9) 53%,transparent 70%);transform:translateX(-145%) skewX(-12deg);mix-blend-mode:screen;animation:bingoShine .65s ease 1.4s forwards;pointer-events:none}
-#bingoSplash.disperse .inner{animation:bingoDisperse .95s ease forwards}
+#bingoSplash .shine{position:absolute;inset:6%;background:linear-gradient(105deg,transparent 30%,rgba(255,255,255,.82) 47%,rgba(255,174,0,.9) 53%,transparent 70%);transform:translateX(-145%) skewX(-12deg);mix-blend-mode:screen;animation:bingoShine .2s ease .45s forwards;pointer-events:none}
+#bingoSplash.disperse .inner{animation:bingoDisperse .3s ease forwards}
 #bingoDust{position:absolute;inset:0;pointer-events:none}
 @keyframes bingoZoom{0%{transform:scale(.35);opacity:.1;filter:blur(9px)}72%{transform:scale(1.05);opacity:1;filter:blur(0)}100%{transform:scale(1);opacity:1;filter:blur(0)}}
 @keyframes bingoShine{0%{opacity:0;transform:translateX(-145%) skewX(-12deg)}20%{opacity:1}100%{opacity:0;transform:translateX(145%) skewX(-12deg)}}
@@ -27726,7 +27724,7 @@ Preserve all existing onclick actions, routes, forms and button wording.
      (still used by FIX #07's notification pulse). */
   var splash=document.getElementById("bingoSplash");
   if(splash){
-    setTimeout(function(){document.body.classList.add("bingo-splash-done");document.documentElement.classList.remove("bingo-preload");}, 7000);
+    setTimeout(function(){document.body.classList.add("bingo-splash-done");document.documentElement.classList.remove("bingo-preload");}, 1200);
   }else{
     document.body.classList.add("bingo-splash-done");
     document.documentElement.classList.remove("bingo-preload");
