@@ -60,7 +60,20 @@ function wireComments(){
  });
 }
 function run(){hideLegacy();wireComments();}
-new MutationObserver(run).observe(document.documentElement,{childList:true,subtree:true});
+/* Debounced for the same reason as bingoBrokenAgentModalGuard below: this
+   scans the whole document (button,a,span,div - a huge match set on this
+   app) on every single DOM mutation, with no coalescing. That is fine
+   under light/idle activity but compounds into a creeping freeze under
+   heavy render activity (confirmed: a rapid sequence of real UI clicks,
+   each triggering a full render(), progressively lost responsiveness and
+   the page eventually had to be force-closed). Coalescing into at most
+   one scan per 300ms window keeps the exact same behavior, bounded. */
+let runPending=false;
+function scheduleRun(){
+ if(runPending)return; runPending=true;
+ setTimeout(()=>{runPending=false;run()},300);
+}
+new MutationObserver(scheduleRun).observe(document.documentElement,{childList:true,subtree:true});
 run();
 })();
 
@@ -97,11 +110,22 @@ run();
 (function bingoBrokenAgentModalGuard(){
  const bad='invite a bingo agent';
  function clean(){
-   const all=[...document.querySelectorAll('div,section,aside,dialog')];
-   for(const el of all){
-     const txt=(el.textContent||'').toLowerCase();
+   /* Narrowed from a whole-document div/section/aside/dialog scan (tens
+      of thousands of matches on this app, each requiring a full-subtree
+      textContent concatenation, re-run on every single DOM mutation
+      anywhere on the page) down to only the handful of actual modal/
+      overlay containers the leaked template could ever render inside.
+      The former created a self-sustaining MutationObserver storm: this
+      app's own normal operation (ticker/animation/render churn) keeps
+      mutating the DOM, each mutation re-triggered the full scan, and the
+      resulting CPU saturation never let go - confirmed by isolating this
+      exact IIFE alone against the mother HTML: the page never recovered
+      within 15+ seconds of wall time, which is what presented as "Home
+      Feed never appears after the opening montage." */
+   const candidates=[...document.querySelectorAll('[role="dialog"],dialog,.modal,.overlay,.sheet')];
+   for(const modal of candidates){
+     const txt=(modal.textContent||'').toLowerCase();
      if(txt.includes(bad) && (txt.includes('${') || txt.includes('foundagent') || txt.includes('perms.map'))){
-       const modal=el.closest('[role="dialog"],dialog,.modal,.overlay,.sheet')||el;
        modal.remove();
        document.body.style.overflow='';
        document.documentElement.style.overflow='';
@@ -114,6 +138,14 @@ run();
      }
    }
  }
- new MutationObserver(clean).observe(document.documentElement,{childList:true,subtree:true});
+ /* Debounced: a burst of mutations elsewhere in the app now triggers at
+    most one check per 300ms window instead of one full scan per
+    individual mutation record - same detection, bounded cost. */
+ let pending=false;
+ function schedule(){
+   if(pending)return; pending=true;
+   setTimeout(()=>{pending=false;clean()},300);
+ }
+ new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',clean,{once:true}); else clean();
 })();
