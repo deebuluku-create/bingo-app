@@ -3,6 +3,16 @@
 // Performance bootstrap is injected externally so the 4.2MB master never needs rewriting.
 $master = __DIR__ . '/BINGO_MASTER_CURRENT_VERIFIED.html';
 $html = @file_get_contents($master);
+// Canonical entry route: every fresh website load must hand off from the splash to Home.
+// Do not restore a previous session's Topic/Wall route during bootstrap; navigation inside
+// the running app still works normally after Home has opened.
+if ($html !== false) {
+  $html = str_replace(
+    'aaResumeSavedRouteIfSafe();',
+    'state.view="home";__aaRestoredScrollY=0;try{sessionStorage.removeItem("aa_current_route")}catch(e){};',
+    $html
+  );
+}
 if ($html === false) {
   http_response_code(500);
   echo 'Bingo is temporarily unavailable.';
@@ -12,6 +22,16 @@ $early_guard = <<<'HTML'
 <script id="bingo-startup-hard-guard">
 (function(){
   var released=false;
+  // The old post-splash welcome mark is a second logo animation mounted on body,
+  // outside #bingoSplash. Remove it immediately so splash effects cannot leak onto Home.
+  try{
+    var welcomeObserver=new MutationObserver(function(){
+      var w=document.getElementById('bingoWelcomeMark');
+      if(w)w.remove();
+    });
+    welcomeObserver.observe(document.documentElement,{childList:true,subtree:true});
+    setTimeout(function(){try{welcomeObserver.disconnect()}catch(e){}},5000);
+  }catch(e){}
   function releaseBingo(){
     if(released)return; released=true;
     try{
