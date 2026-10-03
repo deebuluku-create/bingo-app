@@ -193,10 +193,14 @@ run();
    const videos=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed video.aa360-video')];
    if(!videos.length)return;
    const first=videos[0];
-   videos.forEach((v,i)=>{v.preload=i===0?'auto':'metadata';v.playsInline=true;});
+   /* Never allow more than the active/next media to compete for mobile bandwidth. */
+   videos.slice(2).forEach(v=>{try{if(!v.paused)v.pause()}catch(e){};v.preload='metadata';});
+   videos.forEach((v,i)=>{v.preload=i<2?'auto':'metadata';v.playsInline=true;v.setAttribute('playsinline','');});
    if(first.dataset.bingoStartupPriority==='1')return;
    first.dataset.bingoStartupPriority='1';
-   if(first.readyState===0){try{first.load()}catch(e){}}
+   if(first.readyState<2){try{first.load()}catch(e){}}
+   /* Warm the next post without decoding every heavy video. */
+   if(videos[1]&&videos[1].readyState===0){try{videos[1].load()}catch(e){}}
    requestAnimationFrame(()=>{try{if(typeof window.aaInit360Feed==='function')window.aaInit360Feed()}catch(e){}});
   }catch(e){}
  }
