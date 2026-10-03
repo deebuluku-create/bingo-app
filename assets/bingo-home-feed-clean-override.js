@@ -106,14 +106,54 @@ run();
       every 250ms up to a 5-minute safety ceiling (1200 tries) instead of
       a 10-second one - real data arriving at any point up to that ceiling
       still replaces the placeholder immediately. */
+/* Canonical Home lifecycle fix (2026-10-03): splash release and "first
+   Home post ready" are different events. aaMixedFeedItems().length>0
+   only means SOME data exists - the first (soon-to-be-visible) item's
+   own author/profile (aaResolveMemberMeta, same fetch-then-cache path
+   topics/properties/food all share) and, for a topic, its signed media
+   URL (aaTopicMediaUrl) can still be mid-flight. Each of those resolves
+   by calling render() in the background, which rebuilds homeHTML()'s
+   entire innerHTML from scratch - the already-visible first card gets
+   torn down and recreated with newly-resolved data, which is the
+   "dancing"/profile-appears-to-switch symptom: not a different user's
+   photo being shown, but the same post's own loading state being
+   exposed before replacement.
+   bingoHomeFirstItemReady() below extends the existing wait so the
+   REAL feed is only swapped in once the first item's author and (for
+   topics) media have actually resolved - the loading placeholder stays
+   up a little longer instead. This never blocks on VIDEO playback
+   itself (buffering happens inside the already-stable, already-visible
+   card via the existing aaInit360Feed/play() pipeline - a slow video
+   must not hold the whole feed hostage), and it has its own short
+   grace period independent of the existing 5-minute "any data at all"
+   ceiling, so a stuck/erroring profile fetch degrades to the old
+   behavior (show it anyway) rather than stalling Home indefinitely. */
+function bingoHomeFirstItemReady(items){
+ if(!items||!items.length)return false;
+ try{
+  // aaTopics() in test mode never touches state.wallTopics (it reads a
+  // separate local-only store) - this "has the one-time wall load
+  // settled" check only applies when there is a real backend to wait on.
+  if(window.sb&&!(window.state&&window.state.testMode)&&!Array.isArray(window.state&&window.state.wallTopics))return false;
+  var first=items[0];
+  var meta=first&&first.feed_sellerMeta;
+  if(meta&&meta.loading)return false;
+  if(first&&first.feed_media_type&&!first.feed_media)return false;
+ }catch(e){}
+ return true;
+}
 (function installBingoHomeFeedGuard(){
  function install(){
    if(typeof window.homeHTML!=='function'||window.__bingoHomeFeedGuard)return false;
    window.__bingoHomeFeedGuard=true;
    const original=window.homeHTML;
+   let firstItemWaitTries=0;
+   const FIRST_ITEM_WAIT_CEILING=16; // ~4s at 250ms - a short, bounded grace period, not a long loading screen
    window.homeHTML=function(boosted,rows,all,pages){
      let items=[]; try{items=typeof window.aaMixedFeedItems==='function'?window.aaMixedFeedItems():[]}catch(e){}
-     if(items&&items.length) return original.apply(this,arguments);
+     if(items&&items.length&&(bingoHomeFirstItemReady(items)||firstItemWaitTries>=FIRST_ITEM_WAIT_CEILING)){
+       return original.apply(this,arguments);
+     }
      return '<section class="aa360-shell"><div class="aa360-feed" id="bingoHomeFeedWaiting" aria-live="polite">'
        + '<div class="bingo-home-loading"><span class="bingo-home-spinner"></span><span>Loading your feed&hellip;</span></div>'
        + '</div></section>';
@@ -122,8 +162,14 @@ run();
    const timer=setInterval(function(){
      tries++;
      try{
-       if(window.state&&state.view==='home'&&typeof window.aaMixedFeedItems==='function'&&aaMixedFeedItems().length){
-         clearInterval(timer); if(typeof window.render==='function')render();
+       if(window.state&&state.view==='home'&&typeof window.aaMixedFeedItems==='function'){
+         const items=aaMixedFeedItems();
+         if(items.length&&bingoHomeFirstItemReady(items)){
+           clearInterval(timer); if(typeof window.render==='function')render();
+         }else if(items.length){
+           firstItemWaitTries++;
+           if(firstItemWaitTries>=FIRST_ITEM_WAIT_CEILING||tries>=1200){clearInterval(timer);if(typeof window.render==='function')render();}
+         }else if(tries>=1200){clearInterval(timer);}
        } else if(tries>=1200) clearInterval(timer);
      }catch(e){if(tries>=1200)clearInterval(timer)}
    },250);
