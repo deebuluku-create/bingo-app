@@ -8571,15 +8571,18 @@ function aaSetFeedFilter(type){
  render();
  requestAnimationFrame(()=>aaFeedGoTo(0,"auto"));
 }
+/* Suppressed on Home (2026-10-03): this legacy All Kenya/Following/
+   Videos/Photos filter row is not part of the approved current Home
+   presentation - confirmed via the 16-frame capture, where it briefly
+   appeared before an external cleanup script (bingo-home-feed-clean-
+   override.js's hideLegacy()) caught and hid it ~1-2s later. Suppressing
+   it directly at its one and only call site (homeHTML()) removes that
+   flash entirely instead of relying on an after-the-fact hide. The
+   underlying aaSetFeedFilter/aaSetFeedMediaFilter functions and
+   state.feedFilter/state.homeMediaFilter are untouched in case anything
+   else reads them; only this row's own markup is suppressed. */
 function aaFeedFilterHTML(){
- const f=state.feedFilter||"all";
- const m=state.homeMediaFilter||"all";
- return `<div class="aa-feed-filter">
-  <button type="button" class="${f==="all"?"active":""}" onclick="aaSetFeedFilter('all')">All Kenya</button>
-  <button type="button" class="${f==="following"?"active":""}" onclick="aaSetFeedFilter('following')">Following</button>
-  <button type="button" class="${m==="videos"?"active":""}" onclick="aaSetFeedMediaFilter('videos')">Videos</button>
-  <button type="button" class="${m==="photos"?"active":""}" onclick="aaSetFeedMediaFilter('photos')">Photos</button>
- </div>`;
+ return '';
 }
 function aaSetFeedMediaFilter(type){
  state.homeMediaFilter=(state.homeMediaFilter||"all")===type?"all":type;
@@ -13995,13 +13998,12 @@ function aaMixedFeedTopicCardHTML(c){
  if(hasMedia){
   if(isVideo){
    media=`<video class="aa360-video" data-aa-post-type="topic" data-aa-post-id="${esc(c._topicId)}" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"></video>`;
-   /* Home's slide still autoplays this muted/looped in the background
-      exactly like vehicle/property/food videos (aaInit360Feed's
-      IntersectionObserver, unchanged) - this button is the only way to
-      open the same shared full-screen viewer used on Wall/profile, with
-      sound and native transport controls. stopPropagation keeps a tap
-      here from also firing the slide's own onclick (aaOpenExactTopic). */
-   videoPlayOverlay=`<button type="button" class="aa-video-play-overlay" aria-label="Play video full screen" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(c.feed_media))},${JSON.stringify(String(c.feed_title||t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'>▶</button>`;
+   /* No play-button overlay here (removed 2026-10-03, proven by the
+      16-frame capture): the approved behavior is tap-on-video, matching
+      vehicle/property/food cards, which never had this overlay in the
+      first place. Home's slide still autoplays this muted/looped in the
+      background exactly like those other kinds (aaInit360Feed's
+      IntersectionObserver, unchanged). */
   }else{
    media=`<img class="aa360-video" data-aa-post-type="topic" data-aa-post-id="${esc(c._topicId)}" src="${esc(c.feed_media)}" alt="">`;
   }
@@ -14024,7 +14026,12 @@ function aaMixedFeedTopicCardHTML(c){
     bar(c.source)+...)}) and inserts BingoSounds.bar(t) immediately before
     the action row below. Adding our own bar here would render it twice -
     confirmed by inspecting the actual DOM output, not just the source. */
- return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}" data-canon="topic:${esc(t.id)}">${media}<div class="aa360-shade"></div>${videoPlayOverlay}<span class="aa-type-label">POST</span>${multiTag}<div class="aa360-info" style="cursor:pointer"><div class="aa360-seller-wrap">${authorBlock}</div>${c.feed_title?`<div class="aa360-title">${esc(c.feed_title)}</div>`:''}${c.feed_desc?`<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc,140)}</div>`:''}${compactStats}<div class="aa-icon-action-row" role="group" aria-label="Post actions" style="margin-top:8px" onclick="event.stopPropagation()">
+ /* No "POST" type-label badge here (removed 2026-10-03, proven by the
+    16-frame capture): not part of the approved current Home
+    presentation. multiTag (the "1/N" photo-count badge, shares the
+    same aa-type-label CSS class for its own different purpose) is
+    untouched. */
+ return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}" data-canon="topic:${esc(t.id)}">${media}<div class="aa360-shade"></div>${videoPlayOverlay}${multiTag}<div class="aa360-info" style="cursor:pointer"><div class="aa360-seller-wrap">${authorBlock}</div>${c.feed_title?`<div class="aa360-title">${esc(c.feed_title)}</div>`:''}${c.feed_desc?`<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc,140)}</div>`:''}${compactStats}<div class="aa-icon-action-row" role="group" aria-label="Post actions" style="margin-top:8px" onclick="event.stopPropagation()">
   ${aaIconActionBtn({rgb:"245,185,30",active:loved,label:"Crown",activeLabel:"Crowned",svg:AA_ICON_ACTION_SVG.crownOutline,activeSvg:AA_ICON_ACTION_SVG.crownFilled,onclick:`aaTopicLove(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"96,165,250",label:"Comments",shortLabel:aaTopicCommentsFor(t).length?String(aaTopicCommentsFor(t).length):"Comments",svg:AA_ICON_ACTION_SVG.comment,onclick:openPostCall})}
   ${aaIconActionBtn({rgb:"34,201,255",label:"Share",svg:AA_ICON_ACTION_SVG.share,onclick:`aaTopicShare(${JSON.stringify(String(t.id))})`})}

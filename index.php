@@ -34,11 +34,23 @@ $early_guard = <<<'HTML'
      element does is just holding the matching background color steady
      during that parse gap; the html{background} rule two lines up already
      does most of that work, this is only extra insurance for the instant
-     before <body> itself starts painting. */
+     before <body> itself starts painting.
+     PROVEN BY 16-FRAME CAPTURE: z-index here used to be 2147483647, ABOVE
+     #bingoSplash's own 2147483640 - meaning this opaque placeholder sat on
+     top of the real splash for its ENTIRE visible duration, not just the
+     brief pre-paint gap it exists for. Screenshots at 1053/1130/1421/1464ms
+     were solid black at every one of those timestamps, including after
+     #bingoSplash already existed in the DOM with the correct artwork - the
+     approved montage never painted a single visible frame. Fixed by giving
+     this a LOWER z-index than #bingoSplash: it still covers the viewport
+     during the instant before <body> itself has anything to paint, but the
+     moment #bingoSplash exists and applies its own visibility:visible
+     override, the real artwork paints on top of this placeholder instead
+     of being hidden beneath it. */
   function mountEarlySplash(){
     if(document.getElementById('bingoEarlySplash'))return;
     var s=document.createElement('div');s.id='bingoEarlySplash';
-    s.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#030713;visibility:visible!important';
+    s.style.cssText='position:fixed;inset:0;z-index:2147483630;background:#030713;visibility:visible!important';
     (document.documentElement||document).appendChild(s);
   }
   mountEarlySplash();
