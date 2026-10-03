@@ -334,3 +334,58 @@ document.addEventListener('pointerdown',()=>{if(soundOn){const v=firstVisibleVid
 window.addEventListener('pageshow',schedule);window.addEventListener('resize',schedule);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();
 })();
+
+
+/* Bingo persisted topic-media feed bridge — 2026-10-03 */
+(function(){
+'use strict';
+const PROJECT='ktwkfavryihrfwghsbuo';
+const BASE='https://'+PROJECT+'.supabase.co';
+function sb(){return window.supabaseClient||window.supabase||window.sb||null}
+function mediaUrl(path){return BASE+'/storage/v1/object/authenticated/topic-media/'+String(path||'').split('/').map(encodeURIComponent).join('/')}
+function isHome(){return !window.state||String(window.state.view||'home')==='home'}
+async function signed(path){
+ const client=sb(); if(!client||!client.storage||!path)return '';
+ try{const r=await client.storage.from('topic-media').createSignedUrl(path,3600);return r&&r.data&&r.data.signedUrl||''}catch(e){return ''}
+}
+async function loadPersisted(){
+ if(!isHome()||window.__bingoPersistedLoading)return;
+ const client=sb();if(!client||!client.from)return;
+ window.__bingoPersistedLoading=true;
+ try{
+  const r=await client.from('bingo_topics').select('id,user_id,title,body,media,created_at,profiles:user_id(full_name,username,avatar_url,photo_url)').eq('moderation_status','visible').order('created_at',{ascending:false}).limit(40);
+  const rows=(r&&r.data)||[]; if(!rows.length)return;
+  const feed=document.querySelector('#auto-arcade-widget .aa360-feed');
+  if(!feed)return;
+  const real=rows.filter(x=>Array.isArray(x.media)&&x.media.length);
+  if(!real.length)return;
+  const frag=document.createDocumentFragment();
+  for(const row of real){
+    const m=row.media[0]||{}, path=m.path||'', type=String(m.type||'').toLowerCase();
+    const url=await signed(path); if(!url)continue;
+    const p=row.profiles||{},name=p.full_name||p.username||'Bingo member',avatar=p.photo_url||p.avatar_url||'';
+    const art=document.createElement('article');art.className='aa360-item bingo-persisted-topic';art.dataset.postId=row.id;
+    const media=type==='video'?'<video class="aa360-video" src="'+url.replace(/"/g,'&quot;')+'" playsinline preload="metadata"></video>':'<img class="aa360-photo" src="'+url.replace(/"/g,'&quot;')+'" alt="">';
+    art.innerHTML=media+'<div class="bingo-persisted-source" hidden data-name="'+String(name).replace(/"/g,'&quot;')+'" data-avatar="'+String(avatar).replace(/"/g,'&quot;')+'" data-title="'+String(row.title||row.body||'').replace(/"/g,'&quot;')+'"></div>';
+    frag.appendChild(art);
+  }
+  if(frag.childNodes.length){
+    feed.replaceChildren(frag);
+    feed.dispatchEvent(new Event('scroll'));
+    window.dispatchEvent(new Event('resize'));
+  }
+ }catch(e){console.warn('Bingo persisted feed bridge',e)}
+ finally{window.__bingoPersistedLoading=false}
+}
+function updateOverlay(){
+ const feed=document.querySelector('#auto-arcade-widget .aa360-feed');if(!feed)return;
+ const items=[...feed.querySelectorAll('.bingo-persisted-topic')];const active=items.find(x=>{const r=x.getBoundingClientRect();return r.bottom>innerHeight*.35&&r.top<innerHeight*.65})||items[0];
+ if(!active)return;const s=active.querySelector('.bingo-persisted-source');if(!s)return;
+ const name=s.dataset.name||'',avatar=s.dataset.avatar||'',title=s.dataset.title||'';
+ const ps=document.querySelector('.bingo-approved-posted span');if(ps)ps.textContent='Posted by '+name;
+ document.querySelectorAll('.bingo-approved-profile img,.bingo-approved-posted img').forEach(i=>{if(avatar)i.src=avatar});
+ const cap=document.querySelector('.bingo-approved-caption');if(cap)cap.textContent=title;
+}
+let tries=0;const timer=setInterval(()=>{tries++;loadPersisted();updateOverlay();if(tries>40)clearInterval(timer)},250);
+document.addEventListener('scroll',updateOverlay,true);
+})();
