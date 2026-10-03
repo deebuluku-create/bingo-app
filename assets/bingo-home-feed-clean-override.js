@@ -214,9 +214,21 @@ run();
 })();
 
 
-/* Bingo approved mobile Home surface — 2026-10-03 */
+/* Bingo approved mobile Home surface — 2026-10-03
+   DISABLED 2026-10-03: this injected a second top bar, bottom nav, side
+   action rail and filter row directly onto document.body, duplicating
+   chrome the canonical Home render (homeHTML/aaFeedFilterHTML/the real
+   .aa360-side action rail) already draws - on screen at the same time
+   as the real controls. Its avatar/caption resolution also guessed from
+   "any image with dimensions" on the page, which is how an unrelated
+   food photo or camera icon could end up in a profile-avatar slot.
+   Left in place rather than deleted so the next person can see exactly
+   what ran and why it was turned off, per "scan before delete" - this is
+   a live-behavior disable, not proof the code is dead/unreachable. */
 (function installApprovedBingoMobileHome(){
 'use strict';
+return; // disabled - see comment above
+// eslint-disable-next-line no-unreachable
 if(window.__bingoApprovedMobileHome)return; window.__bingoApprovedMobileHome=true;
 const ICON={
  speakerOn:'<svg viewBox="0 0 32 32" aria-hidden="true"><path fill="white" d="M4 12v8h6l7 6V6l-7 6H4z"/><path d="M21 11c2.5 2.5 2.5 7.5 0 10M24 8c4.5 4.5 4.5 11.5 0 16" fill="none" stroke="#35b8ff" stroke-width="2.8" stroke-linecap="round"/></svg>',
@@ -336,9 +348,27 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 })();
 
 
-/* Bingo persisted topic-media feed bridge — 2026-10-03 */
+/* Bingo persisted topic-media feed bridge — 2026-10-03
+   DISABLED 2026-10-03: aaMixedFeedItems() in the mother HTML already
+   includes real bingo_topics rows (via aaTopics()/aaLoadBingoWall(),
+   which queries sb.from('bingo_topics') directly) with full author-meta
+   resolution and signed media URLs (aaTopicMediaSrc -> aaTopicMediaUrl),
+   rendered through the canonical aaMixedFeedTopicCardHTML path - same
+   action rail, same card chrome as every other post kind. This bridge
+   re-queried the same table on its own 250ms timer and replaced the
+   feed's real children (feed.replaceChildren(frag)) with a second,
+   weaker render missing most of those actions, with avatar/caption
+   resolution that guessed from loose text/selector matching rather than
+   the actual post's owner id - that is how an unrelated photo could
+   end up in a profile-avatar slot. Uploaded topic/media content was
+   never actually missing from Home; it was already live through the
+   canonical renderer this bridge kept overwriting. Left in place
+   (not deleted) so the next person can see what ran and why, per
+   "scan before delete" - this is a live-behavior disable. */
 (function(){
 'use strict';
+return; // disabled - see comment above
+// eslint-disable-next-line no-unreachable
 const PROJECT='ktwkfavryihrfwghsbuo';
 const BASE='https://'+PROJECT+'.supabase.co';
 function sb(){return window.supabaseClient||window.supabase||window.sb||null}

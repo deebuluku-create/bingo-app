@@ -169,29 +169,34 @@ splash itself begins fading out.
    const n=Math.min(150,Math.max(70,Math.floor(innerWidth/4)));
    const colors=['#ff9d00','#ffd35a','#ffffff','#121820'];
    for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,sp=1.4+Math.random()*4.2;particles.push({x:cx+(Math.random()-.5)*180,y:cy+(Math.random()-.5)*130,vx:Math.cos(a)*sp+1.2,vy:Math.sin(a)*sp-1.5,r:1+Math.random()*4,c:colors[i%colors.length],o:.95})}
-   let f=0;(function tick(){ctx.clearRect(0,0,canvas.width,canvas.height);for(const p of particles){p.x+=p.vx;p.y+=p.vy;p.vx*=1.015;p.vy-=.015;p.o*=.965;ctx.globalAlpha=p.o;ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;if(++f<46)requestAnimationFrame(tick)})();
+   /* isConnected guard: the splash (and this canvas with it) is removed
+      from the DOM at 1200ms, well before this loop's own 46-frame
+      budget (~767ms from the 700ms start, ending ~1467ms) naturally
+      finishes. A detached canvas can't paint anything so the extra
+      frames were never visible, but this stops the rAF loop outright
+      the instant the splash is gone instead of letting it tick into a
+      detached element - a startup animation must not keep scheduling
+      frames once "the opening montage" it belongs to no longer exists. */
+   let f=0;(function tick(){if(!canvas.isConnected)return;ctx.clearRect(0,0,canvas.width,canvas.height);for(const p of particles){p.x+=p.vx;p.y+=p.vy;p.vx*=1.015;p.vy-=.015;p.o*=.965;ctx.globalAlpha=p.o;ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill()}ctx.globalAlpha=1;if(++f<46)requestAnimationFrame(tick)})();
   }
   setTimeout(()=>{splash.classList.add('disperse');burst()},700);
   setTimeout(()=>splash.classList.add('hide'),1000);
   setTimeout(()=>splash.remove(),1200);
-  /* Welcome sequence only: a small animated Bingo mark settles briefly
-     below the top-left "Ad" position on Home right as the splash
-     clears, then disappears for good — never during normal browsing. */
-  setTimeout(()=>{
-   try{
-    if(String(window.state?.view||"home")!=="home")return;
-    var w=document.createElement("div");
-    w.id="bingoWelcomeMark";
-    w.innerHTML='<img src="'+BINGO_LOGO_SRC+'" alt="Bingo">';
-    document.body.appendChild(w);
-    requestAnimationFrame(()=>w.classList.add("bingo-welcome-mark-in"));
-    setTimeout(()=>{
-     w.classList.remove("bingo-welcome-mark-in");
-     w.classList.add("bingo-welcome-mark-out");
-     setTimeout(()=>w.remove(),500);
-    },2600);
-   }catch(e){}
-  },1020);
+  /* A post-splash "#bingoWelcomeMark" logo re-appeared on top of Home
+     here - a second, separate animated Bingo mark, appended straight to
+     document.body (so splash.remove() never cleaned it up) that stayed
+     on screen animating in/out for ~3 more seconds after the splash had
+     already closed. Real-browser screenshots showed this reads as the
+     opening logo "flashing" over the Home video feed - exactly the
+     montage-leaking-into-Home symptom the montage must never produce.
+     It also mutated document.body's direct children twice (append,
+     then remove) during the first seconds Home is live, which the
+     feed's own body-childList MutationObserver (installed further down,
+     the one that re-wires aa360 video playback) picks up as "something
+     changed" and reinitializes the video feed observer for - directly
+     competing with the first video's own startup. Removed outright:
+     the one approved opening logo is #bingoSplash's own image above,
+     shown for ~1s and then gone for good, nothing reappearing after. */
  }
 })();
 </script>
@@ -3220,24 +3225,6 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
   font-weight:600;
   text-shadow:0 1px 3px rgba(0,0,0,.75);
 }
-#bingoWelcomeMark{
-  position:fixed;
-  top:38px;left:14px;
-  z-index:2147481800;
-  width:36px;
-  opacity:0;
-  transform:translateY(-8px) scale(.85);
-  transition:opacity .45s ease,transform .45s ease;
-  pointer-events:none;
-}
-#bingoWelcomeMark img{width:100%;height:auto;display:block;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5))}
-#bingoWelcomeMark.bingo-welcome-mark-in{opacity:1;transform:translateY(0) scale(1);animation:bingoWelcomeMarkPulse 1.3s ease-in-out .45s 1}
-#bingoWelcomeMark.bingo-welcome-mark-out{opacity:0;transform:translateY(-6px) scale(.85)}
-@keyframes bingoWelcomeMarkPulse{
-  0%,100%{transform:translateY(0) scale(1) rotate(0deg)}
-  30%{transform:translateY(-2px) scale(1.08) rotate(-3deg)}
-  60%{transform:translateY(1px) scale(1.03) rotate(2deg)}
-}
 #auto-arcade-widget .aa360-seller-wrap{
   display:flex;
   align-items:center;
@@ -4667,10 +4654,11 @@ var BINGO_LOGO_SRC = "assets/bingo-original-logo.png?v=20261003d";
    entrance, messenger header, ad mascot - goes through this one
    function instead of hand-writing its own <img> tag, so there is
    exactly one place to change if the approved asset ever changes again.
-   Deliberately NOT used by the opening/welcome splash sequence
-   (#bingoSplash's own <img> keeps its separate, untouched, protected
-   asset/markup/animation) or by the post-splash #bingoWelcomeMark
-   snippet, which is left exactly as it already was. */
+   Deliberately NOT used by the opening/welcome splash sequence -
+   #bingoSplash's own <img> keeps its separate, untouched, protected
+   asset/markup/animation. (The post-splash #bingoWelcomeMark snippet
+   that used to be mentioned here was removed - it re-animated the logo
+   on top of Home after the splash had already closed.) */
 function bingoAppLogoHTML(options){
  const o=options||{};
  const className=o.className||"";
@@ -14068,7 +14056,12 @@ function aaMixedFeedCardHTML(c,i){
  const isPropertyImage=(c.kind==='property'||c.kind==='food')&&c.feed_media_type==='image';
  const openDetailCall=c.kind==='property'?`openPropertyDetail('${esc(c._promoId||"")}')`:(c.kind==='food'?`aaOpenFoodBusinessProfile('${esc(c._promoId||"")}')`:'');
  const openDetailAttr=openDetailCall?` style="cursor:pointer"`:'';
- const media=isPropertyImage?`<img class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" alt=""${openDetailAttr}>`:`<video class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"${openDetailAttr}></video>`;
+ /* Match aaFeedCardHTML's vehicle-card preload priority: only the
+    first couple of feed positions are worth eagerly buffering (they're
+    the ones a visitor can actually see the instant Home appears) -
+    every later card stays on cheap preload="metadata" so the feed
+    never kicks off a wall of simultaneous 4K downloads. */
+ const media=isPropertyImage?`<img class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" alt=""${openDetailAttr}>`:`<video class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" playsinline muted loop preload="${i<2?"auto":"metadata"}"${openDetailAttr}></video>`;
  const multiTag=(c.feed_media_count>1)?`<span class="aa-type-label" style="left:auto;right:10px">1/${c.feed_media_count}</span>`:'';
  const promoLabel=aaPromotionLabel(c);
  const promoted=promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";
@@ -22508,7 +22501,19 @@ function aaCloseTopOverlay(){
   if(!app){window.setTimeout(boot,25);return}
   try{
    load();
-   aaResumeSavedRouteIfSafe();
+   /* aaResumeSavedRouteIfSafe() used to run here, restoring state.view
+      from sessionStorage's aa_current_route on every boot. The opening
+      montage plays on every single load (there is no "seen it already"
+      flag), which tells the visitor this is a fresh start every time -
+      but the resume call would then silently override the "home"
+      default with whatever view (often "topics"/"wall") the visitor
+      had open in that tab before the last reload, landing them on
+      Bingo Topic instead of the Home video feed right after the splash
+      cleared. The montage's own promise ("Bingo opens on Home") must
+      win over same-tab convenience, so boot no longer resumes a saved
+      view. aaSaveCurrentRoute()'s own scroll-position listener is left
+      untouched for the back/forward-gesture and in-session navigation
+      paths that still legitimately use it. */
    aaRestoreOAuthAuthIntent();
    if(!state.condition)state.condition="All conditions";
    if(!state.fuelFilter)state.fuelFilter="All fuel";

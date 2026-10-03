@@ -25,14 +25,47 @@ $early_guard = <<<'HTML'
   var released=false;
   /* Create the montage shell inside this parser-blocking head script. The old
      document body cannot paint first because body is still visibility:hidden. */
+  /* Background-only placeholder - NOT a logo. This used to render a plain
+     "Bingo" text wordmark here as a stand-in while the real body (and
+     #bingoSplash's own approved artwork, further down in <body>) was still
+     parsing. That text wordmark is a second, unapproved startup graphic -
+     only the real #bingoSplash image is allowed to represent the opening
+     montage. The actual "no white/stale flash before Home paints" job this
+     element does is just holding the matching background color steady
+     during that parse gap; the html{background} rule two lines up already
+     does most of that work, this is only extra insurance for the instant
+     before <body> itself starts painting. */
   function mountEarlySplash(){
     if(document.getElementById('bingoEarlySplash'))return;
     var s=document.createElement('div');s.id='bingoEarlySplash';
-    s.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#030713;display:flex;align-items:center;justify-content:center;visibility:visible!important';
-    s.innerHTML='<div style="font:900 clamp(42px,10vw,88px)/1 Arial,sans-serif;color:#ffc928;text-shadow:0 0 24px rgba(255,201,40,.6)">Bingo</div>';
+    s.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#030713;visibility:visible!important';
     (document.documentElement||document).appendChild(s);
   }
   mountEarlySplash();
+  /* releaseBingo() below used to only fire on the 2500ms absolute
+     backstop or a persisted pageshow - there was no link to the real
+     #bingoSplash's own ~1-1.2s exit (in the mother HTML's own early
+     script), so #bingoEarlySplash sat on top of it - at a higher
+     z-index - for the full 2.5s on every normal load, not just as a
+     worst-case fallback. The mother HTML's early script removes
+     'bingo-preload' from <html> the instant its own splash exit
+     starts (~1000ms); that single class removal is already this
+     app's one authoritative "app ready" signal, so poll for it here
+     too and release the moment it happens. The 2500ms setTimeout
+     further down stays as the true worst-case backstop if that
+     signal is ever missed. */
+  (function watchRealSplashExit(){
+    var tries=0;
+    var poll=setInterval(function(){
+      tries++;
+      if(!document.documentElement.classList.contains('bingo-preload')){
+        clearInterval(poll);
+        releaseBingo();
+      }else if(tries>60){ // ~3s of polling at 50ms - the 2500ms backstop below covers the rest
+        clearInterval(poll);
+      }
+    },50);
+  })();
   // The old post-splash welcome mark is a second logo animation mounted on body,
   // outside #bingoSplash. Remove it immediately so splash effects cannot leak onto Home.
   try{
