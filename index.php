@@ -8,7 +8,32 @@ if ($html === false) {
   echo 'Bingo is temporarily unavailable.';
   exit;
 }
-$addons = "\n<script src=\"/assets/bingo-performance-bootstrap.js?v=20261003b\" defer></script>\n"
+$early_guard = <<<'HTML'
+<script id="bingo-startup-hard-guard">
+(function(){
+  var released=false;
+  function releaseBingo(){
+    if(released)return; released=true;
+    try{
+      document.documentElement.classList.remove('bingo-preload');
+      var s=document.getElementById('bingoSplash');
+      if(s){s.classList.add('hide');s.style.pointerEvents='none';setTimeout(function(){try{s.remove()}catch(e){}},700);}
+      document.documentElement.style.overflow='';
+      if(document.body)document.body.style.overflow='';
+    }catch(e){}
+  }
+  /* Absolute startup ceiling. Normal splash still clears itself around 7s. */
+  setTimeout(releaseBingo,10000);
+  window.addEventListener('pageshow',function(e){if(e.persisted)setTimeout(releaseBingo,1200);},{once:true});
+})();
+</script>
+HTML;
+$head_pos = stripos($html, '</head>');
+if ($head_pos !== false && strpos($html, 'bingo-startup-hard-guard') === false) {
+  $html = substr_replace($html, "\n".$early_guard."\n", $head_pos, 0);
+}
+
+$addons = "\n<script src=\"/assets/bingo-performance-bootstrap.js?v=20261003c\" defer></script>\n"
         . "<script src=\"/assets/bingo-home-feed-clean-override.js?v=20261002e\" defer></script>\n"
         . "<script src=\"/assets/bingo-social-graph-addon.js?v=20261002e\" defer></script>\n";
 if (strpos($html, 'bingo-home-feed-clean-override.js') === false) {
