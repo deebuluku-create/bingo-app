@@ -7,10 +7,10 @@ function install(){
    if(!window.sb){if(typeof toast==='function')toast(provider+' sign-in is not ready yet.');return}
    try{
     if(window.state){state.authBusy=true;state.authError=''}
-    if(typeof aaSaveCurrentRoute==='function')aaSaveCurrentRoute();
-    if(typeof aaSaveOAuthAuthIntent==='function')aaSaveOAuthAuthIntent();
+    /* OAuth launch must not wait for route/profile work. Keep only the tiny auth-intent marker. */
+    try{if(typeof aaSaveOAuthAuthIntent==='function')aaSaveOAuthAuthIntent()}catch(_){}
     const redirectTo=typeof aaOAuthRedirectTo==='function'?aaOAuthRedirectTo():location.origin+'/';
-    const r=await sb.auth.signInWithOAuth({provider:provider.toLowerCase(),options:{redirectTo}});
+    const r=await sb.auth.signInWithOAuth({provider:provider.toLowerCase(),options:{redirectTo,skipBrowserRedirect:false}});
     if(r.error)throw r.error;
    }catch(e){if(window.state){state.authBusy=false;state.authError=String(e&&e.message||provider+' sign-in could not start.')}if(typeof render==='function')render()}
   }
