@@ -1,0 +1,109 @@
+name: Surgical Bingo Topics autoplay
+on:
+  push:
+    branches: [bingo-preview-deploy-2026-09-28]
+    paths: [.github/workflows/surgical-bingo-topics-autoplay.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bingo-preview-deploy-2026-09-28
+      - name: Apply surgical Bingo Topics video behavior
+        shell: python
+        run: |
+          from pathlib import Path
+          p=Path("BINGO_MASTER_CURRENT_VERIFIED.html")
+          s=p.read_text(encoding="utf-8")
+          marker="BINGO_TOPICS_AUTOPLAY_PATCH_20261005"
+          if marker in s:
+              print("Patch already present; no duplicate.")
+              raise SystemExit(0)
+          patch=r"""
+<!-- BINGO_TOPICS_AUTOPLAY_PATCH_20261005: surgical; topics video only -->
+<style id="BINGO_TOPICS_AUTOPLAY_PATCH_20261005">
+/* Hide only play glyph overlays sitting on Bingo Topic video media. */
+[data-bingo-topic] .play-overlay,[data-bingo-topic] .video-play-overlay,
+.bingo-topic-card .play-overlay,.bingo-topic-card .video-play-overlay,
+.topic-card .play-overlay,.topic-card .video-play-overlay{display:none!important}
+</style>
+<script>
+(function(){
+  'use strict';
+  const TOPIC_SEL='[data-bingo-topic],.bingo-topic-card,.topic-card,[data-topic-id]';
+  function isTopicVideo(v){return !!(v&&v.tagName==='VIDEO'&&v.closest(TOPIC_SEL));}
+  function removePlayGlyph(root){
+    (root||document).querySelectorAll(TOPIC_SEL).forEach(card=>{
+      card.querySelectorAll('button,[role="button"],.play-overlay,.video-play-overlay').forEach(el=>{
+        const t=(el.textContent||'').trim();
+        const a=(el.getAttribute('aria-label')||'').toLowerCase();
+        const c=String(el.className||'').toLowerCase();
+        if(t==='▶'||t==='►'||t==='⏵'||a==='play'||c.includes('play-overlay')||c.includes('video-play-overlay')){
+          el.style.setProperty('display','none','important');
+          el.setAttribute('aria-hidden','true');
+        }
+      });
+    });
+  }
+  const io=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      const v=e.target;
+      if(!isTopicVideo(v)) return;
+      if(e.isIntersecting&&e.intersectionRatio>=.55){
+        v.muted=true; v.playsInline=true; v.autoplay=true;
+        const q=v.play(); if(q&&q.catch) q.catch(()=>{});
+      } else { v.pause(); }
+    });
+  },{threshold:[0,.55,1]});
+  function wire(root){
+    (root||document).querySelectorAll('video').forEach(v=>{
+      if(!isTopicVideo(v)||v.dataset.bingoTopicAuto==='1') return;
+      v.dataset.bingoTopicAuto='1';
+      v.autoplay=true; v.muted=true; v.playsInline=true;
+      v.removeAttribute('controls');
+      io.observe(v);
+    });
+    removePlayGlyph(root||document);
+  }
+  document.addEventListener('click',function(e){
+    const v=e.target.closest&&e.target.closest('video');
+    if(!isTopicVideo(v)) return;
+    /* Preserve the app's existing topic-card navigation/full-post handler.
+       If the video itself has no handler, forward one click to its topic card. */
+    const card=v.closest(TOPIC_SEL);
+    if(card&&e.target===v){
+      const opener=card.querySelector('[data-open-post],[data-open-home-post],a[href*="home"],a[href*="post"]');
+      if(opener){ e.preventDefault(); opener.click(); }
+    }
+  },true);
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',()=>wire(document));
+  else wire(document);
+  new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.nodeType===1) wire(n)})))
+    .observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>
+"""
+          i=s.lower().rfind("</body>")
+          if i<0: raise SystemExit("STOP: </body> anchor not found; master untouched")
+          s=s[:i]+patch+s[i:]
+          p.write_text(s,encoding="utf-8")
+          print("Applied one surgical patch before </body>.")
+      - name: Verify only intended patch
+        shell: bash
+        run: |
+          grep -q "BINGO_TOPICS_AUTOPLAY_PATCH_20261005" BINGO_MASTER_CURRENT_VERIFIED.html
+          git diff --check
+          git diff --stat
+      - name: Commit and push
+        shell: bash
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "Bingo Surgical Deploy"
+          git config user.email "actions@users.noreply.github.com"
+          git add BINGO_MASTER_CURRENT_VERIFIED.html
+          git commit -m "Surgical: autoplay Bingo Topics videos and remove play overlay"
+          git push origin HEAD:bingo-preview-deploy-2026-09-28
