@@ -9616,6 +9616,9 @@ function aaFeedGoTo(index,behavior="smooth"){
  const i=Math.max(0,Math.min(items.length-1,Number(index)||0));
  const h=feed.clientHeight||items[0].clientHeight||1;
  aaFeedMoving=true;
+ /* Remember where this navigation is going, so an app render that lands mid-scroll restores
+    the destination slide instead of cancelling the swipe (see the Home render wrapper). */
+ window.__bingoFeedTarget={index:i,at:Date.now()};
  try{feed.scrollTo({top:i*h,behavior:behavior==="auto"?"auto":"smooth"})}
  catch(e){feed.scrollTop=i*h}
  setTimeout(()=>{aaFeedMoving=false},360);
@@ -9646,6 +9649,7 @@ function aaFeedHandleSwipe(dy,dx,elapsed){
    const h=feed.clientHeight||items[0].clientHeight||1;
    const idx=Math.max(0,Math.min(items.length-1,Math.round(feed.scrollTop/h)));
    const target=idx*h;
+   if(Math.abs(feed.scrollTop-target)<=2){window.__bingoFeedSettled=idx;window.__bingoFeedTarget=null}
    if(Math.abs(feed.scrollTop-target)>2){
     try{feed.scrollTo({top:target,behavior:"smooth"})}catch(_e){feed.scrollTop=target}
    }
@@ -27602,6 +27606,8 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
   var centered=true; /* true until first dismissed from the centered entrance spot, once per session */
   var boundHandle=null;
   var boundCloseBtn=null;
+  var keepCloseBtn=false; /* the X stays available once the logo has settled after the montage */
+  var settleTimer=0;
 
   function isHome(){
     try{ return !!(window.state && window.state.view==="home"); }catch(e){ return false; }
@@ -27733,7 +27739,7 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
     /* Show the X both on the initial centered entrance (so it can be
        dismissed) and whenever the logo has been dragged away from
        its corner spot. */
-    if(centered||dragged)showCloseBtn();else hideCloseBtn();
+    if(centered||dragged||keepCloseBtn)showCloseBtn();else hideCloseBtn();
   }
 
   function resetToDefault(){
@@ -27767,6 +27773,9 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
     if(!wrap||!handle||handle.__bingoDragBound)return;
     handle.__bingoDragBound=true;
     var startX=0,startY=0,origX=0,origY=0,dragging=false,moved=false;
+    /* A desktop mouse would otherwise start the browser's own image drag on the logo artwork,
+       which cancels the pointer after the first move. */
+    handle.addEventListener("dragstart",function(ev){ev.preventDefault();});
 
     handle.addEventListener("pointerdown",function(ev){
       if(!isHome())return;
@@ -27823,6 +27832,13 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
     }
     applyPosition(wrap,false);
     showPressHereIfDue();
+    /* After the montage the one original logo settles by itself at its upper-left spot
+       (it can still be dragged anywhere for the rest of the session). */
+    if(centered&&!dragged&&!settleTimer&&isHome()&&document.body.classList.contains("bingo-splash-done")){
+      settleTimer=setTimeout(function(){
+        if(centered&&!dragged&&isHome()){centered=false;keepCloseBtn=true;applyPosition(getWrap(),true);}
+      },1800);
+    }
   }
 
   /* While still at the default spot (not yet dragged), keep tracking
@@ -27851,6 +27867,13 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
   }
   var mo=new MutationObserver(scheduleSync);
   mo.observe(document.body,{childList:true,subtree:true});
+  /* The montage ends without necessarily changing the DOM, so check briefly until the logo has
+     settled (or 30s have passed); this timer then stops for good. */
+  var settleChecks=0,settleWatch=setInterval(function(){
+    settleChecks++;
+    if((!centered&&settleTimer)||dragged||settleChecks>50){clearInterval(settleWatch);return;}
+    scheduleSync();
+  },600);
   window.addEventListener("resize",sync,{passive:true});
   window.addEventListener("orientationchange",function(){setTimeout(sync,60);});
   sync();
@@ -29129,8 +29152,14 @@ aaOpenPhotoLightbox=function(src,title,id){originalPhotoOpen(src,title,id);aaPau
 const originalOverlay=aaHomeOverlayOpen;
 aaHomeOverlayOpen=function(){return originalOverlay()||!!document.getElementById('aaVideoLightbox')||!!document.getElementById('aaPhotoLightbox')||!!document.getElementById('bingoSoundDialog')||!!document.getElementById('aaGuestProfileOverlay')};
 new MutationObserver(()=>{if(aaHomeOverlayOpen())aaPauseAllFeedVideos();else if(state.view==='home')aaInit360Feed()}).observe(document.body,{childList:true});
+/* A render that lands while the Home feed is between slides must not restore that in-between
+   offset: the old feed's scroll animation dies with it and the snap handler then rounds back to
+   the previous slide, silently cancelling the swipe (previous video keeps playing). Restore the
+   slide the user was going to: the pending aaFeedGoTo target, or - for a native finger scroll -
+   the next slide in the direction of travel from where the feed last settled. */
+function feedRestoreTop(next,scroll,h){h=h||next.clientHeight||1;const n=next.querySelectorAll('.aa360-item').length||1,t=window.__bingoFeedTarget;let i;if(t&&Date.now()-t.at<1500)i=t.index;else if(Math.abs(scroll-Math.round(scroll/h)*h)<=2)return scroll;else{const from=Number.isInteger(window.__bingoFeedSettled)?window.__bingoFeedSettled:Math.round(scroll/h);i=scroll/h>from?Math.ceil(scroll/h):Math.floor(scroll/h)}return Math.max(0,Math.min(n-1,i))*h}
 const originalRender=render;
-render=function(){const feed=document.querySelector('#auto-arcade-widget .aa360-feed'),scroll=feed?.scrollTop||0;const playing=[...document.querySelectorAll('#auto-arcade-widget video.aa360-video')].map(v=>({id:identity(v),time:v.currentTime}));originalRender.apply(this,arguments);const next=document.querySelector('#auto-arcade-widget .aa360-feed');if(feed&&next)next.scrollTop=scroll;for(const saved of playing){if(!saved.id||!saved.time)continue;const host=[...document.querySelectorAll('#auto-arcade-widget [data-canon]')].find(x=>x.dataset.canon===key(saved.id.type,saved.id.id)),v=host?.querySelector('video.aa360-video');if(v){const restore=()=>{if(saved.time<v.duration)v.currentTime=saved.time};if(v.readyState>=1)restore();else v.addEventListener('loadedmetadata',restore,{once:true})}}clearTimeout(renderTimer);renderTimer=setTimeout(()=>{measure();patchStats()},0)};
+render=function(){const feed=document.querySelector('#auto-arcade-widget .aa360-feed'),scroll=feed?.scrollTop||0,feedH=feed?.clientHeight||0;const playing=[...document.querySelectorAll('#auto-arcade-widget video.aa360-video')].map(v=>({id:identity(v),time:v.currentTime}));originalRender.apply(this,arguments);const next=document.querySelector('#auto-arcade-widget .aa360-feed');if(feed&&next){const top=feedRestoreTop(next,scroll,feedH);/* instant: the feed's CSS smooth scrolling would otherwise animate the fresh feed from the top through every slide (and the render cancels that animation) */try{next.scrollTo({top,behavior:'instant'})}catch(_e){next.scrollTop=top}}for(const saved of playing){if(!saved.id||!saved.time)continue;const host=[...document.querySelectorAll('#auto-arcade-widget [data-canon]')].find(x=>x.dataset.canon===key(saved.id.type,saved.id.id)),v=host?.querySelector('video.aa360-video');if(v){const restore=()=>{if(saved.time<v.duration)v.currentTime=saved.time};if(v.readyState>=1)restore();else v.addEventListener('loadedmetadata',restore,{once:true})}}clearTimeout(renderTimer);renderTimer=setTimeout(()=>{measure();patchStats()},0)};
 const originalLoad=aaLoadVehicles;
 aaLoadVehicles=async function(){await originalLoad.apply(this,arguments);await Promise.allSettled([loadCategories(),aaLoadProperties(),aaLoadFoods()])};
 // Purge legacy sample and local-only public records. Unsaved forms remain drafts.
