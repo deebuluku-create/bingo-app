@@ -9652,7 +9652,10 @@ function aaFeedHandleSwipe(dy,dx,elapsed){
   settleTimer=setTimeout(()=>{
    const items=aaFeedItems();if(!items.length)return;
    const h=feed.clientHeight||items[0].clientHeight||1;
-   const idx=Math.max(0,Math.min(items.length-1,Math.round(feed.scrollTop/h)));
+   /* While a feed navigation is still on its way (aaFeedGoTo target), a >90 ms pause in its smooth
+      scroll is not the end of the gesture: settle on that destination, not on the nearest (old) slide. */
+   const pending=window.__bingoFeedTarget;
+   const idx=Math.max(0,Math.min(items.length-1,pending&&Date.now()-pending.at<1500?pending.index:Math.round(feed.scrollTop/h)));
    const target=idx*h;
    if(Math.abs(feed.scrollTop-target)<=2){window.__bingoFeedSettled=idx;window.__bingoFeedTarget=null}
    if(Math.abs(feed.scrollTop-target)>2){
