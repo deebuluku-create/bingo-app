@@ -63,13 +63,14 @@ function playActive(){
 const io=new IntersectionObserver(es=>{
  es.forEach(e=>ratio.set(e.target,e.intersectionRatio));
  playActive();
-},{rootMargin:'65% 0px 65% 0px',threshold:[0,.25,.55,.75,1]});
+},{rootMargin:'0px',threshold:[0,.25,.55,.75,1]});
 
 function wireVideo(v){
  if(!v||v.dataset.bingoViewportVideo)return;
  v.dataset.bingoViewportVideo='1';v.classList.add('bingo-viewport-video');
- v.autoplay=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';
+ v.autoplay=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='metadata';
  v.controls=false;vids.add(v);io.observe(v);
+ v.addEventListener('loadedmetadata',playActive,{once:true});v.addEventListener('canplay',playActive,{once:true});
  v.addEventListener('click',function(e){
    e.stopPropagation();
    if(v.paused){pauseOthers(v);const p=v.play();if(p&&p.catch)p.catch(()=>{});}else v.pause();
