@@ -34,6 +34,7 @@ html.bingo-video-wall ${ROOT} .bingo-video-word-action:focus-visible{text-decora
 
 const vids=new Set();
 const ratio=new WeakMap();
+let activeVideo=null;
 function visibleRatio(v){
  const r=v.getBoundingClientRect(), vh=innerHeight||document.documentElement.clientHeight;
  const shown=Math.max(0,Math.min(r.bottom,vh)-Math.max(r.top,0));
@@ -42,6 +43,10 @@ function visibleRatio(v){
 function pauseOthers(active){
  vids.forEach(v=>{if(v!==active&&!v.paused){try{v.pause()}catch(e){}}});
 }
+function warmNeighbors(best){
+ const list=[...vids].filter(v=>v.isConnected),i=list.indexOf(best);
+ [list[i-1],list[i+1]].forEach(v=>{if(v&&v.preload==='none')v.preload='metadata'});
+}
 function playActive(){
  let best=null,bestR=0;
  vids.forEach(v=>{
@@ -49,8 +54,8 @@ function playActive(){
    const n=ratio.has(v)?ratio.get(v):visibleRatio(v);
    if(n>bestR){bestR=n;best=v}
  });
- if(best&&bestR>=.55){
-   pauseOthers(best);
+ if(best&&bestR>=.35){
+   activeVideo=best;pauseOthers(best);warmNeighbors(best);
    if(best.paused){
      const p=best.play();
      if(p&&typeof p.catch==='function')p.catch(function(){
@@ -58,19 +63,19 @@ function playActive(){
        try{best.muted=true;const q=best.play();if(q&&q.catch)q.catch(()=>{});}catch(e){}
      });
    }
- }else pauseOthers(null);
+ }else{activeVideo=null;pauseOthers(null);}
 }
 const io=new IntersectionObserver(es=>{
  es.forEach(e=>ratio.set(e.target,e.intersectionRatio));
  playActive();
-},{rootMargin:'0px',threshold:[0,.25,.55,.75,1]});
+},{rootMargin:'35% 0px 35% 0px',threshold:[0,.15,.35,.55,.75,1]});
 
 function wireVideo(v){
  if(!v||v.dataset.bingoViewportVideo)return;
  v.dataset.bingoViewportVideo='1';v.classList.add('bingo-viewport-video');
- v.autoplay=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='metadata';
+ v.autoplay=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload=visibleRatio(v)>.15?'auto':'metadata';
  v.controls=false;vids.add(v);io.observe(v);
- v.addEventListener('loadedmetadata',playActive,{once:true});v.addEventListener('canplay',playActive,{once:true});
+ v.addEventListener('loadedmetadata',playActive,{once:true});v.addEventListener('canplay',playActive,{once:true});v.addEventListener('waiting',()=>{if(v===activeVideo)v.preload='auto'});
  v.addEventListener('click',function(e){
    e.stopPropagation();
    if(v.paused){pauseOthers(v);const p=v.play();if(p&&p.catch)p.catch(()=>{});}else v.pause();
@@ -110,7 +115,7 @@ let q=0;new MutationObserver(ms=>{
    compactWall();playActive();
  },120);
 }).observe(document.documentElement,{childList:true,subtree:true});
-addEventListener('scroll',()=>{clearTimeout(q);q=setTimeout(playActive,90)},{passive:true});
+addEventListener('scroll',()=>{clearTimeout(q);q=setTimeout(playActive,35)},{passive:true});
 addEventListener('resize',()=>{clearTimeout(q);q=setTimeout(playActive,90)},{passive:true});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseOthers(null);else playActive()});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>scan(document),{once:true});else scan(document);
