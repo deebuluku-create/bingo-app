@@ -20,10 +20,27 @@ function context(el){
  if(id&&!/[#?].*(post|topic|listing)/i.test(url))url=ORIGIN+'/#post-'+encodeURIComponent(id);
  return {title:title||'Bingo App Kenya',text:(desc||title||'View this on Bingo App Kenya').slice(0,240),url,media};
 }
+async function previewFile(media){
+ if(!media)return null;
+ let src=media.tagName==='VIDEO'?(media.poster||''):(media.currentSrc||media.src||'');
+ if(!src||/^data:/i.test(src))return null;
+ try{
+  const r=await fetch(src,{mode:'cors',credentials:'omit'});if(!r.ok)return null;
+  const b=await r.blob();if(!/^image\//i.test(b.type)||b.size>12*1024*1024)return null;
+  const ext=(b.type.split('/')[1]||'jpg').replace('jpeg','jpg').replace(/[^a-z0-9]/gi,'')||'jpg';
+  return new File([b],'bingo-post-preview.'+ext,{type:b.type});
+ }catch(_){return null}
+}
 const nativeShare=navigator.share&&navigator.share.bind(navigator);
 if(nativeShare)navigator.share=async function(data){
  data=data||{};const c=context(document.activeElement);
- return nativeShare({title:data.title||(c&&c.title)||'Bingo App Kenya',text:data.text||(c&&c.text)||'View on Bingo App Kenya',url:cleanUrl(data.url||(c&&c.url)||location.href),files:data.files});
+ const payload={title:data.title||(c&&c.title)||'Bingo App Kenya',text:data.text||(c&&c.text)||'View on Bingo App Kenya',url:cleanUrl(data.url||(c&&c.url)||location.href)};
+ if(data.files&&data.files.length)payload.files=data.files;
+ else if(c&&c.media&&navigator.canShare){
+  const file=await previewFile(c.media);
+  if(file){const trial=Object.assign({},payload,{files:[file]});try{if(navigator.canShare(trial))payload.files=[file]}catch(_){}}
+ }
+ return nativeShare(payload);
 };
 document.addEventListener('click',function(e){
  const a=e.target.closest&&e.target.closest('a[href]');
