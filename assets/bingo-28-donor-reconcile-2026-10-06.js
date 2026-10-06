@@ -18,6 +18,39 @@ function installTopicTransport(){
  window.aaUploadStorageWithFeedback=wrapped;return true;
 }
 
+
+/* Live #28 transport authority: bypass the failing resumable host completely for Topic media.
+   The topic row already exists before this function is called, so existing topic-media RLS remains authoritative. */
+function installTopicUploader(){
+ if(typeof window.aaUploadTopicMedia!=='function'||window.aaUploadTopicMedia.__bingoDirectStandard)return false;
+ async function direct(files,userId,topicId,onProgress){
+  var client=window.sb||window.supabase;
+  if(!client)return {media:[],paths:[],error:new Error('No database connection. Bingo could not reach Supabase.')};
+  if(!files||!files.length)return {media:[],paths:[],error:null};
+  var media=[],paths=[];
+  try{
+   if(!userId)throw new Error('You must be logged in before uploading media.');
+   if(!topicId)throw new Error('A topic ID is required before media can be stored.');
+   for(var i=0;i<files.length;i++){
+    var file=files[i],isVideo=/^video\//.test(String(file.type||''));
+    if(typeof onProgress==='function')try{onProgress(i+1,files.length)}catch(_){}
+    var safe=String(file.name||('topic-'+i)).replace(/[^a-zA-Z0-9._-]/g,'-');
+    var path=userId+'/'+topicId+'/'+Date.now()+'-'+(i+1)+'-'+safe;
+    var result=await client.storage.from('topic-media').upload(path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
+    if(result&&result.error)throw result.error;
+    paths.push(path);media.push({type:isVideo?'video':'image',path:path,name:file.name||safe});
+   }
+   return {media:media,paths:paths,error:null};
+  }catch(error){
+   if(paths.length)try{await client.storage.from('topic-media').remove(paths)}catch(_){}
+   return {media:[],paths:[],error:new Error(String(error&&error.message||error||'Media upload failed.'))};
+  }
+ }
+ direct.__bingoDirectStandard=true;
+ window.aaUploadTopicMedia=direct;
+ return true;
+}
+
 /* 129c39a/ad53a17: keep media natural, remove only genuine legacy Play overlays.
    Playback authority stays with the existing Home/Wall controllers. */
 function cleanMedia(root){
@@ -29,7 +62,7 @@ function cleanMedia(root){
    if(card)b.style.setProperty('display','none','important');
  });
 }
-var tries=0,t=setInterval(function(){if(installTopicTransport()||++tries>100)clearInterval(t)},50);
+var tries=0,t=setInterval(function(){var a=installTopicTransport(),b=installTopicUploader();if((a&&b)||++tries>200)clearInterval(t)},50);
 var q=0;new MutationObserver(function(ms){clearTimeout(q);q=setTimeout(function(){cleanMedia(document)},100)}).observe(document.documentElement,{childList:true,subtree:true});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){cleanMedia(document)},{once:true});else cleanMedia(document);
 })();
