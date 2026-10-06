@@ -1,0 +1,37 @@
+/* Bingo #28 surgical UI/stability patch — 2026-10-06. Scoped only to named surfaces. */
+/* Flat X-style Bingo Wall: keep Bingo functions, remove card chrome. */
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic{
+ background:#fff!important;border:0!important;border-radius:0!important;box-shadow:none!important;
+ margin:0 auto!important;padding:12px 14px 16px!important;border-bottom:1px solid #e5e7eb!important;
+}
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-head{gap:10px!important;margin-bottom:8px!important}
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-avatar{width:42px!important;height:42px!important}
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-author b{font-size:15px!important}
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-author .meta{font-size:11px!important;margin-top:1px!important}
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-media{border-radius:14px!important;margin:8px 0 0!important;background:#000}
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-message{font-size:16px!important;line-height:1.38!important;margin:4px 0 8px!important}
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-content:not(:has(.aa-post-media)) .aa-post-message{font-weight:700!important}
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-summary{padding:8px 0!important;font-size:12px!important}
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions{padding:3px 0!important}
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions button{font-size:12px!important;padding:7px 2px!important;gap:5px!important}
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions svg{width:20px!important;height:20px!important}
+/* Compact post options menu. */
+#auto-arcade-widget .bingo-topic-options>div{width:220px!important;max-width:62vw!important;padding:4px!important;border-radius:10px!important}
+#auto-arcade-widget .bingo-topic-options button{min-height:38px!important;padding:7px 10px!important;font-size:14px!important;line-height:1.2!important}
+/* Compact profile account drawer; preserve order/colors/functions. */
+#auto-arcade-widget .bp-side{width:min(270px,74vw)!important;padding:12px 9px!important}
+#auto-arcade-widget .bp-sidehead{gap:7px!important;margin-bottom:9px!important}
+#auto-arcade-widget .bp-sidehead img{width:38px!important;height:38px!important}
+#auto-arcade-widget .bp-side nav .bp-neon,#auto-arcade-widget .bp-side nav .bp-na{font-size:12px!important;min-height:34px!important;padding:5px 8px!important;gap:7px!important}
+#auto-arcade-widget .bp-side nav b{font-size:15px!important;width:19px!important}
+#auto-arcade-widget .bp-side-title{font-size:9px!important;margin-top:1px!important}
+#auto-arcade-widget .bp-side-group{gap:4px!important;margin-bottom:8px!important}
+#auto-arcade-widget .bp-share{margin-top:12px!important;padding:8px!important}
+/* Stop the logo's perpetual rocking from visually shaking Home. Drag positioning remains intact. */
+#auto-arcade-widget.aa-v83-home .brand.bingo-brand-logo img{animation:none!important;will-change:auto!important}
+#auto-arcade-widget.aa-v83-home .bingo-crown{animation:none!important}
+#bingoHeaderStack.bingo-logo-draggable{contain:layout style!important}
+/* Profile grid media must paint, not inherit feed containment/opacity. */
+#auto-arcade-widget .bp-grid .bp-tile img,#auto-arcade-widget .bp-grid .bp-tile video{
+ opacity:1!important;visibility:visible!important;display:block!important;width:100%!important;height:100%!important;object-fit:cover!important;
+}
