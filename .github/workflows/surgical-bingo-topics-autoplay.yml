@@ -15,8 +15,9 @@ jobs:
         with:
           ref: bingo-preview-deploy-2026-09-28
       - name: Apply surgical Bingo Topics video behavior
-        shell: python
+        shell: bash
         run: |
+          python - <<'PY'
           from pathlib import Path
           p=Path("BINGO_MASTER_CURRENT_VERIFIED.html")
           s=p.read_text(encoding="utf-8")
@@ -93,6 +94,7 @@ jobs:
           s=s[:i]+patch+s[i:]
           p.write_text(s,encoding="utf-8")
           print("Applied one surgical patch before </body>.")
+          PY
       - name: Verify only intended patch
         shell: bash
         run: |
