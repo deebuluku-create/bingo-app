@@ -1,22 +1,8 @@
 /* Bingo Home Feed surgical UI override — external, master HTML untouched */
 (function(){
 'use strict';
-const S='bingo-feed-surgical-v1';
-if(document.getElementById(S)) return;
-const st=document.createElement('style'); st.id=S; st.textContent=`
-/* Keep video/media dominant; remove legacy chrome injected around Home feed */
-.bingo-feed-clean-avatar{position:absolute;right:18px;bottom:132px;width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid #ffc928;z-index:30;box-shadow:0 0 12px rgba(255,201,40,.55);cursor:pointer}
-.bingo-feed-clean-avatar-wrap{position:absolute;inset:0;pointer-events:none;z-index:29}
-.bingo-feed-clean-avatar-wrap .bingo-feed-clean-avatar{pointer-events:auto}
-.aa360-text-hero-avatar .bingo-feed-clean-avatar{position:static;display:block;margin:0 auto 16px}
-.bingo-comments-sheet{position:fixed;left:0;right:0;bottom:0;height:min(72vh,720px);background:#fff;color:#111;border-radius:22px 22px 0 0;z-index:2147483000;display:flex;flex-direction:column;box-shadow:0 -10px 40px #0007}
-.bingo-comments-sheet[hidden]{display:none}
-.bingo-comments-head{height:58px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;border-bottom:1px solid #eee;position:relative}
-.bingo-comments-close{position:absolute;right:18px;border:0;background:transparent;font-size:30px;cursor:pointer;color:#555}
-.bingo-comments-body{flex:1;overflow:auto;padding:8px 16px 84px}
-.bingo-comments-compose{position:absolute;left:0;right:0;bottom:0;min-height:68px;background:#fff;border-top:1px solid #eee;display:flex;align-items:center;gap:10px;padding:9px 14px}
-.bingo-comments-compose input{flex:1;border:0;background:#f2f2f2;border-radius:24px;padding:13px 16px;font-size:16px}
-`; document.head.appendChild(st);
+if(window.__bingoFeedSurgicalV1) return; window.__bingoFeedSurgicalV1=true;
+/* The Home author avatar and its styles are rendered by the master (aaMixedFeedTopicCardHTML). */
 
 const norm=s=>(s||'').replace(/\s+/g,' ').trim().toLowerCase();
 /* Matches exactly what the old whole-document scan matched (a button/a/span/div whose entire text is
@@ -35,65 +21,14 @@ function shortTextOwners(scope,cb){
   if(scope.nodeType===3){visit(scope);return}
   const w=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT);while(w.nextNode())visit(w.currentNode);
 }
-function linksIn(scope){
-  const out=scope.nodeType===1?[...scope.querySelectorAll('a,button')]:[];
-  const own=(scope.nodeType===1?scope:scope.parentElement)?.closest?.('a,button');
-  if(own)out.push(own);
-  return out;
-}
 function hideLegacy(scope){
   shortTextOwners(scope,(e,txt)=>{
     if(HIDE_SELF.has(txt))e.style.display='none';
     else if(txt==='post')(e.closest('button,a')||e).style.display='none';
     else if(e.tagName==='BUTTON'&&(txt==='▶'||txt==='play')&&!e.querySelector('video,img,picture,source'))e.style.display='none';
   });
-  linksIn(scope).filter(e=>norm(e.textContent).includes('view profile')).forEach(link=>{
-    const card=link.parentElement;
-    if(!card||card.dataset.bingoCleaned) return;
-    card.dataset.bingoCleaned='1';
-    const img=card.querySelector('img');
-    const href=link.getAttribute('href');
-    const onclick=link.getAttribute('onclick');
-    if(img){
-      const clone=img.cloneNode(true); clone.className='bingo-feed-clean-avatar';
-      clone.alt='Open profile'; clone.title='Open profile';
-      if(href) clone.onclick=()=>location.href=href;
-      else if(onclick) clone.setAttribute('onclick',onclick);
-      else clone.onclick=()=>link.click();
-      const host=card.closest('article,[data-post-id],.post,.feed-item,.aa-feed-card')||card.parentElement;
-      // A text-only Home post shows its author above the text; every other post keeps the corner avatar.
-      const heroSlot=card.closest('.aa360-item')?.querySelector('.aa360-text-hero-avatar');
-      if(heroSlot) heroSlot.appendChild(clone);
-      else if(host){ if(getComputedStyle(host).position==='static') host.style.position='relative'; host.appendChild(clone); }
-    }
-    card.style.display='none';
-  });
 }
-/* Comments use the app's own comment surface; the old empty bottom sheet that opened on top of it
-   (no comments, unconnected input) is no longer attached to Comment buttons. */
-function stabilizeFeedAuthor(scope){
-  const root=scope?.nodeType===1?scope:scope?.parentElement;
-  if(!root)return;
-  const cards=new Set();
-  const own=root.closest?.('.aa360-item');if(own)cards.add(own);
-  root.querySelectorAll?.('.aa360-item').forEach(x=>cards.add(x));
-  cards.forEach(card=>{
-    const clones=[...card.querySelectorAll('.bingo-feed-clean-avatar')];
-    if(clones.length>1)clones.slice(1).forEach(x=>x.remove());
-    /* Once the compact author/avatar replacement exists, the legacy author/profile
-       card must stay hidden. Async profile hydration used to repaint that old card
-       every few seconds, producing the visible old/new profile flip-flop. */
-    if(clones.length){
-      [...card.querySelectorAll('a,button')].forEach(link=>{
-        if(norm(link.textContent).includes('view profile')){
-          const legacy=link.parentElement;
-          if(legacy&&!legacy.classList.contains('bingo-feed-clean-avatar-wrap')) legacy.style.setProperty('display','none','important');
-        }
-      });
-    }
-  });
-}
-function run(scope){hideLegacy(scope);stabilizeFeedAuthor(scope);}
+function run(scope){hideLegacy(scope);}
 /* Work only on what was inserted since the last pass (coalesced into one pass per 300ms), never a
    rescan of the whole document: idle DOM ticks no longer cost a full-document text read. */
 const pending=new Set();let runPending=false;
