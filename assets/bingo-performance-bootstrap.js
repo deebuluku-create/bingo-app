@@ -11,7 +11,9 @@ function tuneMedia(root){
     if(!img.hasAttribute('loading')) img.loading='lazy';
   });
   scope.querySelectorAll('video').forEach(function(v){
-    if(!v.hasAttribute('preload')) v.preload='metadata';
+    /* Home/Wall own their preload/play lifecycle; never compete with their controller. */
+    var owned=v.closest&&v.closest('.aa360-feed,.aa360-item,.bingo-wall-video,[data-bingo-wall-detail="1"],#bingoWallDetail,.bingo-wall-detail,.bingo-topic-detail');
+    if(!owned&&!v.hasAttribute('preload')) v.preload='metadata';
     v.setAttribute('playsinline','');
   });
 }
@@ -21,9 +23,11 @@ function tuneMedia(root){
 var io=null;
 function installVideoBudget(root){
   if(!('IntersectionObserver' in window))return;
+  function appOwned(v){return !!(v&&v.closest&&v.closest('.aa360-feed,.aa360-item,.bingo-wall-video,[data-bingo-wall-detail="1"],#bingoWallDetail,.bingo-wall-detail,.bingo-topic-detail'));}
   if(!io)io=new IntersectionObserver(function(entries){
     entries.forEach(function(e){
       var v=e.target;
+      if(appOwned(v)){try{io.unobserve(v)}catch(_){};v.dataset.bingoBudget='owned';return;}
       /* Comments, keyboard and transient drawers must never pause/restart the active post.
          Only media that has actually left the extended feed viewport is released. */
       if(e.isIntersecting){
@@ -45,8 +49,8 @@ function installVideoBudget(root){
     });
   },{rootMargin:'100% 0px 100% 0px',threshold:0});
   var scope=root&&root.querySelectorAll?root:document;
-  if(scope.matches&&scope.matches('video')&&!scope.dataset.bingoBudget){scope.dataset.bingoBudget='1';io.observe(scope)}
-  scope.querySelectorAll('video').forEach(function(v){if(v.dataset.bingoBudget)return;v.dataset.bingoBudget='1';io.observe(v)});
+  if(scope.matches&&scope.matches('video')&&!scope.dataset.bingoBudget&&!appOwned(scope)){scope.dataset.bingoBudget='1';io.observe(scope)}
+  scope.querySelectorAll('video').forEach(function(v){if(v.dataset.bingoBudget||appOwned(v))return;v.dataset.bingoBudget='1';io.observe(v)});
 }
 
 /* Batch DOM rescans instead of doing work for every mutation. */
@@ -69,7 +73,10 @@ try{
   var c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
   if(c&&(c.saveData||/2g/.test(c.effectiveType||''))){
     document.addEventListener('DOMContentLoaded',function(){
-      document.querySelectorAll('video').forEach(function(v){v.preload='none'});
+      document.querySelectorAll('video').forEach(function(v){
+        var owned=v.closest&&v.closest('.aa360-feed,.aa360-item,.bingo-wall-video,[data-bingo-wall-detail="1"],#bingoWallDetail,.bingo-wall-detail,.bingo-topic-detail');
+        if(!owned)v.preload='none';
+      });
     },{once:true});
   }
 }catch(_){}
