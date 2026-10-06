@@ -1,0 +1,51 @@
+name: Deploy #28 pending source repair
+on:
+  push:
+    branches:
+      - bingo-preview-deploy-2026-09-28
+    paths:
+      - .github/workflows/deploy-28-pending-source-repair.yml
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bingo-preview-deploy-2026-09-28
+          fetch-depth: 0
+      - name: Apply exact Topic upload source repair
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("BINGO_MASTER_CURRENT_VERIFIED.html")
+          s=p.read_text(encoding="utf-8")
+          old="if(file.size>AA_PROPERTY_TUS_THRESHOLD_BYTES){"
+          new="if(file.size>AA_PROPERTY_TUS_THRESHOLD_BYTES&&options.transport!=='standard'){"
+          if new not in s:
+              if s.count(old)!=1:
+                  raise SystemExit(f"STOP upload threshold anchor count={s.count(old)}")
+              s=s.replace(old,new,1)
+          old2="up=await aaUploadStorageWithFeedback(AA_TOPIC_MEDIA_BUCKET,path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});"
+          new2="up=await aaUploadStorageWithFeedback(AA_TOPIC_MEDIA_BUCKET,path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600',transport:'standard'});"
+          if new2 not in s:
+              if s.count(old2)!=1:
+                  raise SystemExit(f"STOP topic upload call anchor count={s.count(old2)}")
+              s=s.replace(old2,new2,1)
+          p.write_text(s,encoding="utf-8")
+          PY
+      - name: Verify surgical source repair
+        run: |
+          grep -Fq "options.transport!='standard'" BINGO_MASTER_CURRENT_VERIFIED.html
+          grep -Fq "cacheControl:'3600',transport:'standard'" BINGO_MASTER_CURRENT_VERIFIED.html
+          git diff --check
+          git diff --stat
+      - name: Commit and push #28
+        run: |
+          if git diff --quiet; then echo "Source repair already present"; exit 0; fi
+          git config user.name "Bingo #28 Deploy"
+          git config user.email "actions@users.noreply.github.com"
+          git add BINGO_MASTER_CURRENT_VERIFIED.html
+          git commit -m "Surgical #28: fix Topic media upload at source"
+          git push origin HEAD:bingo-preview-deploy-2026-09-28
