@@ -2,7 +2,8 @@ name: Surgical Bingo Topics autoplay
 on:
   push:
     branches: [bingo-preview-deploy-2026-09-28]
-    paths: [.github/workflows/surgical-bingo-topics-autoplay.yml]
+    paths:
+      - '.github/workflows/surgical-bingo-topics-autoplay.yml'
   workflow_dispatch:
 permissions:
   contents: write
