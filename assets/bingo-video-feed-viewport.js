@@ -70,8 +70,14 @@ const io=new IntersectionObserver(es=>{
  playActive();
 },{rootMargin:'35% 0px 35% 0px',threshold:[0,.15,.35,.55,.75,1]});
 
+function surfaceOwned(v){
+ if(!v||!v.closest)return false;
+ if(v.closest('.aa360-feed,.aa360-item'))return true;
+ try{if(window.state&&state.view==='topics')return true}catch(_){}
+ return !!v.closest('.bingo-wall-video,[data-bingo-wall-detail="1"],#bingoWallDetail,.bingo-wall-detail,.bingo-topic-detail');
+}
 function wireVideo(v){
- if(!v||v.dataset.bingoViewportVideo)return;
+ if(!v||surfaceOwned(v)||v.dataset.bingoViewportVideo)return;
  v.dataset.bingoViewportVideo='1';v.classList.add('bingo-viewport-video');
  v.autoplay=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload=visibleRatio(v)>.15?'auto':'metadata';
  v.controls=false;vids.add(v);io.observe(v);
