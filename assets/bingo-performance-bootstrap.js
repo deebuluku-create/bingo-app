@@ -45,10 +45,8 @@ function installVideoBudget(root){
     });
   },{rootMargin:'100% 0px 100% 0px',threshold:0});
   var scope=root&&root.querySelectorAll?root:document;
-  if(scope.matches&&scope.matches('video')&&!scope.dataset.bingoBudget&&!scope.closest('.aa360-feed')&&!scope.classList.contains('bingo-wall-video')){scope.dataset.bingoBudget='1';io.observe(scope)}
-  /* Home feed and Wall videos are budgeted by the master's own controllers (aaFeedVideoBudget,
-     aaInitWallVideos); one authority per surface. */
-  scope.querySelectorAll('video').forEach(function(v){if(v.dataset.bingoBudget||(v.closest&&v.closest('.aa360-feed'))||(v.classList&&v.classList.contains('bingo-wall-video')))return;v.dataset.bingoBudget='1';io.observe(v)});
+  if(scope.matches&&scope.matches('video')&&!scope.dataset.bingoBudget){scope.dataset.bingoBudget='1';io.observe(scope)}
+  scope.querySelectorAll('video').forEach(function(v){if(v.dataset.bingoBudget)return;v.dataset.bingoBudget='1';io.observe(v)});
 }
 
 /* Batch DOM rescans instead of doing work for every mutation. */
