@@ -50,11 +50,23 @@ function lockAvatars(){
    if(canonical&&keeper.src!==canonical)keeper.src=canonical;
    keeper.dataset.bingoCanonicalAvatar=key;
    /* Legacy author cards are presentation duplicates only. Do not remove data. */
+   /* Restore original separation: a feed/listing may link to a profile, but must never
+      render the full profile presentation inside the listing. Scope is the duplicate identity
+      wrapper immediately owning the explicit View profile control; profile pages and Wall are untouched. */
    [...card.querySelectorAll('a,button')].forEach(link=>{
      if(norm(link.textContent).includes('view profile')){
        const legacy=link.parentElement;
        if(legacy&&!legacy.contains(keeper))legacy.style.setProperty('display','none','important');
      }
+   });
+   /* Some business/listing cards omit the words "View profile" and expose the same legacy identity
+      as a large linked portrait. Hide only that duplicate when the canonical compact avatar exists. */
+   [...card.querySelectorAll('a[href*="profile"],button[data-profile-id],button[aria-label*="profile" i]')].forEach(link=>{
+     if(link.contains(keeper))return;
+     const imgs=[...link.querySelectorAll('img')];
+     if(!imgs.length)return;
+     const box=link.getBoundingClientRect();
+     if(box.width>180&&box.height>180)link.style.setProperty('display','none','important');
    });
  });
 }
