@@ -77,10 +77,13 @@ function surfaceOwned(v){
  return !!v.closest('.bingo-wall-video,[data-bingo-wall-detail="1"],#bingoWallDetail,.bingo-wall-detail,.bingo-topic-detail');
 }
 function wireVideo(v){
- if(!v||surfaceOwned(v)||v.dataset.bingoViewportVideo)return;
+ if(!v||v.dataset.bingoViewportVideo)return;
  v.dataset.bingoViewportVideo='1';v.classList.add('bingo-viewport-video');
  v.autoplay=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload=visibleRatio(v)>.15?'auto':'metadata';
- v.controls=false;vids.add(v);io.observe(v);
+ v.controls=false;
+ /* Home/Wall may already have native playback wiring. Register the existing node rather than
+    skipping it: preserving the node prevents profile/metadata hydration from resetting media. */
+ vids.add(v);io.observe(v);
  v.addEventListener('loadedmetadata',playActive,{once:true});v.addEventListener('canplay',playActive,{once:true});v.addEventListener('waiting',()=>{if(v===activeVideo)v.preload='auto'});
  v.addEventListener('click',function(e){
    e.stopPropagation();
