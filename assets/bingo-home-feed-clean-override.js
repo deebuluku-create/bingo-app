@@ -47,44 +47,11 @@ new MutationObserver(scheduleRun).observe(document.documentElement,{childList:tr
 run(document.body||document.documentElement);
 })();
 
-/* Canonical Home guard: never show the retired 360View empty landing.
-   Home remains the swipe feed surface and re-renders when async post data arrives. */
-(function installBingoHomeFeedGuard(){
- function install(){
-   if(typeof window.homeHTML!=='function'||window.__bingoHomeFeedGuard)return false;
-   window.__bingoHomeFeedGuard=true;
-   const original=window.homeHTML;
-   window.homeHTML=function(boosted,rows,all,pages){
-     let items=[]; try{items=typeof window.aaMixedFeedItems==='function'?window.aaMixedFeedItems():[]}catch(e){}
-     if(items&&items.length) return original.apply(this,arguments);
-     return '<section class="aa360-shell"><div class="aa360-feed" id="bingoHomeFeedWaiting" aria-live="polite"></div></section>';
-   };
-   let tries=0;
-   const timer=setInterval(function(){
-     tries++;
-     try{
-       /* A painted Home item is authoritative. Never request another Home render from this guard:
-          logo/comment/profile animations mutate descendants of the live card and must not cause
-          the underlying post/video node to be replaced. */
-       if(document.querySelector('#auto-arcade-widget .aa360-feed .aa360-item')){clearInterval(timer);return}
-       /* The guard gets exactly one recovery render, and only while the explicit waiting shell is
-          still mounted and real feed data has arrived. This prevents old/new/blank feed flip-flop. */
-       if(document.getElementById('bingoHomeFeedWaiting')&&window.state&&state.view==='home'&&typeof window.aaMixedFeedItems==='function'&&aaMixedFeedItems().length){
-         clearInterval(timer);
-         if(!window.__bingoHomeWaitingRenderIssued){
-           window.__bingoHomeWaitingRenderIssued=true;
-           if(typeof window.aaRequestRender==='function')aaRequestRender(); else if(typeof window.render==='function')render();
-           setTimeout(function(){window.__bingoHomeWaitingRenderIssued=false},1200);
-         }
-       } else if(tries>=40) clearInterval(timer);
-     }catch(e){if(tries>=40)clearInterval(timer)}
-   },250);
-   return true;
- }
- if(!install()){
-   let n=0,t=setInterval(()=>{if(install()||++n>40)clearInterval(t)},100);
- }
-})();
+/* Canonical Home authority repair — 2026-10-07.
+   The master homeHTML/aaMixedFeedItems renderer is the only Home renderer.
+   The former waiting-shell wrapper could replace the real Home with an empty .aa360-feed
+   while asynchronous uploads were still loading, leaving the black screen seen on preview.
+   Do not wrap homeHTML and do not request a competing render here. */
 
 /* Emergency stale/broken modal guard: remove raw-template Agent invitation overlay
    if it ever leaks into the public landing route; return Home to feed. */
