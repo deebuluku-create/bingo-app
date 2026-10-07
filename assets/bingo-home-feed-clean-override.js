@@ -4,6 +4,17 @@
 if(window.__bingoFeedSurgicalV1) return; window.__bingoFeedSurgicalV1=true;
 /* The Home author avatar and its styles are rendered by the master (aaMixedFeedTopicCardHTML). */
 
+const avatarStyle=document.createElement('style');
+avatarStyle.id='bingoHomeCanonicalAvatarGeometry';
+avatarStyle.textContent=`
+#auto-arcade-widget .aa360-item .aa360-info > img.bingo-feed-clean-avatar{
+ width:34px!important;height:34px!important;max-width:34px!important;max-height:34px!important;
+ min-width:34px!important;min-height:34px!important;object-fit:cover!important;
+ border-radius:50%!important;display:block!important;position:static!important;
+ flex:0 0 34px!important;margin:0 0 8px 0!important
+}`;
+document.head.appendChild(avatarStyle);
+
 const norm=s=>(s||'').replace(/\s+/g,' ').trim().toLowerCase();
 /* Matches exactly what the old whole-document scan matched (a button/a/span/div whose entire text is
    one of these labels), but found by climbing from short text nodes inside the changed subtree instead
