@@ -8,6 +8,20 @@ function primeGrid(root){
   v.addEventListener('loadedmetadata',frame,{once:true});try{v.load()}catch(_){}
  });
 }
+/* Home topic cards: keep one actionable row without changing post data or handlers. */
+function consolidateHomeTopicActions(root){
+ (root||document).querySelectorAll?.('#auto-arcade-widget.aa-v83-home .aa360-item[data-canon^="topic:"]').forEach(function(card){
+  var row=card.querySelector('.aa-icon-action-row'),extra=card.querySelector('.aa360-info > .aa360-actions');
+  if(!row||!extra)return;
+  var button=extra.querySelector('button');
+  if(!button||button.dataset.bingoHomeActionMerged)return;
+  if(!/View Post\s*(?:&|&amp;)\s*Comments/i.test(button.textContent||''))return;
+  button.dataset.bingoHomeActionMerged='1';
+  button.textContent='💬 Comments';
+  row.appendChild(button);
+  if(!extra.children.length)extra.remove();
+ });
+}
 /* Edit fallback: the master already owns aaOpenEditTopic; this only guarantees the menu click reaches it
    if another transient-panel listener consumes the click before the inline handler. */
 document.addEventListener('pointerup',function(e){
@@ -20,6 +34,6 @@ document.addEventListener('pointerup',function(e){
   if(typeof window.aaOpenEditTopic==='function')window.aaOpenEditTopic(id);
  }catch(_){}},0);
 },true);
-var q=0;new MutationObserver(function(ms){clearTimeout(q);q=setTimeout(function(){primeGrid(document)},80)}).observe(document.documentElement,{childList:true,subtree:true});
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){primeGrid(document)},{once:true});else primeGrid(document);
+var q=0;new MutationObserver(function(ms){clearTimeout(q);q=setTimeout(function(){primeGrid(document);consolidateHomeTopicActions(document)},80)}).observe(document.documentElement,{childList:true,subtree:true});
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){primeGrid(document);consolidateHomeTopicActions(document)},{once:true});else {primeGrid(document);consolidateHomeTopicActions(document);}
 })();
