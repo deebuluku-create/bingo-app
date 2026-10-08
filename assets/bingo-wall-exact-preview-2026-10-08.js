@@ -1,73 +1,103 @@
-/* Bingo Wall exact mobile preview replacement — 2026-10-08.
-   Replaces ONLY the public Bingo Wall renderer. Existing Supabase topic data/actions remain authoritative. */
-(function(){'use strict';if(window.__bingoWallExactPreview20261008)return;window.__bingoWallExactPreview20261008=true;
-const css=`
-#auto-arcade-widget .bwexact{--gold:#f5b800;--ink:#17212b;--muted:#66727e;--line:#e9edf1;--white:#fff;--cyan:#00c7e6;--pink:#ff2d74;color:var(--ink);background:#fff;height:calc(100svh - 1px);display:grid;grid-template-rows:auto 1fr auto;width:100%;max-width:760px;margin:auto;overflow:hidden}
-#auto-arcade-widget .bwexact *{box-sizing:border-box}
-#auto-arcade-widget .bwexact-head{background:#fff;border-bottom:1px solid var(--line);z-index:20}
-#auto-arcade-widget .bwexact-top{height:70px;display:flex;align-items:center;padding:8px 12px;gap:10px}
-#auto-arcade-widget .bwexact-brand{font-weight:1000;font-size:26px;letter-spacing:-1px;color:#111;line-height:1}
-#auto-arcade-widget .bwexact-brand b{color:var(--gold)}
-#auto-arcade-widget .bwexact-tag{font-size:10px;font-weight:800;color:#8a6200;margin-top:3px}
-#auto-arcade-widget .bwexact-spacer{flex:1}
-#auto-arcade-widget .bwexact-icon{width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;border:1px solid #dfe5ea!important;border-radius:50%!important;background:#fff!important;box-shadow:none!important;color:#17212b!important;padding:0!important;font-size:19px!important}
-#auto-arcade-widget .bwexact-tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:0 10px 10px}
-#auto-arcade-widget .bwexact-tab{border:1px solid #dfe5ea!important;background:#fff!important;box-shadow:none!important;border-radius:999px!important;padding:9px 5px!important;min-height:0!important;font-weight:800!important;color:#3a4651!important}
-#auto-arcade-widget .bwexact-tab.active{background:#111827!important;color:#fff!important;border-color:var(--gold)!important;box-shadow:0 0 0 1px var(--gold) inset!important}
-#auto-arcade-widget .bwexact-feed{overflow-y:auto;scroll-snap-type:y mandatory;overscroll-behavior-y:contain;background:#fff}
-#auto-arcade-widget .bwexact-post{height:100%;min-height:100%;scroll-snap-align:start;position:relative;background:#fff;display:flex;flex-direction:column}
-#auto-arcade-widget .bwexact-media{position:relative;flex:1;min-height:0;background:#fff;overflow:hidden}
-#auto-arcade-widget .bwexact-media>img,#auto-arcade-widget .bwexact-media>video{display:block;width:100%;height:100%;object-fit:contain;background:#fff}
-#auto-arcade-widget .bwexact-empty{width:100%;height:100%;background:linear-gradient(155deg,#7cc7ff 0%,#e9f7ff 45%,#9fd38a 100%)}
-#auto-arcade-widget .bwexact-shade{position:absolute;inset:0;background:linear-gradient(180deg,transparent 55%,rgba(0,0,0,.42));pointer-events:none}
-#auto-arcade-widget .bwexact-label{position:absolute;left:12px;top:12px;padding:7px 10px;border-radius:999px;background:rgba(15,23,42,.78);color:#fff;font-size:12px;font-weight:800}
-#auto-arcade-widget .bwexact-sound{position:absolute;left:12px;top:54px;color:#fff;font-size:13px;font-weight:750;text-shadow:0 1px 4px #000}
-#auto-arcade-widget .bwexact-use{display:block;margin-top:6px;font-weight:600}
-#auto-arcade-widget .bwexact-side{position:absolute;right:12px;bottom:94px;display:grid;gap:10px;justify-items:center}
-#auto-arcade-widget .bwexact-side button{width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;border-radius:50%!important;border:1.5px solid #fff!important;background:rgba(17,24,39,.78)!important;box-shadow:0 2px 8px #0004!important;color:#fff!important;padding:0!important;font-size:21px!important}
-#auto-arcade-widget .bwexact-side button.boost{border-color:var(--gold)!important;color:var(--gold)!important}
-#auto-arcade-widget .bwexact-count{color:#fff;font-size:11px;background:#111b;padding:2px 7px;border-radius:999px;margin-top:-7px}
-#auto-arcade-widget .bwexact-caption{position:absolute;left:12px;right:78px;bottom:14px;color:#fff;text-shadow:0 1px 5px #000}
-#auto-arcade-widget .bwexact-who{display:flex;align-items:center;gap:9px;margin-bottom:8px}
-#auto-arcade-widget .bwexact-avatar{width:42px;height:42px;border-radius:50%;border:2px solid #fff;object-fit:cover;background:#17212b}
-#auto-arcade-widget .bwexact-name{font-weight:900}.bwexact-meta{font-size:12px;opacity:.9}.bwexact-copy{font-size:16px;line-height:1.3}
-#auto-arcade-widget .bwexact-actions{height:58px;background:#fff;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);align-items:center;padding:5px 8px;gap:6px}
-#auto-arcade-widget .bwexact-actions button{height:40px!important;min-height:40px!important;border-radius:999px!important;background:#fff!important;box-shadow:none!important;font-weight:850!important;border:1px solid #dce3e8!important;color:#24303b!important;padding:0 6px!important}
-#auto-arcade-widget .bwexact-actions button:nth-child(1){border-color:var(--gold)!important}#auto-arcade-widget .bwexact-actions button:nth-child(3){border-color:var(--cyan)!important}#auto-arcade-widget .bwexact-actions button:nth-child(4){border-color:var(--pink)!important}
-#auto-arcade-widget .bwexact-nav{height:66px;border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);background:#fff;padding-bottom:max(4px,env(safe-area-inset-bottom))}
-#auto-arcade-widget .bwexact-nav button{border:0!important;background:#fff!important;box-shadow:none!important;color:#46515c!important;font-size:11px!important;font-weight:750!important;padding:2px!important;min-height:0!important;border-radius:0!important}
-#auto-arcade-widget .bwexact-nav button span{display:block;font-size:21px;margin-bottom:2px}.bwexact-nav button.active{color:#111!important}.bwexact-nav button.active span{color:var(--gold)}
-#auto-arcade-widget .bwexact-nav .post span{background:#111;color:#fff;border:2px solid var(--gold);border-radius:12px;width:42px;margin:0 auto 2px}
-#auto-arcade-widget .bwexact-sheet{position:fixed;left:50%;bottom:0;transform:translate(-50%,110%);width:min(760px,100%);background:#fff;border-radius:22px 22px 0 0;box-shadow:0 -12px 40px #0003;padding:18px;transition:.25s;z-index:10080;color:#17212b}
-#auto-arcade-widget .bwexact-sheet.open{transform:translate(-50%,0)}#auto-arcade-widget .bwexact-sheet-close{float:right;border:0!important;background:#eef2f5!important;border-radius:50%!important;width:34px!important;height:34px!important;padding:0!important;color:#17212b!important}
-#auto-arcade-widget .bwexact-comment{display:flex;gap:9px;padding:9px 0;border-top:1px solid var(--line)}#auto-arcade-widget .bwexact-comment .bwexact-avatar{width:34px;height:34px;border-color:var(--gold)}
-#auto-arcade-widget .bwexact-commentbox{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:10px}#auto-arcade-widget .bwexact-commentbox input{border:1px solid #dce3e8;border-radius:999px;padding:10px 14px;background:#fff;color:#17212b}#auto-arcade-widget .bwexact-commentbox button{border:1px solid var(--gold)!important;border-radius:999px!important;background:#111827!important;color:#fff!important;padding:8px 14px!important}
-@media(min-width:761px){#auto-arcade-widget .bwexact{height:min(920px,100svh)}}
-`;
-function addStyle(){if(document.getElementById('bingo-wall-exact-preview-css'))return;const s=document.createElement('style');s.id='bingo-wall-exact-preview-css';s.textContent=css;document.head.appendChild(s)}
-function idq(v){return JSON.stringify(String(v))}
-function wallPost(t){
- const author=aaTopicAuthorMeta(t),name=aaMemberDisplayName(author),comments=aaTopicCommentsFor(t),loves=aaTopicLoveCount(t),saved=aaTopicIsSaved(t.id);
- const media=Array.isArray(t.media)?t.media:[],idx=aaTopicMediaIndex(t.id,media.length),item=media[idx],src=aaTopicMediaSrc(item),video=!!(src&&item&&item.type==='video');
- const mediaHtml=src?(video?`<video src="${bingoSafeMediaAttr(src)}" muted playsinline preload="auto" autoplay></video>`:`<img src="${bingoSafeMediaAttr(src)}" alt="" loading="eager">`):'<div class="bwexact-empty"></div>';
- const copy=[t.title,t.body].filter(Boolean).map(esc).join('<br>');
- return `<article class="bwexact-post" data-topic-id="${esc(t.id)}"><div class="bwexact-media">${mediaHtml}<div class="bwexact-shade"></div><div class="bwexact-label">👑 ${loves} · 👁 ${Number(aaTopicCountsFor(t.id)?.views||0)}</div><div class="bwexact-sound">♫ Original sound – ${esc(name)}<span class="bwexact-use">Use this sound ›</span></div><div class="bwexact-side"><button type="button" onclick="aaTopicLove(${idq(t.id)})">♛</button><div class="bwexact-count">${loves}</div><button type="button" onclick="bingoWallExactComments(${idq(t.id)})">💬</button><div class="bwexact-count">${comments.length}</div><button type="button" onclick="aaTopicShare(${idq(t.id)})">↗</button><div class="bwexact-count">Share</div><button type="button" class="boost" onclick="if(typeof openContentBoost==='function')openContentBoost(aaTopics().find(x=>String(x.id)===${idq(t.id)}),'topic');else toast('Boost')">⚡</button><div class="bwexact-count">Boost</div><button type="button" onclick="aaTopicToggleSave(${idq(t.id)})">•••</button></div><div class="bwexact-caption"><div class="bwexact-who"><img class="bwexact-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(author.photo))}" onerror="aaProfileImgFallback(this)" onclick="openSeller(${idq(t.authorId||'')})"><div><div class="bwexact-name">${esc(name)}${author.verified?' ✓':''}</div><div class="bwexact-meta">${t.createdAt?esc(new Date(t.createdAt).toLocaleDateString('en-KE')):''} · ${esc(author.location||'Kenya')} · 🌐</div></div></div><div class="bwexact-copy">${copy||'Bingo post'}</div></div></div><div class="bwexact-actions"><button type="button" onclick="aaTopicLove(${idq(t.id)})">👑 Crowns</button><button type="button" onclick="bingoWallExactComments(${idq(t.id)})">Comments</button><button type="button" onclick="aaTopicShare(${idq(t.id)})">Share</button><button type="button" onclick="if(typeof openContentBoost==='function')openContentBoost(aaTopics().find(x=>String(x.id)===${idq(t.id)}),'topic');else toast('Boost')">Boost</button></div></article>`;
-}
-window.bingoWallExactComments=function(id){window.__bwExactTopic=id;const sh=document.getElementById('bwexact-sheet');if(!sh)return;const t=aaTopics().find(x=>String(x.id)===String(id));const list=t?aaTopicCommentsFor(t):[];const body=document.getElementById('bwexact-comments');body.innerHTML=list.length?list.slice(-8).map(c=>`<div class="bwexact-comment"><img class="bwexact-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(c.authorPhoto))}" onerror="aaProfileImgFallback(this)"><div><b>${esc(c.authorName||'Bingo Member')}</b><br><span>${esc(c.text||'')}</span></div></div>`).join(''):'<div class="bwexact-comment">No comments yet.</div>';const input=document.getElementById('bwexact-input');if(input)input.value=aaCommentDraftText[id]||'';sh.classList.add('open')};
-window.bingoWallExactSendComment=function(){const id=window.__bwExactTopic,input=document.getElementById('bwexact-input');if(!id||!input)return;aaCommentDraftText[id]=input.value;aaTopicComment(id);document.getElementById('bwexact-sheet')?.classList.remove('open')};
-function renderer(){
- const all=aaTopics().filter(t=>!t.hiddenFromPublic).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));aaLoadTopicCounts(all.map(t=>t.id));
- const posts=all.length?all.map(wallPost).join(''):'<div style="padding:40px;text-align:center">No posts yet.</div>';
- return `<section class="bwexact"><header class="bwexact-head"><div class="bwexact-top"><div><div class="bwexact-brand"><b>B</b>ingo 😊</div><div class="bwexact-tag">Kenyans, we did it.</div></div><div class="bwexact-spacer"></div><button class="bwexact-icon" type="button" onclick="aaOpenSearch('all')">⌕</button><button class="bwexact-icon" type="button" onclick="document.querySelectorAll('.bwexact video').forEach(v=>v.muted=!v.muted)">🔊</button></div><div class="bwexact-tabs"><button class="bwexact-tab active" type="button">All Kenya</button><button class="bwexact-tab" type="button">Following</button><button class="bwexact-tab" type="button">Videos</button><button class="bwexact-tab" type="button">Photos</button></div></header><main class="bwexact-feed" id="bwexact-feed">${posts}</main><nav class="bwexact-nav"><button type="button" class="active" onclick="goHome()"><span>⌂</span>Home</button><button type="button" onclick="aaOpenBingoTopicsFeed()"><span>#</span>Topics</button><button type="button" class="post" onclick="state.wallComposerOpen=true;render()"><span>＋</span>Post</button><button type="button" onclick="openInbox()"><span>💬</span>Messages</button><button type="button" onclick="goAccount()"><span>◉</span>Profile</button></nav><div class="bwexact-sheet" id="bwexact-sheet"><button class="bwexact-sheet-close" type="button" onclick="this.parentElement.classList.remove('open')">×</button><h3>Comments</h3><div id="bwexact-comments"></div><div class="bwexact-commentbox"><input id="bwexact-input" placeholder="Write a comment…" oninput="if(window.__bwExactTopic)aaCommentDraftText[window.__bwExactTopic]=this.value"><button type="button" onclick="bingoWallExactSendComment()">Post</button></div></div></section>`;
-}
-function install(){
- addStyle();
- if(typeof window.aaPublicTopicsFeedHTML!=='function')return false;
- window.aaPublicTopicsFeedHTML=renderer;
- if(window.state&&state.view==='topics'&&typeof window.render==='function')render();
- return true;
-}
-let tries=0,t=setInterval(()=>{if(install()||++tries>80)clearInterval(t)},100);
-addStyle();
-document.addEventListener('play',e=>{if(e.target?.matches?.('.bwexact video'))document.querySelectorAll('.bwexact video').forEach(v=>{if(v!==e.target)try{v.pause()}catch(_){}})},true);
+/* Bingo Wall — surgical visual/behavior repair, 2026-10-08.
+   Scope: public Bingo Wall renderer only. Does not replace the mother HTML,
+   Supabase data model, authentication, existing topic persistence, or other pages. */
+(function(){
+  'use strict';
+  if(window.__bingoWallSurgical20261008)return;
+  window.__bingoWallSurgical20261008=true;
+  const CSS=`
+  #auto-arcade-widget .bw-surgical{--gold:#f2b800;--ink:#17212b;--muted:#66727e;--line:#e8edf1;--blue:#168df5;width:100%;max-width:980px;margin:0 auto;background:#fff;color:var(--ink);min-height:100vh;overflow:visible;position:relative}
+  #auto-arcade-widget .bw-surgical *{box-sizing:border-box}
+  #auto-arcade-widget .bw-head{position:sticky;top:0;z-index:50;background:#fff;border-bottom:1px solid var(--line)}
+  #auto-arcade-widget .bw-top{min-height:92px;display:flex;align-items:center;padding:8px 18px;gap:14px;background:#fff}
+  #auto-arcade-widget .bw-brand{display:flex;align-items:center;gap:14px;min-width:0}
+  #auto-arcade-widget .bw-logo{width:154px;height:auto;max-height:78px;object-fit:contain;object-position:left center;display:block;background:transparent!important;border:0!important;box-shadow:none!important}
+  #auto-arcade-widget .bw-wall-word{font-size:31px;font-weight:900;letter-spacing:.01em;white-space:nowrap;color:#111}
+  #auto-arcade-widget .bw-head-actions{margin-left:auto;display:flex;align-items:center;gap:8px}
+  #auto-arcade-widget .bw-head-btn{width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;border:0!important;border-radius:50%!important;background:#fff!important;box-shadow:none!important;color:#17212b!important;padding:0!important;display:grid!important;place-items:center!important;position:relative!important;font-size:0!important}
+  #auto-arcade-widget .bw-head-btn svg{width:28px;height:28px;display:block}
+  #auto-arcade-widget .bw-notice-dot{position:absolute;right:7px;top:7px;width:9px;height:9px;border-radius:50%;background:#f33}
+  #auto-arcade-widget .bw-tabs{display:grid;grid-template-columns:repeat(5,1fr);background:#fff;border-top:1px solid #f1f3f5}
+  #auto-arcade-widget .bw-tab{min-height:78px;border:0!important;border-radius:0!important;background:#fff!important;box-shadow:none!important;color:#52606d!important;padding:8px 4px!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:4px!important;font-size:15px!important;font-weight:650!important;position:relative!important}
+  #auto-arcade-widget .bw-tab svg{width:29px;height:29px;stroke:currentColor;fill:none}
+  #auto-arcade-widget .bw-tab.active{color:var(--blue)!important}
+  #auto-arcade-widget .bw-tab.active:after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--blue)}
+  #auto-arcade-widget .bw-feed{position:relative;background:#fff;padding-bottom:80px;overflow:visible}
+  #auto-arcade-widget .bw-feed:before{content:"";position:absolute;left:42px;top:0;bottom:0;width:3px;background:var(--gold);z-index:0}
+  #auto-arcade-widget .bw-post{position:relative;z-index:1;background:#fff;margin:0;padding:22px 22px 22px 82px;border:0!important;border-radius:0!important;box-shadow:none!important}
+  #auto-arcade-widget .bw-marker{position:absolute;left:31px;top:44px;width:24px;height:24px;border:4px solid var(--gold);border-radius:50%;background:#fff;z-index:3}
+  #auto-arcade-widget .bw-post-head{display:flex;align-items:flex-start;gap:10px;min-width:0}
+  #auto-arcade-widget .bw-avatar{width:54px;height:54px;border-radius:50%;object-fit:cover;background:#fff;border:1px solid #e7ebef;flex:0 0 auto}
+  #auto-arcade-widget .bw-author-wrap{min-width:0;flex:1;padding-top:1px}
+  #auto-arcade-widget .bw-author-line{display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap}
+  #auto-arcade-widget .bw-author{font-size:18px;font-weight:850;line-height:1.2;color:#111}
+  #auto-arcade-widget .bw-verified{width:18px;height:18px;border-radius:50%;background:#168df5;color:#fff;display:inline-grid;place-items:center;font-size:12px;font-weight:900}
+  #auto-arcade-widget .bw-meta{font-size:14px;color:var(--muted);line-height:1.3}
+  #auto-arcade-widget .bw-options{position:relative;margin-left:auto;flex:0 0 auto}
+  #auto-arcade-widget .bw-options>summary{list-style:none;cursor:pointer;color:#65717d;font-size:25px;line-height:1;padding:0 4px}
+  #auto-arcade-widget .bw-options>summary::-webkit-details-marker{display:none}
+  #auto-arcade-widget .bw-options>div{position:absolute;right:0;top:30px;z-index:30;background:#fff;border:1px solid #dfe5ea;border-radius:12px;padding:6px;width:190px;box-shadow:0 12px 28px #0002}
+  #auto-arcade-widget .bw-options button{display:block;width:100%;border:0;background:#fff;color:#17212b;text-align:left;padding:10px;border-radius:8px;cursor:pointer}
+  #auto-arcade-widget .bw-options button:hover{background:#f5f7f9}
+  #auto-arcade-widget .bw-content{margin-top:6px}
+  #auto-arcade-widget .bw-title{font-size:22px;line-height:1.28;font-weight:800;margin:0 0 3px;color:#111;word-break:break-word}
+  #auto-arcade-widget .bw-body{font-size:17px;line-height:1.45;margin:0 0 12px;color:#17212b;white-space:pre-wrap;word-break:break-word}
+  #auto-arcade-widget .bw-media{width:100%;max-width:760px;margin:0 0 10px;border-radius:12px;overflow:hidden;background:#fff;position:relative}
+  #auto-arcade-widget .bw-media img,#auto-arcade-widget .bw-media video{display:block;width:100%;height:auto;max-width:100%;max-height:78vh;object-fit:contain;background:#fff}
+  #auto-arcade-widget .bw-media video{cursor:default}
+  #auto-arcade-widget .bw-media-nav{position:absolute;top:50%;transform:translateY(-50%);width:34px!important;height:34px!important;border-radius:50%!important;border:0!important;background:#0008!important;color:#fff!important;box-shadow:none!important;padding:0!important;z-index:4}
+  #auto-arcade-widget .bw-media-nav.prev{left:10px}#auto-arcade-widget .bw-media-nav.next{right:10px}
+  #auto-arcade-widget .bw-media-count{position:absolute;right:10px;top:10px;background:#0009;color:#fff;border-radius:99px;padding:4px 8px;font-size:11px;font-weight:800}
+  #auto-arcade-widget .bw-actions{display:grid;grid-template-columns:repeat(3,1fr);max-width:720px;border-top:1px solid var(--line);padding-top:5px}
+  #auto-arcade-widget .bw-action{border:0!important;background:#fff!important;box-shadow:none!important;color:#46515c!important;padding:9px 4px!important;min-height:42px!important;font-size:14px!important;font-weight:650!important;display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important}
+  #auto-arcade-widget .bw-action svg{width:21px;height:21px;stroke:currentColor;fill:none}
+  #auto-arcade-widget .bw-action.crown{color:#8a6500!important}
+  #auto-arcade-widget .bw-comments{max-width:720px;margin-top:4px}
+  #auto-arcade-widget .bw-comment-row{display:flex;gap:9px;padding:9px 0}
+  #auto-arcade-widget .bw-comment-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;flex:0 0 auto;border:1px solid #e5e9ed}
+  #auto-arcade-widget .bw-comment-copy{min-width:0;flex:1}
+  #auto-arcade-widget .bw-comment-name{font-size:13px;font-weight:800;color:#111}
+  #auto-arcade-widget .bw-comment-text{font-size:14px;line-height:1.4;color:#27323c;word-break:break-word}
+  #auto-arcade-widget .bw-comment-meta{font-size:11px;color:#7a8691;margin-top:2px}
+  #auto-arcade-widget .bw-more-comments{border:0!important;background:transparent!important;box-shadow:none!important;color:#52606d!important;padding:5px 0!important;font-size:13px!important;font-weight:700!important;text-align:left!important}
+  #auto-arcade-widget .bw-comment-box{display:flex;gap:8px;align-items:center;margin-top:6px;max-width:720px}
+  #auto-arcade-widget .bw-comment-box input{flex:1;min-width:0;border:1px solid #d8dfe5;border-radius:999px;background:#fff;color:#17212b;padding:10px 14px;outline:0}
+  #auto-arcade-widget .bw-comment-send{width:40px!important;height:40px!important;min-width:40px!important;border-radius:50%!important;border:1px solid var(--gold)!important;background:#fff!important;color:#8a6500!important;box-shadow:none!important;padding:0!important}
+  #auto-arcade-widget .bw-empty{padding:70px 20px;text-align:center;color:#66727e}
+  @media(max-width:700px){
+    #auto-arcade-widget .bw-top{min-height:78px;padding:6px 10px;gap:9px}
+    #auto-arcade-widget .bw-logo{width:128px;max-height:62px}
+    #auto-arcade-widget .bw-wall-word{font-size:24px}
+    #auto-arcade-widget .bw-head-actions{gap:0}
+    #auto-arcade-widget .bw-head-btn{width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important}
+    #auto-arcade-widget .bw-head-btn svg{width:24px;height:24px}
+    #auto-arcade-widget .bw-tab{min-height:68px;font-size:12px!important}
+    #auto-arcade-widget .bw-tab svg{width:24px;height:24px}
+    #auto-arcade-widget .bw-feed:before{left:27px;width:3px}
+    #auto-arcade-widget .bw-post{padding:17px 10px 18px 61px}
+    #auto-arcade-widget .bw-marker{left:17px;top:34px;width:21px;height:21px;border-width:3px}
+    #auto-arcade-widget .bw-avatar{width:47px;height:47px}
+    #auto-arcade-widget .bw-author{font-size:15px}
+    #auto-arcade-widget .bw-meta{font-size:12px}
+    #auto-arcade-widget .bw-title{font-size:19px}
+    #auto-arcade-widget .bw-body{font-size:15px}
+    #auto-arcade-widget .bw-action{font-size:12px!important}
+  }
+  `;
+  function installCSS(){if(document.getElementById('bingo-wall-surgical-css'))return;const s=document.createElement('style');s.id='bingo-wall-surgical-css';s.textContent=CSS;document.head.appendChild(s)}
+  const j=v=>JSON.stringify(String(v??''));
+  function icon(n){const m={search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>',bell:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 8h18c0-1-3-1-3-8"/><path d="M10 21h4"/></svg>',mail:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>',home:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="m3 11 9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>',crown:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 7 4 4 4-7 4 7 4-4-2 11H6z"/><path d="M6 21h12"/></svg>',market:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 9h16v11H4z"/><path d="M3 9 5 4h14l2 5M8 9v3M12 9v3M16 9v3"/></svg>',comments:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-8l-5 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>',profile:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 21c.8-4 3-6 7-6s6.2 2 7 6"/></svg>',comment:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 5h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-7l-5 3v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>',share:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 16V3m0 0L7 8m5-5 5 5"/></svg>'};return m[n]||''}
+  function topicList(){let list=(typeof aaTopics==='function'?aaTopics():[]).filter(t=>!t.hiddenFromPublic);const f=window.__bwSurgicalFilter||'all';if(f==='crown')list.sort((a,b)=>aaTopicLoveCount(b)-aaTopicLoveCount(a));else if(f==='comments')list.sort((a,b)=>aaTopicCommentsFor(b).length-aaTopicCommentsFor(a).length);else list.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));return list}
+  function routeFilter(f){window.__bwSurgicalFilter=f;if(window.state)state.view='topics';if(typeof window.render==='function')render()}
+  function header(){return `<header class="bw-head"><div class="bw-top"><div class="bw-brand">${bingoAppLogoHTML({className:'bw-logo',alt:'Bingo — All Kenyans, One Market.'})}<span class="bw-wall-word">WALL</span></div><div class="bw-head-actions"><button class="bw-head-btn" type="button" aria-label="Search" onclick="aaOpenSearch('all')">${icon('search')}</button><button class="bw-head-btn" type="button" aria-label="Notifications" onclick="goAccount();if(typeof aaOpenAccountNotifications==='function')aaOpenAccountNotifications()">${icon('bell')}<span class="bw-notice-dot"></span></button><button class="bw-head-btn" type="button" aria-label="Messages" onclick="openInbox()">${icon('mail')}</button></div></div><nav class="bw-tabs" aria-label="Bingo Wall navigation"><button class="bw-tab ${window.__bwSurgicalFilter==='all'?'active':''}" onclick="window.__bingoWallSurgicalWallTab('all')">${icon('home')}<span>Home</span></button><button class="bw-tab ${window.__bwSurgicalFilter==='crown'?'active':''}" onclick="window.__bingoWallSurgicalWallTab('crown')">${icon('crown')}<span>Crown</span></button><button class="bw-tab" onclick="aaOpenMarket()">${icon('market')}<span>Marketplace</span></button><button class="bw-tab ${window.__bwSurgicalFilter==='comments'?'active':''}" onclick="window.__bingoWallSurgicalWallTab('comments')">${icon('comments')}<span>Comments</span></button><button class="bw-tab" onclick="goAccount()">${icon('profile')}<span>Profile</span></button></nav></header>`}
+  function commentsHTML(t){const comments=(typeof aaTopicCommentsFor==='function'?aaTopicCommentsFor(t):[]).slice().sort((a,b)=>Number(b.likes||0)-Number(a.likes||0)||new Date(b.createdAt||0)-new Date(a.createdAt||0));if(!comments.length)return '';const c=comments[0];const photo=typeof aaProfilePhoto==='function'?aaProfilePhoto(c.authorPhoto):'';const more=comments.length>1?`<button class="bw-more-comments" type="button" onclick="aaTopicSetCommentView(${j(t.id)},'all')">View more comments (${comments.length-1})</button>`:'';return `<div class="bw-comments"><div class="bw-comment-row"><img class="bw-comment-avatar" src="${typeof bingoSafeMediaAttr==='function'?bingoSafeMediaAttr(photo):esc(photo)}" alt="" onerror="aaProfileImgFallback(this)"><div class="bw-comment-copy"><div class="bw-comment-name">${esc(c.authorName||'Bingo Member')}</div><div class="bw-comment-text">${esc(c.text||'')}</div><div class="bw-comment-meta">${c.createdAt?esc(new Date(c.createdAt).toLocaleString('en-KE',{hour:'2-digit',minute:'2-digit'})):''}</div></div></div>${more}</div>`}
+  function mediaHTML(t){const media=Array.isArray(t.media)?t.media:[];if(!media.length)return '';const idx=typeof aaTopicMediaIndex==='function'?aaTopicMediaIndex(t.id,media.length):0;const item=media[idx];const src=typeof aaTopicMediaSrc==='function'?aaTopicMediaSrc(item):'';if(!src)return '';const isVideo=item?.type==='video';const m=isVideo?`<video src="${bingoSafeMediaAttr(src)}" muted playsinline preload="metadata" autoplay loop></video>`:`<img src="${bingoSafeMediaAttr(src)}" alt="" loading="lazy">`;const nav=media.length>1?`<span class="bw-media-count">${idx+1}/${media.length}</span><button class="bw-media-nav prev" type="button" aria-label="Previous" onclick="event.stopPropagation();aaTopicMediaNav(${j(t.id)},-1,${media.length})">‹</button><button class="bw-media-nav next" type="button" aria-label="Next" onclick="event.stopPropagation();aaTopicMediaNav(${j(t.id)},1,${media.length})">›</button>`:'';return `<div class="bw-media">${m}${nav}</div>`}
+  function postHTML(t){const author=aaTopicAuthorMeta(t),saved=aaTopicIsSaved(t.id),loved=aaTopicHasMyLove(t),comments=aaTopicCommentsFor(t),owner=String(t.authorId||'')===String(state.user?.id||'');const options=`<details class="bw-options"><summary aria-label="Post options">•••</summary><div>${owner&&state.isLoggedIn?`<button type="button" onclick="aaOpenEditTopic(${j(t.id)})">Edit post</button><button type="button" onclick="aaDeleteBingoTopic(${j(t.id)})">Delete post</button>`:''}<button type="button" onclick="aaTopicToggleSave(${j(t.id)})">${saved?'Saved':'Save / Download'}</button><button type="button" onclick="aaTopicReport(${j(t.id)})">Report post</button></div></details>`;const content=`${t.title?`<h2 class="bw-title" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):''}">${esc(t.title)}</h2>`:''}${t.body?`<p class="bw-body" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):''}">${esc(t.body)}</p>`:''}`;const commentDraft=(window.aaCommentDraftText&&aaCommentDraftText[t.id])||'';return `<article class="bw-post" data-bw-topic-id="${esc(t.id)}"><span class="bw-marker" aria-hidden="true"></span><header class="bw-post-head"><img class="bw-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(author.photo))}" alt="" onerror="aaProfileImgFallback(this)" onclick="openSeller(${j(t.authorId||'')})"><div class="bw-author-wrap"><div class="bw-author-line"><b class="bw-author" onclick="openSeller(${j(t.authorId||'')})">${aaBingo50NameHTML(author.name,false)}</b>${author.verified?'<span class="bw-verified">✓</span>':''}<span class="bw-meta">· ${t.createdAt?esc(new Date(t.createdAt).toLocaleString('en-KE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})):''}</span></div><div class="bw-meta">${esc(author.location||'Kenya')} · 🌐 Public</div></div>${options}</header><div class="bw-content">${content}</div>${mediaHTML(t)}<div class="bw-actions"><button class="bw-action crown" type="button" aria-pressed="${loved}" onclick="aaTopicLove(${j(t.id)})">${icon('crown')}<span>${aaTopicLoveCount(t)}</span></button><button class="bw-action comment" type="button" onclick="aaTopicSetCommentView(${j(t.id)},'more')">${icon('comment')}<span>${comments.length}</span></button><button class="bw-action share" type="button" onclick="aaTopicShare(${j(t.id)})">${icon('share')}<span>Share</span></button></div>${commentsHTML(t)}<div class="bw-comment-box"><input id="bw-comment-${esc(t.id)}" value="${esc(commentDraft)}" placeholder="Write a comment…" aria-label="Write a comment" oninput="aaCommentDraftText[${j(t.id)}]=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();aaTopicComment(${j(t.id)})}"><button class="bw-comment-send" type="button" aria-label="Send comment" onclick="aaTopicComment(${j(t.id)})">➤</button></div></article>`}
+  function wireVideos(){const videos=[...document.querySelectorAll('#auto-arcade-widget .bw-surgical .bw-media video')];if(!videos.length)return;if(window.__bwVideoObserver)try{window.__bwVideoObserver.disconnect()}catch(e){}window.__bwVideoObserver=new IntersectionObserver(entries=>entries.forEach(e=>{const v=e.target;if(e.isIntersecting&&e.intersectionRatio>=.55){v.muted=true;v.playsInline=true;v.play().catch(()=>{})}else v.pause()}),{threshold:[0,.55,1]});videos.forEach(v=>{v.muted=true;v.playsInline=true;window.__bwVideoObserver.observe(v)})}
+  function renderer(){const list=topicList();if(typeof aaLoadTopicCounts==='function'&&list.length)aaLoadTopicCounts(list.map(t=>t.id));const posts=list.length?list.map(postHTML).join(''):'<div class="bw-empty">No public posts yet.</div>';setTimeout(wireVideos,0);return `<section class="bw-surgical">${header()}<main class="bw-feed" aria-live="polite">${posts}</main></section>`}
+  window.__bingoWallSurgicalRenderer=renderer;window.__bingoWallSurgicalWallTab=function(filter){routeFilter(filter)};
+  function install(){installCSS();if(typeof window.aaPublicTopicsFeedHTML!=='function')return false;window.aaPublicTopicsFeedHTML=renderer;return true}
+  install();let tries=0;const timer=setInterval(()=>{install();if(++tries>100)clearInterval(timer)},100);
+  const guard=setInterval(()=>{if(window.state?.view==='topics'&&window.aaPublicTopicsFeedHTML!==renderer)window.aaPublicTopicsFeedHTML=renderer},250);setTimeout(()=>clearInterval(guard),30000);
+  installCSS();
 })();
