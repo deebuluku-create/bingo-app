@@ -59,3 +59,31 @@ body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions svg{width:20
 #auto-arcade-widget.aa-v83-home .aa360-feed .aa360-text-identity{
   display:inline-flex!important;align-items:center!important;
 }
+
+/* Home Feed surgical viewport restoration — 2026-10-08.
+   Existing aa360-item renderer and Supabase media are preserved. */
+#auto-arcade-widget.aa-v83-home .aa360-shell{
+  width:100%!important;max-width:none!important;margin:0!important;
+}
+#auto-arcade-widget.aa-v83-home .aa360-feed{
+  height:100dvh!important;min-height:100dvh!important;
+  overflow-y:auto!important;touch-action:pan-y!important;
+  scroll-snap-type:y mandatory!important;overscroll-behavior-y:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+#auto-arcade-widget.aa-v83-home .aa360-feed>.aa360-item{
+  height:100dvh!important;min-height:100dvh!important;max-height:100dvh!important;
+  scroll-snap-align:start!important;scroll-snap-stop:always!important;
+}
+#auto-arcade-widget.aa-v83-home .aa360-item>.aa360-video{
+  position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+  object-fit:contain!important;
+}
+#auto-arcade-widget.aa-v83-home .aa360-item .bingo-feed-clean-avatar{
+  width:34px!important;height:34px!important;max-width:34px!important;
+  max-height:34px!important;object-fit:cover!important;flex:0 0 34px!important;
+  position:static!important;inset:auto!important;
+}
+#auto-arcade-widget.aa-v83-home .aa360-item .aa360-info>.bingo-feed-clean-avatar{
+  display:block!important;margin:0 0 6px!important;
+}
