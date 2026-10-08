@@ -8,16 +8,3 @@ Substitute "s|<script defer src='/assets/bingo-home-feed-clean-override.js?v=202
 <IfModule mod_expires.c>
 ExpiresActive On
 ExpiresByType image/jpeg "access plus 30 days"
-ExpiresByType image/png "access plus 30 days"
-ExpiresByType image/webp "access plus 30 days"
-ExpiresByType image/gif "access plus 30 days"
-ExpiresByType image/svg+xml "access plus 30 days"
-ExpiresByType video/mp4 "access plus 7 days"
-ExpiresByType text/css "access plus 7 days"
-ExpiresByType application/javascript "access plus 7 days"
-</IfModule>
-<IfModule mod_headers.c>
-<FilesMatch "\\.(jpg|jpeg|png|webp|gif|svg|mp4|css|js)$">
-Header set Cache-Control "public, max-age=604800, stale-while-revalidate=86400"
-</FilesMatch>
-</IfModule>
