@@ -44,3 +44,18 @@ body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions svg{width:20
   bottom:auto!important;
   z-index:auto!important;
 }
+
+/* Home-only author avatar containment. Preserve real post media and existing feed controller. */
+#auto-arcade-widget.aa-v83-home .aa360-feed .bingo-feed-clean-avatar{
+  display:inline-block!important;position:relative!important;inset:auto!important;
+  width:34px!important;height:34px!important;min-width:34px!important;
+  max-width:34px!important;max-height:34px!important;flex:0 0 34px!important;
+  object-fit:cover!important;aspect-ratio:1/1!important;border-radius:50%!important;
+  transform:none!important;float:none!important;
+}
+#auto-arcade-widget.aa-v83-home .aa360-feed .aa360-info>.bingo-feed-clean-avatar{
+  display:block!important;margin:0 0 6px!important;
+}
+#auto-arcade-widget.aa-v83-home .aa360-feed .aa360-text-identity{
+  display:inline-flex!important;align-items:center!important;
+}
