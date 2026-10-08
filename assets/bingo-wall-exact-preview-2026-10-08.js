@@ -83,6 +83,36 @@
     #auto-arcade-widget .bw-body{font-size:15px}
     #auto-arcade-widget .bw-action{font-size:12px!important}
   }
+
+  /* Approved Golden Timeline Wall visual alignment; confined to Wall renderer. */
+  #auto-arcade-widget .bw-surgical{max-width:none!important;width:100%!important;background:#fff!important}
+  #auto-arcade-widget .bw-top{min-height:86px;padding:10px 22px;gap:18px}
+  #auto-arcade-widget .bw-logo{width:150px;max-height:72px}
+  #auto-arcade-widget .bw-wall-word{font-size:30px;font-weight:800}
+  #auto-arcade-widget .bw-tabs{border-top:1px solid #f2f4f6}
+  #auto-arcade-widget .bw-tab{min-height:76px;font-weight:600!important}
+  #auto-arcade-widget .bw-feed:before{left:47px;background:linear-gradient(#f2b400,#ffd34d,#f2b400)}
+  #auto-arcade-widget .bw-post{padding:22px 28px 22px 94px!important;max-width:none!important}
+  #auto-arcade-widget .bw-marker{left:36px;top:42px;width:22px;height:22px;border:4px solid #f2b400}
+  #auto-arcade-widget .bw-post-head{position:relative;min-height:54px}
+  #auto-arcade-widget .bw-content,#auto-arcade-widget .bw-media,#auto-arcade-widget .bw-actions,#auto-arcade-widget .bw-comments,#auto-arcade-widget .bw-comment-box{margin-left:64px;max-width:720px}
+  #auto-arcade-widget .bw-body{font-size:17px;line-height:1.42}
+  #auto-arcade-widget .bw-media{width:min(100%,520px);max-width:520px;background:#fff}
+  #auto-arcade-widget .bw-media img,#auto-arcade-widget .bw-media video{width:100%;height:auto;max-height:none;object-fit:contain}
+  #auto-arcade-widget .bw-actions{border-top:0;padding-top:0;grid-template-columns:repeat(3,1fr)}
+  #auto-arcade-widget .bw-action{justify-content:flex-start!important;background:transparent!important;color:#596979!important;font-weight:500!important}
+  @media(max-width:700px){
+    #auto-arcade-widget .bw-top{min-height:72px;padding:8px 12px;gap:9px}
+    #auto-arcade-widget .bw-logo{width:118px;max-height:58px}
+    #auto-arcade-widget .bw-wall-word{font-size:22px}
+    #auto-arcade-widget .bw-tab{min-height:65px;font-size:12px!important}
+    #auto-arcade-widget .bw-feed:before{left:27px}
+    #auto-arcade-widget .bw-post{padding:17px 12px 17px 70px!important}
+    #auto-arcade-widget .bw-marker{left:17px;top:35px;width:20px;height:20px;border-width:4px}
+    #auto-arcade-widget .bw-post-head{min-height:48px}
+    #auto-arcade-widget .bw-content,#auto-arcade-widget .bw-media,#auto-arcade-widget .bw-actions,#auto-arcade-widget .bw-comments,#auto-arcade-widget .bw-comment-box{margin-left:0}
+    #auto-arcade-widget .bw-media{max-width:520px}
+  }
   `;
   function installCSS(){if(document.getElementById('bingo-wall-surgical-css'))return;const s=document.createElement('style');s.id='bingo-wall-surgical-css';s.textContent=CSS;document.head.appendChild(s)}
   const j=v=>JSON.stringify(String(v??''));
