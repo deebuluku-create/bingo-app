@@ -37,3 +37,10 @@ body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions svg{width:20
 }
 
 /* Restored Home author identity: do not reposition the profile avatar over the media. */
+/* RESTORE — Home profile avatar: remove the forced media-overlay positioning. */
+#auto-arcade-widget .bingo-feed-clean-avatar{
+  position:static!important;
+  right:auto!important;
+  bottom:auto!important;
+  z-index:auto!important;
+}
