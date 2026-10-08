@@ -1,0 +1,26 @@
+/* Bingo Wall mobile-first restoration — 2026-10-08.
+   Presentation only. No Supabase/data/auth/upload wiring is changed. */
+#auto-arcade-widget .bingo-topic-page{width:100%!important;max-width:none!important;margin:0!important;padding:0 0 72px!important;background:#fff!important;color:#17212b!important}
+#auto-arcade-widget .bingo-approved-topic{width:100%!important;max-width:none!important;margin:0!important;padding:14px 12px 20px!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:#fff!important;color:#17212b!important}
+#auto-arcade-widget .bingo-approved-topic+.bingo-approved-topic{border-top:1px solid #edf0f2!important}
+#auto-arcade-widget .bingo-approved-topic .aa-post-head{margin:0 0 10px!important}
+#auto-arcade-widget .bingo-approved-topic .aa-post-title,
+#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#17212b!important;text-shadow:none!important}
+#auto-arcade-widget .bingo-approved-topic .aa-post-media{width:100%!important;max-width:none!important;height:auto!important;margin:0!important;border-radius:0!important;overflow:hidden!important;background:#fff!important}
+#auto-arcade-widget .bingo-approved-topic .aa-post-media img,
+#auto-arcade-widget .bingo-approved-topic .aa-post-media video{display:block!important;width:100%!important;height:auto!important;max-height:calc(100svh - 190px)!important;object-fit:contain!important;background:#fff!important;border-radius:0!important}
+#auto-arcade-widget .bingo-approved-topic .aa-video-play-overlay,
+#auto-arcade-widget .bingo-approved-topic .aa-wall-play,
+#auto-arcade-widget .bingo-approved-topic [class*="play-overlay"]{display:none!important}
+#auto-arcade-widget .bingo-approved-topic .bingo-topic-summary,
+#auto-arcade-widget .bingo-approved-topic .bingo-topic-actions{background:#fff!important;color:#17212b!important;border:0!important}
+@media(max-width:700px){
+ html,body{background:#fff}
+ #auto-arcade-widget .bingo-topic-page{min-height:100svh!important}
+ #auto-arcade-widget .bingo-approved-topic{padding:10px 0 18px!important}
+ #auto-arcade-widget .bingo-approved-topic .aa-post-head,
+ #auto-arcade-widget .bingo-approved-topic .aa-post-title,
+ #auto-arcade-widget .bingo-approved-topic .aa-post-message,
+ #auto-arcade-widget .bingo-approved-topic .bingo-topic-summary,
+ #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions{padding-left:12px!important;padding-right:12px!important}
+}
