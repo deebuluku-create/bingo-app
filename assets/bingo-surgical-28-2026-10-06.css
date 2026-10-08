@@ -36,5 +36,4 @@ body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions svg{width:20
  opacity:1!important;visibility:visible!important;display:block!important;width:100%!important;height:100%!important;object-fit:cover!important;
 }
 
-/* Number 1 — Home media author identity. Keep the poster avatar compact so it can never expand into the video/photo field. The text-only identity rule in the master remains authoritative for text posts. */
-#auto-arcade-widget .bingo-feed-clean-avatar{position:absolute;right:18px;bottom:132px;width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid #ffc928;z-index:30;box-shadow:0 0 12px rgba(255,201,40,.55);cursor:pointer}
+/* Restored Home author identity: do not reposition the profile avatar over the media. */
