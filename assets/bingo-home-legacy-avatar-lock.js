@@ -32,24 +32,17 @@ function installFeedFilter(){
 /* 2) One stable avatar DOM node/source per Home post. The existing clean override
    creates .bingo-feed-clean-avatar. Once first resolved for that rendered post,
    later legacy hydration is not allowed to replace/flicker it. */
-const avatarSrc=new Map();
-function keyFor(card,index){
- return card.getAttribute('data-post-id')||card.dataset?.id||card.id||('home-card-'+index);
-}
+/* Keep one avatar element per post, but never freeze its initial URL.
+   Async profile hydration must be allowed to replace a demo/placeholder avatar.
+   Restrict selection to the author area: never touch actual post media. */
 function lockAvatars(){
  if(!home())return;
- document.querySelectorAll(ROOT+' .aa360-item').forEach((card,index)=>{
-   const key=keyFor(card,index);
+ document.querySelectorAll(ROOT+' .aa360-item').forEach(card=>{
    const avs=[...card.querySelectorAll('.bingo-feed-clean-avatar')];
    if(!avs.length)return;
-   let keeper=avs[0];
+   const keeper=avs[0];
    avs.slice(1).forEach(a=>a.remove());
-   const src=keeper.currentSrc||keeper.src||'';
-   if(!avatarSrc.has(key)&&src)avatarSrc.set(key,src);
-   const canonical=avatarSrc.get(key);
-   if(canonical&&keeper.src!==canonical)keeper.src=canonical;
-   keeper.dataset.bingoCanonicalAvatar=key;
-   /* Legacy author cards are presentation duplicates only. Do not remove data. */
+   /* Do not write keeper.src: the master renderer owns profile hydration. */
    [...card.querySelectorAll('a,button')].forEach(link=>{
      if(norm(link.textContent).includes('view profile')){
        const legacy=link.parentElement;
