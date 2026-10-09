@@ -87,3 +87,18 @@ body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions svg{width:20
 #auto-arcade-widget.aa-v83-home .aa360-item .aa360-info>.bingo-feed-clean-avatar{
   display:block!important;margin:0 0 6px!important;
 }
+
+/* 2026-10-09: Strictly contain author portraits on Home AND Bingo Wall.
+   Never target .aa-post-media or the actual video/photo post element. */
+#auto-arcade-widget .aa360-item .aa-post-head img,
+#auto-arcade-widget .aa360-item .aa360-info .aa-post-avatar,
+#auto-arcade-widget .bingo-approved-topic .aa-post-head img,
+#auto-arcade-widget .bingo-approved-topic .aa-post-avatar,
+#auto-arcade-widget .aa360-item .bingo-feed-clean-avatar {
+  width:34px!important;height:34px!important;min-width:34px!important;
+  max-width:34px!important;max-height:34px!important;
+  aspect-ratio:1/1!important;object-fit:cover!important;
+  border-radius:50%!important;position:static!important;
+  inset:auto!important;transform:none!important;float:none!important;
+  flex:0 0 34px!important;
+}
