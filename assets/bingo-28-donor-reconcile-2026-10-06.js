@@ -62,6 +62,52 @@ function cleanMedia(root){
    if(card)b.style.setProperty('display','none','important');
  });
 }
+/* Home/Wall: topic-media is PRIVATE and topic records store a path, not a URL.
+   Repair only invalid public topic-media video URLs or explicit topic-media paths.
+   Do not replace video elements, change layout, or touch Supabase records. */
+function installPrivateTopicMediaResolver(){
+ var pending=new WeakMap();
+ async function repair(v){
+  if(!v||!v.isConnected)return;
+  var raw=v.currentSrc||v.getAttribute('src')||v.querySelector('source[src]')?.getAttribute('src')||v.dataset?.mediaPath||'';
+  if(!raw||pending.get(v)===raw)return;
+  var path='';
+  var match=String(raw).match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/topic-media\/([^?#]+)/);
+  if(match)path=decodeURIComponent(match[1]);
+  else if(v.dataset?.mediaBucket==='topic-media'&&v.dataset?.mediaPath)path=v.dataset.mediaPath;
+  if(!path)return;
+  var client=window.sb||window.supabase;
+  if(!client?.storage?.from)return;
+  pending.set(v,raw);
+  try{
+   var signed=await client.storage.from('topic-media').createSignedUrl(path,3600);
+   var url=signed?.data?.signedUrl;
+   if(signed?.error||!url){pending.delete(v);return}
+   if(!v.isConnected)return;
+   var current=v.currentSrc||v.getAttribute('src')||v.querySelector('source[src]')?.getAttribute('src')||v.dataset?.mediaPath||'';
+   if(current!==raw)return;
+   var wasPaused=v.paused;
+   var source=v.querySelector('source[src]');
+   if(source)source.src=url;else v.src=url;
+   v.load();
+   if(!wasPaused&&v.isConnected)v.play().catch(function(){});
+  }catch(_){pending.delete(v)}
+ }
+ function scan(root){
+  if(root?.matches?.('video'))repair(root);
+  root?.querySelectorAll?.('#auto-arcade-widget video').forEach(repair);
+ }
+ var queued=false;
+ new MutationObserver(function(ms){
+  if(queued)return;
+  if(!ms.some(m=>m.type==='childList'||m.attributeName==='src'))return;
+  queued=true;setTimeout(function(){queued=false;scan(document)},180);
+ }).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['src']});
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){scan(document)},{once:true});
+ else scan(document);
+}
+installPrivateTopicMediaResolver();
+
 var tries=0,t=setInterval(function(){var a=installTopicTransport(),b=installTopicUploader();if((a&&b)||++tries>200)clearInterval(t)},50);
 var q=0;new MutationObserver(function(ms){clearTimeout(q);q=setTimeout(function(){cleanMedia(document)},100)}).observe(document.documentElement,{childList:true,subtree:true});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){cleanMedia(document)},{once:true});else cleanMedia(document);
