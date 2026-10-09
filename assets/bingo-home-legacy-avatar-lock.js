@@ -13,7 +13,7 @@ const ROOT='#auto-arcade-widget';
  function findWall(){
   var root=document.getElementById('auto-arcade-widget')||document;
   return Array.from(root.querySelectorAll('button,a,[role="button"]')).find(function(el){
-   var label=(el.getAttribute('aria-label')||el.textContent||'').replace(/\\s+/g,' ').trim().toLowerCase();
+   var label=(el.getAttribute('aria-label')||el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
    return label==='bingo wall'||label==='wall'||label==='topics';
   });
  }
@@ -21,7 +21,10 @@ const ROOT='#auto-arcade-widget';
   if(!isHome()||redirecting||Date.now()-last<700)return;
   last=Date.now();
   var target=findWall();
-  if(!target)return;
+  if(!target){
+   /* The Wall navigation may not be mounted on the first splash render. Retry when it appears. */
+   last=0;return;
+  }
   redirecting=true;
   try{target.click()}catch(_){}
   setTimeout(function(){redirecting=false},250);
@@ -35,7 +38,7 @@ const ROOT='#auto-arcade-widget';
  document.addEventListener('click',function(e){
   var el=e.target.closest&&e.target.closest('button,a,[role="button"]');
   if(!el)return;
-  var label=(el.getAttribute('aria-label')||el.textContent||'').replace(/\\s+/g,' ').trim().toLowerCase();
+  var label=(el.getAttribute('aria-label')||el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
   if(label==='home')setTimeout(redirect,100);
  },false);
 })();
