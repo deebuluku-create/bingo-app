@@ -4,57 +4,8 @@
 (function(){'use strict';
 if(window.__bingoHomeLegacyAvatarLock)return;window.__bingoHomeLegacyAvatarLock=1;
 const ROOT='#auto-arcade-widget';
-/* Retire the Home Feed presentation only. Preserve Home functions, posts, media,
-   Supabase and all other pages for future development.
-   Route Home entry to the EXISTING Bingo Wall using its own navigation control. */
-(function retireHomeLanding(){
- var working=false, lastAttempt=0;
- function home(){try{return window.state&&state.view==='home'}catch(_){return false}}
- function wallControl(){
-  var scope=document.getElementById('auto-arcade-widget')||document;
-  var candidates=scope.querySelectorAll('button,a,[role="button"],[onclick]');
-  for(var i=0;i<candidates.length;i++){
-   var el=candidates[i];
-   var t=(el.getAttribute('aria-label')||el.getAttribute('title')||el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
-   if(t==='bingo wall'||t==='wall'||t==='topics'||t==='bingo topics')return el;
-  }
-  return null;
- }
- function redirect(){
-  if(!home()||working||Date.now()-lastAttempt<350)return;
-  lastAttempt=Date.now();working=true;
-  try{
-   var el=wallControl();
-   if(el)el.click();
-   /* A missing/hidden control must not send users back to the retired Home.
-      This changes only the frontend view, not stored posts or profiles. */
-   if(home()&&window.state){
-    state.view='topics';
-    if(typeof window.aaRequestRender==='function')window.aaRequestRender();
-    else if(typeof window.render==='function')window.render();
-   }
-  }catch(_){}
-  working=false;
- }
- function schedule(){
-  if(!home())return;
-  if(typeof window.requestAnimationFrame==='function')requestAnimationFrame(redirect);
-  else setTimeout(redirect,0);
- }
- if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});
- else schedule();
- var queued=false;
- new MutationObserver(function(){
-  if(queued||!home())return;
-  queued=true;setTimeout(function(){queued=false;schedule()},140);
- }).observe(document.documentElement,{childList:true,subtree:true});
- document.addEventListener('click',function(ev){
-  var t=ev.target.closest&&ev.target.closest('button,a,[role="button"]');
-  if(!t)return;
-  var label=(t.getAttribute('aria-label')||t.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
-  if(label==='home')setTimeout(schedule,80);
- },false);
-})();;
+/* Preserve the Home Feed route; do not redirect Home to Topics. */
+;
 
 const norm=s=>(s||'').replace(/\s+/g,' ').trim().toLowerCase();
 function home(){try{return !!(window.state&&state.view==='home')}catch(_){return false}}
