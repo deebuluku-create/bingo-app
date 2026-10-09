@@ -87,12 +87,3 @@ body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions svg{width:20
 #auto-arcade-widget.aa-v83-home .aa360-item .aa360-info>.bingo-feed-clean-avatar{
   display:block!important;margin:0 0 6px!important;
 }
-
-/* Home Feed: keep author image inside its own identity row, never as full-screen post media. */
-#auto-arcade-widget.aa-v83-home .aa360-item .aa360-info img.bingo-feed-clean-avatar{
-  display:block!important;position:static!important;inset:auto!important;
-  width:34px!important;height:34px!important;min-width:34px!important;
-  max-width:34px!important;max-height:34px!important;
-  aspect-ratio:1/1!important;object-fit:cover!important;
-  border-radius:50%!important;transform:none!important;
-}
