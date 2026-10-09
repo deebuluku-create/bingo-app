@@ -15,7 +15,7 @@ const ROOT='#auto-arcade-widget';
   var candidates=scope.querySelectorAll('button,a,[role="button"],[onclick]');
   for(var i=0;i<candidates.length;i++){
    var el=candidates[i];
-   var t=(el.getAttribute('aria-label')||el.getAttribute('title')||el.textContent||'').replace(/\\s+/g,' ').trim().toLowerCase();
+   var t=(el.getAttribute('aria-label')||el.getAttribute('title')||el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
    if(t==='bingo wall'||t==='wall'||t==='topics'||t==='bingo topics')return el;
   }
   return null;
@@ -51,7 +51,7 @@ const ROOT='#auto-arcade-widget';
  document.addEventListener('click',function(ev){
   var t=ev.target.closest&&ev.target.closest('button,a,[role="button"]');
   if(!t)return;
-  var label=(t.getAttribute('aria-label')||t.textContent||'').replace(/\\s+/g,' ').trim().toLowerCase();
+  var label=(t.getAttribute('aria-label')||t.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
   if(label==='home')setTimeout(schedule,80);
  },false);
 })();;
