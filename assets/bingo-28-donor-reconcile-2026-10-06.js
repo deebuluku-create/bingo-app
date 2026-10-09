@@ -72,7 +72,9 @@ function installPrivateTopicMediaResolver(){
   var raw=v.currentSrc||v.getAttribute('src')||v.querySelector('source[src]')?.getAttribute('src')||v.dataset?.mediaPath||'';
   if(!raw||pending.get(v)===raw)return;
   var path='';
-  var match=String(raw).match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/topic-media\/([^?#]+)/);
+  /* Signed topic-media URLs are already playable; never re-sign or reload them. */
+  if(/\/storage\/v1\/object\/sign\/topic-media\//.test(String(raw)) && /(?:[?&]token=)/.test(String(raw)))return;
+  var match=String(raw).match(/\/storage\/v1\/object\/(?:public|authenticated)\/topic-media\/([^?#]+)/);
   if(match)path=decodeURIComponent(match[1]);
   else if(v.dataset?.mediaBucket==='topic-media'&&v.dataset?.mediaPath)path=v.dataset.mediaPath;
   if(!path)return;
