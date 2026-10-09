@@ -102,3 +102,18 @@ body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions svg{width:20
   inset:auto!important;transform:none!important;float:none!important;
   flex:0 0 34px!important;
 }
+
+/* Wall post media containment: preserve source aspect ratio without cropping.
+   Scope to actual post media only; author avatars and Supabase records are untouched. */
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-media{
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  width:100%!important;max-width:100%!important;min-width:0!important;
+  height:auto!important;min-height:0!important;overflow:hidden!important;
+}
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-media img,
+body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-media video{
+  display:block!important;width:auto!important;max-width:100%!important;
+  height:auto!important;max-height:min(72dvh,760px)!important;
+  object-fit:contain!important;aspect-ratio:auto!important;
+  margin-inline:auto!important;
+}
