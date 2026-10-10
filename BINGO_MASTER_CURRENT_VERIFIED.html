@@ -15723,34 +15723,163 @@ function aaTopicMediaNav(topicId,dir,count){
  aaTopicMediaIdx[topicId]=idx;
  render();
 }
-async function aaUploadTopicMedia(files,userId,topicId,onProgress){
+/* ===== Topic (Bingo Post) media upload — reliability repair 2026-10-10 =====
+   Live reports: "Could not publish: media upload failed (Upload interrupted:
+   the storage server could not be reached.)" and "Could not publish post:
+   TypeError: Failed to fetch" - both are browser-level network failures
+   (no HTTP response at all), and both took a long time to appear. What
+   made them likely and slow on the client side:
+    - full-size phone photos (often 3-8 MB each) were uploaded uncompressed,
+      so a 3-photo post meant 10-20 MB over mobile data;
+    - a single transient drop failed the whole post (no per-file retry);
+    - the database calls had no timeout, so a dead connection could hang;
+    - the failure message only appeared AFTER cleanup calls on that same
+      dead connection had finished.
+   Same bucket (topic-media, PRIVATE), same {userId}/{topicId}/{file} path,
+   same RLS - nothing about Storage policy or limits changes here. */
+const AA_TOPIC_UPLOAD_STALL_MS=20000;
+const AA_TOPIC_UPLOAD_RETRY_DELAYS=[0,1500,4000];
+const AA_TOPIC_DB_TIMEOUT_MS=12000;
+const AA_TOPIC_IMAGE_MAX_EDGE=1920;
+const aaTopicPreparedFiles=new WeakSet();
+function aaTopicIsNetworkError(e){
+ return /failed to fetch|networkerror|load failed|network request failed|aborterror|aborted|timed? ?out|did not get a reply/i.test(String((e&&(e.message||e.name))||e||''));
+}
+function aaTopicWithTimeout(promise,ms,fallback){
+ let t;return Promise.race([promise,new Promise(r=>{t=setTimeout(()=>r(fallback),ms)})]).finally(()=>clearTimeout(t));
+}
+/* Downscale large JPEG/WebP photos in the browser (longest edge 1920px,
+   JPEG 0.85) - typically 3-8 MB down to 250-600 KB, with no visible loss
+   at feed size. Videos, PNG, GIF and already-small photos are untouched.
+   Any decode problem simply keeps the original file. */
+async function aaTopicCompressImage(file){
+ try{
+  if(!/^image\/(jpeg|jpg|pjpeg|webp)$/i.test(String(file.type||'')))return file;
+  if(file.size<=600*1024)return file;
+  let source=null,w=0,h=0,cleanup=()=>{};
+  if(typeof createImageBitmap==='function'){
+   try{source=await createImageBitmap(file,{imageOrientation:'from-image'});w=source.width;h=source.height;cleanup=()=>{try{source.close()}catch(e){}}}catch(e){source=null}
+  }
+  if(!source){
+   const url=URL.createObjectURL(file);const img=new Image();img.decoding='async';img.src=url;
+   try{await img.decode()}catch(e){URL.revokeObjectURL(url);return file}
+   source=img;w=img.naturalWidth;h=img.naturalHeight;cleanup=()=>URL.revokeObjectURL(url);
+  }
+  if(!w||!h){cleanup();return file}
+  const scale=Math.min(1,AA_TOPIC_IMAGE_MAX_EDGE/Math.max(w,h));
+  const cw=Math.max(1,Math.round(w*scale)),ch=Math.max(1,Math.round(h*scale));
+  const canvas=document.createElement('canvas');canvas.width=cw;canvas.height=ch;
+  const ctx=canvas.getContext('2d');if(!ctx){cleanup();return file}
+  ctx.drawImage(source,0,0,cw,ch);cleanup();
+  const blob=await new Promise(r=>{try{canvas.toBlob(r,'image/jpeg',0.85)}catch(e){r(null)}});
+  canvas.width=canvas.height=0;
+  if(!blob||blob.size>=file.size)return file;
+  const name=String(file.name||'photo').replace(/\.[^.]+$/,'')+'.jpg';
+  return new File([blob],name,{type:'image/jpeg',lastModified:file.lastModified||Date.now()});
+ }catch(e){return file}
+}
+/* "Preparing media": confirm each picked file is still readable (Android
+   can revoke access to a picked file, which otherwise surfaces later as a
+   misleading network error) and compress photos. Never creates a row. */
+async function aaTopicPrepareFiles(files){
+ const out=[];
+ for(let i=0;i<files.length;i++){
+  const f=files[i];
+  if(aaTopicPreparedFiles.has(f)){out.push(f);continue}
+  try{await f.slice(0,1).arrayBuffer()}catch(e){
+   throw Object.assign(new Error(`${/^video\//.test(f.type||'')?'The video':'Photo '+(i+1)} can no longer be read from your phone. Remove it, add it again, then tap POST.`),{aaKind:'unreadable'});
+  }
+  const prepared=await aaTopicWithTimeout(aaTopicCompressImage(f),12000,f);
+  aaTopicPreparedFiles.add(prepared);out.push(prepared);
+ }
+ return out;
+}
+/* One Storage POST with byte progress, a 20s no-progress stall timeout and
+   a clear, classified result. 409 "already exists" on a retry means the
+   previous attempt reached Storage but its reply was lost - success. */
+function aaTopicUploadOnce(path,file,onBytes,ctl){
+ return new Promise(resolve=>{(async()=>{
+  const token=await aaTopicWithTimeout(aaGetSupabaseAccessToken(),10000,null);
+  if(!token)return resolve({ok:false,status:401,retryable:false,message:'Your session has expired. Please log in again, then tap POST to retry.'});
+  if(ctl&&ctl.cancelled)return resolve({ok:false,cancelled:true,message:'Upload cancelled.'});
+  const xhr=new XMLHttpRequest();let done=false,timer=null,last=-1;
+  const finish=r=>{if(done)return;done=true;clearTimeout(timer);if(ctl)ctl.abort=null;resolve(r)};
+  const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>{finish({ok:false,status:0,retryable:true,message:'the upload stalled (no progress for 20 seconds)'});try{xhr.abort()}catch(e){}},AA_TOPIC_UPLOAD_STALL_MS)};
+  const url=String(SUPABASE_URL).replace(/\/$/,'')+'/storage/v1/object/'+encodeURIComponent(AA_TOPIC_MEDIA_BUCKET)+'/'+String(path).split('/').map(encodeURIComponent).join('/');
+  try{
+   xhr.open('POST',url);
+   xhr.setRequestHeader('Authorization','Bearer '+token);xhr.setRequestHeader('apikey',SUPABASE_PUBLISHABLE_KEY);
+   xhr.setRequestHeader('x-upsert','false');xhr.setRequestHeader('Content-Type',file.type||'application/octet-stream');xhr.setRequestHeader('cache-control','max-age=3600');
+  }catch(e){return finish({ok:false,status:0,retryable:false,message:String(e&&e.message||e)})}
+  xhr.upload.onprogress=e=>{if(done)return;if(e.loaded>last){last=e.loaded;arm()}if(onBytes)try{onBytes(e.loaded)}catch(_){}};
+  xhr.onload=()=>{
+   let data={};try{data=JSON.parse(xhr.responseText||'{}')}catch(e){}
+   const st=xhr.status,code=Number(data.statusCode||st)||st,msg=String(data.message||data.error||('Storage upload failed ('+st+').'));
+   if(st>=200&&st<300)return finish({ok:true,status:st});
+   if(code===409||/already exists|duplicate/i.test(msg))return finish({ok:true,status:409,existed:true});
+   finish({ok:false,status:code,retryable:code>=500||code===429||code===408||st>=500,message:msg});
+  };
+  xhr.onerror=()=>finish({ok:false,status:0,retryable:true,message:'the connection to Bingo storage was interrupted'});
+  xhr.onabort=()=>finish({ok:false,status:0,retryable:false,cancelled:true,message:'Upload cancelled.'});
+  if(ctl)ctl.abort=()=>{try{xhr.abort()}catch(e){}};
+  arm();
+  try{xhr.send(file)}catch(e){finish({ok:false,status:0,retryable:false,message:String(e&&e.message||e)})}
+ })().catch(e=>resolve({ok:false,status:0,retryable:true,message:String(e&&e.message||e)}))});
+}
+function aaTopicUploadErrorMessage(r,label,attempts){
+ const st=Number(r.status||0);
+ if(r.cancelled)return 'Upload cancelled.';
+ if(st===401)return r.message;
+ if(st===403||/row.level security|permission|unauthori[sz]ed|forbidden/i.test(r.message||''))return `Bingo Storage refused ${label} (permission). Please log in again, then tap POST to retry.`;
+ if(st===413||/too large|exceeds/i.test(r.message||''))return `${label} is larger than Bingo Storage accepts.`;
+ if(st===415||/mime|not supported|invalid.*type/i.test(r.message||''))return `${label} is a file type Bingo Storage does not accept.`;
+ if(st>=500)return `Bingo Storage had a server error (${st}) while saving ${label}, even after ${attempts} attempts.`;
+ return `${label} could not be uploaded: ${r.message} (tried ${attempts} times). Check your internet connection.`;
+}
+/* Same signature/return shape as before ({media,paths,error}) - also used
+   by aaSaveEditedTopic and the Voice Live add-on. Extra 5th arg (opts):
+   {ctl} lets the composer's Cancel button abort the active request. */
+async function aaUploadTopicMedia(files,userId,topicId,onProgress,opts){
  if(!sb)return {media:[],paths:[],error:new Error('No database connection. Bingo could not reach Supabase.')};
  if(!files||!files.length)return {media:[],paths:[],error:null};
- const media=[];const paths=[];
+ const media=[];const paths=[];const ctl=(opts&&opts.ctl)||{};
  try{
   if(!userId)throw new Error('You must be logged in before uploading media.');
   if(!topicId)throw new Error('A topic ID is required before media can be stored.');
+  files=await aaTopicPrepareFiles(Array.from(files));
+  const totalBytes=files.reduce((n,f)=>n+Number(f.size||0),0);let doneBytes=0;
+  const stamp=Date.now();
   for(let i=0;i<files.length;i++){
    const file=files[i];
-   if(typeof onProgress==='function')try{onProgress(i+1,files.length)}catch(e){}
    const isVideo=/^video\//.test(String(file.type||''));
+   const label=isVideo?'the video':(files.length>1?`photo ${i+1} of ${files.length}`:'the photo');
    const safe=(file.name||`topic-${i}`).replace(/[^a-zA-Z0-9._-]/g,'-');
-   const path=`${userId}/${topicId}/${Date.now()}-${i+1}-${safe}`;
-   let up;
-   try{
-    up=await aaUploadStorageWithFeedback(AA_TOPIC_MEDIA_BUCKET,path,file,{upsert:false,contentType:file.type||(isVideo?'video/mp4':'image/jpeg'),cacheControl:'3600'});
-   }catch(networkError){
-    throw new Error(aaFriendlyStorageError(networkError));
+   const path=`${userId}/${topicId}/${stamp}-${i+1}-${safe}`;
+   const report=loaded=>{if(typeof onProgress==='function')try{onProgress(i+1,files.length,{loaded:doneBytes+Math.min(loaded,file.size||loaded),total:totalBytes,isVideo})}catch(e){}};
+   report(0);
+   let r=null,attempts=0;
+   for(let a=0;a<AA_TOPIC_UPLOAD_RETRY_DELAYS.length;a++){
+    if(a>0){if(typeof (opts&&opts.onRetry)==='function')try{opts.onRetry(label,a+1,AA_TOPIC_UPLOAD_RETRY_DELAYS.length)}catch(e){}await aaSleep(AA_TOPIC_UPLOAD_RETRY_DELAYS[a]);report(0)}
+    if(ctl.cancelled){r={ok:false,cancelled:true,message:'Upload cancelled.'};break}
+    attempts=a+1;
+    r=await aaTopicUploadOnce(path,file,report,ctl);
+    if(r.ok||!r.retryable||r.cancelled)break;
+    console.warn('[Bingo Topic Upload] attempt',attempts,'failed for',label,'-',r.message);
    }
-   if(up.error)throw new Error(aaFriendlyStorageError(up.error));
+   if(!r||!r.ok)throw Object.assign(new Error(aaTopicUploadErrorMessage(r||{},label,attempts)),{aaKind:r&&r.cancelled?'cancelled':'upload'});
+   doneBytes+=Number(file.size||0);report(file.size||0);
    paths.push(path);
    media.push({type:isVideo?'video':'image',path,name:file.name||safe});
   }
   return {media,paths,error:null};
  }catch(error){
-  return {media,paths,error:new Error(aaFriendlyStorageError(error))};
+  return {media,paths,error:Object.assign(new Error(String(error&&error.message||error)),{aaKind:error&&error.aaKind})};
  }
 }
+/* Tell the #28 donor bridge (assets/bingo-28-donor-reconcile-2026-10-06.js)
+   that this master uploader already uses the standard Storage endpoint, so
+   it does not swap in its own uploader without retries or progress. */
+aaUploadTopicMedia.__bingoDirectStandard=true;
 async function aaDeleteUploadedTopicMedia(paths){
  if(!sb||!Array.isArray(paths)||!paths.length)return;
  try{await sb.storage.from(AA_TOPIC_MEDIA_BUCKET).remove(paths)}catch(e){console.warn('Could not clean up failed topic media upload',e)}
@@ -16029,7 +16158,8 @@ function aaBingoTopicComposerHTML(){
  const editing=!!state.topicEditId;
  const busy=!!state.wallPublishBusy;
  const progress=state.wallPublishProgress;
- const saveLabel=busy?(progress?`Uploading ${progress.current}/${progress.total}…`:(editing?"Saving…":"Publishing…")):(editing?"Save Changes":"POST");
+ const stage=editing?null:state.wallPublishStage;
+ const saveLabel=busy?(stage==='preparing'?"Preparing media…":stage==='saving'?"Saving post…":progress?`Uploading ${progress.current}/${progress.total}…`:(editing?"Saving…":"Publishing…")):(editing?"Save Changes":(state.wallPublishFailed?"Retry POST":"POST"));
  const saveAction=editing?"aaSaveEditedTopic()":"aaPublishBingoTopic()";
  let mediaSectionHTML;
  if(editing){
@@ -16233,16 +16363,44 @@ async function aaPublishBingoTopic(){
  }
  if(!sb||!state.user?.id){toast('You must be logged in to publish a post.');return}
  if(state.wallPublishBusy)return;
- state.wallPublishBusy=true;
+ /* Publishing states (2026-10-10 repair): the button and the centred
+    status card change IMMEDIATELY on tap - Preparing media -> Uploading
+    (byte progress) -> Saving post -> Published / failed with Retry. The
+    success message is shown only after the server has confirmed both the
+    row and its media; failures are reported at once (cleanup runs after
+    the message, never before it). */
+ state.wallPublishBusy=true;state.wallPublishFailed=false;
+ state.wallPublishStage='preparing';
  state.wallPublishProgress=(files&&files.length)?{current:0,total:files.length}:null;
  render();
+ aaTopicPublishStatus(files&&files.length?'Preparing your media…':'Saving your post…');
+ const ctl={cancelled:false,abort:null};
+ let id=null,uploadedPaths=[],rowCreated=false;
+ const fail=(message)=>{
+  state.wallPublishFailed=true;
+  toast('Could not publish: '+message+' Nothing was posted - your text and media are still here. Tap “Retry POST” to try again.','error');
+  if(rowCreated||uploadedPaths.length)aaTopicRollbackPublish(id,uploadedPaths.slice());
+ };
  try{
+  if(typeof navigator!=='undefined'&&navigator.onLine===false){fail('your phone is offline.');return}
+  // A previous failed attempt may still be cleaning up its half-made row;
+  // let it finish first so it can never delete this new attempt's row.
+  if(aaTopicRollbackPromise)await aaTopicWithTimeout(aaTopicRollbackPromise,25000,null);
+  let prepared=[];
+  if(files&&files.length){
+   try{prepared=await aaTopicPrepareFiles(files)}catch(e){fail(String(e&&e.message||e));return}
+  }
   const userId=state.user.id;
-  const id=(window.crypto&&typeof window.crypto.randomUUID==='function')?window.crypto.randomUUID():aaNewPropertyListingId();
+  // ONE id per draft until it is actually published: a retry (even after a
+  // timed-out request that secretly succeeded) can never create a second post.
+  if(!aaTopicPublishPendingId)aaTopicPublishPendingId=(window.crypto&&typeof window.crypto.randomUUID==='function')?window.crypto.randomUUID():aaNewPropertyListingId();
+  id=aaTopicPublishPendingId;
+  state.wallPublishStage=prepared.length?'uploading':'saving';render();
   // Insert the topic row BEFORE uploading media: the topic-media Storage
   // policies require a real, already-owned bingo_topics row to exist for
   // the id in the upload path's second segment (see
   // supabase/bingo_change_public_wall_topics.sql, section 6).
+  // With media it is inserted with media:[] and completed below.
   let insertRow={id,user_id:userId,title,body,category,media:[],moderation_status:hiddenFromPublic?'hidden':'visible',title_format:titleFmt,body_format:bodyFmt};
   if(state.topicDraft.soundId)insertRow.sound_id=state.topicDraft.soundId;
   const AA_TOPIC_CORE_FIELDS=['id','user_id','title','body','category','media','moderation_status','sound_id'];
@@ -16253,41 +16411,50 @@ async function aaPublishBingoTopic(){
   // than breaking topic publishing entirely on a database that hasn't had
   // that migration applied yet.
   for(let attempt=0;attempt<5;attempt++){
-   const result=await sb.from('bingo_topics').insert(insertRow).select().maybeSingle();
+   const row=insertRow;
+   const result=await aaTopicDbCall(signal=>sb.from('bingo_topics').insert(row).select().abortSignal(signal).maybeSingle());
    if(!result.error){inserted=result.data;insErr=null;break}
    insErr=result.error;
+   // 23505 = this exact id already exists: an earlier attempt of THIS draft
+   // created it (its reply or its cleanup was lost). Reuse it, refreshed
+   // with the current text, instead of creating a duplicate post.
+   if(String(insErr.code||'')==='23505'){
+    const upd={title,body,category,media:[]};
+    const ur=await aaTopicDbCall(signal=>sb.from('bingo_topics').update(upd).eq('id',id).eq('user_id',userId).select().abortSignal(signal).maybeSingle());
+    if(!ur.error&&ur.data){inserted=ur.data;insErr=null;break}
+    insErr=ur.error||{message:'An earlier attempt of this post could not be reused.'};
+    break;
+   }
    const missing=aaMissingPropertyColumn(result.error);
    if(missing&&!AA_TOPIC_CORE_FIELDS.includes(missing)&&Object.prototype.hasOwnProperty.call(insertRow,missing)){
     insertRow={...insertRow};delete insertRow[missing];continue;
    }
    break;
   }
-  if(insErr){toast('Could not publish post: '+String(insErr.message||insErr));return}
+  if(insErr){fail(aaTopicDbErrorMessage(insErr,'saving your post'));return}
+  rowCreated=true;
   let media=[];
-  if(files&&files.length){
-   const upload=await aaUploadTopicMedia(files,userId,id,(current,total)=>{
-    state.wallPublishProgress={current,total};render();
-   });
-   if(upload.error){
-    // Roll back so a failed publish leaves nothing behind: Storage
-    // objects MUST be removed before the topic row per the ownership
-    // join documented in supabase/bingo_change_public_wall_topics.sql
-    // ("Frontend deletion order") - removing the row first would orphan
-    // the just-uploaded files beyond their owner's own reach.
-    if(upload.paths&&upload.paths.length)await aaDeleteUploadedTopicMedia(upload.paths);
-    try{await sb.from('bingo_topics').delete().eq('id',id)}catch(e){console.warn('Bingo: could not roll back topic row after failed media upload',e)}
-    toast('Could not publish: media upload failed ('+String(upload.error.message||upload.error)+'). Nothing was posted - your text and media are still here to retry.');
-    return;
-   }
+  if(prepared.length){
+   let lastIdx=0;
+   const feedbackItem={name:'',bytes:0,total:prepared.reduce((n,f)=>n+Number(f.size||0),0),cancel:()=>{ctl.cancelled=true;if(ctl.abort)ctl.abort()}};
+   const upload=await aaUploadTopicMedia(prepared,userId,id,(current,total,info)=>{
+    if(current!==lastIdx){lastIdx=current;state.wallPublishProgress={current,total};render()}
+    feedbackItem.name=info&&info.isVideo?'Uploading video':`Uploading photo ${current} of ${total}`;
+    feedbackItem.bytes=info?info.loaded:0;feedbackItem.total=info&&info.total||feedbackItem.total;
+    aaFeedbackShow(feedbackItem.name+'…','progress',feedbackItem);
+   },{ctl,onRetry:(label,n,max)=>aaTopicPublishStatus(`Connection interrupted while uploading ${label} - retrying (${n}/${max})…`)});
+   uploadedPaths=upload.paths||[];
+   if(upload.error){fail(String(upload.error.message||upload.error));return}
    media=upload.media;
-   const {error:updErr}=await sb.from('bingo_topics').update({media}).eq('id',id);
-   if(updErr){
-    if(upload.paths&&upload.paths.length)await aaDeleteUploadedTopicMedia(upload.paths);
-    try{await sb.from('bingo_topics').delete().eq('id',id)}catch(e){console.warn('Bingo: could not roll back topic row after failed media attach',e)}
-    toast('Could not publish: media could not be attached ('+String(updErr.message||updErr)+'). Nothing was posted - your text and media are still here to retry.');
-    return;
+   state.wallPublishStage='saving';render();
+   aaTopicPublishStatus('Saving your post…');
+   const ur=await aaTopicDbCall(signal=>sb.from('bingo_topics').update({media}).eq('id',id).select('id,media').abortSignal(signal).maybeSingle());
+   if(ur.error||!ur.data||!Array.isArray(ur.data.media)||ur.data.media.length!==media.length){
+    fail(aaTopicDbErrorMessage(ur.error||{message:'the server did not confirm the attached media.'},'attaching your media'));return;
    }
   }
+  // Server has confirmed the row (and its media) - only now is it published.
+  aaTopicPublishPendingId=null;
   const row=inserted||insertRow;
   const mapped=aaMapBingoTopicRow({...row,media});
   // De-dupe against a concurrent aaLoadBingoWall() reload (e.g. the one
@@ -16301,13 +16468,66 @@ async function aaPublishBingoTopic(){
   state.topicDraft={title:"",body:""};
   const titleEl=document.getElementById('topicTitle');if(titleEl)titleEl.value='';
   const bodyEl=document.getElementById('topicBody');if(bodyEl)bodyEl.value='';
+  state.wallPublishBusy=false;state.wallPublishProgress=null;state.wallPublishStage=null;
   toast(hiddenFromPublic?"Post saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Post published to the Public Wall and your profile.","success");
   aaNavigateToPublishedTopicInHome(id);
+ }catch(e){
+  console.error('[Bingo publish]',e);
+  fail(String(e&&e.message||e));
  }finally{
   state.wallPublishBusy=false;
   state.wallPublishProgress=null;
+  state.wallPublishStage=null;
   render();
  }
+}
+let aaTopicPublishPendingId=null;
+let aaTopicRollbackPromise=null;
+function aaTopicPublishStatus(message){
+ aaFeedbackShow(message,'info');
+ clearTimeout(aaFeedbackTimer); // stays up until the next state replaces it
+}
+/* Every database call in the publish flow gets a 12s timeout (supabase-js
+   abortSignal) and ONE automatic retry on a pure network failure. Safe to
+   retry: the row id is fixed per draft, so a duplicate is impossible. */
+async function aaTopicDbCall(build){
+ let res=null;
+ for(let attempt=0;attempt<2;attempt++){
+  const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),AA_TOPIC_DB_TIMEOUT_MS);
+  try{res=await build(ctrl.signal)}catch(e){res={data:null,error:e}}finally{clearTimeout(timer)}
+  if(!res||!res.error)return res||{data:null,error:null};
+  if(ctrl.signal.aborted)res={data:null,error:{message:'Bingo did not get a reply from the server within 12 seconds.',aaTimeout:true}};
+  if(!aaTopicIsNetworkError(res.error)||attempt===1)return res;
+  aaTopicPublishStatus('The connection is slow - trying again…');
+  await aaSleep(1500);
+ }
+ return res;
+}
+function aaTopicDbErrorMessage(err,what){
+ const raw=String(err&&(err.message||err)||'');
+ if(err&&err.aaTimeout)return `${what} timed out - Bingo did not get a reply from the server within 12 seconds (tried twice). Check your internet connection.`;
+ if(aaTopicIsNetworkError(err))return `the connection to Bingo was lost while ${what} (tried twice). Check your internet connection.`;
+ if(/jwt|not authenticated|invalid.*token/i.test(raw))return 'your session has expired. Please log in again.';
+ if(/row.level security|permission denied/i.test(raw))return `Bingo refused ${what} (permission). Please log in again.`;
+ return `${what} failed: ${raw}`;
+}
+/* Best-effort cleanup of a failed attempt, run AFTER the failure message is
+   shown. Storage objects first, then the row (the order the topic-media
+   RLS ownership join requires). Each call is time-limited; if cleanup
+   cannot reach the server, the draft keeps its id so the next attempt
+   reuses (not duplicates) the half-made row. */
+function aaTopicRollbackPublish(id,paths){
+ const run=(async()=>{
+  try{
+   if(paths&&paths.length)await aaTopicWithTimeout(aaDeleteUploadedTopicMedia(paths),12000,null);
+   if(id){
+    const r=await aaTopicWithTimeout(sb.from('bingo_topics').delete().eq('id',id).eq('user_id',state.user?.id||''),12000,{error:{message:'timeout'}});
+    if(r&&r.error)console.warn('Bingo: could not roll back unfinished post (it will be reused on retry)',r.error);
+   }
+  }catch(e){console.warn('Bingo: rollback of unfinished post failed (it will be reused on retry)',e)}
+ })();
+ aaTopicRollbackPromise=run;
+ run.finally(()=>{if(aaTopicRollbackPromise===run)aaTopicRollbackPromise=null});
 }
 function aaTopicEditFinalMedia(newMedia){
  // Walks the single ordered draft array (existing + new interleaved in
@@ -18105,6 +18325,39 @@ function aaCloseBingoBox(){
  state.bingoBoxOpen=false;
  render();
 }
+/* Bingo Box thumbnail (2026-10-10 repair). Live bingo_topics data showed 49
+   of 54 posts carry a VIDEO as media[0]; the old code put that private
+   topic-media video URL into an <img>, which can never decode a video, so
+   the row showed a broken-image icon. Now: prefer the post's first PHOTO;
+   otherwise show the post's video itself (first frame, muted, never
+   autoplayed); text-only posts keep the author's photo as before. Any
+   genuinely unavailable media falls back to a neutral tile instead of a
+   broken icon. Media URLs still come only from aaTopicMediaSrc() (short-
+   lived signed URLs for the private bucket) - nothing new is made public. */
+function aaBingoBoxThumbFallback(el,kind){
+ if(!el||!el.parentNode)return;
+ const s=document.createElement('span');
+ s.className='bingo-box-thumb bingo-box-thumb-fallback';s.setAttribute('aria-hidden','true');
+ s.textContent=kind==='video'?'▶':'🖼';
+ el.parentNode.replaceChild(s,el);
+}
+function aaBingoBoxThumbHTML(t,author){
+ const media=Array.isArray(t.media)?t.media.filter(Boolean):[];
+ const isVideo=m=>String(m.type||'')==='video'||/\.(mp4|mov|m4v|webm|3gp|mkv)(?:$|[?#])/i.test(String(m.path||m.url||''));
+ const photo=media.find(m=>!isVideo(m));
+ if(photo){
+  const src=aaTopicMediaSrc(photo);
+  if(src)return `<img class="bingo-box-thumb" src="${bingoSafeMediaAttr(src)}" alt="" loading="lazy" onerror="aaBingoBoxThumbFallback(this,'image')">`;
+  return `<span class="bingo-box-thumb bingo-box-thumb-fallback is-loading" aria-hidden="true">🖼</span>`;
+ }
+ const video=media.find(isVideo);
+ if(video){
+  const src=aaTopicMediaSrc(video);
+  if(src)return `<video class="bingo-box-thumb" data-bingo-box-thumb="1" src="${bingoSafeMediaAttr(src)}#t=0.5" muted playsinline preload="metadata" disablepictureinpicture tabindex="-1" aria-hidden="true" onerror="aaBingoBoxThumbFallback(this,'video')"></video>`;
+  return `<span class="bingo-box-thumb bingo-box-thumb-fallback is-loading" aria-hidden="true">▶</span>`;
+ }
+ return `<img class="bingo-box-thumb" src="${bingoSafeMediaAttr(aaProfilePhoto(author.photo))}" alt="" onerror="aaProfileImgFallback(this)">`;
+}
 function aaBingoBoxHTML(){
  const entries=aaBingoBoxEntries();
  return `<div class="overlay" onclick="if(event.target===this)aaCloseBingoBox()">
@@ -18114,10 +18367,9 @@ function aaBingoBoxHTML(){
    <p>The top ${entries.length} Mushene posts on the Bingo Wall right now, ranked by real engagement.</p>
    ${!entries.length?`<div class="empty">Nothing trending yet. Be the first to post on the Wall.</div>`:entries.map((t,i)=>{
      const author=aaTopicAuthorMeta(t);
-     const thumb=aaTopicMediaSrc(t.media?.[0]);
      return `<button type="button" class="bingo-box-row" onclick='aaOpenExactTopic(${JSON.stringify(String(t.id))})'>
       <span class="bingo-box-rank">${i+1}</span>
-      ${thumb?`<img class="bingo-box-thumb" src="${bingoSafeMediaAttr(thumb)}" alt="">`:`<img class="bingo-box-thumb" src="${bingoSafeMediaAttr(aaProfilePhoto(author.photo))}" alt="" onerror="aaProfileImgFallback(this)">`}
+      ${aaBingoBoxThumbHTML(t,author)}
       <span class="bingo-box-copy">
        <b>${esc(t.title||t.body||"Untitled")}</b>
        <small>${esc(author.name)} · ${esc(t.category||"General")} · ❤ ${aaTopicLoveCount(t)} · 💬 ${aaTopicCommentsFor(t).length}</small>
@@ -24961,6 +25213,9 @@ Source specification: Complete Platform Changes & Feature Specification.
 #auto-arcade-widget .bingo-box-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.06);cursor:pointer;background:none;border-left:none;border-right:none;border-top:none;width:100%;text-align:left;color:inherit;min-height:48px}
 #auto-arcade-widget .bingo-box-rank{width:22px;flex:0 0 22px;text-align:center;font-weight:900;color:#f5b91e}
 #auto-arcade-widget .bingo-box-thumb{width:40px;height:40px;border-radius:8px;object-fit:cover;flex:0 0 40px;background:#0b2136}
+#auto-arcade-widget .bingo-box-thumb-fallback{display:flex;align-items:center;justify-content:center;font-size:16px;color:#f5b91e;border:1px solid rgba(245,185,30,.35)}
+#auto-arcade-widget .bingo-box-thumb-fallback.is-loading{opacity:.6}
+#auto-arcade-widget video.bingo-box-thumb{display:block;pointer-events:none}
 #auto-arcade-widget .bingo-box-copy{flex:1;min-width:0}
 #auto-arcade-widget .bingo-box-copy b{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #auto-arcade-widget .bingo-box-copy small{display:block;font-size:9.5px;color:#9aa7bc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
