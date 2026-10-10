@@ -5493,7 +5493,9 @@ window.addEventListener("popstate",function(){
     here too, rather than falling through to the app's own view
     navigation - the two are deliberately independent. */
  if(aaVideoLightboxSyntheticPop){aaVideoLightboxSyntheticPop=false;return}
+ if(window.aaCommentsDrawerSyntheticPop){window.aaCommentsDrawerSyntheticPop=false;return}
  if(document.getElementById("aaVideoLightbox")){aaCloseVideoLightbox(true);return}
+ if(typeof aaCommentsDrawerTopicId!=="undefined"&&aaCommentsDrawerTopicId&&document.getElementById("aaCommentsDrawer")?.classList.contains("open")){aaCloseCommentsDrawer(true);return}
  if(typeof window.goBack==="function")window.goBack("popstate");
 });
 
@@ -18235,7 +18237,30 @@ function aaSetProfileDecoration(kind){
  render();
 }
 function aaMbeaHeaderHTML(){
- return `<header class="bingo-topic-brand">${bingoAppLogoHTML({className:"bingo-app-logo--mobile"})}<h1>Bingo Topic</h1></header>`;
+ /* Approved Bingo Wall header (2026-10-10): brand+tagline on the left, Inbox/Profile/Log Out
+    on the right. Scoped to the Wall page only (.bingo-topic-page) — the app's existing global
+    navigation (the draggable logo + Cockpit menu used on Home/Marketplace/Profile/etc.) is
+    untouched; see the final report for why this wasn't made global. All three actions call the
+    app's existing real features (openInbox, goAccount, logoutBingo) — nothing new or fake. */
+ return `<header class="bingo-topic-brand"><div class="bingo-wall-brand-group">${bingoAppLogoHTML({className:"bingo-app-logo--mobile"})}<div class="bingo-wall-tagline">Kenyans, we did it.</div></div><div class="bingo-wall-header-actions">
+ <button type="button" class="bingo-wall-head-btn bingo-wall-head-btn-dark" onclick="openInbox()">Inbox</button>
+ <button type="button" class="bingo-wall-head-btn" onclick="goAccount()">Profile</button>
+ ${state.isLoggedIn?`<button type="button" class="bingo-wall-head-btn bingo-wall-head-btn-logout" onclick="logoutBingo()">Log Out</button>`:''}
+ </div></header>`;
+}
+/* Approved Bingo Wall bottom nav (2026-10-10): Home|Live|Marketplace|Notifications|Messages,
+   scoped to the Wall page only (see note above aaMbeaHeaderHTML). Each item calls the app's
+   existing real route/feature — nothing invented. "Home" is marked active since this nav only
+   ever appears while viewing the Wall section itself (there's no separate "this page" state to
+   highlight on a single-purpose page). */
+function aaWallBottomNavHTML(){
+ return `<nav class="bingo-wall-bottom-nav" aria-label="Primary">
+ <button type="button" class="bingo-wall-nav-item active" onclick="goHome()"><span aria-hidden="true">🏠</span><span>Home</span></button>
+ <button type="button" class="bingo-wall-nav-item" onclick="if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio()"><span aria-hidden="true">🔴</span><span>Live</span></button>
+ <button type="button" class="bingo-wall-nav-item" onclick="aaOpenMarket()"><span aria-hidden="true">🛒</span><span>Marketplace</span></button>
+ <button type="button" class="bingo-wall-nav-item" onclick="if(typeof aaOpenAccountNotifications==='function')aaOpenAccountNotifications();else{goAccount();}"><span aria-hidden="true">🔔</span><span>Notifications</span></button>
+ <button type="button" class="bingo-wall-nav-item" onclick="openInbox()"><span aria-hidden="true">✉️</span><span>Messages</span></button>
+ </nav>`;
 }
 const AA_FONT_STYLE_CATEGORIES=["All","Elegant","Bold","Fun","Cultural"];
 const AA_FONT_STYLE_CATEGORY_MAP={"Standard":"All","Bold":"Bold","Italic":"Elegant","Gold Premium":"Elegant","Colour Block":"Fun","Neon":"Fun","Celebration":"Fun","Kenyan Theme":"Cultural","Handwritten":"Elegant","Minimal":"All"};
@@ -18609,13 +18634,30 @@ function aaTopicPostCardHTML(t){
  <div class="aa-post-content">${t.title?`<h2 class="aa-post-title" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):""}">${esc(t.title)}</h2>`:''}${t.body?`<p class="aa-post-message" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):""}">${esc(t.body)}</p>`:''}</div>
  ${mediaSrc?`<div class="aa-post-media">${isVideo?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'><video src="${bingoSafeMediaAttr(mediaSrc)}" muted playsinline preload="metadata"></video><button type="button" class="aa-video-play-overlay" aria-label="Play video" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'>▶</button></div>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}"${mediaClickAttr}>`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
 
- <div class="bingo-topic-summary"><span><span aria-hidden="true">👍 ❤️ 😆</span> ${aaTopicLoveCount(t)} ${aaTopicLoveCount(t)===1?'reaction':'reactions'}</span><span>${comments.length} ${comments.length===1?'comment':'comments'}</span></div>
+ <div class="bingo-topic-summary"><span class="bingo-reaction-toggle" role="button" tabindex="0" aria-pressed="${loved}" aria-label="${loved?'Remove your reaction':'React to this post'}" onclick="aaTopicLove(${id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();aaTopicLove(${id})}"><span aria-hidden="true">👍 ❤️ 😆</span> ${aaTopicLoveCount(t)} ${aaTopicLoveCount(t)===1?'reaction':'reactions'}</span><span>${comments.length} ${comments.length===1?'comment':'comments'}</span></div>
  <div class="bingo-topic-actions" role="group" aria-label="Post actions">
- <button type="button" class="bingo-action-crown" aria-pressed="${loved}" aria-label="${loved?'Remove crown':'Crown this post'}" onclick="aaTopicLove(${id})"><span aria-hidden="true">👑</span><span>${aaTopicLoveCount(t)}</span></button>
- <button type="button" aria-label="View comments" onclick="aaFocusTopicComment(${id})"><span aria-hidden="true">💬</span><span>${comments.length}</span></button>
+ <!-- Crown has no per-post backend yet (only a separate user-profile Crown-status system exists).
+      This is intentionally inert/"coming soon" rather than silently reusing the Like/reaction
+      toggle above as a fake Crown transaction. The real reaction toggle is preserved and fully
+      working via the .bingo-reaction-toggle summary line above, not removed. -->
+ <button type="button" class="bingo-action-crown" aria-disabled="true" aria-label="Crown — coming soon" onclick="toast('Crown is coming soon — awarding a post needs a new backend feature that doesn\'t exist yet. Your reactions above still work as before.')"><span aria-hidden="true">👑</span><span>Soon</span></button>
+ <button type="button" aria-label="View comments" onclick="aaOpenCommentsDrawer(${id})"><span aria-hidden="true">💬</span><span>${comments.length}</span></button>
  <button type="button" aria-label="Share post" onclick="aaTopicShare(${id})"><span aria-hidden="true">↗</span><span>Share</span></button>
  <button type="button" aria-pressed="${saved}" aria-label="${saved?'Unsave post':'Save post'}" onclick="aaTopicToggleSave(${id})"><span aria-hidden="true">🔖</span><span>${saved?'Saved':'Save'}</span></button></div>
- ${comments.length?`<div class="bingo-comments-heading"><b>Comments (${comments.length})</b><select aria-label="Sort comments" onchange="aaTopicSetCommentView(${id},'sort',this.value)"><option value="top" ${commentView.sort==='top'?'selected':''}>Top liked</option><option value="newest" ${commentView.sort==='newest'?'selected':''}>Newest</option></select></div>`:''}
+</article>`;
+}
+/* 2026-10-10: comments now live in the Comments Drawer (aaOpenCommentsDrawer) per the approved
+   design, not inline in the card — this is the exact same markup that used to render inline
+   above, extracted so the drawer can build it on demand. Nothing about comment data, Supabase
+   persistence, or the composer's behavior changed; only where it's displayed. */
+function aaCommentsDrawerBodyHTML(t){
+ const id=esc(JSON.stringify(String(t.id)));
+ const comments=aaTopicCommentsFor(t);
+ const commentView=(state.topicCommentViews||{})[t.id]||{limit:1,sort:'top'};
+ const sortedComments=[...comments].sort((a,b)=>commentView.sort==='newest'?new Date(b.createdAt||0)-new Date(a.createdAt||0):(Number(b.likes||0)-Number(a.likes||0)||new Date(b.createdAt||0)-new Date(a.createdAt||0)));
+ const visibleComments=sortedComments.slice(0,commentView.limit==='all'?comments.length:commentView.limit);
+ return `${comments.length?`<div class="bingo-comments-heading"><b>Comments (${comments.length})</b><select aria-label="Sort comments" onchange="aaTopicSetCommentView(${id},'sort',this.value)"><option value="top" ${commentView.sort==='top'?'selected':''}>Top liked</option><option value="newest" ${commentView.sort==='newest'?'selected':''}>Newest</option></select></div>`:'<div class="bingo-comments-heading"><b>Comments (0)</b></div>'}
+ <div class="bingo-comments-drawer-list">
  ${visibleComments.map(c=>{
   const cIsAuthor=String(c.authorId||"")===String(t.authorId||"");
   const canDeleteComment=state.isLoggedIn&&(String(c.authorId||"")===String(state.user?.id||"")||(typeof aaIsSuperUser==="function"&&aaIsSuperUser()));
@@ -18641,9 +18683,54 @@ function aaTopicPostCardHTML(t){
  }).join("")}
  ${comments.length>visibleComments.length?`<div class="bingo-comment-links"><button type="button" onclick="aaTopicSetCommentView(${id},'more')">Load more comments (${comments.length-visibleComments.length}) ⌄</button><button type="button" onclick="aaTopicSetCommentView(${id},'all')">View all ${comments.length} comments ›</button></div>`:''}
  ${visibleComments.length>1?`<div class="bingo-comment-links"><button type="button" onclick="aaTopicSetCommentView(${id},'less')">Show fewer ⌃</button></div>`:''}
+ </div>
  <div class="bingo-topic-composer"><img class="aa-post-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" alt="" onerror="aaProfileImgFallback(this)"><div class="bingo-topic-field"><input class="field" id="topicComment_${esc(t.id)}" aria-label="Write a comment" placeholder="Write a comment…" value="${esc(aaCommentDraftText[t.id]||'')}" oninput="aaCommentDraftInput(${id},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();aaTopicComment(${id})}"><button type="button" class="aa-comment-camera-btn" aria-label="Attach photo or video" onclick="document.getElementById('topicCommentMedia_'+${id}).click()">📷</button></div><input type="file" id="topicCommentMedia_${esc(t.id)}" accept="image/*,video/*" hidden onchange="aaHandleCommentMediaChange(${id})"><button class="bingo-topic-send" type="button" aria-label="Send comment" onclick="aaTopicComment(${id})">➤</button></div>
- ${aaCommentMediaPreviewHTML(t.id)}
-</article>`;
+ ${aaCommentMediaPreviewHTML(t.id)}`;
+}
+let aaCommentsDrawerTopicId=null;
+function aaCommentsDrawerEl(){
+ let el=document.getElementById("aaCommentsDrawerRoot");
+ if(el)return el;
+ el=document.createElement("div");
+ el.id="aaCommentsDrawerRoot";
+ el.innerHTML=`<div class="bingo-drawer-backdrop" id="aaCommentsDrawerBackdrop"></div><div class="bingo-comments-drawer" id="aaCommentsDrawer" role="dialog" aria-modal="true" aria-label="Comments"><div class="bingo-drawer-handle"></div><div class="bingo-drawer-header"><div class="bingo-drawer-title" id="aaCommentsDrawerTitle">Comments</div><button type="button" class="bingo-drawer-close" aria-label="Close comments" onclick="aaCloseCommentsDrawer()">×</button></div><div class="bingo-drawer-body" id="aaCommentsDrawerBody"></div></div>`;
+ document.body.appendChild(el);
+ document.getElementById("aaCommentsDrawerBackdrop").addEventListener("click",()=>aaCloseCommentsDrawer());
+ return el;
+}
+function aaCommentsDrawerKeyHandler(e){if(e.key==="Escape")aaCloseCommentsDrawer()}
+function aaRefreshCommentsDrawer(){
+ if(!aaCommentsDrawerTopicId)return;
+ const t=aaTopics().find(x=>String(x.id)===String(aaCommentsDrawerTopicId));
+ const drawer=document.getElementById("aaCommentsDrawer");
+ if(!t||!drawer){aaCloseCommentsDrawer();return}
+ const n=aaTopicCommentsFor(t).length;
+ const titleEl=document.getElementById("aaCommentsDrawerTitle");
+ if(titleEl)titleEl.textContent="Comments ("+n+")";
+ const bodyEl=document.getElementById("aaCommentsDrawerBody");
+ if(bodyEl)bodyEl.innerHTML=aaCommentsDrawerBodyHTML(t);
+}
+function aaOpenCommentsDrawer(topicId){
+ const t=aaTopics().find(x=>String(x.id)===String(topicId));
+ if(!t){toast("This post is unavailable");return}
+ aaCommentsDrawerTopicId=String(topicId);
+ aaCommentsDrawerEl();
+ aaRefreshCommentsDrawer();
+ requestAnimationFrame(()=>{
+  document.getElementById("aaCommentsDrawerBackdrop")?.classList.add("open");
+  document.getElementById("aaCommentsDrawer")?.classList.add("open");
+ });
+ document.body.style.overflow="hidden";
+ document.addEventListener("keydown",aaCommentsDrawerKeyHandler);
+ try{history.pushState({aaCommentsDrawerOpen:true},"",location.href)}catch(e){}
+}
+function aaCloseCommentsDrawer(fromPopstate){
+ document.getElementById("aaCommentsDrawerBackdrop")?.classList.remove("open");
+ document.getElementById("aaCommentsDrawer")?.classList.remove("open");
+ document.body.style.overflow="";
+ document.removeEventListener("keydown",aaCommentsDrawerKeyHandler);
+ aaCommentsDrawerTopicId=null;
+ if(!fromPopstate){window.aaCommentsDrawerSyntheticPop=true;try{history.back()}catch(e){}}
 }
 function aaWallAdSlotAutoLoad(){
  if(state.wallAdQueueLoaded||state.testMode)return;
@@ -18682,7 +18769,7 @@ function aaWallListingCardHTML(kind,rec){
 function aaPublicTopicsFeedHTML(){
  const all=aaTopics().filter(t=>!t.hiddenFromPublic).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
  aaLoadTopicCounts(all.map(t=>t.id));
- return `<section class="bingo-topic-page"><button class="btn btn-glass" onclick="goBack()">← Back</button>${aaMbeaHeaderHTML()}${state.isLoggedIn?aaWallComposerSectionHTML():`<button class="btn btn-gold" onclick="openAuth('login')">Log in to post or comment</button>`}${all.length?all.map(aaTopicPostCardHTML).join(''):'<div class="empty">No topics yet. Be the first to post.</div>'}</section>`;
+ return `<section class="bingo-topic-page">${aaMbeaHeaderHTML()}<button class="btn btn-glass bingo-wall-back" onclick="goBack()">← Back</button>${state.isLoggedIn?aaWallComposerSectionHTML():`<button class="btn btn-gold" onclick="openAuth('login')">Log in to post or comment</button>`}${all.length?all.map(aaTopicPostCardHTML).join(''):'<div class="empty">No topics yet. Be the first to post.</div>'}${aaWallBottomNavHTML()}</section>`;
 }
 /* The Reply button previously built its onclick as a double-quoted HTML
    attribute containing JSON.stringify(c.authorName) - which itself
@@ -28927,14 +29014,79 @@ html body #auto-arcade-widget .bp-page .bp-cover .bp-cover-add:not(#bingo-flat-g
 
 <style id="bingo-approved-topic-layout">
 /* Re-themed 2026-10-10 per approved Bingo Wall HTML spec (gemini-code-1791599314308.html): white/orange tokens, Plus Jakarta Sans. Selectors unchanged so JS hooks keep working. */
-#auto-arcade-widget .bingo-topic-page{max-width:440px;margin:auto;padding:0 0 90px;background:#fff;color:#0f172a}#auto-arcade-widget .bingo-topic-brand{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px 10px;background:#fff;position:sticky;top:0;z-index:20}#auto-arcade-widget .bingo-topic-brand h1{color:#ff7a00;font-size:26px;font-weight:900;margin:0;letter-spacing:-.5px;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif}#auto-arcade-widget .bingo-approved-topic{border:0;border-radius:18px;background:#fff;padding:12px 16px;margin:12px auto;max-width:440px;box-shadow:0 2px 8px rgba(0,0,0,.05);color:#0f172a;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif}#auto-arcade-widget .bingo-approved-topic .aa-post-head{display:flex;align-items:center;gap:10px;margin:0 0 12px}#auto-arcade-widget .bingo-approved-topic .aa-post-avatar{width:44px;height:44px;object-fit:cover;border-radius:50%;border:2px solid #ff7a00;padding:2px;background:#fff}#auto-arcade-widget .bingo-topic-author{flex:1;min-width:0}#auto-arcade-widget .bingo-topic-author b{font-size:15px;font-weight:800;color:#0f172a;cursor:pointer}#auto-arcade-widget .bingo-topic-author .meta{color:#64748b;font-size:12px;font-weight:500;margin-top:2px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{color:#0f172a!important;font:800 17px/1.3 'Plus Jakarta Sans',sans-serif!important;margin:0 0 6px;text-shadow:none!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#0f172a!important;font:600 15px/1.45 'Plus Jakarta Sans',sans-serif!important;white-space:pre-wrap;margin:0 0 10px}#auto-arcade-widget .bingo-approved-topic .aa-post-media{border-radius:18px;overflow:hidden;margin:0 0 10px;background:#000;box-shadow:0 2px 8px rgba(0,0,0,.05)}#auto-arcade-widget .bingo-approved-topic .aa-post-media img{display:block;width:100%;height:auto;max-height:none;object-fit:contain}#auto-arcade-widget .bingo-topic-options{position:relative}#auto-arcade-widget .bingo-topic-options summary{cursor:pointer;list-style:none;color:#1e293b;font-size:20px}#auto-arcade-widget .bingo-topic-options>div{position:absolute;right:0;top:28px;z-index:5;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px;width:175px;box-shadow:0 12px 32px rgba(0,0,0,.12)}#auto-arcade-widget .bingo-topic-options button{display:block;border:0;background:none;color:#0f172a;padding:10px;cursor:pointer;text-align:left;width:100%;font-weight:600}#auto-arcade-widget .bingo-topic-summary{display:flex;justify-content:space-between;gap:10px;color:#64748b;font-size:12.5px;font-weight:600;padding:0 2px 10px}#auto-arcade-widget .bingo-topic-actions{display:flex;align-items:center;justify-content:space-between;padding:10px 8px;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;margin-bottom:12px}#auto-arcade-widget .bingo-topic-actions button{display:flex;align-items:center;justify-content:center;gap:6px;flex:1;background:none;border:0;border-radius:8px;color:#ff7a00;padding:6px 8px;font:800 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer;position:relative}#auto-arcade-widget .bingo-topic-actions button:nth-child(2){color:#1d4ed8}#auto-arcade-widget .bingo-topic-actions button+button::before{content:"";position:absolute;left:-1px;top:50%;transform:translateY(-50%);width:1px;height:20px;background:#e2e8f0}#auto-arcade-widget .bingo-topic-actions svg{width:20px;height:20px;fill:none;stroke:currentColor}#auto-arcade-widget .bingo-topic-actions button[aria-pressed=true]{color:#ff7a00}#auto-arcade-widget .bingo-topic-composer{display:flex;align-items:center;gap:10px;margin-top:4px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:36px;height:36px;border:0;padding:0}#auto-arcade-widget .bingo-topic-field{display:flex;flex:1;min-width:0;align-items:center;border:1px solid #cbd5e1;border-radius:24px;background:#f8fafc;padding:6px 14px}#auto-arcade-widget .bingo-topic-field input.field{flex:1;min-width:0;background:none!important;border:0!important;box-shadow:none!important;margin:0;color:#0f172a;font-size:13.5px;font-weight:500;padding:6px 0}#auto-arcade-widget .bingo-topic-field input::placeholder{color:#94a3b8}#auto-arcade-widget .bingo-topic-send{border:0;background:#ff7a00;color:#fff;border-radius:50%;width:38px;height:38px;flex-shrink:0;font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(255,122,0,.3)}@media(max-width:480px){#auto-arcade-widget .bingo-approved-topic{padding:10px 14px;border-radius:14px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{font-size:15px!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{font-size:14px!important}#auto-arcade-widget .bingo-topic-actions button{font-size:12.5px;gap:4px}#auto-arcade-widget .bingo-topic-composer{gap:6px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:30px;height:30px}#auto-arcade-widget .bingo-topic-summary{font-size:11.5px}}
+#auto-arcade-widget .bingo-topic-page{max-width:440px;margin:auto;padding:0 0 110px;background:#fff;color:#0f172a}#auto-arcade-widget .bingo-topic-brand{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px 10px;background:#fff;position:sticky;top:0;z-index:20}#auto-arcade-widget .bingo-topic-brand h1{color:#ff7a00;font-size:26px;font-weight:900;margin:0;letter-spacing:-.5px;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif}#auto-arcade-widget .bingo-approved-topic{border:0;border-radius:18px;background:#fff;padding:12px 16px;margin:12px auto;max-width:440px;box-shadow:0 2px 8px rgba(0,0,0,.05);color:#0f172a;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif}#auto-arcade-widget .bingo-approved-topic .aa-post-head{display:flex;align-items:center;gap:10px;margin:0 0 12px}#auto-arcade-widget .bingo-approved-topic .aa-post-avatar{width:44px;height:44px;object-fit:cover;border-radius:50%;border:2px solid #ff7a00;padding:2px;background:#fff}#auto-arcade-widget .bingo-topic-author{flex:1;min-width:0}#auto-arcade-widget .bingo-topic-author b{font-size:15px;font-weight:800;color:#0f172a;cursor:pointer}#auto-arcade-widget .bingo-topic-author .meta{color:#64748b;font-size:12px;font-weight:500;margin-top:2px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{color:#0f172a!important;font:800 17px/1.3 'Plus Jakarta Sans',sans-serif!important;margin:0 0 6px;text-shadow:none!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#0f172a!important;font:600 15px/1.45 'Plus Jakarta Sans',sans-serif!important;white-space:pre-wrap;margin:0 0 10px}#auto-arcade-widget .bingo-approved-topic .aa-post-media{border-radius:18px;overflow:hidden;margin:0 0 10px;background:#000;box-shadow:0 2px 8px rgba(0,0,0,.05)}#auto-arcade-widget .bingo-approved-topic .aa-post-media img{display:block;width:100%;height:auto;max-height:none;object-fit:contain}#auto-arcade-widget .bingo-topic-options{position:relative}#auto-arcade-widget .bingo-topic-options summary{cursor:pointer;list-style:none;color:#1e293b;font-size:20px}#auto-arcade-widget .bingo-topic-options>div{position:absolute;right:0;top:28px;z-index:5;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px;width:175px;box-shadow:0 12px 32px rgba(0,0,0,.12)}#auto-arcade-widget .bingo-topic-options button{display:block;border:0;background:none;color:#0f172a;padding:10px;cursor:pointer;text-align:left;width:100%;font-weight:600}#auto-arcade-widget .bingo-topic-summary{display:flex;justify-content:space-between;gap:10px;color:#64748b;font-size:12.5px;font-weight:600;padding:0 2px 10px}#auto-arcade-widget .bingo-topic-actions{display:flex;align-items:center;justify-content:space-between;padding:10px 8px;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;margin-bottom:12px}#auto-arcade-widget .bingo-topic-actions button{display:flex;align-items:center;justify-content:center;gap:6px;flex:1;background:none;border:0;border-radius:8px;color:#ff7a00;padding:6px 8px;font:800 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer;position:relative}#auto-arcade-widget .bingo-topic-actions button:nth-child(2){color:#1d4ed8}#auto-arcade-widget .bingo-topic-actions button+button::before{content:"";position:absolute;left:-1px;top:50%;transform:translateY(-50%);width:1px;height:20px;background:#e2e8f0}#auto-arcade-widget .bingo-topic-actions svg{width:20px;height:20px;fill:none;stroke:currentColor}#auto-arcade-widget .bingo-topic-actions button[aria-pressed=true]{color:#ff7a00}#auto-arcade-widget .bingo-topic-composer{display:flex;align-items:center;gap:10px;margin-top:4px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:36px;height:36px;border:0;padding:0}#auto-arcade-widget .bingo-topic-field{display:flex;flex:1;min-width:0;align-items:center;border:1px solid #cbd5e1;border-radius:24px;background:#f8fafc;padding:6px 14px}#auto-arcade-widget .bingo-topic-field input.field{flex:1;min-width:0;background:none!important;border:0!important;box-shadow:none!important;margin:0;color:#0f172a;font-size:13.5px;font-weight:500;padding:6px 0}#auto-arcade-widget .bingo-topic-field input::placeholder{color:#94a3b8}#auto-arcade-widget .bingo-topic-send{border:0;background:#ff7a00;color:#fff;border-radius:50%;width:38px;height:38px;flex-shrink:0;font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(255,122,0,.3)}@media(max-width:480px){#auto-arcade-widget .bingo-approved-topic{padding:10px 14px;border-radius:14px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{font-size:15px!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{font-size:14px!important}#auto-arcade-widget .bingo-topic-actions button{font-size:12.5px;gap:4px}#auto-arcade-widget .bingo-topic-composer{gap:6px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:30px;height:30px}#auto-arcade-widget .bingo-topic-summary{font-size:11.5px}}
 html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{border:0!important;border-radius:8px!important;box-shadow:none!important;background:none!important;padding:6px 8px!important;font:800 14px 'Plus Jakarta Sans',sans-serif!important;color:#ff7a00!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button:nth-child(2){color:#1d4ed8!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button[aria-pressed=true]{color:#ff7a00!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-send{border:0!important;border-radius:50%!important;background:#ff7a00!important;box-shadow:0 2px 8px rgba(255,122,0,.3)!important;color:#fff!important;width:38px!important;height:38px!important;padding:0!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-field .field{font-weight:500!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-camera-btn{border:0!important;box-shadow:none!important;background:none!important}
+/* Crown has no backend yet: shown but visually inert/"coming soon" rather than impersonating a real action (2026-10-10). */
+html body #auto-arcade-widget .bingo-approved-topic .bingo-action-crown[aria-disabled=true]{color:#94a3b8!important;cursor:default!important}
+/* The reactions line (was the old Like toggle) stays tappable even though Crown took its row slot. */
+#auto-arcade-widget .bingo-approved-topic .bingo-reaction-toggle{cursor:pointer;border-radius:8px;padding:2px 6px;margin:-2px -6px}
+#auto-arcade-widget .bingo-approved-topic .bingo-reaction-toggle:hover{background:#f8fafc}
+#auto-arcade-widget .bingo-approved-topic .bingo-reaction-toggle[aria-pressed=true]{color:#ff7a00;font-weight:800}
+/* Approved Wall header + bottom nav (2026-10-10). Scoped to .bingo-topic-page only — the app's
+   existing global navigation (draggable logo + Cockpit menu, used on Home/Marketplace/Profile/etc.)
+   is untouched; see final report for why this wasn't made global. */
+#auto-arcade-widget .bingo-topic-page .bingo-topic-brand{flex-wrap:wrap;row-gap:8px}
+#auto-arcade-widget .bingo-wall-brand-group{display:flex;flex-direction:column;line-height:1.1}
+#auto-arcade-widget .bingo-wall-tagline{color:#64748b;font-size:11.5px;font-weight:600;margin-top:1px}
+#auto-arcade-widget .bingo-wall-header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#auto-arcade-widget .bingo-wall-head-btn{border:1px solid #e2e8f0;background:#f8fafc;color:#0f172a;border-radius:20px;padding:7px 14px;font:700 12.5px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+#auto-arcade-widget .bingo-wall-head-btn-dark{background:#0f172a;color:#fff;border-color:#0f172a}
+#auto-arcade-widget .bingo-wall-head-btn-logout{background:#ef4444;color:#fff;border-color:#ef4444}
+#auto-arcade-widget .bingo-topic-page .bingo-wall-back{display:inline-flex;margin:10px 16px 0}
+#auto-arcade-widget .bingo-wall-bottom-nav{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:440px;background:#fff;border-top:1px solid #e2e8f0;display:flex;align-items:stretch;justify-content:space-between;padding:6px 4px calc(6px + env(safe-area-inset-bottom));z-index:30}
+#auto-arcade-widget .bingo-wall-nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;color:#64748b;font:700 10.5px 'Plus Jakarta Sans',sans-serif;padding:6px 2px;cursor:pointer}
+#auto-arcade-widget .bingo-wall-nav-item span:first-child{font-size:19px;line-height:1}
+#auto-arcade-widget .bingo-wall-nav-item.active{color:#ff7a00}
+@media(max-width:480px){#auto-arcade-widget .bingo-wall-head-btn{padding:6px 10px;font-size:11.5px}}
 </style>
 <style id="bingo-feedback-comments">
 .bingo-feedback{position:fixed;right:20px;bottom:90px;z-index:10050;width:min(340px,calc(100vw - 32px));padding:22px 20px;background:linear-gradient(135deg,#132a3a,#071725);border:1px solid #ffc928;border-radius:20px;color:white;text-align:center;font:14px/1.5 system-ui;box-shadow:0 18px 40px #0006}.bingo-feedback.success{background:linear-gradient(135deg,#06452b,#03281e);border-color:#4fd776}.bingo-feedback.error{background:linear-gradient(135deg,#491c20,#271518);border-color:#e44648}.bingo-feedback-close{position:absolute;right:10px;top:6px;border:0;background:none;color:#d6e1eb;font-size:23px;cursor:pointer}.bingo-feedback-symbol{width:48px;height:48px;border:3px solid #ffc928;border-radius:50%;display:grid;place-items:center;margin:0 auto 12px;font-size:28px}.success .bingo-feedback-symbol{border-color:#4fd776;color:#4fd776}.error .bingo-feedback-symbol{border-color:#e44648;color:#e44648}.bingo-feedback-message{font-weight:600;overflow-wrap:anywhere}.bingo-feedback p,.bingo-upload-bytes{color:#b6c2d5;font-size:12px}.bingo-upload-file{font-weight:600;overflow-wrap:anywhere;padding-right:12px}.bingo-upload-ring{width:138px;height:138px;margin:18px auto;background:conic-gradient(#ffc928 var(--progress),#263e51 0);border-radius:50%;padding:10px}.bingo-upload-ring>div{background:#0b1c2c;border-radius:50%;width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column}.bingo-upload-ring b{font-size:32px}.bingo-upload-ring small{font-size:12px}.bingo-upload-cancel{border:1px solid #3b5161;background:#1c3041;border-radius:8px;color:white;padding:8px 18px;cursor:pointer}
 /* Comment rules re-themed 2026-10-10 to approved white/orange tokens; .bingo-feedback/.bingo-upload-* toast above is unrelated to the Wall redesign and is left untouched. */
 html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{font:500 13.5px/1.4 'Plus Jakarta Sans',sans-serif!important;color:#0f172a!important;text-shadow:none!important;letter-spacing:normal!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name{font-weight:800!important;color:#1d4ed8!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-row{padding:12px 0;border-bottom:1px solid #e2e8f0;gap:12px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-bubble{border:0;background:none;padding:0;flex:1;min-width:0}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-avatar{width:38px;height:38px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta{font:600 12px 'Plus Jakarta Sans',sans-serif;color:#64748b;display:flex;align-items:center;gap:14px;margin-top:4px}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button{border:0!important;background:none!important;box-shadow:none!important;padding:0!important;font:700 12px 'Plus Jakarta Sans',sans-serif!important;color:#64748b!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button:last-of-type{margin-left:auto;color:#0f172a!important;font-size:14px!important}html body #auto-arcade-widget .bingo-comments-heading{display:flex;align-items:center;justify-content:space-between;margin-top:14px;padding-bottom:10px;border-bottom:1px solid #e2e8f0}html body #auto-arcade-widget .bingo-comments-heading b{font-size:16px;font-weight:800;color:#0f172a}html body #auto-arcade-widget .bingo-comments-heading select{background:#f8fafc;color:#0f172a;border:1px solid #e2e8f0;border-radius:24px;padding:8px 12px;font:600 13px 'Plus Jakarta Sans',sans-serif;width:auto}html body #auto-arcade-widget .bingo-comment-links button{display:block;background:none!important;border:0!important;box-shadow:none!important;color:#1d4ed8!important;padding:6px 0!important;font:700 13px 'Plus Jakarta Sans',sans-serif!important;cursor:pointer}html body #auto-arcade-widget .bingo-comment-links{margin-top:10px}.bingo-comment-options{float:right;position:relative}.bingo-comment-options summary{list-style:none;cursor:pointer;color:#64748b;font-size:18px}.bingo-comment-options button{position:absolute;right:0;z-index:5;background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-radius:8px;padding:8px 16px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.1)}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-author-badge{font:700 10px 'Plus Jakarta Sans',sans-serif!important;padding:2px 7px;border-radius:12px;color:#fff!important;background:#ff7a00!important}@media(max-width:480px){.bingo-feedback{right:16px;bottom:90px}.bingo-comments-heading select{max-width:125px}}
 html body #auto-arcade-widget .bingo-approved-topic .bingo-comments-heading select{border:1px solid #e2e8f0!important;border-radius:24px!important;background:#f8fafc!important;color:#0f172a!important;font:600 13px 'Plus Jakarta Sans',sans-serif!important;padding:8px 12px!important}
+</style>
+<style id="bingo-comments-drawer-shell">
+/* Approved Comments Drawer (2026-10-10): dimmed backdrop, white bottom sheet, rounded top
+   corners, drag handle, scrollable list, fixed composer. Lives outside #auto-arcade-widget
+   (appended to document.body) so a render() never tears it down while open. */
+#aaCommentsDrawerRoot{position:fixed;inset:0;z-index:10060;pointer-events:none}
+.bingo-drawer-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.45);opacity:0;transition:opacity .25s ease;pointer-events:none}
+.bingo-drawer-backdrop.open{opacity:1;pointer-events:auto}
+.bingo-comments-drawer{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:440px;height:82vh;max-height:82dvh;background:#fff;border-radius:28px 28px 0 0;box-shadow:0 -8px 32px rgba(0,0,0,.18);transform:translateY(100%);transition:transform .35s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;pointer-events:none;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif}
+.bingo-comments-drawer.open{transform:translateY(0);pointer-events:auto}
+.bingo-drawer-handle{width:36px;height:4px;background:#cbd5e1;border-radius:4px;margin:10px auto 4px;flex:0 0 auto}
+.bingo-drawer-header{display:flex;align-items:center;justify-content:space-between;padding:8px 20px 14px;border-bottom:1px solid #e2e8f0;flex:0 0 auto}
+.bingo-drawer-title{font-size:18px;font-weight:800;color:#0f172a}
+.bingo-drawer-close{background:none;border:0;font-size:24px;line-height:1;color:#0f172a;cursor:pointer;padding:4px}
+.bingo-drawer-body{flex:1;min-height:0;overflow-y:auto;padding:0 16px 16px;display:flex;flex-direction:column}
+.bingo-comments-drawer-list{flex:1;min-height:0;overflow-y:auto}
+/* Comment rows + composer, now rendered only inside the drawer, in the approved white theme
+   (previously scoped to #auto-arcade-widget .bingo-approved-topic when comments were inline). */
+#aaCommentsDrawer .aa-comment-name,#aaCommentsDrawer .aa-comment-text{font:500 13.5px/1.4 'Plus Jakarta Sans',sans-serif;color:#0f172a;letter-spacing:normal}
+#aaCommentsDrawer .aa-comment-name{font-weight:800;color:#1d4ed8}
+#aaCommentsDrawer .aa-comment-row{display:flex;padding:12px 0;border-bottom:1px solid #e2e8f0;gap:12px}
+#aaCommentsDrawer .aa-comment-avatar{width:38px;height:38px;border-radius:50%;object-fit:cover;flex-shrink:0}
+#aaCommentsDrawer .aa-comment-bubble{border:0;background:none;padding:0;flex:1;min-width:0}
+#aaCommentsDrawer .aa-comment-meta{font:600 12px 'Plus Jakarta Sans',sans-serif;color:#64748b;display:flex;align-items:center;gap:14px;margin-top:4px}
+#aaCommentsDrawer .aa-comment-meta button{border:0;background:none;box-shadow:none;padding:0;font:700 12px 'Plus Jakarta Sans',sans-serif;color:#64748b;cursor:pointer}
+#aaCommentsDrawer .aa-comment-meta button:last-of-type{margin-left:auto;color:#0f172a;font-size:14px}
+#aaCommentsDrawer .bingo-comments-heading{display:flex;align-items:center;justify-content:space-between;padding:4px 0 10px;border-bottom:1px solid #e2e8f0;flex:0 0 auto}
+#aaCommentsDrawer .bingo-comments-heading b{font-size:15px;font-weight:800;color:#0f172a}
+#aaCommentsDrawer .bingo-comments-heading select{background:#f8fafc;color:#0f172a;border:1px solid #e2e8f0;border-radius:24px;padding:6px 10px;font:600 12.5px 'Plus Jakarta Sans',sans-serif}
+#aaCommentsDrawer .bingo-comment-links{margin-top:10px}
+#aaCommentsDrawer .bingo-comment-links button{display:block;background:none;border:0;box-shadow:none;color:#1d4ed8;padding:6px 0;font:700 13px 'Plus Jakarta Sans',sans-serif;cursor:pointer}
+#aaCommentsDrawer .bingo-comment-options{float:right;position:relative}
+#aaCommentsDrawer .bingo-comment-options summary{list-style:none;cursor:pointer;color:#64748b;font-size:18px}
+#aaCommentsDrawer .bingo-comment-options button{position:absolute;right:0;z-index:5;background:#fff;color:#0f172a;border:1px solid #e2e8f0;border-radius:8px;padding:8px 16px;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.1)}
+#aaCommentsDrawer .aa-comment-author-badge{font:700 10px 'Plus Jakarta Sans',sans-serif;padding:2px 7px;border-radius:12px;color:#fff;background:#ff7a00}
+#aaCommentsDrawer .bingo-topic-composer{display:flex;align-items:center;gap:10px;padding:12px 0 4px;border-top:1px solid #e2e8f0;flex:0 0 auto;background:#fff}
+#aaCommentsDrawer .bingo-topic-composer .aa-post-avatar{width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0}
+#aaCommentsDrawer .bingo-topic-field{display:flex;flex:1;min-width:0;align-items:center;border:1px solid #cbd5e1;border-radius:24px;background:#f8fafc;padding:6px 14px}
+#aaCommentsDrawer .bingo-topic-field input.field{flex:1;min-width:0;background:none;border:0;box-shadow:none;margin:0;color:#0f172a;font-size:13.5px;font-weight:500;padding:6px 0}
+#aaCommentsDrawer .bingo-topic-field input::placeholder{color:#94a3b8}
+#aaCommentsDrawer .aa-comment-camera-btn{border:0;box-shadow:none;background:none;cursor:pointer}
+#aaCommentsDrawer .bingo-topic-send{border:0;background:#ff7a00;color:#fff;border-radius:50%;width:38px;height:38px;flex-shrink:0;font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(255,122,0,.3)}
+@media(max-width:480px){.bingo-comments-drawer{height:88vh;max-height:88dvh}}
 </style>
 <!-- ===== Bingo 50 Font + Colour Expression Layer (review integration) ===== -->
 <style id="bingo50-style">
@@ -29183,6 +29335,15 @@ const originalRender=render;
 render=function(){const feed=document.querySelector('#auto-arcade-widget .aa360-feed'),scroll=feed?.scrollTop||0,feedH=feed?.clientHeight||0;const playing=[...document.querySelectorAll('#auto-arcade-widget video.aa360-video')].map(v=>({id:identity(v),time:v.currentTime}));originalRender.apply(this,arguments);const next=document.querySelector('#auto-arcade-widget .aa360-feed');if(feed&&next){const top=feedRestoreTop(next,scroll,feedH);/* instant: the feed's CSS smooth scrolling would otherwise animate the fresh feed from the top through every slide (and the render cancels that animation) */try{next.scrollTo({top,behavior:'instant'})}catch(_e){next.scrollTop=top}}for(const saved of playing){if(!saved.id||!saved.time)continue;const host=[...document.querySelectorAll('#auto-arcade-widget [data-canon]')].find(x=>x.dataset.canon===key(saved.id.type,saved.id.id)),v=host?.querySelector('video.aa360-video');if(v){const restore=()=>{if(saved.time<v.duration)v.currentTime=saved.time};if(v.readyState>=1)restore();else v.addEventListener('loadedmetadata',restore,{once:true})}}clearTimeout(renderTimer);renderTimer=setTimeout(()=>{measure();patchStats()},0)};
 const originalLoad=aaLoadVehicles;
 aaLoadVehicles=async function(){await originalLoad.apply(this,arguments);await Promise.allSettled([loadCategories(),aaLoadProperties(),aaLoadFoods()])};
+/* Comments Drawer (2026-10-10): keep its content in sync with every render (new comment posted,
+   like toggled, sort changed, etc.) without the drawer itself ever being torn down by a render,
+   since it lives outside #auto-arcade-widget. Also counts as an open overlay for the Home feed's
+   existing overlay-detection (pauses background video autoplay, blocks wheel/arrow-key feed
+   navigation) exactly like the video/photo lightboxes already do. */
+const originalRenderForCommentsDrawer=render;
+render=function(){originalRenderForCommentsDrawer.apply(this,arguments);try{if(typeof aaRefreshCommentsDrawer==="function")aaRefreshCommentsDrawer()}catch(e){}};
+const originalOverlayForCommentsDrawer=aaHomeOverlayOpen;
+aaHomeOverlayOpen=function(){return originalOverlayForCommentsDrawer()||!!(typeof aaCommentsDrawerTopicId!=="undefined"&&aaCommentsDrawerTopicId&&document.getElementById("aaCommentsDrawer")?.classList.contains("open"))};
 // Purge legacy sample and local-only public records. Unsaved forms remain drafts.
 state.listings=(state.listings||[]).filter(x=>!x._localDemo&&x._fromDb&&/^[0-9a-f-]{36}$/i.test(String(x.id)));
 state.jobs=ownerDrafts(legacy.jobs,[]);state.spareParts=ownerDrafts(legacy.parts,[]);
