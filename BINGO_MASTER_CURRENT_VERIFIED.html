@@ -29050,16 +29050,20 @@ html body #auto-arcade-widget .bingo-approved-topic .bingo-comments-heading sele
    corners, drag handle, scrollable list, fixed composer. Lives outside #auto-arcade-widget
    (appended to document.body) so a render() never tears it down while open. */
 #aaCommentsDrawerRoot{position:fixed;inset:0;z-index:10060;pointer-events:none}
-.bingo-drawer-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.45);opacity:0;transition:opacity .25s ease;pointer-events:none}
+.bingo-drawer-backdrop{position:absolute;inset:0;background:rgba(15,23,42,.45);z-index:30;opacity:0;pointer-events:none;transition:opacity .3s ease;backdrop-filter:blur(2px)}
 .bingo-drawer-backdrop.open{opacity:1;pointer-events:auto}
 .bingo-comments-drawer{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:440px;height:82vh;max-height:82dvh;background:#fff;border-radius:28px 28px 0 0;box-shadow:0 -8px 32px rgba(0,0,0,.18);transform:translateY(100%);transition:transform .35s cubic-bezier(.16,1,.3,1);display:flex;flex-direction:column;pointer-events:none;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif}
 .bingo-comments-drawer.open{transform:translateY(0);pointer-events:auto}
 .bingo-drawer-handle{width:36px;height:4px;background:#cbd5e1;border-radius:4px;margin:10px auto 4px;flex:0 0 auto}
 .bingo-drawer-header{display:flex;align-items:center;justify-content:space-between;padding:8px 20px 14px;border-bottom:1px solid #e2e8f0;flex:0 0 auto}
 .bingo-drawer-title{font-size:18px;font-weight:800;color:#0f172a}
-.bingo-drawer-close{background:none;border:0;font-size:24px;line-height:1;color:#0f172a;cursor:pointer;padding:4px}
-.bingo-drawer-body{flex:1;min-height:0;overflow-y:auto;padding:0 16px 16px;display:flex;flex-direction:column}
-.bingo-comments-drawer-list{flex:1;min-height:0;overflow-y:auto}
+.bingo-drawer-close{background:none;border:0;font-size:22px;line-height:1;color:#0f172a;cursor:pointer;padding:4px}
+/* Fixed composer, per approved spec: .bingo-drawer-body itself must NOT scroll (it previously also
+   had overflow-y:auto, nesting it with .bingo-comments-drawer-list below - a second scroller that
+   let the composer scroll away with the list instead of staying fixed at the bottom). Only the
+   comment list scrolls; the heading and composer are flex:0 0 auto siblings that stay put. */
+.bingo-drawer-body{flex:1;min-height:0;padding:0 16px 16px;display:flex;flex-direction:column}
+.bingo-comments-drawer-list{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:16px;padding-top:4px}
 /* Comment rows + composer, now rendered only inside the drawer, in the approved white theme
    (previously scoped to #auto-arcade-widget .bingo-approved-topic when comments were inline). */
 #aaCommentsDrawer .aa-comment-name,#aaCommentsDrawer .aa-comment-text{font:500 13.5px/1.4 'Plus Jakarta Sans',sans-serif;color:#0f172a;letter-spacing:normal}
@@ -29330,7 +29334,22 @@ new MutationObserver(()=>{if(aaHomeOverlayOpen())aaPauseAllFeedVideos();else if(
    the previous slide, silently cancelling the swipe (previous video keeps playing). Restore the
    slide the user was going to: the pending aaFeedGoTo target, or - for a native finger scroll -
    the next slide in the direction of travel from where the feed last settled. */
-function feedRestoreTop(next,scroll,h){h=h||next.clientHeight||1;const n=next.querySelectorAll('.aa360-item').length||1,t=window.__bingoFeedTarget;let i;if(t&&Date.now()-t.at<1500)i=t.index;else if(Math.abs(scroll-Math.round(scroll/h)*h)<=2)return scroll;else{const from=Number.isInteger(window.__bingoFeedSettled)?window.__bingoFeedSettled:Math.round(scroll/h);i=scroll/h>from?Math.ceil(scroll/h):Math.floor(scroll/h)}return Math.max(0,Math.min(n-1,i))*h}
+/* ROOT-CAUSE FIX (2026-10-10): this previously computed the restored scrollTop using the OLD,
+   pre-render feed height (`h=h||next.clientHeight||1` kept the stale `h` whenever it was truthy,
+   which is effectively always, so the freshly-rendered feed's actual height was never used for the
+   arithmetic even though `next` - the new element - was passed in specifically to read it).
+   On mobile, the feed's real height (100dvh) legitimately changes between two renders whenever the
+   browser's address bar/chrome shows or hides mid-scroll - extremely common while the Home feed
+   polls for counts/avatars and re-renders every few seconds. Every such render set scrollTop to
+   index*OLD_height while the new items are actually OLD_height+/-N px tall, landing the viewport at
+   a non-snap-point offset: part of one post's bottom info/avatar bar and part of the next post's
+   video are then both on-screen at once until the user's next manual scroll corrects it. This is
+   the "woman's portrait over a video of a man speaking" report - not a CSS stacking bug, a height
+   mismatch in this restoration arithmetic. Fix: always multiply by the CURRENT feed's real height
+   (next.clientHeight), using the old height only to work out which index the user was previously
+   on; the "already aligned, leave scrollTop untouched" fast path now only applies when the height
+   genuinely hasn't changed, since under a changed height that raw pixel value is no longer valid. */
+function feedRestoreTop(next,scroll,h){const newH=next.clientHeight||h||1;const n=next.querySelectorAll('.aa360-item').length||1,t=window.__bingoFeedTarget;let i;if(t&&Date.now()-t.at<1500){i=t.index}else{const oldH=h||newH;if(oldH===newH&&Math.abs(scroll-Math.round(scroll/oldH)*oldH)<=2)return scroll;const from=Number.isInteger(window.__bingoFeedSettled)?window.__bingoFeedSettled:Math.round(scroll/oldH);i=scroll/oldH>from?Math.ceil(scroll/oldH):Math.floor(scroll/oldH)}return Math.max(0,Math.min(n-1,i))*newH}
 const originalRender=render;
 render=function(){const feed=document.querySelector('#auto-arcade-widget .aa360-feed'),scroll=feed?.scrollTop||0,feedH=feed?.clientHeight||0;const playing=[...document.querySelectorAll('#auto-arcade-widget video.aa360-video')].map(v=>({id:identity(v),time:v.currentTime}));originalRender.apply(this,arguments);const next=document.querySelector('#auto-arcade-widget .aa360-feed');if(feed&&next){const top=feedRestoreTop(next,scroll,feedH);/* instant: the feed's CSS smooth scrolling would otherwise animate the fresh feed from the top through every slide (and the render cancels that animation) */try{next.scrollTo({top,behavior:'instant'})}catch(_e){next.scrollTop=top}}for(const saved of playing){if(!saved.id||!saved.time)continue;const host=[...document.querySelectorAll('#auto-arcade-widget [data-canon]')].find(x=>x.dataset.canon===key(saved.id.type,saved.id.id)),v=host?.querySelector('video.aa360-video');if(v){const restore=()=>{if(saved.time<v.duration)v.currentTime=saved.time};if(v.readyState>=1)restore();else v.addEventListener('loadedmetadata',restore,{once:true})}}clearTimeout(renderTimer);renderTimer=setTimeout(()=>{measure();patchStats()},0)};
 const originalLoad=aaLoadVehicles;
