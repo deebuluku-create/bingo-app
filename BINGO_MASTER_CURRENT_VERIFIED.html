@@ -16422,7 +16422,11 @@ async function aaPublishBingoTopic(){
     const upd={title,body,category,media:[]};
     const ur=await aaTopicDbCall(signal=>sb.from('bingo_topics').update(upd).eq('id',id).eq('user_id',userId).select().abortSignal(signal).maybeSingle());
     if(!ur.error&&ur.data){inserted=ur.data;insErr=null;break}
-    insErr=ur.error||{message:'An earlier attempt of this post could not be reused.'};
+    // Not this user's row (or not reusable): never touch it, and give the
+    // next attempt a brand-new id so Retry can still succeed.
+    if(ur.error&&aaTopicIsNetworkError(ur.error)){insErr=ur.error;break} // connection problem: keep the id, it is probably ours
+    aaTopicPublishPendingId=null;
+    insErr={message:'an earlier attempt of this post could not be reused.'};
     break;
    }
    const missing=aaMissingPropertyColumn(result.error);
