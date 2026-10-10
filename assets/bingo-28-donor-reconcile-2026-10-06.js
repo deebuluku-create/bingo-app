@@ -92,7 +92,11 @@ function installPrivateTopicMediaResolver(){
    var source=v.querySelector('source[src]');
    if(source)source.src=url;else v.src=url;
    v.load();
-   if(!wasPaused&&v.isConnected)v.play().catch(function(){});
+   /* Resume only what was playing before the re-sign, and only if it is still the visible Home slide (or not
+      a Home feed slide at all). The signing round-trip is async: the user may have swiped away meanwhile, and
+      resuming an off-screen feed video would play two videos at once against the feed's single authority. */
+   var slide=v.closest('.aa360-item');
+   if(!wasPaused&&v.isConnected&&(!slide||slide.classList.contains('bingo-media-active')))v.play().catch(function(){});
   }catch(_){pending.delete(v)}
  }
  function scan(root){
