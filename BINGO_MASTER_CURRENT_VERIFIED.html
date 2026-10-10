@@ -3477,7 +3477,28 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .aa-property-media-viewer{position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.96);padding:16px}
 #auto-arcade-widget .aa-property-media-viewer img,#auto-arcade-widget .aa-property-media-viewer video{width:100%;height:100%;max-width:100vw;max-height:100vh;object-fit:contain;background:#000}
 #auto-arcade-widget .aa-property-media-viewer-close{position:absolute;top:calc(12px + env(safe-area-inset-top));right:12px;z-index:3;width:44px;height:44px;border-radius:50%}
-@media(max-width:599px){#auto-arcade-widget .aa-property-media-viewer{padding:0}}
+@media(max-width:599px){#auto-arcade-widget .aa-property-media-viewer{padding:0}
+#auto-arcade-widget .bingo-business-media{position:relative;width:100%;height:100%;overflow:hidden;background:#081020;contain:layout}
+#auto-arcade-widget .bingo-business-media video{position:absolute;inset:0;display:block;width:100%;height:100%;max-width:none;max-height:none;object-fit:contain;background:transparent;transition:none;animation:none}
+#auto-arcade-widget .bingo-business-media .video-poster{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+#auto-arcade-widget .bingo-business-media.is-frame-ready .video-poster{display:none}
+#auto-arcade-widget .bingo-business-media .bingo-video-spinner{position:absolute;left:50%;top:50%;width:28px;height:28px;margin:-14px 0 0 -14px;border:3px solid rgba(255,255,255,.25);border-top-color:#f5b91e;border-radius:50%;display:none;pointer-events:none;animation:bingoVidSpin .9s linear infinite}
+#auto-arcade-widget .bingo-business-media.is-waiting .bingo-video-spinner{display:block}
+@keyframes bingoVidSpin{to{transform:rotate(360deg)}}
+#auto-arcade-widget .bingo-business-media .bingo-sound-toggle{position:absolute;top:calc(64px + env(safe-area-inset-top));right:12px;width:32px;height:32px;min-width:32px!important;min-height:32px!important;padding:0!important;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(8,16,32,.7);color:#fff;font-size:15px;line-height:1;z-index:5;display:grid;place-items:center}
+#auto-arcade-widget .bingo-business-media .bingo-video-progress{position:absolute;left:0;right:0;bottom:env(safe-area-inset-bottom);height:3px;background:rgba(255,255,255,.18);z-index:4;pointer-events:none}
+#auto-arcade-widget .bingo-business-media .bingo-video-progress i{display:block;height:100%;width:0;background:#f5b91e}
+#auto-arcade-widget .bingo-business-media .bingo-video-error{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);z-index:6;padding:12px 14px;border-radius:12px;background:rgba(8,16,32,.92);border:1px solid rgba(255,107,107,.6);color:#fff;font-size:14px;text-align:center}
+#auto-arcade-widget .bingo-business-media .bingo-video-error a{color:#f5b91e}
+/* Full-screen media viewer layout: a global button rule pulled the close/prev/next
+   buttons into normal flow, which pushed the media sideways and put the close
+   button off-screen (measured x=-51px). Pin them, and give the media the full area. */
+html body #auto-arcade-widget .aa-property-media-viewer>button{position:absolute!important;z-index:6;margin:0!important}
+html body #auto-arcade-widget .aa-property-media-viewer>.aa-property-media-viewer-close{top:calc(12px + env(safe-area-inset-top))!important;right:12px!important;left:auto!important;bottom:auto!important;width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;padding:0!important}
+html body #auto-arcade-widget .aa-property-media-viewer>button[aria-label="Previous"]{left:10px!important;right:auto!important;top:50%!important;transform:translateY(-50%)!important}
+html body #auto-arcade-widget .aa-property-media-viewer>button[aria-label="Next"]{right:10px!important;left:auto!important;top:50%!important;transform:translateY(-50%)!important}
+html body #auto-arcade-widget .aa-property-media-viewer>.bingo-business-media,html body #auto-arcade-widget .aa-property-media-viewer>img{flex:0 0 100%;width:100%!important;height:100%!important}
+html body #auto-arcade-widget .bingo-business-media .bingo-sound-toggle{position:absolute!important;top:calc(64px + env(safe-area-inset-top))!important;right:12px!important;left:auto!important;margin:0!important}}
 
 /* Property/Stay browse grid: one compact thumbnail per listing. Same
    2/3/4/6 responsive steps as the media gallery, so browsing and
@@ -11336,7 +11357,10 @@ function aaOpenFoodMediaViewer(businessId,mediaIndex,menuItemId){
 }
 function aaCloseFoodMediaViewer(){
  const v=state.foodMediaViewer;
- try{document.getElementById('aaFoodViewerVideo')?.pause()}catch(e){}
+ /* Release playback ownership: stop and detach the viewer's single player
+    so nothing keeps downloading; the Home/Wall controllers resume their
+    own visible video after the render below. */
+ if(aaFoodViewerEl){try{aaFoodViewerEl.pause();aaFoodViewerEl.removeAttribute('src');aaFoodViewerEl.load()}catch(e){}aaFoodViewerEl=null}
  document.body.style.overflow='';
  document.removeEventListener('keydown',aaFoodViewerKeydown);
  state.foodMediaViewer=null;
@@ -11362,31 +11386,87 @@ function aaFoodMediaViewerHTML(){
   <button type="button" class="btn aa-property-media-viewer-close" aria-label="Close" onclick="aaCloseFoodMediaViewer()">✕</button>
   ${media.length>1?`<button type="button" class="btn" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);z-index:3" aria-label="Previous" onclick="aaFoodMediaViewerNav(-1)">‹</button><button type="button" class="btn" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);z-index:3" aria-label="Next" onclick="aaFoodMediaViewerNav(1)">›</button>`:''}
   ${isVideo
-    ?`<video id="aaFoodViewerVideo" src="${bingoSafeMediaAttr(item.url)}" controls playsinline preload="metadata"></video><button type="button" id="aaFoodViewerUnmute" class="btn btn-gold" hidden style="position:absolute;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);z-index:3" onclick="aaUnmuteFoodViewerVideo()">🔊 Unmute</button>`
+    ?aaFoodViewerVideoHostHTML(item,media)
     :`<img src="${bingoSafeMediaAttr(item.url)}" alt="">`}
  </div>`;
 }
+/* ===== Business (Food) video viewer - stable player (repair 2026-10-10) =====
+   Measured cause of the flashing/black/0:00 reports: the viewer's <video>
+   lived inside the HTML that render() rebuilds, so every render while it
+   was open (author profiles, food list, counts...) destroyed it and made a
+   new one - 9 new players in 12 s, each starting again at 0:00 from a
+   black frame behind the browser's large native play button, and each
+   re-attempting unmuted autoplay (Chrome pauses a muted autoplaying video
+   that is unmuted without a tap). Now ONE <video> element per media item
+   is created here and simply re-attached into the freshly rendered host
+   after each render, so it keeps playing at its position. A poster (the
+   business cover photo) and a small spinner cover loading; small sound
+   and progress controls replace the native ones; a clear message is shown
+   only if the file genuinely cannot play. */
+let aaFoodViewerEl=null;
+function aaFoodViewerVideoHostHTML(item,media){
+ const poster=(media||[]).find(m=>m&&m.type!=='video'&&m.url);
+ return `<div class="bingo-business-media" id="aaFoodViewerMediaHost" data-src="${bingoSafeMediaAttr(item.url)}">${poster?`<img class="video-poster" src="${bingoSafeMediaAttr(poster.url)}" alt="">`:''}<span class="bingo-video-spinner" aria-hidden="true"></span><div class="bingo-video-error" role="alert" hidden></div><button type="button" class="bingo-sound-toggle" id="aaFoodViewerUnmute" aria-label="Unmute video" onclick="event.stopPropagation();aaUnmuteFoodViewerVideo()">🔇</button><div class="bingo-video-progress" aria-hidden="true"><i></i></div></div>`;
+}
+function aaFoodViewerSyncUI(){
+ const v=aaFoodViewerEl,host=document.getElementById('aaFoodViewerMediaHost');
+ if(!v||!host)return;
+ host.classList.toggle('is-frame-ready',v.readyState>=2);
+ const btn=document.getElementById('aaFoodViewerUnmute');
+ if(btn){btn.textContent=v.muted?'🔇':'🔊';btn.setAttribute('aria-label',v.muted?'Unmute video':'Mute video')}
+ const bar=host.querySelector('.bingo-video-progress i');
+ if(bar)bar.style.width=(v.duration>0&&isFinite(v.duration)?Math.min(100,v.currentTime/v.duration*100):0)+'%';
+}
+function aaFoodViewerShowError(v){
+ const host=document.getElementById('aaFoodViewerMediaHost');if(!host)return;
+ const box=host.querySelector('.bingo-video-error');if(!box)return;
+ const code=v.error&&v.error.code;
+ const src=v.dataset.src||'';
+ box.innerHTML=code===4
+  ?`This video's format can't be played on this device.${src?` <a href="${bingoSafeMediaAttr(src)}" target="_blank" rel="noopener">Open the original file</a>`:''}`
+  :`The video couldn't load. Check your connection. <button type="button" class="btn">Retry</button>`;
+ box.hidden=false;host.classList.remove('is-waiting');
+ const retry=box.querySelector('button');
+ if(retry)retry.onclick=e=>{e.stopPropagation();box.hidden=true;const t=v.currentTime||0;v.load();v.addEventListener('loadedmetadata',()=>{if(t)try{v.currentTime=t}catch(_){};v.play().catch(()=>{})},{once:true})};
+}
 function aaTryPlayFoodViewerVideo(){
- const v=document.getElementById('aaFoodViewerVideo');
- if(!v)return;
+ const host=document.getElementById('aaFoodViewerMediaHost');
+ if(!host)return;
+ const src=host.dataset.src||'';
+ if(!src)return;
+ let v=aaFoodViewerEl,isNew=false;
+ if(!v||v.dataset.src!==src){
+  if(v){try{v.pause();v.removeAttribute('src');v.load()}catch(e){}}
+  v=document.createElement('video');
+  v.id='aaFoodViewerVideo';v.dataset.src=src;
+  v.dataset.bingoGridPreview='skip'; // not a profile-grid thumbnail: never reload/pause it
+  v.playsInline=true;v.setAttribute('playsinline','');v.loop=true;v.preload='auto';
+  ['loadeddata','canplay','playing'].forEach(ev=>v.addEventListener(ev,()=>{const h=document.getElementById('aaFoodViewerMediaHost');if(h)h.classList.remove('is-waiting');aaFoodViewerSyncUI()}));
+  ['waiting','stalled'].forEach(ev=>v.addEventListener(ev,()=>{const h=document.getElementById('aaFoodViewerMediaHost');if(h&&!v.paused)h.classList.add('is-waiting')}));
+  v.addEventListener('timeupdate',aaFoodViewerSyncUI);
+  v.addEventListener('volumechange',aaFoodViewerSyncUI);
+  v.addEventListener('error',()=>aaFoodViewerShowError(v));
+  v.addEventListener('click',e=>{e.stopPropagation();if(v.paused)v.play().catch(()=>{});else v.pause()});
+  v.src=src;
+  aaFoodViewerEl=v;isNew=true;
+ }
+ if(v.parentNode!==host)host.insertBefore(v,host.firstChild);
+ if(v.readyState<2)host.classList.add('is-waiting');
+ if(v.error)aaFoodViewerShowError(v);
+ aaFoodViewerSyncUI();
+ if(!isNew)return; // already owns playback: never restart, re-unmute or re-play on a later render
+ /* Opening the viewer is a tap, so sound is usually allowed; if the
+    browser still refuses, play muted and leave the small sound button. */
  v.muted=false;
  const p=v.play();
- if(p&&p.catch){
-  p.catch(()=>{
-   v.muted=true;
-   const btn=document.getElementById('aaFoodViewerUnmute');
-   if(btn)btn.hidden=false;
-   v.play().catch(()=>{});
-  });
- }
+ if(p&&p.catch)p.catch(err=>{if(err&&err.name==='AbortError')return;v.muted=true;aaFoodViewerSyncUI();v.play().catch(()=>{})});
 }
 function aaUnmuteFoodViewerVideo(){
- const v=document.getElementById('aaFoodViewerVideo');
+ const v=aaFoodViewerEl;
  if(!v)return;
- v.muted=false;
- v.play().catch(()=>{});
- const btn=document.getElementById('aaFoodViewerUnmute');
- if(btn)btn.hidden=true;
+ v.muted=!v.muted;
+ if(v.paused)v.play().catch(()=>{});
+ aaFoodViewerSyncUI();
 }
 function aaFileToLocalMedia(files,maxVideos=3){return Promise.all(Array.from(files||[]).slice(0,8).map(f=>new Promise(res=>{if(f.type.startsWith('video/')&&maxVideos<=0)return res(null);const r=new FileReader();r.onload=()=>res({type:f.type.startsWith('video/')?'video':'image',url:r.result,name:f.name});r.onerror=()=>res(null);r.readAsDataURL(f)}))).then(a=>{let vc=0;return a.filter(x=>x&&(x.type!=='video'||++vc<=maxVideos))})}
 /* Public: Browse Properties | Bingo Stays. Owner (reached from the
@@ -14483,7 +14563,7 @@ function aaOpenVideoLightbox(src,title,topicId){
  const safeSrc=bingoSafeMediaAttr(src);
  const box=document.createElement("div");
  box.id="aaVideoLightbox";box.className="aa-lightbox aa-video-lightbox";
- box.innerHTML=`<div class="aa-lightbox-inner aa-video-lightbox-inner"><button class="aa-lightbox-close" aria-label="Close video" onclick="aaCloseVideoLightbox(false)">×</button><video src="${safeSrc}" autoplay loop playsinline aria-label="${esc(title||'Bingo video')}"></video></div>`;
+ box.innerHTML=`<div class="aa-lightbox-inner aa-video-lightbox-inner"><button class="aa-lightbox-close" aria-label="Close video" onclick="aaCloseVideoLightbox(false)">×</button><video src="${safeSrc}" data-bingo-grid-preview="skip" autoplay loop playsinline aria-label="${esc(title||'Bingo video')}"></video></div>`;
  box.addEventListener("click",e=>{if(e.target===box)aaCloseVideoLightbox(false)});
  /* Full-screen video: the close × stays hidden while it plays; one tap on the video shows it, the next hides it. */
  box.querySelector("video").addEventListener("click",e=>{e.stopPropagation();box.classList.toggle("aa-lightbox-chrome")});
@@ -19002,7 +19082,7 @@ function aaTopicPostCardHTML(t){
  ${aaFollowTopControlHTML({id:t.authorId,name:author.name})}
  </div></details></header>
  <div class="aa-post-content">${t.title?`<h2 class="aa-post-title" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):""}">${esc(t.title)}</h2>`:''}${t.body?`<p class="aa-post-message" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):""}">${esc(t.body)}</p>`:''}</div>
- ${mediaSrc?`<div class="aa-post-media">${isVideo?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'><video src="${bingoSafeMediaAttr(mediaSrc)}" autoplay muted playsinline loop preload="metadata"></video></div>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}"${mediaClickAttr}>`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
+ ${mediaSrc?`<div class="aa-post-media">${isVideo?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'><video src="${bingoSafeMediaAttr(mediaSrc)}" data-bingo-grid-preview="skip" autoplay muted playsinline loop preload="metadata"></video></div>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}"${mediaClickAttr}>`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
 
  <div class="bingo-topic-summary"><span class="bingo-reaction-toggle" role="button" tabindex="0" aria-pressed="${loved}" aria-label="${loved?'Remove your reaction':'React to this post'}" onclick="aaTopicLove(${id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();aaTopicLove(${id})}"><span aria-hidden="true">👍 ❤️ 😆</span> ${aaTopicLoveCount(t)} ${aaTopicLoveCount(t)===1?'reaction':'reactions'}</span><span>${comments.length} ${comments.length===1?'comment':'comments'}</span></div>
  <div class="bingo-topic-actions" role="group" aria-label="Post actions">
@@ -29901,7 +29981,33 @@ setInterval(()=>{if(document.visibilityState==='visible'&&sb&&!state.testMode)lo
 (function(){
  if(window.__bingoHomeRenderGate)return;window.__bingoHomeRenderGate=1;
  if(typeof render!=='function'||typeof aaFeedBusy!=='function')return;
- const inner=render;let pending=false,firstAt=0;
+ const base=render;let pending=false,firstAt=0;
+ /* Bingo Wall / profile post videos: carry each already-loaded <video>
+    across the rebuild instead of letting render() replace it with a new
+    one (measured: 54 new players in 12 s on the Wall, each a black flash
+    and a fresh download). Matched by post card + exact src, so a changed
+    or re-signed link still gets its new element. */
+ function keepWallVideos(){
+  const kept=[];
+  document.querySelectorAll('#auto-arcade-widget .bingo-approved-topic .aa-post-media video').forEach(v=>{
+   const card=v.closest('.bingo-approved-topic[id]'),src=v.getAttribute('src');
+   if(card&&src&&v.readyState>=1)kept.push({card:card.id,src,el:v,playing:!v.paused});
+  });
+  return kept;
+ }
+ function restoreWallVideos(kept){
+  for(const k of kept){
+   const fresh=document.getElementById(k.card)?.querySelector('.aa-post-media video');
+   if(!fresh||fresh===k.el||fresh.getAttribute('src')!==k.src)continue;
+   fresh.preload='none';fresh.removeAttribute('src');fresh.replaceWith(k.el);
+   if(k.playing&&k.el.paused){const p=k.el.play();if(p&&p.catch)p.catch(()=>{})}
+  }
+ }
+ /* The business viewer's single player is re-attached in the SAME task as
+    the rebuild: a media element left outside the page until the next
+    animation frame is paused by the browser (measured: playback stopped
+    ~1 s after opening whenever data arrived). */
+ const inner=function(){const kept=keepWallVideos();const r=base.apply(this,arguments);try{restoreWallVideos(kept)}catch(e){}try{if(state.foodMediaViewer&&state.foodMediaViewer.open&&typeof aaTryPlayFoodViewerVideo==='function')aaTryPlayFoodViewerVideo()}catch(e){}return r};
  const homeFeedMounted=()=>state.view==='home'&&!!document.querySelector('#auto-arcade-widget .aa360-feed');
  window.aaFeedFlushDeferredRender=function(){
   if(!pending)return;
