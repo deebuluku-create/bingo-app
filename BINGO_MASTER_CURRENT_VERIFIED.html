@@ -14030,7 +14030,7 @@ function aaMixedFeedTopicCardHTML(c){
       open the same shared full-screen viewer used on Wall/profile, with
       sound and native transport controls. stopPropagation keeps a tap
       here from also firing the slide's own onclick (aaOpenExactTopic). */
-   videoPlayOverlay=`<button type="button" class="aa-video-play-overlay" aria-label="Play video full screen" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(c.feed_media))},${JSON.stringify(String(c.feed_title||t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'>▶</button>`;
+   /* No floating play badge (owner brief 2026-10-10): the video surface is flat; Home's IntersectionObserver plays/pauses it. */
   }else{
    media=`<img class="aa360-video" data-aa-post-type="topic" data-aa-post-id="${esc(c._topicId)}" src="${esc(c.feed_media)}" alt="">`;
   }
@@ -18678,7 +18678,7 @@ function aaTopicPostCardHTML(t){
  ${aaFollowTopControlHTML({id:t.authorId,name:author.name})}
  </div></details></header>
  <div class="aa-post-content">${t.title?`<h2 class="aa-post-title" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):""}">${esc(t.title)}</h2>`:''}${t.body?`<p class="aa-post-message" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):""}">${esc(t.body)}</p>`:''}</div>
- ${mediaSrc?`<div class="aa-post-media">${isVideo?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'><video src="${bingoSafeMediaAttr(mediaSrc)}" muted playsinline preload="metadata"></video><button type="button" class="aa-video-play-overlay" aria-label="Play video" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'>▶</button></div>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}"${mediaClickAttr}>`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
+ ${mediaSrc?`<div class="aa-post-media">${isVideo?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'><video src="${bingoSafeMediaAttr(mediaSrc)}" autoplay muted playsinline loop preload="metadata"></video></div>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}"${mediaClickAttr}>`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
 
  <div class="bingo-topic-summary"><span class="bingo-reaction-toggle" role="button" tabindex="0" aria-pressed="${loved}" aria-label="${loved?'Remove your reaction':'React to this post'}" onclick="aaTopicLove(${id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();aaTopicLove(${id})}"><span aria-hidden="true">👍 ❤️ 😆</span> ${aaTopicLoveCount(t)} ${aaTopicLoveCount(t)===1?'reaction':'reactions'}</span><span>${comments.length} ${comments.length===1?'comment':'comments'}</span></div>
  <div class="bingo-topic-actions" role="group" aria-label="Post actions">
@@ -29142,86 +29142,28 @@ html body #auto-arcade-widget .bingo-approved-topic .bingo-comments-heading sele
 #aaCommentsDrawer .aa-comment-camera-btn{border:0;box-shadow:none;background:none;cursor:pointer}
 #aaCommentsDrawer .bingo-topic-send{border:0;background:#ff7a00;color:#fff;border-radius:50%;width:38px;height:38px;flex-shrink:0;font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(255,122,0,.3)}
 @media(max-width:480px){.bingo-comments-drawer{height:88vh;max-height:88dvh}}
-/* ===== Approved dark theme (2026-10-10 owner decision: the Bingo_Profile_Head_Rotating_Comments_Preview direction
-   supersedes the white/orange Wall styling). Tokens: bg #0b1322, surface #111c30, line #26354d, text #e8edf5,
-   muted #93a1b8, gold #e6b94a (restrained), cyan #3fb8dc. Colour-only overrides: no markup, no handlers, no layout
-   changes, so every existing hook keeps working. ===== */
-#auto-arcade-widget .bingo-topic-page{background:#0b1322;color:#e8edf5}
-#auto-arcade-widget .bingo-topic-brand{background:#0b1322}
-#auto-arcade-widget .bingo-wall-tagline{color:#93a1b8}
-#auto-arcade-widget .bingo-wall-head-btn{background:#111c30;border-color:#2a3a55;color:#e8edf5}
-#auto-arcade-widget .bingo-wall-head-btn-dark{background:#16233a;border-color:rgba(230,185,74,.55);color:#e8edf5}
-#auto-arcade-widget .bingo-wall-head-btn-logout{background:transparent;border-color:#b45454;color:#ff9a9a}
-#auto-arcade-widget .bingo-approved-topic{background:#111c30;border:1px solid #1f2d46;box-shadow:0 6px 22px rgba(0,0,0,.28);color:#e8edf5}
-#auto-arcade-widget .bingo-approved-topic .aa-post-avatar{border:2px solid #e6b94a;background:#0b1322}
-#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{border:0}
-#auto-arcade-widget .bingo-topic-author b{color:#e8edf5}
-#auto-arcade-widget .bingo-topic-author .meta{color:#93a1b8}
-#auto-arcade-widget .bingo-approved-topic .aa-post-title,#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#e8edf5!important}
-#auto-arcade-widget .bingo-approved-topic .aa-post-media{background:#000;box-shadow:none}
-#auto-arcade-widget .bingo-topic-options summary{color:#93a1b8}
-#auto-arcade-widget .bingo-topic-options>div{background:#16233a;border-color:#2a3a55;box-shadow:0 12px 32px rgba(0,0,0,.45)}
-#auto-arcade-widget .bingo-topic-options button{color:#e8edf5}
-#auto-arcade-widget .bingo-topic-summary{color:#93a1b8}
-#auto-arcade-widget .bingo-topic-actions{border-top-color:#26354d;border-bottom-color:#26354d}
-#auto-arcade-widget .bingo-topic-actions button+button::before{background:#26354d}
-html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{color:#e6b94a!important}
-html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button:nth-child(2){color:#3fb8dc!important}
-html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button[aria-pressed=true]{color:#e6b94a!important;font-weight:900!important}
-#auto-arcade-widget .bingo-approved-topic .bingo-reaction-toggle:hover{background:#16233a}
-#auto-arcade-widget .bingo-approved-topic .bingo-reaction-toggle[aria-pressed=true]{color:#e6b94a}
-#auto-arcade-widget .bingo-topic-field{background:#0f1a2d;border-color:#2a3a55}
-#auto-arcade-widget .bingo-topic-field input.field{color:#e8edf5}
-#auto-arcade-widget .bingo-topic-field input::placeholder{color:#7f8da4}
-html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-send{background:#e6b94a!important;color:#0b1322!important;box-shadow:none!important}
-html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{color:#e8edf5!important}
-html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name{color:#3fb8dc!important}
-html body #auto-arcade-widget .bingo-approved-topic .aa-comment-row{border-bottom-color:#26354d}
-html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button{color:#93a1b8!important}
-html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button:last-of-type{color:#e8edf5!important}
-html body #auto-arcade-widget .bingo-approved-topic .bingo-comments-heading select{background:#0f1a2d!important;border-color:#2a3a55!important;color:#e8edf5!important}
-#auto-arcade-widget .bingo-wall-bottom-nav{background:#0d1627;border-top-color:#26354d}
-#auto-arcade-widget .bingo-wall-nav-item{color:#93a1b8}
-#auto-arcade-widget .bingo-wall-nav-item.active{color:#e6b94a}
-#auto-arcade-widget .bingo-wall-nav-badge{background:#e6b94a;color:#0b1322}
-/* Comments drawer: dark bottom sheet (preview: #07111e sheet, soft top shadow, muted handle, fixed composer) */
-.bingo-drawer-backdrop{background:rgba(3,8,18,.62)}
-/* z-index 40 > backdrop 30 (as in the approved spec). Without it the backdrop painted OVER the sheet and swallowed every tap inside it (list, composer), closing the drawer instead. */
-.bingo-comments-drawer{z-index:40;background:#101c30;border-top:1px solid #26354d;box-shadow:0 -10px 40px rgba(0,0,0,.6);color:#e8edf5}
-#aaCommentsDrawer .bingo-topic-send{background:#e6b94a!important;color:#0b1322!important;border:0!important;box-shadow:none!important}
-#aaCommentsDrawer .bingo-topic-field{background:#0b1322;border:1px solid #2a3a55}
-#aaCommentsDrawer .bingo-topic-field input.field{color:#e8edf5;background:none}
-.bingo-drawer-handle{background:#4b5a73}
-.bingo-drawer-header{border-bottom-color:#26354d}
-.bingo-drawer-title,.bingo-drawer-close{color:#e8edf5}
-#aaCommentsDrawer .aa-comment-name,#aaCommentsDrawer .aa-comment-text{color:#e8edf5}
-#aaCommentsDrawer .aa-comment-name{color:#3fb8dc}
-#aaCommentsDrawer .aa-comment-avatar{border:1px solid rgba(230,185,74,.7)}
-#aaCommentsDrawer .aa-comment-row,#aaCommentsDrawer .bingo-comments-heading{border-bottom-color:#26354d}
-#aaCommentsDrawer .aa-comment-meta,#aaCommentsDrawer .aa-comment-meta button{color:#93a1b8}
-#aaCommentsDrawer .aa-comment-meta button:last-of-type{color:#e8edf5}
-#aaCommentsDrawer .bingo-comments-heading b{color:#e8edf5}
-#aaCommentsDrawer .bingo-comments-heading select{background:#0f1a2d;color:#e8edf5;border-color:#2a3a55}
-#aaCommentsDrawer .bingo-comment-links button{color:#3fb8dc}
-#aaCommentsDrawer .bingo-comment-options summary{color:#93a1b8}
-#aaCommentsDrawer .bingo-comment-options button{background:#16233a;color:#e8edf5;border-color:#2a3a55}
-#aaCommentsDrawer .bingo-topic-composer{background:#101c30;padding-top:10px}
-#aaCommentsDrawer .bingo-topic-composer,#aaCommentsDrawer .bingo-topic-field{color:#e8edf5}
+/* Wall + Comments Drawer follow the white/orange reference (owner brief 2026-10-10 afternoon, supersedes the morning dark-theme
+   decision for these two surfaces; Home slides stay dark because they sit over full-screen media). */
+/* z-index 40 > backdrop 30 (as in the approved spec). Without it the backdrop painted OVER the sheet and swallowed every tap inside it. */
+.bingo-comments-drawer{z-index:40}
 /* Home Feed: calmer pills + gold-ringed author avatar (replaces the saturated neon outlines on topic slides) */
 #auto-arcade-widget .aa360-item .bingo-feed-clean-avatar{border:2px solid #e6b94a!important;box-shadow:none!important}
 #auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa-icon-action,#auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa360-actions .bingo-neon-action{background:rgba(8,16,30,.82)!important;border:1px solid rgba(230,185,74,.6)!important;color:#e8edf5!important;box-shadow:none!important;text-shadow:none!important;border-radius:20px!important}
 #auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa-icon-action svg{stroke:#e6b94a!important;color:#e6b94a!important}
 #auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa-icon-action.is-active{color:#e6b94a!important}
 #auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa360-actions .bingo-neon-action-cyan{border-color:rgba(63,184,220,.7)!important;color:#bfeaf7!important}
-/* Cancel the sitewide neon-outline recipe on the Wall chrome (it paints a glow on every bare <button>). Specificity beats it without touching it. */
+/* Cancel the sitewide neon-outline recipe on the Wall chrome (it paints a glow on every bare <button>) and use the reference's flat white/orange controls. */
 html body #auto-arcade-widget .bingo-wall-logo-btn{border:0!important;background:none!important;box-shadow:none!important;border-radius:0!important;padding:0!important}
-html body #auto-arcade-widget .bingo-topic-page .bingo-wall-head-btn,html body #auto-arcade-widget .bingo-topic-page .bingo-wall-back{box-shadow:none!important;border:1px solid #2a3a55!important;background:#111c30!important;border-radius:20px!important;color:#e8edf5!important}
-html body #auto-arcade-widget .bingo-topic-page .bingo-wall-head-btn-dark{border-color:rgba(230,185,74,.5)!important}
-html body #auto-arcade-widget .bingo-topic-page .bingo-wall-head-btn-logout{border-color:#b45454!important;background:transparent!important;color:#ff9a9a!important}
-html body #auto-arcade-widget .bingo-wall-bottom-nav .bingo-wall-nav-item{box-shadow:none!important;border:0!important;background:none!important;border-radius:0!important;color:#93a1b8!important}
-html body #auto-arcade-widget .bingo-wall-bottom-nav .bingo-wall-nav-item.active{color:#e6b94a!important}
-html body #auto-arcade-widget .bingo-approved-topic .aa-post-avatar{border:2px solid #e6b94a!important;box-shadow:none!important}
-html body #auto-arcade-widget .bingo-topic-page .bingo-topic-send{box-shadow:none!important}
+html body #auto-arcade-widget .bingo-topic-page .bingo-wall-head-btn{box-shadow:none!important;border:1.5px solid #ff7a00!important;background:#121826!important;border-radius:20px!important;color:#fff!important}
+html body #auto-arcade-widget .bingo-topic-page .bingo-wall-head-btn-logout{border-color:#ef4444!important;background:#fff!important;color:#ef4444!important}
+html body #auto-arcade-widget .bingo-topic-page .bingo-wall-back{box-shadow:none!important;border:1px solid #e2e8f0!important;background:#fff!important;border-radius:20px!important;color:#0f172a!important}
+html body #auto-arcade-widget .bingo-wall-bottom-nav .bingo-wall-nav-item{box-shadow:none!important;border:0!important;background:none!important;border-radius:0!important;color:#1e293b!important}
+html body #auto-arcade-widget .bingo-wall-bottom-nav .bingo-wall-nav-item.active{color:#ff7a00!important}
+html body #auto-arcade-widget .bingo-approved-topic .aa-post-avatar{border:2px solid #ff7a00!important;box-shadow:none!important}
+html body #auto-arcade-widget .bingo-topic-page .bingo-topic-send,html body #aaCommentsDrawer .bingo-topic-send{background:#ff7a00!important;color:#fff!important;border:0!important;box-shadow:0 2px 8px rgba(255,122,0,.3)!important}
+html body #auto-arcade-widget .bingo-topic-page .aa-comment-camera-btn,html body #aaCommentsDrawer .aa-comment-camera-btn{box-shadow:none!important;border:0!important;background:none!important}
+/* Flat, clean video surface: no floating play badge; hide the browser's own big centre play button too. */
+.aa-post-media video::-webkit-media-controls-overlay-play-button,.aa360-video::-webkit-media-controls-overlay-play-button{display:none!important}
 /* Rotating real comments (one bubble at a time, active Home topic slide only; see bingoRotator in the render wrapper) */
 .bingo-rotator{position:relative;height:92px;overflow:hidden;margin:0 0 8px;pointer-events:none;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 100%)}
 .bingo-rot-comment{position:absolute;left:0;bottom:0;display:flex;align-items:center;gap:10px;max-width:100%;animation:bingoRotRise 7s ease-in-out forwards}
@@ -29512,6 +29454,28 @@ const originalRenderForCommentsDrawer=render;
 render=function(){try{if(state.bingoAccountPanel&&state.view!=="seller"&&state.view!=="topics")state.bingoAccountPanel=""}catch(e){}originalRenderForCommentsDrawer.apply(this,arguments);try{if(typeof aaRefreshCommentsDrawer==="function")aaRefreshCommentsDrawer()}catch(e){}};
 const originalOverlayForCommentsDrawer=aaHomeOverlayOpen;
 aaHomeOverlayOpen=function(){return originalOverlayForCommentsDrawer()||!!(typeof aaCommentsDrawerTopicId!=="undefined"&&aaCommentsDrawerTopicId&&document.getElementById("aaCommentsDrawer")?.classList.contains("open"))};
+/* Wall videos: play the instant a post's video is >=50% on screen, pause when it leaves (brief 2026-10-10).
+   One IntersectionObserver, rebuilt only when render() replaces the DOM; the existing capture-phase "play" listener
+   still guarantees only one Wall video plays at a time. Skipped while a lightbox/drawer is open. Home keeps its own
+   single controller (aaInit360Feed) - nothing here touches Home slides. */
+(function(){
+ if(window.__bingoWallAutoplayInstalled)return;window.__bingoWallAutoplayInstalled=true;
+ let io=null;
+ function observe(){
+  try{
+   if(io){io.disconnect();io=null}
+   if(state.view!=="topics"||!("IntersectionObserver" in window))return;
+   const vids=[...document.querySelectorAll("#auto-arcade-widget .bingo-approved-topic .aa-post-media video")];
+   if(!vids.length)return;
+   io=new IntersectionObserver(es=>{es.forEach(e=>{const v=e.target;
+    if(e.isIntersecting&&e.intersectionRatio>=.5){if(aaHomeOverlayOpen())return;v.muted=true;v.playsInline=true;const p=v.play();if(p&&p.catch)p.catch(()=>{})}
+    else{try{v.pause()}catch(x){}}})},{threshold:[0,.5,1]});
+   vids.forEach(v=>io.observe(v));
+  }catch(e){}
+ }
+ const prev=render;
+ render=function(){const r=prev.apply(this,arguments);requestAnimationFrame(observe);return r};
+})();
 /* Rotating real comments on the active Home topic slide (approved preview's rotating comment bubbles).
    Single module-level 1 s timer, no extra observers: it reads the slide aaInit360Feed already marks
    .bingo-media-active, shows ONE real comment (author photo + text, from aaTopicCommentsFor) and advances every 7 s.
