@@ -3,7 +3,8 @@
    it the containing block of every position:fixed overlay (video/photo viewer, sheets, toasts), so they
    grew to the full document height and scrolled away instead of covering the screen. */
 #auto-arcade-widget img,#auto-arcade-widget video{max-width:100%}
-#auto-arcade-widget img:not(.bingo-app-logo):not(.profile-photo){content-visibility:auto}
+/* 2026-10-10: no content-visibility on post images: size containment collapsed Wall photos to 0px height
+   (loaded but invisible). Images still decode lazily via loading=lazy where the markup sets it. */
 #auto-arcade-widget .card,#auto-arcade-widget .aa360-item,#auto-arcade-widget .msg-conv-row{contain:layout paint style}
 #bingoFastFeedback{
  position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
