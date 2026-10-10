@@ -29222,6 +29222,23 @@ html body #auto-arcade-widget .bingo-wall-bottom-nav .bingo-wall-nav-item{box-sh
 html body #auto-arcade-widget .bingo-wall-bottom-nav .bingo-wall-nav-item.active{color:#e6b94a!important}
 html body #auto-arcade-widget .bingo-approved-topic .aa-post-avatar{border:2px solid #e6b94a!important;box-shadow:none!important}
 html body #auto-arcade-widget .bingo-topic-page .bingo-topic-send{box-shadow:none!important}
+/* Home: remaining post types (vehicle / property / food) + category chips follow the same approved presentation.
+   The existing .aa360-side buttons are the SAME buttons with the SAME handlers; they are only laid out as a horizontal
+   row above the info block (item becomes a bottom-anchored flex column) instead of a vertical neon rail. */
+html body #auto-arcade-widget .aa-feed-filter button{box-shadow:none!important;border:1px solid rgba(230,185,74,.4)!important;background:rgba(11,19,34,.82)!important;color:#e8edf5!important;font-size:9px!important}
+html body #auto-arcade-widget .aa-feed-filter button.active{background:rgba(230,185,74,.18)!important;border-color:#e6b94a!important;color:#e6b94a!important}
+html body #auto-arcade-widget .aa-feed-filter{background:rgba(8,16,30,.6)}
+html body #auto-arcade-widget .aa360-item:not([data-canon^="topic:"]):has(>.aa360-side){display:flex!important;flex-direction:column!important;justify-content:flex-end!important}
+html body #auto-arcade-widget .aa360-item:not([data-canon^="topic:"])>.aa360-side{position:relative!important;top:auto!important;right:auto!important;bottom:auto!important;left:auto!important;transform:none!important;order:1;flex:0 0 auto;flex-direction:row!important;justify-content:space-between!important;align-items:flex-start!important;gap:4px!important;margin:0 12px 6px!important;z-index:6}
+html body #auto-arcade-widget .aa360-item:not([data-canon^="topic:"])>.aa360-info{position:relative!important;order:2;flex:0 0 auto;padding-right:14px!important}
+html body #auto-arcade-widget .aa360-item:not([data-canon^="topic:"])>.aa360-side>div{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0}
+html body #auto-arcade-widget .aa360-item:not([data-canon^="topic:"])>.aa360-side button:not(#bingo-flat-guard){width:42px!important;height:42px!important;border-radius:50%!important;background:rgba(8,16,30,.82)!important;background-color:rgba(8,16,30,.82)!important;border:1px solid rgba(230,185,74,.6)!important;box-shadow:none!important;color:#e8edf5!important}
+html body #auto-arcade-widget .aa360-item:not([data-canon^="topic:"])>.aa360-side button::before,html body #auto-arcade-widget .aa360-item:not([data-canon^="topic:"])>.aa360-side button::after{display:none!important}
+html body #auto-arcade-widget .aa360-item:not([data-canon^="topic:"])>.aa360-side button.on:not(#bingo-flat-guard){color:#e6b94a!important;border-color:#e6b94a!important}
+html body #auto-arcade-widget .aa360-item:not([data-canon^="topic:"])>.aa360-side button[aria-label="Comments"]:not(#bingo-flat-guard){border-color:rgba(63,184,220,.75)!important;color:#bfeaf7!important}
+html body #auto-arcade-widget .aa360-item:not([data-canon^="topic:"])>.aa360-side span{margin-top:0!important;font-size:9px;color:#93a1b8;text-shadow:none}
+html body #auto-arcade-widget .aa360-item .aa360-actions .bingo-neon-action{background:rgba(8,16,30,.82)!important;border:1px solid rgba(230,185,74,.6)!important;color:#e8edf5!important;box-shadow:none!important;border-radius:20px!important}
+html body #auto-arcade-widget .aa360-item .aa360-actions .bingo-neon-action-cyan{border-color:rgba(63,184,220,.7)!important;color:#bfeaf7!important}
 /* Rotating real comments (one bubble at a time, active Home topic slide only; see bingoRotator in the render wrapper) */
 .bingo-rotator{position:relative;height:92px;overflow:hidden;margin:0 0 8px;pointer-events:none;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 100%)}
 .bingo-rot-comment{position:absolute;left:0;bottom:0;display:flex;align-items:center;gap:10px;max-width:100%;animation:bingoRotRise 7s ease-in-out forwards}
