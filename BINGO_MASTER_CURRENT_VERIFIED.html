@@ -9430,7 +9430,11 @@ function aaInit360Feed(){
  const vids=[...document.querySelectorAll("#auto-arcade-widget .aa360-video")];if(!vids.length)return;
  aaFeedObserver=new IntersectionObserver(entries=>{entries.forEach(entry=>{const v=entry.target;if(entry.isIntersecting&&entry.intersectionRatio>=.7){vids.forEach(x=>{if(x!==v){try{x.pause()}catch(e){}}});if(typeof v.play==="function"){const wantSound=aaFeedWantsSound();v.muted=!wantSound;const p=v.play();if(p&&p.catch)p.catch(()=>{if(wantSound){v.muted=true;state.aaFeedSoundOn=false;aaFeedUpdateSoundBtn()}const p2=v.play();if(p2&&p2.catch)p2.catch(()=>{})});}aaRecordFeedView(v.dataset.aaVideoId,v.dataset.aaPostType,v.dataset.aaPostId)}else{try{v.pause()}catch(e){}}})},{threshold:[0,.7,1]});
  vids.forEach(v=>aaFeedObserver.observe(v));
- requestAnimationFrame(()=>{aaFeedGoTo(aaFeedCurrentIndex(),"auto");aaFeedUpdateSoundBtn()});
+ /* Was aaFeedGoTo(current) after EVERY render/toast/visibility change -
+    a forced scroll that snapped a half-swiped feed to the nearest post.
+    Playback setup must never move the feed: only an idle, misaligned
+    feed is corrected. */
+ requestAnimationFrame(()=>{aaFeedAlignIfNeeded("instant");aaFeedUpdateSoundBtn()});
 }
 (function installHomeCanonicalOpen(){
  if(window.__aaHomeCanonOpen)return;window.__aaHomeCanonOpen=true;
@@ -9650,6 +9654,36 @@ function aaFeedGoTo(index,behavior="smooth"){
 }
 function aaFeedNext(){const i=aaFeedCurrentIndex();aaFeedGoTo(Math.min(aaFeedItems().length-1,i+1),"auto")}
 function aaFeedPrevious(){const i=aaFeedCurrentIndex();aaFeedGoTo(Math.max(0,i-1),"auto")}
+/* ===== Home Feed scroll authority (stabilisation 2026-10-10) =====
+   Measured cause of the shaking/jumping: several pieces of code moved the
+   feed independently of the user's finger - a 90 ms "settle" timer that
+   force-scrolled even while the finger was still down, aaInit360Feed()
+   force-aligning after every render, the resize handler, and whole-Home
+   re-renders (author profiles, media links, a 10 s failed-link retry loop)
+   rebuilding every slide and jumping scrollTop mid-swipe.
+   Now: the browser's native CSS scroll-snap is the ONLY thing that moves
+   the feed during a gesture. JS never scrolls while the finger is down or
+   the feed is still moving; once it has been idle it may make ONE
+   correction if a layout change left it between posts. Playback follows
+   scrolling and never scrolls the feed. */
+var aaFeedTouching=false,aaFeedTouchAt=0,aaFeedLastScrollAt=0;
+function aaFeedBusy(){
+ if(aaFeedTouching&&performance.now()-aaFeedTouchAt>8000)aaFeedTouching=false; // lost touchend safety
+ return aaFeedTouching||aaFeedMoving||(performance.now()-aaFeedLastScrollAt)<180;
+}
+function aaFeedAlignIfNeeded(behavior){
+ if(state.view!=="home"||aaFeedBusy())return false;
+ const feed=document.querySelector("#auto-arcade-widget .aa360-feed");
+ const items=aaFeedItems();
+ if(!feed||!items.length)return false;
+ const h=feed.clientHeight||items[0].clientHeight||1;
+ const pending=window.__bingoFeedTarget;
+ const idx=Math.max(0,Math.min(items.length-1,pending&&Date.now()-pending.at<1500?pending.index:Math.round(feed.scrollTop/h)));
+ const target=idx*h;
+ if(Math.abs(feed.scrollTop-target)<=2){window.__bingoFeedSettled=idx;window.__bingoFeedTarget=null;return false}
+ try{feed.scrollTo({top:target,behavior:behavior||"smooth"})}catch(_e){feed.scrollTop=target}
+ return true;
+}
 function aaFeedGestureIsBlocked(target){return !!target?.closest?.("button,a,input,select,textarea,label,[contenteditable='true']")}
 function aaFeedHandleSwipe(dy,dx,elapsed){
  if(aaFeedMoving)return;
@@ -9664,25 +9698,34 @@ function aaFeedHandleSwipe(dy,dx,elapsed){
 (function aaInstallNativeSnapFeedV60(){
  if(window.__aaNativeSnapFeedV60)return;
  window.__aaNativeSnapFeedV60=true;
+ /* Was: 90 ms after the last scroll event, force-scroll to the nearest
+    slide - which also fired while a finger was resting mid-drag and while
+    the browser's own snap animation was still running, so JS and native
+    snap pulled the feed in different directions (the reported shaking).
+    Now it only tracks the gesture; the one optional correction runs
+    after the feed has been idle (finger up, no scroll for 200 ms). */
  let settleTimer=null;
- document.addEventListener("scroll",function(e){
-  const feed=e.target;
-  if(!feed?.classList?.contains("aa360-feed"))return;
+ function arm(){
   clearTimeout(settleTimer);
   settleTimer=setTimeout(()=>{
-   const items=aaFeedItems();if(!items.length)return;
-   const h=feed.clientHeight||items[0].clientHeight||1;
-   /* While a feed navigation is still on its way (aaFeedGoTo target), a >90 ms pause in its smooth
-      scroll is not the end of the gesture: settle on that destination, not on the nearest (old) slide. */
-   const pending=window.__bingoFeedTarget;
-   const idx=Math.max(0,Math.min(items.length-1,pending&&Date.now()-pending.at<1500?pending.index:Math.round(feed.scrollTop/h)));
-   const target=idx*h;
-   if(Math.abs(feed.scrollTop-target)<=2){window.__bingoFeedSettled=idx;window.__bingoFeedTarget=null}
-   if(Math.abs(feed.scrollTop-target)>2){
-    try{feed.scrollTo({top:target,behavior:"smooth"})}catch(_e){feed.scrollTop=target}
-   }
-  },90);
+   if(aaFeedBusy()){if(typeof aaFeedFlushDeferredRender==="function")aaFeedFlushDeferredRender();arm();return}
+   aaFeedAlignIfNeeded("smooth");
+   if(typeof aaFeedFlushDeferredRender==="function")aaFeedFlushDeferredRender();
+  },200);
+ }
+ document.addEventListener("touchstart",function(e){
+  if(!e.target?.closest?.("#auto-arcade-widget .aa360-feed"))return;
+  aaFeedTouching=true;aaFeedTouchAt=performance.now();
+ },{passive:true,capture:true});
+ const release=function(){if(!aaFeedTouching)return;aaFeedTouching=false;aaFeedLastScrollAt=performance.now();arm()};
+ document.addEventListener("touchend",release,{passive:true,capture:true});
+ document.addEventListener("touchcancel",release,{passive:true,capture:true});
+ document.addEventListener("scroll",function(e){
+  if(!e.target?.classList?.contains("aa360-feed"))return;
+  aaFeedLastScrollAt=performance.now();
+  arm();
  },true);
+ window.aaFeedArmSettle=arm;
 })();
 
 
@@ -9725,7 +9768,10 @@ function aaFeedHandleSwipe(dy,dx,elapsed){
 
 if(!window.__aaFeedResizeSnap){
  window.__aaFeedResizeSnap=true;
- window.addEventListener("resize",()=>{if(state?.view==="home")requestAnimationFrame(()=>aaFeedGoTo(aaFeedCurrentIndex(),"auto"))},{passive:true});
+ /* A viewport change (toolbar, rotation, keyboard) re-aligns only when the
+    feed is idle and actually off a post - never mid-swipe (the settle
+    timer covers that case once the gesture ends). */
+ window.addEventListener("resize",()=>{if(state?.view==="home")requestAnimationFrame(()=>{if(!aaFeedAlignIfNeeded("instant")&&aaFeedBusy()&&window.aaFeedArmSettle)window.aaFeedArmSettle()})},{passive:true});
 }
 
 
@@ -15684,7 +15730,7 @@ function aaTopicCommentsFor(t){
 }
 let aaTopicMediaCache={};
 let aaTopicMediaFetching={};
-let aaTopicMediaExpires={}, aaTopicMediaRetry={}, aaMediaRenderTimer;
+let aaTopicMediaExpires={}, aaTopicMediaRetry={}, aaTopicMediaFailCount={}, aaMediaRenderTimer;
 function aaTopicMediaUrl(path){
  if(!path)return '';
  if(aaTopicMediaCache[path]&&Date.now()<(aaTopicMediaExpires[path]||0))return aaTopicMediaCache[path];
@@ -15692,9 +15738,21 @@ function aaTopicMediaUrl(path){
   aaTopicMediaFetching[path]=true;
   sb.storage.from(AA_TOPIC_MEDIA_BUCKET).createSignedUrl(path,3600).then(({data,error})=>{
    if(error||!data?.signedUrl)throw error||new Error('No media link was returned.');
-   aaTopicMediaCache[path]=data.signedUrl;aaTopicMediaExpires[path]=Date.now()+3300000;
+   aaTopicMediaCache[path]=data.signedUrl;aaTopicMediaExpires[path]=Date.now()+3300000;delete aaTopicMediaFailCount[path];
    clearTimeout(aaMediaRenderTimer);aaMediaRenderTimer=setTimeout(()=>render(),120);
-  }).catch(error=>{aaTopicMediaRetry[path]=Date.now()+10000;console.warn('Bingo media link:',error?.message||error);setTimeout(()=>{if(document.visibilityState==='visible')render()},10100)})
+  }).catch(error=>{
+   /* Was: re-render ALL of Home every 10 s, forever, for each media file
+      whose link could not be created (e.g. a deleted object) - measured
+      at 12 full rebuilds per 40 s on an idle feed with 3 such posts, each
+      one jumping the feed. Now: re-request just the link, with growing
+      gaps (10 s, 30 s, 90 s), and stop after 3 failures; a link that does
+      arrive triggers the normal (debounced) render above. */
+   const n=(aaTopicMediaFailCount[path]||0)+1;aaTopicMediaFailCount[path]=n;
+   const wait=[10000,30000,90000][n-1];
+   aaTopicMediaRetry[path]=wait?Date.now()+wait:Infinity;
+   console.warn('Bingo media link:',error?.message||error);
+   if(wait)setTimeout(()=>{if(document.visibilityState==='visible')aaTopicMediaUrl(path)},wait+100);
+  })
   .finally(()=>{delete aaTopicMediaFetching[path]});
  }
  return '';
@@ -18258,7 +18316,9 @@ function aaResolveMemberMeta(id,fallbackName){
    if(!error&&data){
     const p=aaProfileFromRow(data,uid,{name:fallbackName});
     aaTopicAuthorCache[uid]={name:p.name,photo:p.photo_url||p.photo||"",memberSince:data.created_at||"",showPhone:data.show_phone!==false,location:p.location||""};
-    render();
+    /* One render for a burst of author profiles (was one full render per
+       author as each reply arrived). */
+    clearTimeout(aaMediaRenderTimer);aaMediaRenderTimer=setTimeout(()=>render(),120);
    }
   }).catch(()=>{});
  }
@@ -29828,6 +29888,35 @@ document.addEventListener('wheel',e=>{if(state.view!=='home'||aaHomeOverlayOpen(
 document.addEventListener('keydown',e=>{if(state.view!=='home'||aaHomeOverlayOpen()||e.target.closest('input,textarea,select,[contenteditable]')||!['ArrowDown','ArrowUp','PageDown','PageUp'].includes(e.key))return;e.preventDefault();if(!aaFeedMoving){if(e.key==='ArrowDown'||e.key==='PageDown')aaFeedNext();else aaFeedPrevious()}});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')aaPauseAllFeedVideos();else if(state.view==='home')aaInit360Feed()});
 setInterval(()=>{if(document.visibilityState==='visible'&&sb&&!state.testMode)loadCategories()},60000);
+})();
+/* ===== Home Feed render gate (stabilisation 2026-10-10) =====
+   Installed after every other render() wrapper so it is the outermost one.
+   A full render rebuilds every Home slide (and their videos) and then
+   restores scrollTop - measured at 200-400 ms of blocked main thread per
+   render at phone CPU speed and a whole-post jump in one frame. Data that
+   arrives while the finger is on the feed or the feed is still moving
+   (author profiles, media links, counts) therefore waits; ONE render runs
+   as soon as the feed is idle. Navigation away from Home, and any render
+   while the feed is idle, run immediately exactly as before. */
+(function(){
+ if(window.__bingoHomeRenderGate)return;window.__bingoHomeRenderGate=1;
+ if(typeof render!=='function'||typeof aaFeedBusy!=='function')return;
+ const inner=render;let pending=false,firstAt=0;
+ const homeFeedMounted=()=>state.view==='home'&&!!document.querySelector('#auto-arcade-widget .aa360-feed');
+ window.aaFeedFlushDeferredRender=function(){
+  if(!pending)return;
+  if(homeFeedMounted()&&aaFeedBusy()&&performance.now()-firstAt<4000)return; // still swiping (hard cap 4 s)
+  pending=false;inner.call(window);
+ };
+ render=function(){
+  if(homeFeedMounted()&&aaFeedBusy()){
+   if(!pending){pending=true;firstAt=performance.now()}
+   if(window.aaFeedArmSettle)window.aaFeedArmSettle();
+   return;
+  }
+  pending=false;
+  return inner.apply(this,arguments);
+ };
 })();
 
 </script>
