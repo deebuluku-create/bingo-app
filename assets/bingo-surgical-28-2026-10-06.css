@@ -115,10 +115,15 @@
   width:100%!important;max-width:100%!important;min-width:0!important;
   height:auto!important;min-height:0!important;overflow:hidden!important;
 }
+/* 2026-10-10: Wall cards show a half-height preview (half of the previous 72dvh/760px cap) across the
+   full card width; tapping opens the existing full-screen viewer (aaOpenVideoLightbox /
+   aaOpenPhotoLightbox), which shows the whole, uncropped media. Media shorter than the cap
+   (e.g. landscape) keeps its natural proportions. */
 #auto-arcade-widget .bingo-approved-topic .aa-post-media img,
 #auto-arcade-widget .bingo-approved-topic .aa-post-media video{
-  display:block!important;width:auto!important;max-width:100%!important;
-  height:auto!important;max-height:min(72dvh,760px)!important;
-  object-fit:contain!important;aspect-ratio:auto!important;
+  display:block!important;width:100%!important;max-width:100%!important;
+  height:auto!important;max-height:min(36dvh,380px)!important;
+  object-fit:cover!important;object-position:center!important;aspect-ratio:auto!important;
   margin-inline:auto!important;
 }
+#auto-arcade-widget .bingo-approved-topic .aa-post-media .aa-video-thumb{width:100%!important}

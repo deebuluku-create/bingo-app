@@ -29506,9 +29506,15 @@ aaHomeOverlayOpen=function(){return originalOverlayForCommentsDrawer()||!!(typeo
    if(state.view!=="topics"||!("IntersectionObserver" in window))return;
    const vids=[...document.querySelectorAll("#auto-arcade-widget .bingo-approved-topic .aa-post-media video")];
    if(!vids.length)return;
-   io=new IntersectionObserver(es=>{es.forEach(e=>{const v=e.target;
-    if(e.isIntersecting&&e.intersectionRatio>=.5){if(aaHomeOverlayOpen())return;v.muted=true;v.playsInline=true;const p=v.play();if(p&&p.catch)p.catch(()=>{})}
-    else{try{v.pause()}catch(x){}}})},{threshold:[0,.5,1]});
+   /* One Wall video at a time: with compact (half-height) media two posts can be more than half
+      visible together; playing both let the "play" singleton above pause each in turn, leaving
+      neither playing. Only the most visible one (topmost on a tie) plays. */
+   const ratio=new Map();
+   io=new IntersectionObserver(es=>{es.forEach(e=>ratio.set(e.target,e.isIntersecting?e.intersectionRatio:0));
+    let best=null,bestR=0;vids.forEach(v=>{const r=ratio.get(v)||0;if(r>=.5&&r>bestR+.01){best=v;bestR=r}});
+    vids.forEach(v=>{if(v===best)return;if(!v.paused){try{v.pause()}catch(x){}}});
+    if(best&&best.paused&&!aaHomeOverlayOpen()){best.muted=true;best.playsInline=true;const p=best.play();if(p&&p.catch)p.catch(()=>{})}
+   },{threshold:[0,.25,.5,.75,1]});
    vids.forEach(v=>{if(!v.dataset.bingoRecover){v.dataset.bingoRecover='1';v.addEventListener('error',()=>{if(window.bingoMediaRecover)window.bingoMediaRecover(v)})}io.observe(v)});
   }catch(e){}
  }
