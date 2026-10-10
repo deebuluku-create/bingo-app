@@ -1070,6 +1070,12 @@ Production mother file does not force production.
 #auto-arcade-widget .aa-lightbox-close,.aa-lightbox-close{position:absolute;right:0;top:0;z-index:3;border:1px solid #53627c;background:#071020;color:#fff;border-radius:999px;width:42px;height:42px;font-size:24px}
 #auto-arcade-widget .aa-lightbox-download,.aa-lightbox-download{position:absolute;left:0;top:0;z-index:3}
 #auto-arcade-widget .aa-video-lightbox-inner video,.aa-video-lightbox-inner video{max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;border-radius:12px;background:#000}
+/* Video viewer fills the whole screen (whole video visible, never cropped); the close × appears only after a tap. */
+.aa-video-lightbox{padding:0!important;background:#000!important}
+.aa-video-lightbox .aa-video-lightbox-inner{width:100%;height:100%;max-width:none}
+.aa-video-lightbox .aa-video-lightbox-inner video{position:absolute;inset:0;border-radius:0;cursor:pointer}
+.aa-video-lightbox .aa-lightbox-close{top:calc(12px + env(safe-area-inset-top,0px));right:12px;opacity:0;pointer-events:none;transition:opacity .18s ease}
+.aa-video-lightbox.aa-lightbox-chrome .aa-lightbox-close{opacity:1;pointer-events:auto}
 /* Feed-thumbnail poster + neon play/fullscreen overlay - tapping this
    (never the raw <video>, which has no controls in this state) is the
    only way to open the full-screen viewer, so the feed thumbnail never
@@ -14431,8 +14437,10 @@ function aaOpenVideoLightbox(src,title,topicId){
  const safeSrc=bingoSafeMediaAttr(src);
  const box=document.createElement("div");
  box.id="aaVideoLightbox";box.className="aa-lightbox aa-video-lightbox";
- box.innerHTML=`<div class="aa-lightbox-inner aa-video-lightbox-inner"><button class="aa-lightbox-close" aria-label="Close video" onclick="aaCloseVideoLightbox(false)">×</button><video src="${safeSrc}" controls autoplay playsinline aria-label="${esc(title||'Bingo video')}"></video></div>`;
+ box.innerHTML=`<div class="aa-lightbox-inner aa-video-lightbox-inner"><button class="aa-lightbox-close" aria-label="Close video" onclick="aaCloseVideoLightbox(false)">×</button><video src="${safeSrc}" autoplay loop playsinline aria-label="${esc(title||'Bingo video')}"></video></div>`;
  box.addEventListener("click",e=>{if(e.target===box)aaCloseVideoLightbox(false)});
+ /* Full-screen video: the close × stays hidden while it plays; one tap on the video shows it, the next hides it. */
+ box.querySelector("video").addEventListener("click",e=>{e.stopPropagation();box.classList.toggle("aa-lightbox-chrome")});
  document.body.appendChild(box);
  aaVideoLightboxPrevOverflow=document.body.style.overflow;
  document.body.style.overflow="hidden";
