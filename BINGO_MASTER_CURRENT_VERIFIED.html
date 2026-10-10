@@ -13991,6 +13991,10 @@ function aaCancelFoodSubscription(id){
  if(!confirm('Cancel this restaurant advertisement? The business record will remain saved.'))return;
  f.status='suspended';f.subscription_expires_at=new Date().toISOString();aaV69Write('aa_v69_foods',a);toast('Restaurant advertisement cancelled.');aaOpenFood('mine')
 }
+/* Recovered from the retired assets/bingo-home-feed-clean-override.js (2026-10-10 audit): a post whose body
+   is identical to its title used to print the same text twice on a Home card. That add-on hid the copy with a
+   DOM-wide MutationObserver; this prevents it at render time instead, with no observer. */
+function aaFeedSameText(a,b){const n=x=>String(x||'').replace(/\s+/g,' ').trim().toLowerCase();return !!n(a)&&n(a)===n(b)}
 function aaMixedFeedTopicCardHTML(c){
  const t=c.source;
  const hasMedia=!!c.feed_media;
@@ -14040,7 +14044,7 @@ function aaMixedFeedTopicCardHTML(c){
  const authorAvatar=`<img class="bingo-feed-clean-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(c.feed_sellerPhoto))}" alt="Open profile" title="Open profile" onerror="aaProfileImgFallback(this)" ${openAuthor}>`;
  if(!hasMedia){const identityRow=`<div class="aa360-text-identity" ${openAuthor}>${authorAvatar}<b>${esc(c.feed_seller)}</b>${authorMeta.verified?`<span class="aa-post-verified">✓</span>`:''}</div>`;media=media.replace('@@BINGO_TEXT_IDENTITY@@',()=>identityRow)}
  const compactStats=`<div class="aa-post-stats" style="margin-top:6px">${[`❤ ${aaTopicLoveCount(t)}`,`💬 ${aaTopicCommentsFor(t).length}`,topicCounts?`👁 ${topicCounts.views} views`:''].filter(Boolean).map(s=>`<span>${s}</span>`).join('')}</div>`;
- return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}" data-canon="topic:${esc(t.id)}">${media}<div class="aa360-shade"></div>${videoPlayOverlay}<span class="aa-type-label">POST</span>${multiTag}<div class="aa360-info" style="cursor:pointer">${hasMedia?authorAvatar:''}${hasMedia&&c.feed_title?`<div class="aa360-title">${esc(c.feed_title)}</div>`:''}${hasMedia&&c.feed_desc?`<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc,140)}</div>`:''}${compactStats}<div class="aa-icon-action-row" role="group" aria-label="Post actions" style="margin-top:8px" onclick="event.stopPropagation()">
+ return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}" data-canon="topic:${esc(t.id)}">${media}<div class="aa360-shade"></div>${videoPlayOverlay}<span class="aa-type-label">POST</span>${multiTag}<div class="aa360-info" style="cursor:pointer">${hasMedia?authorAvatar:''}${hasMedia&&c.feed_title?`<div class="aa360-title">${esc(c.feed_title)}</div>`:''}${hasMedia&&c.feed_desc&&!aaFeedSameText(c.feed_title,c.feed_desc)?`<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc,140)}</div>`:''}${compactStats}<div class="aa-icon-action-row" role="group" aria-label="Post actions" style="margin-top:8px" onclick="event.stopPropagation()">
   ${aaIconActionBtn({rgb:"255,58,110",active:loved,label:"Love",activeLabel:"Loved",svg:AA_ICON_ACTION_SVG.heartOutline,activeSvg:AA_ICON_ACTION_SVG.heartFilled,onclick:`aaTopicLove(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"34,201,255",label:"Share",svg:AA_ICON_ACTION_SVG.share,onclick:`aaTopicShare(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"245,185,30",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
