@@ -1,20 +1,10 @@
 /* Bingo #28 surgical UI/stability patch — 2026-10-06. Scoped only to named surfaces. */
-/* Flat X-style Bingo Wall: keep Bingo functions, remove card chrome. */
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic{
- background:#fff!important;border:0!important;border-radius:0!important;box-shadow:none!important;
- margin:0 auto!important;padding:12px 14px 16px!important;border-bottom:1px solid #e5e7eb!important;
-}
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-head{gap:10px!important;margin-bottom:8px!important}
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-avatar{width:42px!important;height:42px!important}
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-author b{font-size:15px!important}
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-author .meta{font-size:11px!important;margin-top:1px!important}
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-media{border-radius:14px!important;margin:8px 0 0!important;background:#000}
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-message{font-size:16px!important;line-height:1.38!important;margin:4px 0 8px!important}
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-content:not(:has(.aa-post-media)) .aa-post-message{font-weight:700!important}
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-summary{padding:8px 0!important;font-size:12px!important}
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions{padding:3px 0!important}
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions button{font-size:12px!important;padding:7px 2px!important;gap:5px!important}
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions svg{width:20px!important;height:20px!important}
+/* 2026-10-10: the body.bingo-wall-white-mode gate below was removed. It was never set by any
+   JS anywhere in the codebase (confirmed by full-repo grep), so every rule under it was dead —
+   this is the confirmed root cause of prior Wall re-skin attempts never appearing live. The
+   approved white/orange Wall design is now applied unconditionally in
+   BINGO_MASTER_CURRENT_VERIFIED.html's live <style id="bingo-approved-topic-layout"> /
+   #bingo-feedback-comments blocks instead of here. */
 /* Compact post options menu. */
 #auto-arcade-widget .bingo-topic-options>div{width:220px!important;max-width:62vw!important;padding:4px!important;border-radius:10px!important}
 #auto-arcade-widget .bingo-topic-options button{min-height:38px!important;padding:7px 10px!important;font-size:14px!important;line-height:1.2!important}
@@ -88,12 +78,12 @@ body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions svg{width:20
   display:block!important;margin:0 0 6px!important;
 }
 
-/* 2026-10-09: Strictly contain author portraits on Home AND Bingo Wall.
+/* 2026-10-09: Strictly contain author portraits on Home. Bingo Wall avatars are handled
+   separately below (approved design specifies 44px with an orange ring, not 34px) — removing
+   them from this list on 2026-10-10 so the two surfaces stop fighting over avatar size.
    Never target .aa-post-media or the actual video/photo post element. */
 #auto-arcade-widget .aa360-item .aa-post-head img,
 #auto-arcade-widget .aa360-item .aa360-info .aa-post-avatar,
-#auto-arcade-widget .bingo-approved-topic .aa-post-head img,
-#auto-arcade-widget .bingo-approved-topic .aa-post-avatar,
 #auto-arcade-widget .aa360-item .bingo-feed-clean-avatar {
   width:34px!important;height:34px!important;min-width:34px!important;
   max-width:34px!important;max-height:34px!important;
@@ -103,15 +93,30 @@ body.bingo-wall-white-mode #auto-arcade-widget .bingo-topic-actions svg{width:20
   flex:0 0 34px!important;
 }
 
-/* Wall post media containment: preserve source aspect ratio without cropping.
+/* Bingo Wall author avatar — approved design: 44px, orange ring. Kept here (in addition to
+   the live inline rule in the master HTML) as a defensive duplicate in case asset load order
+   ever changes; both sides must be updated together if this size changes again. */
+#auto-arcade-widget .bingo-approved-topic .aa-post-head img,
+#auto-arcade-widget .bingo-approved-topic .aa-post-avatar {
+  width:44px!important;height:44px!important;min-width:44px!important;
+  max-width:44px!important;max-height:44px!important;
+  aspect-ratio:1/1!important;object-fit:cover!important;
+  border-radius:50%!important;border:2px solid #ff7a00!important;
+  position:static!important;inset:auto!important;
+  transform:none!important;float:none!important;flex:0 0 44px!important;
+}
+
+/* Wall post media containment: preserve source aspect ratio without cropping, per approved
+   design + order-doc section 7 ("do not distort or crop legitimate content unexpectedly").
+   Un-gated 2026-10-10 (previously dead behind body.bingo-wall-white-mode, see note above).
    Scope to actual post media only; author avatars and Supabase records are untouched. */
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-media{
+#auto-arcade-widget .bingo-approved-topic .aa-post-media{
   display:flex!important;align-items:center!important;justify-content:center!important;
   width:100%!important;max-width:100%!important;min-width:0!important;
   height:auto!important;min-height:0!important;overflow:hidden!important;
 }
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-media img,
-body.bingo-wall-white-mode #auto-arcade-widget .bingo-approved-topic .aa-post-media video{
+#auto-arcade-widget .bingo-approved-topic .aa-post-media img,
+#auto-arcade-widget .bingo-approved-topic .aa-post-media video{
   display:block!important;width:auto!important;max-width:100%!important;
   height:auto!important;max-height:min(72dvh,760px)!important;
   object-fit:contain!important;aspect-ratio:auto!important;
