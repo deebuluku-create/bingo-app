@@ -945,7 +945,7 @@ Production mother file does not force production.
 #auto-arcade-widget .aa360-feed{height:calc(100vh - 120px);min-height:560px;overflow-y:hidden;scroll-snap-type:y mandatory;overscroll-behavior:none;overscroll-behavior-y:none;scrollbar-width:none;background:#000;touch-action:none;scroll-behavior:auto;-webkit-overflow-scrolling:auto}
 #auto-arcade-widget .aa360-feed::-webkit-scrollbar{display:none}
 #auto-arcade-widget .aa360-item{position:relative;height:calc(100vh - 120px);min-height:560px;scroll-snap-align:start;scroll-snap-stop:always;background:#050505;overflow:hidden}
-#auto-arcade-widget .aa360-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+#auto-arcade-widget .aa360-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
 /* Text-only Wall post hero: reuses .aa360-video's absolute-fill sizing but
    as a styled text block instead of an image/video, so a text-only post
    still fills its snap-feed slot instead of leaving an empty box. */
@@ -9026,7 +9026,7 @@ function aaFeedCardHTML(c,i){
  const interested=(state.interested||[]).filter(x=>String(x)===String(c.id)).length+(Number(c.interested||0));
  const isVideo=aaMediaType(c)==="video"&&!!aaVideoUrl(c,i);
  const media=isVideo
-   ? `<video class="aa360-video" data-aa-video-id="${esc(c.id)}" data-aa-post-type="vehicle" data-aa-post-id="${esc(c.id)}" src="${esc(aaVideoUrl(c,i))}" poster="${esc(aaMainPhoto(c))}" muted playsinline loop preload="${i<2?"auto":"metadata"}"></video>`
+   ? `<video class="aa360-video" data-aa-video-id="${esc(c.id)}" data-aa-post-type="vehicle" data-aa-post-id="${esc(c.id)}" src="${esc(aaVideoUrl(c,i))}" poster="${esc(aaMainPhoto(c))}" muted playsinline loop preload="${i<1?"auto":"metadata"}"></video>`
    : `<img class="aa360-photo" src="${esc(aaMainPhoto(c))}" alt="${esc(c.title||"Promoted vehicle")}">`;
  const promoLabel=aaPromotionLabel(c);
  const promoted=c?.isBoosted?`<div class="aa-ad-label">Ad</div>`:promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";
@@ -29142,6 +29142,94 @@ html body #auto-arcade-widget .bingo-approved-topic .bingo-comments-heading sele
 #aaCommentsDrawer .aa-comment-camera-btn{border:0;box-shadow:none;background:none;cursor:pointer}
 #aaCommentsDrawer .bingo-topic-send{border:0;background:#ff7a00;color:#fff;border-radius:50%;width:38px;height:38px;flex-shrink:0;font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(255,122,0,.3)}
 @media(max-width:480px){.bingo-comments-drawer{height:88vh;max-height:88dvh}}
+/* ===== Approved dark theme (2026-10-10 owner decision: the Bingo_Profile_Head_Rotating_Comments_Preview direction
+   supersedes the white/orange Wall styling). Tokens: bg #0b1322, surface #111c30, line #26354d, text #e8edf5,
+   muted #93a1b8, gold #e6b94a (restrained), cyan #3fb8dc. Colour-only overrides: no markup, no handlers, no layout
+   changes, so every existing hook keeps working. ===== */
+#auto-arcade-widget .bingo-topic-page{background:#0b1322;color:#e8edf5}
+#auto-arcade-widget .bingo-topic-brand{background:#0b1322}
+#auto-arcade-widget .bingo-wall-tagline{color:#93a1b8}
+#auto-arcade-widget .bingo-wall-head-btn{background:#111c30;border-color:#2a3a55;color:#e8edf5}
+#auto-arcade-widget .bingo-wall-head-btn-dark{background:#16233a;border-color:rgba(230,185,74,.55);color:#e8edf5}
+#auto-arcade-widget .bingo-wall-head-btn-logout{background:transparent;border-color:#b45454;color:#ff9a9a}
+#auto-arcade-widget .bingo-approved-topic{background:#111c30;border:1px solid #1f2d46;box-shadow:0 6px 22px rgba(0,0,0,.28);color:#e8edf5}
+#auto-arcade-widget .bingo-approved-topic .aa-post-avatar{border:2px solid #e6b94a;background:#0b1322}
+#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{border:0}
+#auto-arcade-widget .bingo-topic-author b{color:#e8edf5}
+#auto-arcade-widget .bingo-topic-author .meta{color:#93a1b8}
+#auto-arcade-widget .bingo-approved-topic .aa-post-title,#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#e8edf5!important}
+#auto-arcade-widget .bingo-approved-topic .aa-post-media{background:#000;box-shadow:none}
+#auto-arcade-widget .bingo-topic-options summary{color:#93a1b8}
+#auto-arcade-widget .bingo-topic-options>div{background:#16233a;border-color:#2a3a55;box-shadow:0 12px 32px rgba(0,0,0,.45)}
+#auto-arcade-widget .bingo-topic-options button{color:#e8edf5}
+#auto-arcade-widget .bingo-topic-summary{color:#93a1b8}
+#auto-arcade-widget .bingo-topic-actions{border-top-color:#26354d;border-bottom-color:#26354d}
+#auto-arcade-widget .bingo-topic-actions button+button::before{background:#26354d}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{color:#e6b94a!important}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button:nth-child(2){color:#3fb8dc!important}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button[aria-pressed=true]{color:#e6b94a!important;font-weight:900!important}
+#auto-arcade-widget .bingo-approved-topic .bingo-reaction-toggle:hover{background:#16233a}
+#auto-arcade-widget .bingo-approved-topic .bingo-reaction-toggle[aria-pressed=true]{color:#e6b94a}
+#auto-arcade-widget .bingo-topic-field{background:#0f1a2d;border-color:#2a3a55}
+#auto-arcade-widget .bingo-topic-field input.field{color:#e8edf5}
+#auto-arcade-widget .bingo-topic-field input::placeholder{color:#7f8da4}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-send{background:#e6b94a!important;color:#0b1322!important;box-shadow:none!important}
+html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{color:#e8edf5!important}
+html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name{color:#3fb8dc!important}
+html body #auto-arcade-widget .bingo-approved-topic .aa-comment-row{border-bottom-color:#26354d}
+html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button{color:#93a1b8!important}
+html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta button:last-of-type{color:#e8edf5!important}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-comments-heading select{background:#0f1a2d!important;border-color:#2a3a55!important;color:#e8edf5!important}
+#auto-arcade-widget .bingo-wall-bottom-nav{background:#0d1627;border-top-color:#26354d}
+#auto-arcade-widget .bingo-wall-nav-item{color:#93a1b8}
+#auto-arcade-widget .bingo-wall-nav-item.active{color:#e6b94a}
+#auto-arcade-widget .bingo-wall-nav-badge{background:#e6b94a;color:#0b1322}
+/* Comments drawer: dark bottom sheet (preview: #07111e sheet, soft top shadow, muted handle, fixed composer) */
+.bingo-drawer-backdrop{background:rgba(3,8,18,.62)}
+/* z-index 40 > backdrop 30 (as in the approved spec). Without it the backdrop painted OVER the sheet and swallowed every tap inside it (list, composer), closing the drawer instead. */
+.bingo-comments-drawer{z-index:40;background:#101c30;border-top:1px solid #26354d;box-shadow:0 -10px 40px rgba(0,0,0,.6);color:#e8edf5}
+#aaCommentsDrawer .bingo-topic-send{background:#e6b94a!important;color:#0b1322!important;border:0!important;box-shadow:none!important}
+#aaCommentsDrawer .bingo-topic-field{background:#0b1322;border:1px solid #2a3a55}
+#aaCommentsDrawer .bingo-topic-field input.field{color:#e8edf5;background:none}
+.bingo-drawer-handle{background:#4b5a73}
+.bingo-drawer-header{border-bottom-color:#26354d}
+.bingo-drawer-title,.bingo-drawer-close{color:#e8edf5}
+#aaCommentsDrawer .aa-comment-name,#aaCommentsDrawer .aa-comment-text{color:#e8edf5}
+#aaCommentsDrawer .aa-comment-name{color:#3fb8dc}
+#aaCommentsDrawer .aa-comment-avatar{border:1px solid rgba(230,185,74,.7)}
+#aaCommentsDrawer .aa-comment-row,#aaCommentsDrawer .bingo-comments-heading{border-bottom-color:#26354d}
+#aaCommentsDrawer .aa-comment-meta,#aaCommentsDrawer .aa-comment-meta button{color:#93a1b8}
+#aaCommentsDrawer .aa-comment-meta button:last-of-type{color:#e8edf5}
+#aaCommentsDrawer .bingo-comments-heading b{color:#e8edf5}
+#aaCommentsDrawer .bingo-comments-heading select{background:#0f1a2d;color:#e8edf5;border-color:#2a3a55}
+#aaCommentsDrawer .bingo-comment-links button{color:#3fb8dc}
+#aaCommentsDrawer .bingo-comment-options summary{color:#93a1b8}
+#aaCommentsDrawer .bingo-comment-options button{background:#16233a;color:#e8edf5;border-color:#2a3a55}
+#aaCommentsDrawer .bingo-topic-composer{background:#101c30;padding-top:10px}
+#aaCommentsDrawer .bingo-topic-composer,#aaCommentsDrawer .bingo-topic-field{color:#e8edf5}
+/* Home Feed: calmer pills + gold-ringed author avatar (replaces the saturated neon outlines on topic slides) */
+#auto-arcade-widget .aa360-item .bingo-feed-clean-avatar{border:2px solid #e6b94a!important;box-shadow:none!important}
+#auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa-icon-action,#auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa360-actions .bingo-neon-action{background:rgba(8,16,30,.82)!important;border:1px solid rgba(230,185,74,.6)!important;color:#e8edf5!important;box-shadow:none!important;text-shadow:none!important;border-radius:20px!important}
+#auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa-icon-action svg{stroke:#e6b94a!important;color:#e6b94a!important}
+#auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa-icon-action.is-active{color:#e6b94a!important}
+#auto-arcade-widget .aa360-item[data-canon^="topic:"] .aa360-actions .bingo-neon-action-cyan{border-color:rgba(63,184,220,.7)!important;color:#bfeaf7!important}
+/* Cancel the sitewide neon-outline recipe on the Wall chrome (it paints a glow on every bare <button>). Specificity beats it without touching it. */
+html body #auto-arcade-widget .bingo-wall-logo-btn{border:0!important;background:none!important;box-shadow:none!important;border-radius:0!important;padding:0!important}
+html body #auto-arcade-widget .bingo-topic-page .bingo-wall-head-btn,html body #auto-arcade-widget .bingo-topic-page .bingo-wall-back{box-shadow:none!important;border:1px solid #2a3a55!important;background:#111c30!important;border-radius:20px!important;color:#e8edf5!important}
+html body #auto-arcade-widget .bingo-topic-page .bingo-wall-head-btn-dark{border-color:rgba(230,185,74,.5)!important}
+html body #auto-arcade-widget .bingo-topic-page .bingo-wall-head-btn-logout{border-color:#b45454!important;background:transparent!important;color:#ff9a9a!important}
+html body #auto-arcade-widget .bingo-wall-bottom-nav .bingo-wall-nav-item{box-shadow:none!important;border:0!important;background:none!important;border-radius:0!important;color:#93a1b8!important}
+html body #auto-arcade-widget .bingo-wall-bottom-nav .bingo-wall-nav-item.active{color:#e6b94a!important}
+html body #auto-arcade-widget .bingo-approved-topic .aa-post-avatar{border:2px solid #e6b94a!important;box-shadow:none!important}
+html body #auto-arcade-widget .bingo-topic-page .bingo-topic-send{box-shadow:none!important}
+/* Rotating real comments (one bubble at a time, active Home topic slide only; see bingoRotator in the render wrapper) */
+.bingo-rotator{position:relative;height:92px;overflow:hidden;margin:0 0 8px;pointer-events:none;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 100%)}
+.bingo-rot-comment{position:absolute;left:0;bottom:0;display:flex;align-items:center;gap:10px;max-width:100%;animation:bingoRotRise 7s ease-in-out forwards}
+.aa360-item:not(.bingo-media-active) .bingo-rot-comment{animation-play-state:paused}
+.bingo-rot-avatar{width:38px;height:38px;flex:0 0 38px;border-radius:50%;object-fit:cover;border:2px solid #e6b94a;background:#0b1322;pointer-events:auto;cursor:pointer}
+.bingo-rot-bubble{padding:8px 12px;background:rgba(7,19,35,.78);border-radius:16px;box-shadow:0 5px 18px rgba(0,0,0,.4);font:600 13px/1.35 'Plus Jakarta Sans',system-ui,sans-serif;color:#e8edf5;text-shadow:none;max-width:calc(100% - 52px);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+@keyframes bingoRotRise{0%{opacity:0;transform:translateY(26px)}12%{opacity:1;transform:translateY(0)}72%{opacity:1}100%{opacity:0;transform:translateY(-34px)}}
+@media(prefers-reduced-motion:reduce){.bingo-rot-comment{animation:none;opacity:1}}
 </style>
 <!-- ===== Bingo 50 Font + Colour Expression Layer (review integration) ===== -->
 <style id="bingo50-style">
@@ -29315,7 +29403,17 @@ function patchStats(){document.querySelectorAll('#auto-arcade-widget [data-bingo
 async function fetchStats(items,force=false){if(!sb||state.testMode)return;const want=items.filter(x=>x&&x.id&&!pending.has(key(x.type,x.id))&&(force||!stats.has(key(x.type,x.id)))).slice(0,100);if(!want.length)return;want.forEach(x=>pending.add(key(x.type,x.id)));try{const {data,error}=await sb.rpc('bingo_media_counts',{p_posts:want.map(x=>({type:type(x.type),id:x.id}))});if(error)throw error;(data||[]).forEach(x=>stats.set(key(x.post_type,x.post_id),x));patchStats()}catch(e){console.warn('Bingo media counts:',e?.message||e)}finally{want.forEach(x=>pending.delete(key(x.type,x.id)))}}
 async function record(id,event){if(!sb||state.testMode||!id)return;const k=key(id.type,id.id)+':'+event;if(recorded.has(k)||recording.has(k))return;recording.add(k);try{const {error}=await sb.rpc('bingo_record_media_event',{p_type:type(id.type),p_id:id.id,p_visitor:visitor,p_event:event});if(error)throw error;recorded.add(k);await fetchStats([id],true)}catch(e){console.warn('Bingo view could not be saved:',e?.message||e)}finally{recording.delete(k)}}
 function statsHTML(t,id,video,extra=''){const k=key(t,id);return `<span class="bingo-media-stats ${extra}" data-bingo-stats="${esc(k)}" data-video="${!!video}" title="Views: visible for 2 seconds. Watched: 3 seconds of playback. Counts deduplicate accounts or anonymous browsers.">${caption(stats.get(k),video)}</span>`}
-function mediaError(v,error){const host=v.closest('.aa360-item')||v.parentElement;if(!host)return;let btn=host.querySelector('.bingo-media-retry');if(!btn){btn=document.createElement('button');btn.type='button';btn.className='btn bingo-media-retry';host.appendChild(btn)}const reason=error?.name==='NotAllowedError'?'Tap to play':v.error?.code===4?'Video format or source is unavailable':v.error?.code===3?'Video could not be decoded':v.error?.code===2?'Video transfer failed':'Video could not start';btn.textContent=reason+' · Retry';btn.onclick=e=>{e.stopPropagation();btn.remove();v.load();play(v,true)}}
+/* Video failure reporting. MediaError code 4 alone cannot tell an expired/denied link from a missing file from an
+   unsupported codec, so one ranged request is made to the same URL and its HTTP status decides the wording. The
+   result is also logged to the console (token stripped) so repeated failures stay diagnosable. */
+function mediaSignedParts(src){const m=/\/storage\/v1\/object\/sign\/([^/]+)\/(.+?)(?:\?|$)/.exec(String(src||''));return m?{bucket:decodeURIComponent(m[1]),path:m[2].split('/').map(decodeURIComponent).join('/')}:null}
+async function mediaProbe(src){if(!/^https?:/i.test(String(src||'')))return {status:0,type:''};try{const r=await fetch(src,{method:'GET',headers:{Range:'bytes=0-0'},cache:'no-store'});try{r.body&&r.body.cancel&&r.body.cancel()}catch(e){}return {status:r.status,type:r.headers.get('content-type')||''}}catch(e){return {status:0,type:''}}}
+function mediaReason(code,probe,error){if(error?.name==='NotAllowedError')return 'Tap to play';const st=probe.status;if(st===400||st===401||st===403)return 'Video link expired or not permitted (HTTP '+st+')';if(st===404)return 'Video file not found (HTTP 404)';if(st>=500)return 'Video server error (HTTP '+st+')';if(code===4)return st?'This device cannot play this video format':'Video format or source is unavailable';if(code===3)return 'Video could not be decoded';if(code===2)return 'Video transfer failed';return 'Video could not start'}
+async function mediaRefreshSrc(v){const src=v.currentSrc||v.getAttribute('src')||'',sp=mediaSignedParts(src);if(!sp||!sb)return false;const {data,error}=await sb.storage.from(sp.bucket).createSignedUrl(sp.path,3600);if(error||!data?.signedUrl)return false;if(sp.bucket===AA_TOPIC_MEDIA_BUCKET){aaTopicMediaCache[sp.path]=data.signedUrl;aaTopicMediaExpires[sp.path]=Date.now()+3300000}v.src=data.signedUrl;return true}
+function mediaError(v,error){const host=v.closest('.aa360-item')||v.parentElement;if(!host)return;let btn=host.querySelector('.bingo-media-retry');if(!btn){btn=document.createElement('button');btn.type='button';btn.className='btn bingo-media-retry';host.appendChild(btn)}
+ const code=v.error?.code||0;btn.textContent=(error?.name==='NotAllowedError'?'Tap to play':'Checking video…')+' · Retry';
+ if(error?.name!=='NotAllowedError'&&!v.__bingoProbing){v.__bingoProbing=true;const src=v.currentSrc||v.getAttribute('src')||'';mediaProbe(src).then(pr=>{const reason=mediaReason(code,pr,error);btn.textContent=reason+' · Retry';try{console.warn('Bingo video failed:',{reason,mediaErrorCode:code,mediaErrorMessage:v.error?.message||'',http:pr.status,contentType:pr.type,source:String(src).split('?')[0]})}catch(e){}}).finally(()=>{v.__bingoProbing=false})}
+ btn.onclick=async e=>{e.stopPropagation();btn.textContent='Retrying…';try{await mediaRefreshSrc(v)}catch(x){}btn.remove();v.load();play(v,true)}}
 function play(v,gesture=false){if(!v||!v.isConnected||aaHomeOverlayOpen())return;v.muted=!aaFeedWantsSound();v.playsInline=true;v.preload='auto';let p;try{p=v.play()}catch(e){mediaError(v,e);return}if(p?.catch)p.catch(e=>{if(e.name==='AbortError')return;if(e.name==='NotAllowedError'&&!v.muted){v.muted=true;state.aaFeedSoundOn=false;aaFeedUpdateSoundBtn();v.play()?.catch(next=>{if(next.name!=='AbortError')mediaError(v,next)})}else mediaError(v,e)})}
 function activeVideo(){return document.querySelector('#auto-arcade-widget .aa360-item.bingo-media-active video.aa360-video')}
 aaToggleFeedSound=function(){state.aaFeedSoundOn=!aaFeedWantsSound();const v=activeVideo();if(v)play(v,true);aaFeedUpdateSoundBtn()};
@@ -29324,7 +29422,7 @@ aaInit360Feed=function(){
  const items=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed .aa360-item')];if(!items.length)return;
  if(state.aaFeedSoundOn===undefined)state.aaFeedSoundOn=false;
  aaFeedObserver=new IntersectionObserver(entries=>{for(const entry of entries){const item=entry.target,v=item.querySelector('video.aa360-video');const visible=entry.isIntersecting&&entry.intersectionRatio>=.55;item.classList.toggle('bingo-media-active',visible);if(v){if(visible){items.forEach(other=>{if(other!==item)other.querySelector('video.aa360-video')?.pause()});play(v)}else v.pause()}}},{threshold:[0,.55,1]});
- items.forEach(item=>{aaFeedObserver.observe(item);const v=item.querySelector('video.aa360-video');if(v){v.addEventListener('error',()=>mediaError(v,v.error),{once:true});v.addEventListener('loadeddata',()=>{if(item.classList.contains('bingo-media-active'))play(v)},{once:true});v.addEventListener('playing',()=>item.querySelector('.bingo-media-retry')?.remove())}});
+ items.forEach(item=>{aaFeedObserver.observe(item);const v=item.querySelector('video.aa360-video');if(v){if(!v.dataset.bingoErrBound){v.dataset.bingoErrBound='1';v.addEventListener('error',()=>mediaError(v,v.error))}v.addEventListener('loadeddata',()=>{if(item.classList.contains('bingo-media-active'))play(v)},{once:true});v.addEventListener('playing',()=>item.querySelector('.bingo-media-retry')?.remove())}});
  aaFeedUpdateSoundBtn();
 };
 function measure(){if(observer)observer.disconnect();if(tick)clearInterval(tick);measured=[];const ids=[];
@@ -29414,6 +29512,38 @@ const originalRenderForCommentsDrawer=render;
 render=function(){try{if(state.bingoAccountPanel&&state.view!=="seller"&&state.view!=="topics")state.bingoAccountPanel=""}catch(e){}originalRenderForCommentsDrawer.apply(this,arguments);try{if(typeof aaRefreshCommentsDrawer==="function")aaRefreshCommentsDrawer()}catch(e){}};
 const originalOverlayForCommentsDrawer=aaHomeOverlayOpen;
 aaHomeOverlayOpen=function(){return originalOverlayForCommentsDrawer()||!!(typeof aaCommentsDrawerTopicId!=="undefined"&&aaCommentsDrawerTopicId&&document.getElementById("aaCommentsDrawer")?.classList.contains("open"))};
+/* Rotating real comments on the active Home topic slide (approved preview's rotating comment bubbles).
+   Single module-level 1 s timer, no extra observers: it reads the slide aaInit360Feed already marks
+   .bingo-media-active, shows ONE real comment (author photo + text, from aaTopicCommentsFor) and advances every 7 s.
+   Idle when the tab is hidden, a Home overlay/drawer is open, or no slide is active; under prefers-reduced-motion
+   it shows a static comment and never advances. Nothing is rendered for posts with no text comments. */
+(function(){
+ if(window.__bingoRotatorInstalled)return;window.__bingoRotatorInstalled=true;
+ const idx=new Map();let last=null,lastAt=0;
+ const reduced=()=>{try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}};
+ function commentsFor(topicId){const t=aaTopics().find(x=>String(x.id)===String(topicId));if(!t)return [];return aaTopicCommentsFor(t).filter(c=>String(c.text||'').trim())}
+ function paint(item,advance){
+  const tid=String(item.dataset.canon||'').replace(/^topic:/,'');const list=commentsFor(tid);let host=item.querySelector('.bingo-rotator');
+  if(!list.length){if(host)host.remove();return}
+  const info=item.querySelector('.aa360-info');if(!info)return;
+  if(!host){host=document.createElement('div');host.className='bingo-rotator';host.setAttribute('aria-hidden','true');info.insertBefore(host,info.firstChild)}
+  let i=idx.has(tid)?idx.get(tid):-1;i=i<0?0:advance?(i+1)%list.length:i%list.length;idx.set(tid,i);
+  const c=list[i],who=JSON.stringify(String(c.authorId||''));
+  host.innerHTML=`<div class="bingo-rot-comment"><img class="bingo-rot-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(c.authorPhoto))}" alt="" onerror="aaProfileImgFallback(this)" onclick='event.stopPropagation();openSeller(${who})'><div class="bingo-rot-bubble">${esc(c.text)}</div></div>`;
+ }
+ setInterval(()=>{
+  try{
+   if(state.view!=="home"||document.hidden||aaHomeOverlayOpen())return;
+   const item=document.querySelector('#auto-arcade-widget .aa360-item.bingo-media-active[data-canon^="topic:"]');
+   if(!item){last=null;return}
+   const now=Date.now();
+   if(item!==last){last=item;lastAt=now;paint(item,false);return}
+   if(!item.querySelector('.bingo-rotator'))paint(item,false);
+   if(reduced())return;
+   if(now-lastAt>=7000){lastAt=now;paint(item,true)}
+  }catch(e){}
+ },1000);
+})();
 // Purge legacy sample and local-only public records. Unsaved forms remain drafts.
 state.listings=(state.listings||[]).filter(x=>!x._localDemo&&x._fromDb&&/^[0-9a-f-]{36}$/i.test(String(x.id)));
 state.jobs=ownerDrafts(legacy.jobs,[]);state.spareParts=ownerDrafts(legacy.parts,[]);
