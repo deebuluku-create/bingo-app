@@ -28894,14 +28894,14 @@ html body #auto-arcade-widget button.close:not(#bingo-flat-guard){min-width:28px
 html body #auto-arcade-widget :is(.btn-glass,.btn-publish,.aa360-action):not(.active):not(.is-active):not(#bingo-flat-guard){box-shadow:0 0 9px rgba(var(--tab-rgb),.3)!important}
 html body #auto-arcade-widget .aa360-side .aa360-action:not(#bingo-flat-guard){background-color:rgba(11,22,40,.72)!important}
 /* Home feed on phones: true full screen. Each item fills the dynamic
-   viewport, media covers it edge to edge, and the seller/title/price/
+   viewport, media keeps its original orientation (object-fit:contain, never cropped, 2026-10-10 order), and the seller/title/price/
    action block sits at the bottom over the media, so the upper area is
    free for the video and no dark band remains below the card. */
 @media (max-width:760px){
  html body #auto-arcade-widget.aa-v83-home .aa360-shell{max-width:none!important;width:100%!important;min-height:100dvh!important}
  html body #auto-arcade-widget.aa-v83-home .aa360-feed,
  html body #auto-arcade-widget.aa-v83-home .aa360-item{height:100dvh!important;min-height:100dvh!important;max-height:none!important}
- html body #auto-arcade-widget.aa-v83-home .aa360-item :is(.aa360-video,.aa360-item-media,.aa360-media){position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important}
+ html body #auto-arcade-widget.aa-v83-home .aa360-item :is(.aa360-video,.aa360-item-media,.aa360-media){position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:contain!important}
  html body #auto-arcade-widget.aa-v83-home .aa360-info{bottom:0!important;right:0!important;padding:14px 62px calc(12px + env(safe-area-inset-bottom,0px)) 14px!important;background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.45) 45%,rgba(0,0,0,.7))!important}
  html body #auto-arcade-widget.aa-v83-home .aa360-side{bottom:calc(150px + env(safe-area-inset-bottom,0px))!important}
 }
