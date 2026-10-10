@@ -14217,6 +14217,7 @@ function render(){
  }
  const feedHome=state.view==="home";
  if(root)root.classList.toggle("aa-v83-home",feedHome);
+ if(root)root.classList.toggle("aa-wall-view",state.view==="topics");
  if(root)root.classList.toggle("aa-vehicle-form-open",state.view==="add");
  // Broader than aa-vehicle-form-open above (kept for its own existing CSS
  // rule): also greatly reduces the header logo's continuous animation
@@ -15625,8 +15626,39 @@ async function aaLoadBingoWall(){
   if(!Array.isArray(state.wallSaves))state.wallSaves=[];
   if(!Array.isArray(state.wallSmartReactions))state.wallSmartReactions=[];
  }
+ await aaLoadCrownCounts(false);
  aaWallLoading=false;
  render();
+}
+/* Real Crown counts: rows of bingo_crown_awards (public-read table, one row per paid + verified Crown) per post.
+   null = not loaded / table unavailable -> the UI shows "Crown" instead of a number. */
+async function aaLoadCrownCounts(doRender){
+ if(state.testMode||!sb)return;
+ try{
+  const counts={},page=1000;let from=0,done=false;
+  for(let i=0;i<50&&!done;i++){
+   const {data,error}=await sb.from('bingo_crown_awards').select('topic_id').not('topic_id','is',null).order('awarded_at',{ascending:true}).range(from,from+page-1);
+   if(error)throw error;
+   (data||[]).forEach(r=>{const k=String(r.topic_id);counts[k]=(counts[k]||0)+1});
+   if(!data||data.length<page)done=true;else from+=page;
+  }
+  if(!done)throw new Error('too many Crown awards to count');
+  state.wallCrownCounts=counts;
+ }catch(e){state.wallCrownCounts=null;console.warn('Bingo: Crown counts unavailable.',String(e?.message||e))}
+ if(doRender)render();
+}
+window.aaLoadCrownCounts=aaLoadCrownCounts;
+function aaCrownCountFor(id){const m=state.wallCrownCounts;return m&&typeof m==='object'?Number(m[String(id)]||0):null}
+function aaTopicCrown(id){
+ const t=aaTopics().find(x=>String(x.id)===String(id));
+ if(!t){toast("This post is unavailable");return}
+ if(!state.isLoggedIn){openAuth("login");return}
+ if(!t._fromDb){toast("Crowns can be given on published posts only.");return}
+ const recipient=String(t.authorId||"");
+ if(!recipient){toast("This post has no identifiable author to crown.");return}
+ if(recipient===String(state.user?.id||"")){toast("You can't give a Crown to your own post.");return}
+ if(!window.BingoPaidCrowns||typeof window.BingoPaidCrowns.open!=="function"){toast("Crowns are not available right now. Please reload and try again.");return}
+ window.BingoPaidCrowns.open(recipient,String(t.id));
 }
 function aaTopicLoveCount(t){
  if(t._fromDb)return (state.wallReactions||[]).filter(r=>String(r.topic_id)===String(t.id)).length;
@@ -18251,28 +18283,29 @@ function aaSetProfileDecoration(kind){
 }
 function aaMbeaHeaderHTML(){
  /* Approved Bingo Wall header (2026-10-10): brand+tagline on the left, Inbox/Profile/Log Out
-    on the right. Scoped to the Wall page only (.bingo-topic-page) — the app's existing global
-    navigation (the draggable logo + Cockpit menu used on Home/Marketplace/Profile/etc.) is
-    untouched; see the final report for why this wasn't made global. All three actions call the
+    on the right. This is the ONLY logo and the ONLY Inbox/Profile/Log Out set on the Wall: the
+    global header is hidden on this view (class aa-wall-view, toggled in render()), and this logo
+    opens the same Cockpit menu the global logo does, so no navigation is lost. All three actions call the
     app's existing real features (openInbox, goAccount, logoutBingo) — nothing new or fake. */
- return `<header class="bingo-topic-brand"><div class="bingo-wall-brand-group">${bingoAppLogoHTML({className:"bingo-app-logo--mobile"})}<div class="bingo-wall-tagline">Kenyans, we did it.</div></div><div class="bingo-wall-header-actions">
+ return `<header class="bingo-topic-brand"><div class="bingo-wall-brand-group"><button type="button" class="bingo-wall-logo-btn" aria-label="Open Bingo menu" onclick="openBingoCockpit()">${bingoAppLogoHTML({className:"bingo-app-logo--mobile"})}</button><div class="bingo-wall-tagline">Kenyans, we did it.</div></div><div class="bingo-wall-header-actions">
  <button type="button" class="bingo-wall-head-btn bingo-wall-head-btn-dark" onclick="openInbox()">Inbox</button>
  <button type="button" class="bingo-wall-head-btn" onclick="goAccount()">Profile</button>
  ${state.isLoggedIn?`<button type="button" class="bingo-wall-head-btn bingo-wall-head-btn-logout" onclick="logoutBingo()">Log Out</button>`:''}
  </div></header>`;
 }
-/* Approved Bingo Wall bottom nav (2026-10-10): Home|Live|Marketplace|Notifications|Messages,
-   scoped to the Wall page only (see note above aaMbeaHeaderHTML). Each item calls the app's
-   existing real route/feature — nothing invented. "Home" is marked active since this nav only
-   ever appears while viewing the Wall section itself (there's no separate "this page" state to
-   highlight on a single-purpose page). */
+/* Approved Bingo Wall bottom nav (2026-10-10): Home|Live|Marketplace|Notifications|Messages.
+   Each item calls the app's existing real route/feature. The active item follows state.view
+   (Home=home, Marketplace=market, Messages=inbox); on the Wall itself none of the five is the
+   current section, so none is highlighted - Home is no longer shown active while on the Wall. */
 function aaWallBottomNavHTML(){
+ const v=state.view, on=k=>({home:v==="home",market:v==="market",inbox:v==="inbox"})[k]?" active":"";
+ const unread=typeof aaUnreadMessageCount==="function"?Number(aaUnreadMessageCount()||0):0;
  return `<nav class="bingo-wall-bottom-nav" aria-label="Primary">
- <button type="button" class="bingo-wall-nav-item active" onclick="goHome()"><span aria-hidden="true">🏠</span><span>Home</span></button>
+ <button type="button" class="bingo-wall-nav-item${on("home")}" onclick="goHome()"><span aria-hidden="true">🏠</span><span>Home</span></button>
  <button type="button" class="bingo-wall-nav-item" onclick="if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio()"><span aria-hidden="true">🔴</span><span>Live</span></button>
- <button type="button" class="bingo-wall-nav-item" onclick="aaOpenMarket()"><span aria-hidden="true">🛒</span><span>Marketplace</span></button>
+ <button type="button" class="bingo-wall-nav-item${on("market")}" onclick="aaOpenMarket()"><span aria-hidden="true">🛒</span><span>Marketplace</span></button>
  <button type="button" class="bingo-wall-nav-item" onclick="if(typeof aaOpenAccountNotifications==='function')aaOpenAccountNotifications();else{goAccount();}"><span aria-hidden="true">🔔</span><span>Notifications</span></button>
- <button type="button" class="bingo-wall-nav-item" onclick="openInbox()"><span aria-hidden="true">✉️</span><span>Messages</span></button>
+ <button type="button" class="bingo-wall-nav-item${on("inbox")}" onclick="openInbox()"><span aria-hidden="true">✉️</span><span>Messages</span>${unread>0?`<span class="bingo-wall-nav-badge">${unread>99?"99+":unread}</span>`:""}</button>
  </nav>`;
 }
 const AA_FONT_STYLE_CATEGORIES=["All","Elegant","Bold","Fun","Cultural"];
@@ -18649,11 +18682,10 @@ function aaTopicPostCardHTML(t){
 
  <div class="bingo-topic-summary"><span class="bingo-reaction-toggle" role="button" tabindex="0" aria-pressed="${loved}" aria-label="${loved?'Remove your reaction':'React to this post'}" onclick="aaTopicLove(${id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();aaTopicLove(${id})}"><span aria-hidden="true">👍 ❤️ 😆</span> ${aaTopicLoveCount(t)} ${aaTopicLoveCount(t)===1?'reaction':'reactions'}</span><span>${comments.length} ${comments.length===1?'comment':'comments'}</span></div>
  <div class="bingo-topic-actions" role="group" aria-label="Post actions">
- <!-- Crown has no per-post backend yet (only a separate user-profile Crown-status system exists).
-      This is intentionally inert/"coming soon" rather than silently reusing the Like/reaction
-      toggle above as a fake Crown transaction. The real reaction toggle is preserved and fully
-      working via the .bingo-reaction-toggle summary line above, not removed. -->
- <button type="button" class="bingo-action-crown" aria-disabled="true" aria-label="Crown — coming soon" onclick="toast('Crown is coming soon — awarding a post needs a new backend feature that doesn\'t exist yet. Your reactions above still work as before.')"><span aria-hidden="true">👑</span><span>Soon</span></button>
+ <!-- Crown opens the existing paid-Crown checkout (assets/bingo-paid-crowns-addon.js -> M-Pesa edge function
+             mpesa-crown, which verifies payment server-side). The number is the real count of rows in
+             bingo_crown_awards for this post; if it could not be loaded the label says "Crown", never a made-up number. -->
+        <button type="button" class="bingo-action-crown" aria-label="Give a Crown" onclick="aaTopicCrown(${id})"><span aria-hidden="true">👑</span><span>${aaCrownCountFor(t.id)===null?'Crown':aaCompact(aaCrownCountFor(t.id))}</span></button>
  <button type="button" aria-label="View comments" onclick="aaOpenCommentsDrawer(${id})"><span aria-hidden="true">💬</span><span>${comments.length}</span></button>
  <button type="button" aria-label="Share post" onclick="aaTopicShare(${id})"><span aria-hidden="true">↗</span><span>Share</span></button>
  <button type="button" aria-pressed="${saved}" aria-label="${saved?'Unsave post':'Save post'}" onclick="aaTopicToggleSave(${id})"><span aria-hidden="true">🔖</span><span>${saved?'Saved':'Save'}</span></button></div>
@@ -18700,7 +18732,7 @@ function aaCommentsDrawerBodyHTML(t){
  <div class="bingo-topic-composer"><img class="aa-post-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" alt="" onerror="aaProfileImgFallback(this)"><div class="bingo-topic-field"><input class="field" id="topicComment_${esc(t.id)}" aria-label="Write a comment" placeholder="Write a comment…" value="${esc(aaCommentDraftText[t.id]||'')}" oninput="aaCommentDraftInput(${id},this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();aaTopicComment(${id})}"><button type="button" class="aa-comment-camera-btn" aria-label="Attach photo or video" onclick="document.getElementById('topicCommentMedia_'+${id}).click()">📷</button></div><input type="file" id="topicCommentMedia_${esc(t.id)}" accept="image/*,video/*" hidden onchange="aaHandleCommentMediaChange(${id})"><button class="bingo-topic-send" type="button" aria-label="Send comment" onclick="aaTopicComment(${id})">➤</button></div>
  ${aaCommentMediaPreviewHTML(t.id)}`;
 }
-let aaCommentsDrawerTopicId=null;
+let aaCommentsDrawerTopicId=null,aaCommentsDrawerView="",aaCommentsDrawerUser="";
 function aaCommentsDrawerEl(){
  let el=document.getElementById("aaCommentsDrawerRoot");
  if(el)return el;
@@ -18714,6 +18746,9 @@ function aaCommentsDrawerEl(){
 function aaCommentsDrawerKeyHandler(e){if(e.key==="Escape")aaCloseCommentsDrawer()}
 function aaRefreshCommentsDrawer(){
  if(!aaCommentsDrawerTopicId)return;
+ /* Navigating away (any view change, including logout -> home) or a different signed-in user closes the drawer.
+    fromPopstate=true so closing does not also history.back() out of the page the user just navigated to. */
+ if(state.view!==aaCommentsDrawerView||String(state.user?.id||"")!==aaCommentsDrawerUser){aaCloseCommentsDrawer(true);return}
  const t=aaTopics().find(x=>String(x.id)===String(aaCommentsDrawerTopicId));
  const drawer=document.getElementById("aaCommentsDrawer");
  if(!t||!drawer){aaCloseCommentsDrawer();return}
@@ -18726,7 +18761,7 @@ function aaRefreshCommentsDrawer(){
 function aaOpenCommentsDrawer(topicId){
  const t=aaTopics().find(x=>String(x.id)===String(topicId));
  if(!t){toast("This post is unavailable");return}
- aaCommentsDrawerTopicId=String(topicId);
+ aaCommentsDrawerTopicId=String(topicId);aaCommentsDrawerView=state.view;aaCommentsDrawerUser=String(state.user?.id||"");
  aaCommentsDrawerEl();
  aaRefreshCommentsDrawer();
  requestAnimationFrame(()=>{
@@ -18782,7 +18817,7 @@ function aaWallListingCardHTML(kind,rec){
 function aaPublicTopicsFeedHTML(){
  const all=aaTopics().filter(t=>!t.hiddenFromPublic).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
  aaLoadTopicCounts(all.map(t=>t.id));
- return `<section class="bingo-topic-page">${aaMbeaHeaderHTML()}<button class="btn btn-glass bingo-wall-back" onclick="goBack()">← Back</button>${state.isLoggedIn?aaWallComposerSectionHTML():`<button class="btn btn-gold" onclick="openAuth('login')">Log in to post or comment</button>`}${all.length?all.map(aaTopicPostCardHTML).join(''):'<div class="empty">No topics yet. Be the first to post.</div>'}${aaWallBottomNavHTML()}</section>`;
+ return `<section class="bingo-topic-page">${aaMbeaHeaderHTML()}<button class="btn btn-glass bingo-wall-back" onclick="goBack()">← Back</button>${state.isLoggedIn?aaWallComposerSectionHTML():`<button class="btn btn-gold" onclick="openAuth('login')">Log in to post or comment</button>`}${all.length?all.map(aaTopicPostCardHTML).join(''):'<div class="empty">No topics yet. Be the first to post.</div>'}${aaWallBottomNavHTML()}${typeof window.aaBingoAccountPanelHTML==="function"?window.aaBingoAccountPanelHTML():""}</section>`;
 }
 /* The Reply button previously built its onclick as a double-quoted HTML
    attribute containing JSON.stringify(c.authorName) - which itself
@@ -29029,8 +29064,6 @@ html body #auto-arcade-widget .bp-page .bp-cover .bp-cover-add:not(#bingo-flat-g
 /* Re-themed 2026-10-10 per approved Bingo Wall HTML spec (gemini-code-1791599314308.html): white/orange tokens, Plus Jakarta Sans. Selectors unchanged so JS hooks keep working. */
 #auto-arcade-widget .bingo-topic-page{max-width:440px;margin:auto;padding:0 0 110px;background:#fff;color:#0f172a}#auto-arcade-widget .bingo-topic-brand{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px 10px;background:#fff;position:sticky;top:0;z-index:20}#auto-arcade-widget .bingo-topic-brand h1{color:#ff7a00;font-size:26px;font-weight:900;margin:0;letter-spacing:-.5px;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif}#auto-arcade-widget .bingo-approved-topic{border:0;border-radius:18px;background:#fff;padding:12px 16px;margin:12px auto;max-width:440px;box-shadow:0 2px 8px rgba(0,0,0,.05);color:#0f172a;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,sans-serif}#auto-arcade-widget .bingo-approved-topic .aa-post-head{display:flex;align-items:center;gap:10px;margin:0 0 12px}#auto-arcade-widget .bingo-approved-topic .aa-post-avatar{width:44px;height:44px;object-fit:cover;border-radius:50%;border:2px solid #ff7a00;padding:2px;background:#fff}#auto-arcade-widget .bingo-topic-author{flex:1;min-width:0}#auto-arcade-widget .bingo-topic-author b{font-size:15px;font-weight:800;color:#0f172a;cursor:pointer}#auto-arcade-widget .bingo-topic-author .meta{color:#64748b;font-size:12px;font-weight:500;margin-top:2px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{color:#0f172a!important;font:800 17px/1.3 'Plus Jakarta Sans',sans-serif!important;margin:0 0 6px;text-shadow:none!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{color:#0f172a!important;font:600 15px/1.45 'Plus Jakarta Sans',sans-serif!important;white-space:pre-wrap;margin:0 0 10px}#auto-arcade-widget .bingo-approved-topic .aa-post-media{border-radius:18px;overflow:hidden;margin:0 0 10px;background:#000;box-shadow:0 2px 8px rgba(0,0,0,.05)}#auto-arcade-widget .bingo-approved-topic .aa-post-media img{display:block;width:100%;height:auto;max-height:none;object-fit:contain}#auto-arcade-widget .bingo-topic-options{position:relative}#auto-arcade-widget .bingo-topic-options summary{cursor:pointer;list-style:none;color:#1e293b;font-size:20px}#auto-arcade-widget .bingo-topic-options>div{position:absolute;right:0;top:28px;z-index:5;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:8px;width:175px;box-shadow:0 12px 32px rgba(0,0,0,.12)}#auto-arcade-widget .bingo-topic-options button{display:block;border:0;background:none;color:#0f172a;padding:10px;cursor:pointer;text-align:left;width:100%;font-weight:600}#auto-arcade-widget .bingo-topic-summary{display:flex;justify-content:space-between;gap:10px;color:#64748b;font-size:12.5px;font-weight:600;padding:0 2px 10px}#auto-arcade-widget .bingo-topic-actions{display:flex;align-items:center;justify-content:space-between;padding:10px 8px;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;margin-bottom:12px}#auto-arcade-widget .bingo-topic-actions button{display:flex;align-items:center;justify-content:center;gap:6px;flex:1;background:none;border:0;border-radius:8px;color:#ff7a00;padding:6px 8px;font:800 14px 'Plus Jakarta Sans',sans-serif;cursor:pointer;position:relative}#auto-arcade-widget .bingo-topic-actions button:nth-child(2){color:#1d4ed8}#auto-arcade-widget .bingo-topic-actions button+button::before{content:"";position:absolute;left:-1px;top:50%;transform:translateY(-50%);width:1px;height:20px;background:#e2e8f0}#auto-arcade-widget .bingo-topic-actions svg{width:20px;height:20px;fill:none;stroke:currentColor}#auto-arcade-widget .bingo-topic-actions button[aria-pressed=true]{color:#ff7a00}#auto-arcade-widget .bingo-topic-composer{display:flex;align-items:center;gap:10px;margin-top:4px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:36px;height:36px;border:0;padding:0}#auto-arcade-widget .bingo-topic-field{display:flex;flex:1;min-width:0;align-items:center;border:1px solid #cbd5e1;border-radius:24px;background:#f8fafc;padding:6px 14px}#auto-arcade-widget .bingo-topic-field input.field{flex:1;min-width:0;background:none!important;border:0!important;box-shadow:none!important;margin:0;color:#0f172a;font-size:13.5px;font-weight:500;padding:6px 0}#auto-arcade-widget .bingo-topic-field input::placeholder{color:#94a3b8}#auto-arcade-widget .bingo-topic-send{border:0;background:#ff7a00;color:#fff;border-radius:50%;width:38px;height:38px;flex-shrink:0;font-size:18px;cursor:pointer;box-shadow:0 2px 8px rgba(255,122,0,.3)}@media(max-width:480px){#auto-arcade-widget .bingo-approved-topic{padding:10px 14px;border-radius:14px}#auto-arcade-widget .bingo-approved-topic .aa-post-title{font-size:15px!important}#auto-arcade-widget .bingo-approved-topic .aa-post-message{font-size:14px!important}#auto-arcade-widget .bingo-topic-actions button{font-size:12.5px;gap:4px}#auto-arcade-widget .bingo-topic-composer{gap:6px}#auto-arcade-widget .bingo-topic-composer .aa-post-avatar{width:30px;height:30px}#auto-arcade-widget .bingo-topic-summary{font-size:11.5px}}
 html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{border:0!important;border-radius:8px!important;box-shadow:none!important;background:none!important;padding:6px 8px!important;font:800 14px 'Plus Jakarta Sans',sans-serif!important;color:#ff7a00!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button:nth-child(2){color:#1d4ed8!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button[aria-pressed=true]{color:#ff7a00!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-send{border:0!important;border-radius:50%!important;background:#ff7a00!important;box-shadow:0 2px 8px rgba(255,122,0,.3)!important;color:#fff!important;width:38px!important;height:38px!important;padding:0!important}html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-field .field{font-weight:500!important}html body #auto-arcade-widget .bingo-approved-topic .aa-comment-camera-btn{border:0!important;box-shadow:none!important;background:none!important}
-/* Crown has no backend yet: shown but visually inert/"coming soon" rather than impersonating a real action (2026-10-10). */
-html body #auto-arcade-widget .bingo-approved-topic .bingo-action-crown[aria-disabled=true]{color:#94a3b8!important;cursor:default!important}
 /* The reactions line (was the old Like toggle) stays tappable even though Crown took its row slot. */
 #auto-arcade-widget .bingo-approved-topic .bingo-reaction-toggle{cursor:pointer;border-radius:8px;padding:2px 6px;margin:-2px -6px}
 #auto-arcade-widget .bingo-approved-topic .bingo-reaction-toggle:hover{background:#f8fafc}
@@ -29039,6 +29072,11 @@ html body #auto-arcade-widget .bingo-approved-topic .bingo-action-crown[aria-dis
    existing global navigation (draggable logo + Cockpit menu, used on Home/Marketplace/Profile/etc.)
    is untouched; see final report for why this wasn't made global. */
 #auto-arcade-widget .bingo-topic-page .bingo-topic-brand{flex-wrap:wrap;row-gap:8px}
+/* Wall shows exactly one logo + one Inbox/Profile/Log Out set: the global header is hidden on this view only. */
+#auto-arcade-widget.aa-wall-view #app>.header{display:none!important}
+#auto-arcade-widget .bingo-wall-logo-btn{border:0;background:none;padding:0;margin:0;cursor:pointer;display:block;line-height:0;box-shadow:none}
+#auto-arcade-widget .bingo-wall-nav-item{position:relative}
+#auto-arcade-widget .bingo-wall-nav-badge{position:absolute;top:2px;left:calc(50% + 8px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:#ef4444;color:#fff;font:800 10px/16px 'Plus Jakarta Sans',sans-serif;text-align:center}
 #auto-arcade-widget .bingo-wall-brand-group{display:flex;flex-direction:column;line-height:1.1}
 #auto-arcade-widget .bingo-wall-tagline{color:#64748b;font-size:11.5px;font-weight:600;margin-top:1px}
 #auto-arcade-widget .bingo-wall-header-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -29373,7 +29411,7 @@ aaLoadVehicles=async function(){await originalLoad.apply(this,arguments);await P
    existing overlay-detection (pauses background video autoplay, blocks wheel/arrow-key feed
    navigation) exactly like the video/photo lightboxes already do. */
 const originalRenderForCommentsDrawer=render;
-render=function(){originalRenderForCommentsDrawer.apply(this,arguments);try{if(typeof aaRefreshCommentsDrawer==="function")aaRefreshCommentsDrawer()}catch(e){}};
+render=function(){try{if(state.bingoAccountPanel&&state.view!=="seller"&&state.view!=="topics")state.bingoAccountPanel=""}catch(e){}originalRenderForCommentsDrawer.apply(this,arguments);try{if(typeof aaRefreshCommentsDrawer==="function")aaRefreshCommentsDrawer()}catch(e){}};
 const originalOverlayForCommentsDrawer=aaHomeOverlayOpen;
 aaHomeOverlayOpen=function(){return originalOverlayForCommentsDrawer()||!!(typeof aaCommentsDrawerTopicId!=="undefined"&&aaCommentsDrawerTopicId&&document.getElementById("aaCommentsDrawer")?.classList.contains("open"))};
 // Purge legacy sample and local-only public records. Unsaved forms remain drafts.
