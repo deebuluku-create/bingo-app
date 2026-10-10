@@ -29162,6 +29162,30 @@ html body #auto-arcade-widget .bingo-wall-bottom-nav .bingo-wall-nav-item.active
 html body #auto-arcade-widget .bingo-approved-topic .aa-post-avatar{border:2px solid #ff7a00!important;box-shadow:none!important}
 html body #auto-arcade-widget .bingo-topic-page .bingo-topic-send,html body #aaCommentsDrawer .bingo-topic-send{background:#ff7a00!important;color:#fff!important;border:0!important;box-shadow:0 2px 8px rgba(255,122,0,.3)!important}
 html body #auto-arcade-widget .bingo-topic-page .aa-comment-camera-btn,html body #aaCommentsDrawer .aa-comment-camera-btn{box-shadow:none!important;border:0!important;background:none!important}
+/* All-light Wall (owner brief "Classy Light Bingo Wall", 2026-10-10): no dark pills or containers on the Wall. Specificity beats the sitewide
+   neon button recipe (:not(#bingo-flat-guard) adds an id) without touching it. */
+html body #auto-arcade-widget .bingo-topic-page .bingo-wall-head-btn:not(#bingo-flat-guard){background:#fff!important;color:#0f172a!important;border:1.5px solid #ff7a00!important;box-shadow:none!important}
+html body #auto-arcade-widget .bingo-topic-page .bingo-wall-head-btn-logout:not(#bingo-flat-guard){background:#fff5f5!important;color:#ef4444!important;border-color:#fecaca!important}
+html body #auto-arcade-widget .bingo-topic-page .aa-composer-bar{background:transparent!important;border:0!important;box-shadow:none!important}
+html body #auto-arcade-widget .bingo-topic-page .aa-composer-bar-input:not(#bingo-flat-guard){background:#f8fafc!important;border:1.5px solid #e2e8f0!important;color:#64748b!important;box-shadow:none!important;border-radius:24px!important}
+html body #auto-arcade-widget .bingo-topic-page .aa-composer-bar-input:not(#bingo-flat-guard):focus,html body #auto-arcade-widget .bingo-topic-page .aa-composer-bar-input:not(#bingo-flat-guard):active{background:#fff!important;border-color:#ff7a00!important}
+html body #auto-arcade-widget .bingo-topic-page .aa-composer-bar-icon:not(#bingo-flat-guard){background:none!important;border:0!important;box-shadow:none!important;color:#1e293b!important}
+html body #auto-arcade-widget .bingo-topic-page .aa-composer-bar .bingo-neon-action:not(#bingo-flat-guard){background:#ff7a00!important;color:#fff!important;border:0!important;border-radius:20px!important;box-shadow:0 2px 8px rgba(255,122,0,.3)!important}
+html body #auto-arcade-widget .bingo-approved-topic button:not([class]):not(#bingo-flat-guard){background:#fff!important;color:#ff7a00!important;border:1.5px solid #ff7a00!important;border-radius:20px!important;box-shadow:none!important}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-reaction-toggle:not(#bingo-flat-guard){background:#f8fafc!important;border:1px solid #e2e8f0!important;color:#0f172a!important;box-shadow:none!important}
+html body #auto-arcade-widget .aa-refresh-fab:not(#bingo-flat-guard){background:#fff!important;color:#ff7a00!important;border:1.5px solid #ff7a00!important;box-shadow:0 2px 10px rgba(0,0,0,.08)!important}
+#auto-arcade-widget .bingo-approved-topic .aa-post-media{background:#f8fafc;border:1px solid #e2e8f0}
+#auto-arcade-widget .bingo-approved-topic .aa-post-media video{background:#f8fafc}
+#auto-arcade-widget .bingo-topic-page .aa-composer-card,#auto-arcade-widget .bingo-topic-page .aa-v69-card{background:#fff;border-color:#e2e8f0;color:#0f172a}
+html body #auto-arcade-widget .aa-wall-listing:not(#bingo-flat-guard){background:#fff!important;border-color:#e2e8f0!important;box-shadow:0 2px 10px rgba(0,0,0,.04)}
+#auto-arcade-widget .aa-wall-author b,#auto-arcade-widget .aa-wall-body b{color:#0f172a}
+#auto-arcade-widget .aa-wall-author small{color:#64748b}
+#auto-arcade-widget .aa-wall-body small{color:#ff7a00}
+#auto-arcade-widget .aa-wall-kind{color:#ff7a00;border-color:rgba(255,122,0,.5)}
+#auto-arcade-widget .aa-wall-media{background:#f8fafc}
+#auto-arcade-widget.aa-wall-view{background:#f1f5f9}
+body:has(#auto-arcade-widget.aa-wall-view){background:#f1f5f9!important}
+#auto-arcade-widget .bingo-topic-page .bingo-media-stats{color:#64748b!important;background:none!important}
 /* Flat, clean video surface: no floating play badge; hide the browser's own big centre play button too. */
 .aa-post-media video::-webkit-media-controls-overlay-play-button,.aa360-video::-webkit-media-controls-overlay-play-button{display:none!important}
 /* Rotating real comments (one bubble at a time, active Home topic slide only; see bingoRotator in the render wrapper) */
@@ -29352,9 +29376,12 @@ function mediaSignedParts(src){const m=/\/storage\/v1\/object\/sign\/([^/]+)\/(.
 async function mediaProbe(src){if(!/^https?:/i.test(String(src||'')))return {status:0,type:''};try{const r=await fetch(src,{method:'GET',headers:{Range:'bytes=0-0'},cache:'no-store'});try{r.body&&r.body.cancel&&r.body.cancel()}catch(e){}return {status:r.status,type:r.headers.get('content-type')||''}}catch(e){return {status:0,type:''}}}
 function mediaReason(code,probe,error){if(error?.name==='NotAllowedError')return 'Tap to play';const st=probe.status;if(st===400||st===401||st===403)return 'Video link expired or not permitted (HTTP '+st+')';if(st===404)return 'Video file not found (HTTP 404)';if(st>=500)return 'Video server error (HTTP '+st+')';if(code===4)return st?'This device cannot play this video format':'Video format or source is unavailable';if(code===3)return 'Video could not be decoded';if(code===2)return 'Video transfer failed';return 'Video could not start'}
 async function mediaRefreshSrc(v){const src=v.currentSrc||v.getAttribute('src')||'',sp=mediaSignedParts(src);if(!sp||!sb)return false;const {data,error}=await sb.storage.from(sp.bucket).createSignedUrl(sp.path,3600);if(error||!data?.signedUrl)return false;if(sp.bucket===AA_TOPIC_MEDIA_BUCKET){aaTopicMediaCache[sp.path]=data.signedUrl;aaTopicMediaExpires[sp.path]=Date.now()+3300000}v.src=data.signedUrl;return true}
+/* Expired signed link (HTTP 400/401/403 on /object/sign/): re-sign once automatically and replay; the flag clears when playback starts. Exposed for Wall videos. */
+document.addEventListener('playing',e=>{if(e.target&&e.target.__bingoAutoResign)e.target.__bingoAutoResign=false},true);
+window.bingoMediaRecover=async function(v){try{if(!v||v.__bingoAutoResign)return;const src=v.currentSrc||v.getAttribute('src')||'';if(!mediaSignedParts(src))return;const pr=await mediaProbe(src);if(![400,401,403].includes(pr.status))return;v.__bingoAutoResign=true;if(await mediaRefreshSrc(v)){v.load();const p=v.play();if(p&&p.catch)p.catch(()=>{})}}catch(e){}};
 function mediaError(v,error){const host=v.closest('.aa360-item')||v.parentElement;if(!host)return;let btn=host.querySelector('.bingo-media-retry');if(!btn){btn=document.createElement('button');btn.type='button';btn.className='btn bingo-media-retry';host.appendChild(btn)}
  const code=v.error?.code||0;btn.textContent=(error?.name==='NotAllowedError'?'Tap to play':'Checking video…')+' · Retry';
- if(error?.name!=='NotAllowedError'&&!v.__bingoProbing){v.__bingoProbing=true;const src=v.currentSrc||v.getAttribute('src')||'';mediaProbe(src).then(pr=>{const reason=mediaReason(code,pr,error);btn.textContent=reason+' · Retry';try{console.warn('Bingo video failed:',{reason,mediaErrorCode:code,mediaErrorMessage:v.error?.message||'',http:pr.status,contentType:pr.type,source:String(src).split('?')[0]})}catch(e){}}).finally(()=>{v.__bingoProbing=false})}
+ if(error?.name!=='NotAllowedError'&&!v.__bingoProbing){v.__bingoProbing=true;const src=v.currentSrc||v.getAttribute('src')||'';mediaProbe(src).then(async pr=>{if([400,401,403].includes(pr.status)&&mediaSignedParts(src)&&!v.__bingoAutoResign){v.__bingoAutoResign=true;try{if(await mediaRefreshSrc(v)){btn.remove();v.load();play(v,false);return}}catch(e){}}const reason=mediaReason(code,pr,error);btn.textContent=reason+' · Retry';try{console.warn('Bingo video failed:',{reason,mediaErrorCode:code,mediaErrorMessage:v.error?.message||'',http:pr.status,contentType:pr.type,source:String(src).split('?')[0]})}catch(e){}}).finally(()=>{v.__bingoProbing=false})}
  btn.onclick=async e=>{e.stopPropagation();btn.textContent='Retrying…';try{await mediaRefreshSrc(v)}catch(x){}btn.remove();v.load();play(v,true)}}
 function play(v,gesture=false){if(!v||!v.isConnected||aaHomeOverlayOpen())return;v.muted=!aaFeedWantsSound();v.playsInline=true;v.preload='auto';let p;try{p=v.play()}catch(e){mediaError(v,e);return}if(p?.catch)p.catch(e=>{if(e.name==='AbortError')return;if(e.name==='NotAllowedError'&&!v.muted){v.muted=true;state.aaFeedSoundOn=false;aaFeedUpdateSoundBtn();v.play()?.catch(next=>{if(next.name!=='AbortError')mediaError(v,next)})}else mediaError(v,e)})}
 function activeVideo(){return document.querySelector('#auto-arcade-widget .aa360-item.bingo-media-active video.aa360-video')}
@@ -29470,7 +29497,7 @@ aaHomeOverlayOpen=function(){return originalOverlayForCommentsDrawer()||!!(typeo
    io=new IntersectionObserver(es=>{es.forEach(e=>{const v=e.target;
     if(e.isIntersecting&&e.intersectionRatio>=.5){if(aaHomeOverlayOpen())return;v.muted=true;v.playsInline=true;const p=v.play();if(p&&p.catch)p.catch(()=>{})}
     else{try{v.pause()}catch(x){}}})},{threshold:[0,.5,1]});
-   vids.forEach(v=>io.observe(v));
+   vids.forEach(v=>{if(!v.dataset.bingoRecover){v.dataset.bingoRecover='1';v.addEventListener('error',()=>{if(window.bingoMediaRecover)window.bingoMediaRecover(v)})}io.observe(v)});
   }catch(e){}
  }
  const prev=render;
