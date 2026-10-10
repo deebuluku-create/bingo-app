@@ -1076,6 +1076,7 @@ Production mother file does not force production.
 .aa-video-lightbox .aa-video-lightbox-inner video{position:absolute;inset:0;border-radius:0;cursor:pointer}
 .aa-video-lightbox .aa-lightbox-close{top:calc(12px + env(safe-area-inset-top,0px));right:12px;opacity:0;pointer-events:none;transition:opacity .18s ease}
 .aa-video-lightbox.aa-lightbox-chrome .aa-lightbox-close{opacity:1;pointer-events:auto}
+.aa-video-lightbox .aa-lightbox-sound{position:absolute;top:calc(64px + env(safe-area-inset-top,0px));right:12px;width:32px;height:32px;min-width:32px;min-height:32px;padding:0;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(8,16,32,.7);color:#fff;font-size:15px;line-height:1;z-index:6;display:grid;place-items:center;cursor:pointer}
 /* Feed-thumbnail poster + neon play/fullscreen overlay - tapping this
    (never the raw <video>, which has no controls in this state) is the
    only way to open the full-screen viewer, so the feed thumbnail never
@@ -9412,7 +9413,7 @@ function aaPauseAllFeedVideos(){
  document.querySelectorAll("#auto-arcade-widget .aa360-video").forEach(v=>{try{v.pause()}catch(e){}});
 }
 function aaHomeOverlayOpen(){
- return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.msgActiveCall||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||state.adOpen||state.agentInviteTarget||state.successOpen||state.helpSellRulesTarget||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.installPrompt);
+ return !!(state.commentTarget||state.shareTarget||state.boostTarget||state.callTarget||state.msgActiveCall||state.authOpen||state.reportTarget||state.connectionTarget||state.chatUnlockTarget||state.moderationPanelTarget||state.adOpen||state.agentInviteTarget||state.successOpen||state.helpSellRulesTarget||(state.foodMediaViewer&&state.foodMediaViewer.open)||state.propertyMediaViewerOpen||state.installPrompt);
 }
 /* Home Feed sound: state.aaFeedSoundOn defaults to true (try autoplay
    WITH sound, per the video-playback directive) and only flips to false
@@ -11113,7 +11114,7 @@ function aaPropertyMediaViewerHTML(){
  if(!item)return '';
  return `<div class="aa-property-media-viewer" ontouchstart="aaPropertyViewerTouchStartX=event.touches[0].clientX" ontouchend="aaPropertyMediaViewerTouchEnd(event)" onclick="if(event.target===this)aaClosePropertyMediaViewer()">
   <button type="button" class="btn aa-property-media-viewer-close" onclick="aaClosePropertyMediaViewer()">✕</button>
-  ${item.type==='video'?`<video src="${bingoSafeMediaAttr(item.url)}" controls autoplay playsinline preload="metadata"></video>`:`<img src="${bingoSafeMediaAttr(item.url)}" alt="">`}
+  ${item.type==='video'?aaFoodViewerVideoHostHTML(item,aaMediaViewerList):`<img src="${bingoSafeMediaAttr(item.url)}" alt="">`}
   ${aaMediaViewerList.length>1?`<span class="aa-post-media-counter">${aaMediaViewerIndex+1}/${aaMediaViewerList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous" onclick='event.stopPropagation();aaPropertyMediaViewerNav(-1)'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next" onclick='event.stopPropagation();aaPropertyMediaViewerNav(1)'>›</button>`:''}
  </div>`;
 }
@@ -11127,6 +11128,7 @@ function aaPropertyMediaViewerNav(dir){
  render();
 }
 function aaClosePropertyMediaViewer(){
+ if(aaFoodViewerEl){try{aaFoodViewerEl.pause();aaFoodViewerEl.removeAttribute('src');aaFoodViewerEl.load()}catch(e){}aaFoodViewerEl=null}
  state.propertyMediaViewerOpen=false;
  aaMediaViewerList=[];aaMediaViewerIndex=0;
  render();
@@ -14566,8 +14568,23 @@ function aaOpenVideoLightbox(src,title,topicId){
  box.innerHTML=`<div class="aa-lightbox-inner aa-video-lightbox-inner"><button class="aa-lightbox-close" aria-label="Close video" onclick="aaCloseVideoLightbox(false)">×</button><video src="${safeSrc}" data-bingo-grid-preview="skip" autoplay loop playsinline aria-label="${esc(title||'Bingo video')}"></video></div>`;
  box.addEventListener("click",e=>{if(e.target===box)aaCloseVideoLightbox(false)});
  /* Full-screen video: the close × stays hidden while it plays; one tap on the video shows it, the next hides it. */
- box.querySelector("video").addEventListener("click",e=>{e.stopPropagation();box.classList.toggle("aa-lightbox-chrome")});
+ /* Tap: if the video is paused (e.g. the browser refused autoplay) the tap plays it;
+    otherwise it shows/hides the close button as before. */
+ const lbVideo=box.querySelector("video");
+ lbVideo.addEventListener("click",e=>{e.stopPropagation();if(lbVideo.paused){const p=lbVideo.play();if(p&&p.catch)p.catch(()=>{});return}box.classList.toggle("aa-lightbox-chrome")});
  document.body.appendChild(box);
+ /* Autoplay WITH sound is refused by browsers without a recent tap (also iPhone Low Power
+    Mode, reopening via Back). The viewer has no native controls, so a refusal used to leave
+    it paused on its first frame - the "frozen at the first frame" report. Now: try with
+    sound, fall back to muted playback plus a small sound button. */
+ (function(){
+  const sound=document.createElement("button");sound.type="button";sound.className="aa-lightbox-sound";
+  const sync=()=>{sound.textContent=lbVideo.muted?"🔇":"🔊";sound.setAttribute("aria-label",lbVideo.muted?"Unmute video":"Mute video")};
+  sound.onclick=e=>{e.stopPropagation();lbVideo.muted=!lbVideo.muted;if(lbVideo.paused){const p=lbVideo.play();if(p&&p.catch)p.catch(()=>{})}sync()};
+  box.querySelector(".aa-lightbox-inner").appendChild(sound);lbVideo.addEventListener("volumechange",sync);sync();
+  const p=lbVideo.play();
+  if(p&&p.catch)p.catch(err=>{if(err&&err.name==="AbortError")return;lbVideo.muted=true;sync();lbVideo.play().catch(()=>{})});
+ })();
  aaVideoLightboxPrevOverflow=document.body.style.overflow;
  document.body.style.overflow="hidden";
  document.addEventListener("keydown",aaVideoLightboxKeyHandler);
@@ -19082,7 +19099,7 @@ function aaTopicPostCardHTML(t){
  ${aaFollowTopControlHTML({id:t.authorId,name:author.name})}
  </div></details></header>
  <div class="aa-post-content">${t.title?`<h2 class="aa-post-title" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):""}">${esc(t.title)}</h2>`:''}${t.body?`<p class="aa-post-message" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):""}">${esc(t.body)}</p>`:''}</div>
- ${mediaSrc?`<div class="aa-post-media">${isVideo?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'><video src="${bingoSafeMediaAttr(mediaSrc)}" data-bingo-grid-preview="skip" autoplay muted playsinline loop preload="metadata"></video></div>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}"${mediaClickAttr}>`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
+ ${mediaSrc?`<div class="aa-post-media">${isVideo?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'><video src="${bingoSafeMediaAttr(mediaSrc)}" data-bingo-grid-preview="skip" muted playsinline loop preload="metadata"></video></div>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}"${mediaClickAttr}>`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
 
  <div class="bingo-topic-summary"><span class="bingo-reaction-toggle" role="button" tabindex="0" aria-pressed="${loved}" aria-label="${loved?'Remove your reaction':'React to this post'}" onclick="aaTopicLove(${id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();aaTopicLove(${id})}"><span aria-hidden="true">👍 ❤️ 😆</span> ${aaTopicLoveCount(t)} ${aaTopicLoveCount(t)===1?'reaction':'reactions'}</span><span>${comments.length} ${comments.length===1?'comment':'comments'}</span></div>
  <div class="bingo-topic-actions" role="group" aria-label="Post actions">
@@ -29919,8 +29936,12 @@ aaHomeOverlayOpen=function(){return originalOverlayForCommentsDrawer()||!!(typeo
    const ratio=new Map();
    io=new IntersectionObserver(es=>{es.forEach(e=>ratio.set(e.target,e.isIntersecting?e.intersectionRatio:0));
     let best=null,bestR=0;vids.forEach(v=>{const r=ratio.get(v)||0;if(r>=.5&&r>bestR+.01){best=v;bestR=r}});
-    vids.forEach(v=>{if(v===best)return;if(!v.paused){try{v.pause()}catch(x){}}});
-    if(best&&best.paused&&!aaHomeOverlayOpen()){best.muted=true;best.playsInline=true;const p=best.play();if(p&&p.catch)p.catch(()=>{})}
+    vids.forEach(v=>{if(v===best)return;if(!v.paused){try{v.pause()}catch(x){}}if(v.preload==='auto')v.preload='metadata'});
+    /* Wall cards no longer carry the autoplay attribute (2026-10-10): it made the browser
+       download EVERY card's video at once - measured 11 parallel downloads on a 300 KB/s
+       link, the visible video stuck on its first frame (readyState 2) for 32 s. Only the
+       chosen card buffers fully; the rest load metadata only. */
+    if(best&&best.paused&&!aaHomeOverlayOpen()){best.preload='auto';best.muted=true;best.playsInline=true;const p=best.play();if(p&&p.catch)p.catch(()=>{})}
    },{threshold:[0,.25,.5,.75,1]});
    vids.forEach(v=>{if(!v.dataset.bingoRecover){v.dataset.bingoRecover='1';v.addEventListener('error',()=>{if(window.bingoMediaRecover)window.bingoMediaRecover(v)})}io.observe(v)});
   }catch(e){}
@@ -30007,7 +30028,7 @@ setInterval(()=>{if(document.visibilityState==='visible'&&sb&&!state.testMode)lo
     the rebuild: a media element left outside the page until the next
     animation frame is paused by the browser (measured: playback stopped
     ~1 s after opening whenever data arrived). */
- const inner=function(){const kept=keepWallVideos();const r=base.apply(this,arguments);try{restoreWallVideos(kept)}catch(e){}try{if(state.foodMediaViewer&&state.foodMediaViewer.open&&typeof aaTryPlayFoodViewerVideo==='function')aaTryPlayFoodViewerVideo()}catch(e){}return r};
+ const inner=function(){const kept=keepWallVideos();const r=base.apply(this,arguments);try{restoreWallVideos(kept)}catch(e){}try{if(((state.foodMediaViewer&&state.foodMediaViewer.open)||state.propertyMediaViewerOpen)&&typeof aaTryPlayFoodViewerVideo==='function')aaTryPlayFoodViewerVideo()}catch(e){}return r};
  const homeFeedMounted=()=>state.view==='home'&&!!document.querySelector('#auto-arcade-widget .aa360-feed');
  window.aaFeedFlushDeferredRender=function(){
   if(!pending)return;
@@ -30023,6 +30044,60 @@ setInterval(()=>{if(document.visibilityState==='visible'&&sb&&!state.testMode)lo
   pending=false;
   return inner.apply(this,arguments);
  };
+})();
+/* ===== Video stall watchdog (2026-10-10) =====
+   ONE interval for the whole app (not per render or per video). It watches only the
+   video that is actually meant to be playing (not paused, visible, page visible).
+   Normal buffering is left alone: recovery is attempted only when currentTime has not
+   moved for 8 s while the browser reports it lacks data (readyState < 3). Recovery
+   keeps the position (reload the same source, seek back, play). At most 2 recoveries
+   per video; after that a small Retry button is shown - never an endless loop. An
+   expired signed link is handled by the existing bingoMediaRecover (re-sign once). */
+(function(){
+ if(window.__bingoStallWatchdog)return;window.__bingoStallWatchdog=1;
+ const info=new WeakMap();
+ function showRetry(v){
+  const host=v.closest('.aa360-item,.aa-post-media,.bingo-business-media,.aa-video-lightbox-inner')||v.parentElement;
+  if(!host||host.querySelector('.bingo-stall-retry'))return;
+  const b=document.createElement('button');b.type='button';b.className='btn bingo-stall-retry';b.textContent='Video paused - tap to retry';
+  b.style.cssText='position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:8;font-size:13px;padding:7px 12px;min-height:0';
+  b.onclick=e=>{e.stopPropagation();b.remove();const i=info.get(v);if(i)i.tries=0;recover(v,true)};
+  if(getComputedStyle(host).position==='static')host.style.position='relative';
+  host.appendChild(b);
+  v.addEventListener('playing',()=>{b.remove();const x=info.get(v);if(x){x.tries=0;x.recovering=0}},{once:true}); // recovered by itself
+ }
+ function resume(v){const p=v.play();if(p&&p.catch)p.catch(err=>{if(err&&err.name==='NotAllowedError'&&!v.muted){v.muted=true;v.play().catch(()=>{})}})}
+ function recover(v,manual){
+  const i=info.get(v)||{tries:0};i.tries++;i.last=v.currentTime;i.still=0;i.recovering=Date.now();
+  i.resumeAt=Math.max(v.currentTime||0,i.resumeAt||0);info.set(v,i); // a reload resets currentTime: remember where it froze
+  const t=i.resumeAt,src=v.currentSrc||v.getAttribute('src');
+  console.warn('[Bingo video] stall recovery',{t,readyState:v.readyState,networkState:v.networkState,error:v.error&&v.error.code,src:String(src||'').slice(0,80)});
+  if(window.bingoMediaRecover&&/\/object\/sign\//.test(String(src||''))){try{window.bingoMediaRecover(v)}catch(_){}}
+  v.addEventListener('playing',()=>{const x=info.get(v);if(x){x.recovering=0;if(v.currentTime>=(x.resumeAt||0)-0.5)x.resumeAt=0}},{once:true});
+  try{v.load();v.addEventListener('loadedmetadata',()=>{try{if(t)v.currentTime=t}catch(_){}resume(v)},{once:true})}catch(_){}
+ }
+ setInterval(()=>{
+  if(document.hidden)return;
+  document.querySelectorAll('video').forEach(v=>{
+   if(!v.isConnected||!v.getAttribute('src')&&!v.currentSrc)return;
+   const i=info.get(v)||{tries:0,last:v.currentTime,still:0,recovering:0};
+   /* A recovery in progress leaves the element paused until data arrives: judge it by time,
+      not by the paused flag, so a dead connection ends in the Retry button, not silence. */
+   if(i.recovering){
+    if(Date.now()-i.recovering>12000){i.recovering=0;if(i.tries<2)recover(v,false);else showRetry(v)}
+    info.set(v,i);return;
+   }
+   if(v.paused||v.ended||v.seeking)return;
+   const r=v.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight||r.width<60)return;
+   if(Math.abs(v.currentTime-i.last)>0.05){i.still=0;i.last=v.currentTime;if(i.tries&&v.readyState>=3)i.tries=0}
+   else if(v.readyState<3)i.still++;
+   info.set(v,i);
+   if(i.still>=4){ // 4 x 2 s with no progress and no data
+    i.still=0;
+    if(i.tries<2)recover(v,false);else showRetry(v);
+   }
+  });
+ },2000);
 })();
 
 </script>
