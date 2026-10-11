@@ -19211,6 +19211,25 @@ async function aaDeleteBingoTopic(id){
  }
  render();toast('Post deleted successfully.','success');
 }
+/* Wall text (2026-10-11). The composer saves title = first line of the body (aaDeriveTopicTitleFromBody),
+   so a single-line post is stored with title == body. The card shows the title only when it adds something;
+   nothing in Supabase is changed. */
+function aaTopicTitleIsRepeat(t){
+ const norm=v=>String(v||"").replace(/\s+/g," ").trim();
+ const title=norm(t.title),body=norm(t.body);
+ if(!title||!body)return false;
+ if(title===body)return true;
+ const first=norm(String(t.body||"").split("\n").find(l=>l.trim())||"");
+ return title===first||title===first.slice(0,80).trim();
+}
+function aaTopicTextHTML(t){
+ const repeat=aaTopicTitleIsRepeat(t);
+ const bodyFmt=t.bodyFmt||(repeat?t.titleFmt:null);
+ const body=t.body?`<p class="aa-post-message" style="${bodyFmt?aaTextFormatCSS(bodyFmt):""}">${esc(t.body)}</p>`:"";
+ if(repeat||!t.title)return body;
+ const title=`<h2 class="aa-post-title" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):""}">${esc(t.title)}</h2>`;
+ return body?title+body:title;
+}
 function aaTopicPostCardHTML(t){
  const author=aaTopicAuthorMeta(t);
  const saved=aaTopicIsSaved(t.id);
@@ -19240,7 +19259,7 @@ function aaTopicPostCardHTML(t){
  <button type="button" onclick="aaTopicReport(${id})">Report post</button>
  ${aaFollowTopControlHTML({id:t.authorId,name:author.name})}
  </div></details></header>
- <div class="aa-post-content">${t.title?`<h2 class="aa-post-title" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):""}">${esc(t.title)}</h2>`:''}${t.body?`<p class="aa-post-message" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):""}">${esc(t.body)}</p>`:''}</div>
+ <div class="aa-post-content">${aaTopicTextHTML(t)}</div>
  ${mediaSrc?`<div class="aa-post-media">${isVideo?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'><video src="${bingoSafeMediaAttr(mediaSrc)}" data-bingo-grid-preview="skip" muted playsinline loop preload="metadata"></video></div>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}"${mediaClickAttr}>`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
 
  <div class="bingo-topic-summary"><span>${comments.length} ${comments.length===1?'comment':'comments'}</span></div>
@@ -30070,6 +30089,7 @@ html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button.
 html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button:active{opacity:.7}
 html body #auto-arcade-widget .bingo-approved-topic .aa-post-message,html body #auto-arcade-widget .bingo-approved-topic .aa-post-title{overflow-wrap:break-word!important;word-break:normal!important;hyphens:manual!important}
 html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-author b{overflow-wrap:anywhere}
+html body #auto-arcade-widget .bingo-approved-topic .aa-post-message{white-space:pre-line!important}
 /* Stage 3 fix (2026-10-11): the fixed refresh button (.aa-refresh-fab, unchanged) sits at the bottom right above the
    tabs. On narrow phones the Wall action row reserves a gutter for it, so Save is never covered. Desktop unchanged. */
 @media(max-width:520px){html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions{padding-right:46px!important}}
