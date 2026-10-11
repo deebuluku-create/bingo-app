@@ -16110,7 +16110,7 @@ function aaTopicDiag(stage,info){
 /* Playback evidence: media events for every <video> on the page, recorded into
    the same in-memory log. Only the path (no query string, so no signed-URL
    token) and element state are kept. Capture phase, so it sees every element. */
-['loadedmetadata','canplay','playing','waiting','stalled','error','emptied'].forEach(ev=>document.addEventListener(ev,e=>{
+['loadstart','loadedmetadata','canplay','playing','pause','waiting','stalled','abort','error','emptied'].forEach(ev=>document.addEventListener(ev,e=>{
  const v=e.target;if(!(v instanceof HTMLVideoElement))return;
  aaTopicDiag('video-'+ev,{rs:v.readyState,ns:v.networkState,code:v.error?v.error.code:0,w:v.videoWidth,h:v.videoHeight,muted:v.muted,paused:v.paused,path:String(v.currentSrc||v.getAttribute('src')||'').split('?')[0].slice(-70)});
 },true));
@@ -16133,11 +16133,29 @@ document.addEventListener('error',e=>{
 function diagSummary(){
  const ev=window.bingoDiagRun.events,c=n=>ev.filter(x=>x.stage===n).length;
  const videoRefs=new Set(ev.filter(x=>/^video-/.test(x.stage)&&x.ref).map(x=>x.ref));
- return {videosSeen:videoRefs.size,playingEvents:c('video-playing'),errorEvents:c('video-error'),stallEvents:c('video-stalled'),waitingEvents:c('video-waiting'),imageErrors:c('image-error'),urlRefreshEvents:c('url-refresh'),note:'Black-screen candidates are not computed yet; counts above are raw events.'};
+ const refsOf=n=>new Set(ev.filter(x=>x.stage===n&&x.ref).map(x=>x.ref)).size;const failedRefresh=ev.filter(x=>x.stage==='url-refresh'&&x.ok===false).length;const downs=ev.filter(x=>x.stage==='feed-active'&&x.dir==='up').length;return {videosSeen:videoRefs.size,successfulStarts:c('video-playing'),failedPlayAttempts:c('video-autoplay-rejected')+c('video-error'),blackScreenSuspects:refsOf('video-black-candidate'),stalledOrWaiting:c('video-stalled')+c('video-waiting'),imageFailures:c('image-error'),failedUrlRefreshes:failedRefresh,backwardMovesSeen:downs,confidence:'Suspected = sampler (readyState/videoWidth after 6 s). Confirmed = video-error with a media code.'};
 }
 function diagReportText(){return JSON.stringify({generated:new Date().toISOString(),summary:diagSummary(),events:window.bingoDiagRun.events},null,1)}
-function diagStart(){window.bingoDiagRun.active=true;window.bingoDiagRun.started=performance.now();window.bingoDiagRun.events=[];diagRenderPanel()}
-function diagStop(){window.bingoDiagRun.active=false;diagRenderPanel()}
+/* Sampler: every 2 s while recording, record the active post's video state. A video that is the
+   active post and still has no decoded frame (readyState < 2 or no videoWidth) after 6 s is a
+   SUSPECTED black screen. Repeated samples of the same post are not double counted. */
+let diagTimer=null,diagLastActive='',diagLastTop=0,diagActiveSince=0,diagFlagged=new Set();
+function diagSample(){
+ const run=window.bingoDiagRun;if(!run||!run.active)return;
+ const feed=document.querySelector('#auto-arcade-widget .aa360-feed');
+ const top=feed?feed.scrollTop:0;const dir=top>diagLastTop?'down':top<diagLastTop?'up':'still';diagLastTop=top;
+ const item=document.querySelector('#auto-arcade-widget .aa360-item.bingo-media-active');
+ const ref=item?diagRef(item.dataset.canon||item.dataset.aaFeedId||''):'';
+ if(ref!==diagLastActive){diagLastActive=ref;diagActiveSince=performance.now();diagRecord('feed-active',{ref,dir,scrollTop:Math.round(top),screen:state.view==='home'?'home':'wall'})}
+ const v=item?item.querySelector('video.aa360-video'):null;
+ if(!v){return}
+ const r=v.getBoundingClientRect();
+ const age=performance.now()-diagActiveSince;
+ diagRecord('video-sample',{ref,rs:v.readyState,ns:v.networkState,w:v.videoWidth,h:v.videoHeight,paused:v.paused,muted:v.muted,box:Math.round(r.width)+'x'+Math.round(r.height),visible:r.height>0,ageS:Math.round(age/1000),dir});
+ if(age>6000&&(v.readyState<2||!v.videoWidth)&&!diagFlagged.has(ref+':'+diagActiveSince)){diagFlagged.add(ref+':'+diagActiveSince);diagRecord('video-black-candidate',{ref,rs:v.readyState,ns:v.networkState,w:v.videoWidth,code:v.error?v.error.code:0,ageS:Math.round(age/1000),paused:v.paused})}
+}
+function diagStart(){window.bingoDiagRun.active=true;window.bingoDiagRun.started=performance.now();window.bingoDiagRun.events=[];diagFlagged=new Set();diagLastActive='';diagLastTop=0;if(diagTimer)clearInterval(diagTimer);diagTimer=setInterval(diagSample,2000);diagRenderPanel()}
+function diagStop(){window.bingoDiagRun.active=false;if(diagTimer){clearInterval(diagTimer);diagTimer=null}diagRenderPanel()}
 function diagClear(){window.bingoDiagRun.events=[];diagRenderPanel()}
 function diagCopy(){const t=diagReportText();try{navigator.clipboard.writeText(t).then(()=>toast('Diagnostic report copied.','success'),()=>toast('Could not copy. Use Download instead.','error'))}catch(e){toast('Could not copy. Use Download instead.','error')}}
 function diagDownload(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([diagReportText()],{type:'application/json'}));a.download='bingo-diagnostics-'+Date.now()+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
@@ -16147,7 +16165,7 @@ function diagRenderPanel(){
  const run=window.bingoDiagRun,sum=diagSummary();
  box.innerHTML=`<div class="bdg-head"><b>Diagnostics</b><button type="button" onclick="document.getElementById('bingoDiagPanel').classList.toggle('open')" aria-label="Close panel">×</button></div>
   <div class="bdg-body"><div>${run.active?'● Recording':'Stopped'} · ${run.events.length} events</div>
-  <div>Videos ${sum.videosSeen} · plays ${sum.playingEvents} · errors ${sum.errorEvents} · stalls ${sum.stallEvents} · image errors ${sum.imageErrors}</div>
+  <div>Videos ${sum.videosSeen} · starts ${sum.successfulStarts} · failed ${sum.failedPlayAttempts} · black? ${sum.blackScreenSuspects} · stalls ${sum.stalledOrWaiting} · images ${sum.imageFailures} · URL refresh fails ${sum.failedUrlRefreshes}</div>
   <div class="bdg-row"><button type="button" onclick="diagStart()" ${run.active?'disabled':''}>Start</button><button type="button" onclick="diagStop()" ${run.active?'':'disabled'}>Stop</button></div>
   <div class="bdg-row"><button type="button" onclick="diagCopy()">Copy report</button><button type="button" onclick="diagDownload()">Download</button><button type="button" onclick="diagClear()">Clear</button></div></div>`;
  box.classList.add('open');
@@ -30575,6 +30593,9 @@ async function mediaProbe(src){if(!/^https?:/i.test(String(src||'')))return {sta
 function mediaFormatLabel(t){t=String(t||'').toLowerCase();return /quicktime/.test(t)?'MOV':/3gpp/.test(t)?'3GP':/webm/.test(t)?'WebM':/matroska/.test(t)?'MKV':/mp4|m4v/.test(t)?'MP4':''}
 function mediaReason(code,probe,error){if(error?.name==='NotAllowedError')return 'Tap to play';const st=probe.status;if(st===400||st===401||st===403)return 'Video link expired or not permitted (HTTP '+st+')';if(st===404)return 'Video file not found (HTTP 404)';if(st>=500)return 'Video server error (HTTP '+st+')';if(code===4)return st?('This device cannot play this '+(mediaFormatLabel(probe.type)||'video')+' file (unsupported codec)'):'Video format or source is unavailable';if(code===3)return 'Video could not be decoded';if(code===2)return 'Video transfer failed';return 'Video could not start'}
 async function mediaRefreshSrc(v){const src=v.currentSrc||v.getAttribute('src')||'',sp=mediaSignedParts(src);if(!sp||!sb)return false;const {data,error}=await sb.storage.from(sp.bucket).createSignedUrl(sp.path,3600);if(error||!data?.signedUrl)return false;if(sp.bucket===AA_TOPIC_MEDIA_BUCKET){aaTopicMediaCache[sp.path]=data.signedUrl;aaTopicMediaExpires[sp.path]=Date.now()+3300000}v.src=data.signedUrl;return true}
+/* Diagnostics only: record every signed-URL refresh outcome (no token or URL is stored; the path is hashed). */
+const __bingoRawRefresh=mediaRefreshSrc;
+mediaRefreshSrc=async function(v){let ok=false;try{ok=await __bingoRawRefresh(v);return ok}finally{aaTopicDiag('url-refresh',{ok:!!ok,path:String(v?.currentSrc||v?.getAttribute?.('src')||'').split('?')[0].slice(-70)})}};
 /* Expired signed link (HTTP 400/401/403 on /object/sign/): re-sign once automatically and replay; the flag clears when playback starts. Exposed for Wall videos. */
 document.addEventListener('playing',e=>{if(e.target&&e.target.__bingoAutoResign)e.target.__bingoAutoResign=false},true);
 window.bingoMediaRecover=async function(v){try{if(!v||v.__bingoAutoResign)return;const src=v.currentSrc||v.getAttribute('src')||'';if(!mediaSignedParts(src))return;const pr=await mediaProbe(src);if(![400,401,403].includes(pr.status))return;v.__bingoAutoResign=true;if(await mediaRefreshSrc(v)){v.load();const r=v.getBoundingClientRect();if(r.bottom>0&&r.top<innerHeight){const p=v.play();if(p&&p.catch)p.catch(()=>{})}}}catch(e){}};
@@ -30582,7 +30603,7 @@ function mediaError(v,error){aaTopicDiag('media-error',{code:error&&error.code||
  const code=v.error?.code||0;const blocked=error?.name==='NotAllowedError';btn.dataset.kind=blocked?'blocked':'error';btn.textContent=blocked?'▶ Tap to play':'Checking video… · Retry';
  if(error?.name!=='NotAllowedError'&&!v.__bingoProbing){v.__bingoProbing=true;const src=v.currentSrc||v.getAttribute('src')||'';mediaProbe(src).then(async pr=>{if([400,401,403].includes(pr.status)&&mediaSignedParts(src)&&!v.__bingoAutoResign){v.__bingoAutoResign=true;try{if(await mediaRefreshSrc(v)){btn.remove();v.load();play(v,false);return}}catch(e){}}const reason=mediaReason(code,pr,error);btn.textContent=reason+' · Retry';if(code===4&&[200,206].includes(pr.status)&&!host.querySelector('.bingo-media-open')){const a=document.createElement('a');a.className='btn bingo-media-open';a.href=src;a.target='_blank';a.rel='noopener';a.textContent='Open original video';a.onclick=ev=>ev.stopPropagation();host.appendChild(a)}try{console.warn('Bingo video failed:',{reason,mediaErrorCode:code,mediaErrorMessage:v.error?.message||'',http:pr.status,contentType:pr.type,source:String(src).split('?')[0]})}catch(e){}}).finally(()=>{v.__bingoProbing=false})}
  btn.onclick=async e=>{e.stopPropagation();if(btn.dataset.kind==='blocked'){btn.remove();play(v,true);return}btn.textContent='Retrying…';try{await mediaRefreshSrc(v)}catch(x){}btn.remove();host.querySelector('.bingo-media-open')?.remove();v.load();play(v,true)}}
-function play(v,gesture=false){if(!v||!v.isConnected||aaHomeOverlayOpen())return;if(!gesture){const slide=v.closest('.aa360-item');if(slide&&!slide.classList.contains('bingo-media-active'))return}v.muted=!aaFeedWantsSound();v.playsInline=true;v.preload='auto';let p;try{p=v.play()}catch(e){mediaError(v,e);return}if(p?.catch)p.catch(e=>{if(e.name==='AbortError')return;if(e.name==='NotAllowedError'&&!v.muted){v.muted=true;state.aaFeedSoundOn=false;aaFeedUpdateSoundBtn();v.play()?.catch(next=>{if(next.name!=='AbortError')mediaError(v,next)})}else mediaError(v,e)})}
+function play(v,gesture=false){if(!v||!v.isConnected||aaHomeOverlayOpen())return;if(!gesture){const slide=v.closest('.aa360-item');if(slide&&!slide.classList.contains('bingo-media-active'))return}v.muted=!aaFeedWantsSound();v.playsInline=true;v.preload='auto';let p;try{p=v.play()}catch(e){mediaError(v,e);return}if(p?.catch)p.catch(e=>{if(e.name==='AbortError')return;aaTopicDiag('video-autoplay-rejected',{name:e.name,rs:v.readyState,muted:v.muted,path:String(v.currentSrc||v.getAttribute('src')||'').split('?')[0].slice(-70)});if(e.name==='NotAllowedError'&&!v.muted){v.muted=true;state.aaFeedSoundOn=false;aaFeedUpdateSoundBtn();v.play()?.catch(next=>{if(next.name!=='AbortError')mediaError(v,next)})}else mediaError(v,e)})}
 function activeVideo(){return document.querySelector('#auto-arcade-widget .aa360-item.bingo-media-active video.aa360-video')}
 /* Bandwidth goes to the post on screen and the next one; the previous keeps what it has buffered;
    anything further away does not fetch, so videos no longer all download at once. */
