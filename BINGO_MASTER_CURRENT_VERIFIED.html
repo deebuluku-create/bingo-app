@@ -16191,7 +16191,7 @@ function aaSyncTopicDraft(e){
  const t=e.target;if(!t||!t.id)return;
  state.topicDraft=state.topicDraft||{title:"",body:""};
   if(t.id==="topicTitle")state.topicDraft.title=t.value;
-  const live=document.querySelector(".aa-deco-live");if(live&&t.id==="topicBody")live.textContent=t.value||"Your message";
+  const live=document.querySelector(".aa-deco-live");if(live&&t.id==="topicBody")live.innerHTML=aaDecoBodyHTML(t.value||"Your message",state.topicDraft.bodyFmt);
  else if(t.id==="topicBody")state.topicDraft.body=t.value;
 }
 /* Selected-but-not-yet-uploaded media for the post composer. Kept outside
@@ -17383,7 +17383,7 @@ html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button{
 <style id="bingo-flat-white-wall">
 #auto-arcade-widget .bingo-topic-page{background:#fff!important;color:#111!important}
 #auto-arcade-widget .bingo-approved-topic{border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#111!important;margin:0 auto 18px!important;padding:16px 16px 22px!important}
-#auto-arcade-widget .bingo-topic-author b,#auto-arcade-widget .bingo-approved-topic .aa-post-message,#auto-arcade-widget .bingo-approved-topic .aa-comment-name,#auto-arcade-widget .bingo-approved-topic .aa-comment-text,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{color:#111!important}
+#auto-arcade-widget .bingo-topic-author b,#auto-arcade-widget .bingo-approved-topic .aa-post-message:not(.aa-deco-post),#auto-arcade-widget .bingo-approved-topic .aa-comment-name,#auto-arcade-widget .bingo-approved-topic .aa-comment-text,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-name,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-text{color:#111!important}
 #auto-arcade-widget .bingo-topic-author .meta,#auto-arcade-widget .bingo-topic-summary,#auto-arcade-widget .bingo-approved-topic .aa-comment-meta,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-meta{color:#667085!important}
 #auto-arcade-widget .bingo-topic-options summary{color:#667085!important}
 #auto-arcade-widget .bingo-topic-summary,#auto-arcade-widget .bingo-topic-actions,html body #auto-arcade-widget .bingo-approved-topic .aa-comment-row{border-color:#e5e7eb!important}
@@ -19008,7 +19008,7 @@ function aaBingo50SaveTopic(id,s){
  aaEnsureTopicDraftFmt();const key=id==='topicTitle'?'titleFmt':'bodyFmt';
  Object.assign(state.topicDraft[key],{font:s.deco?s.deco:'bingo50_'+s.font,color:'custom',customColor:s.color,bold:s.bold,italic:s.italic,underline:s.underline});
  const el=document.getElementById(id);if(el){el.style.cssText=aaTextFormatCSS(state.topicDraft[key],{input:el.tagName==='TEXTAREA'});aaSyncTopicDraft({target:el})
- const lv=document.querySelector('.aa-deco-live');if(lv&&id==='topicBody'){const dk=String(state.topicDraft[key].font||'').startsWith('deco_');lv.style.cssText=aaTextFormatCSS(state.topicDraft[key]);lv.textContent=(el&&el.value)||'Your message';if(lv.parentElement)lv.parentElement.style.display=dk?'':'none'}}
+ const lv=document.querySelector('.aa-deco-live');if(lv&&id==='topicBody'){const dk=String(state.topicDraft[key].font||'').startsWith('deco_');lv.style.cssText=aaTextFormatCSS(state.topicDraft[key]);lv.innerHTML=aaDecoBodyHTML((el&&el.value)||'Your message',state.topicDraft.bodyFmt);if(lv.parentElement)lv.parentElement.style.display=dk?'':'none'}}
 }
 function aaBingo50ReadName(){
  if(!state.isLoggedIn||!state.user?.id)return {};
@@ -19037,67 +19037,61 @@ function aaEnsureTopicDraftFmt(){
    as font:"deco_NN", so no new column is needed. These are approximations of
    the reference artwork, not replicas. */
 const AA_DECO_STYLES=[
- {id:"deco_01",no:"01",name:"Rose Chrome Calligraphy",ref:"Mama",gf:"Great+Vibes",family:"'Great Vibes',cursive",weight:400,scale:1.35,
-  fill:"linear-gradient(160deg,#ffe3ee 0%,#ff8fb8 30%,#d81b60 58%,#ffc2d6 78%,#7a1030 100%)",side:"#5c0f24",depth:4,gloss:true,preview:"#ff6fa3"},
- {id:"deco_02",no:"02",name:"Neon Gradient Brush Glow",ref:"Stay Positive",gf:"Kaushan+Script",family:"'Kaushan Script',cursive",weight:400,scale:1.2,
-  fill:"linear-gradient(90deg,#7b3ff2,#2d7dff 35%,#22d3ee 65%,#6ee7b7)",glow:["rgba(190,230,255,.9)","rgba(120,190,255,.7)"],italic:true,preview:"#22d3ee"},
- {id:"deco_03",no:"03",name:"Ivory Bubble Extrusion",ref:"BE YOURSELF",gf:"Lilita+One",family:"'Lilita One',sans-serif",weight:400,scale:1.25,
-  fill:"linear-gradient(180deg,#fffdf4 0%,#f3e9d2 100%)",side:"#1aa8bf",depth:7,gloss:true,preview:"#f3e9d2"},
- {id:"deco_04",no:"04",name:"Porcelain Script Emboss",ref:"Be Positive",gf:"Yellowtail",family:"'Yellowtail',cursive",weight:400,scale:1.35,
-  fill:"linear-gradient(180deg,#ffffff 0%,#ececf0 55%,#b9bcc6 100%)",side:"#8c919c",depth:2,gloss:true,preview:"#e9e9ee"},
- {id:"deco_05",no:"05",name:"Tri-Colour Metallic Block",ref:"TOMORROW STARTS NOW",gf:"Anton",family:"'Anton',Impact,sans-serif",weight:400,scale:1.2,
-  fill:"linear-gradient(180deg,#14b8b0 0%,#14b8b0 34%,#ff9f1c 34%,#ffd23f 50%,#7b4fd6 50%,#7b4fd6 100%)",stroke:"#d7dde4",side:"#a8741f",depth:6,gloss:true,preview:"#ff9f1c"},
- {id:"deco_06",no:"06",name:"Jewelled Rainbow Enamel",ref:"My Time is Coming",gf:"Fredoka:wght@700",family:"'Fredoka',sans-serif",weight:700,scale:1.2,
-  fill:"linear-gradient(180deg,#1ec8c8 0%,#1ec8c8 30%,#f5a524 30%,#f5a524 62%,#7b4fd6 62%,#7b4fd6 100%)",stroke:"#e8edf2",side:"#b07a2a",depth:5,gloss:true,preview:"#1ec8c8"},
- {id:"deco_07",no:"07",name:"Aqua-Lime Glitter Calligraphy",ref:"Confidence",gf:"Dancing+Script:wght@700",family:"'Dancing Script',cursive",weight:700,scale:1.3,
-  fill:"linear-gradient(90deg,#00b3d8,#17c3b2 40%,#7ed957 70%,#f5e61b)",side:"#0a6f7d",depth:2,gloss:true,preview:"#17c3b2"},
- {id:"deco_08",no:"08",name:"Ocean Liquid Glass",ref:"YOU ARE NOT ALONE",gf:"Rubik+Bubbles",family:"'Rubik Bubbles',cursive",weight:400,scale:1.2,
-  fill:"linear-gradient(180deg,#7fe7ff 0%,#0bb4e6 30%,#0646b5 65%,#0b2c74 100%)",side:"#06275e",depth:6,gloss:true,preview:"#0bb4e6"},
- {id:"deco_09",no:"09",name:"Faithful Metallic Rainbow",ref:"GOD REMAINS FAITHFUL",gf:"Bowlby+One+SC",family:"'Bowlby One SC',Impact,sans-serif",weight:400,scale:1.1,
-  fill:"linear-gradient(180deg,#14b8a6 0%,#14b8a6 45%,#f59e0b 45%,#f59e0b 55%,#7c3aed 55%,#7c3aed 100%)",stroke:"#b9c2cc",side:"#8a5a16",depth:6,gloss:true,preview:"#f59e0b"},
- {id:"deco_10",no:"10",name:"Rainbow Hope Sticker",ref:"There is always HOPE",gf:"Baloo+2:wght@800",family:"'Baloo 2',sans-serif",weight:800,scale:1.25,
-  fill:"linear-gradient(90deg,#ef4444 0%,#f59e0b 35%,#3b82f6 65%,#22c55e 100%)",stroke:"#fff7e6",side:"#1f2937",depth:4,gloss:true,preview:"#f59e0b"}
+ {id:"deco_01",no:"01",name:"Pink Serif Deep Extrusion",family:"Georgia,serif",weight:700,preview:"#f28bad",
+  css:"color:#f28bad;text-shadow:1px 2px #a63255,2px 4px #922747,3px 6px #77203c,4px 8px #60172e,5px 10px #461023,7px 13px 10px #080b17;"},
+ {id:"deco_02",no:"02",name:"Blue Cyan Glow",family:"Georgia,serif",weight:400,preview:"#288aff",
+  css:"font-style:italic;background:linear-gradient(90deg,#6676ff,#288aff,#08d5df);color:transparent;background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 0 9px #52baff);"},
+ {id:"deco_03",no:"03",name:"White Cyan Offset Echo",family:"Georgia,serif",weight:400,preview:"#56d7e2",
+  css:"color:#f7ffff;text-shadow:3px 5px #56d7e2,6px 9px #13b7d0,9px 13px #067e9d,11px 16px 7px #063b57;"},
+ {id:"deco_04",no:"04",name:"Silver Chrome Emboss",family:"Georgia,serif",weight:400,preview:"#b9c0d0",
+  css:"color:#f7f8fc;text-shadow:1px 1px #b9c0d0,2px 3px #9099ab,3px 5px #697385,5px 7px #434d60,7px 9px 5px #111827;"},
+ {id:"deco_05",no:"05",name:"Gold Extrusion Rainbow Face",family:"Arial,sans-serif",weight:900,preview:"#fff1ac",
+  css:"background:linear-gradient(90deg,#64d9ee 0%,#e4c0f9 20%,#fff1ac 43%,#89d7ec 65%,#f8afc8 82%,#f5eab4 100%);color:transparent;background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(2px 3px #bc8738) drop-shadow(2px 3px #9e661d) drop-shadow(2px 3px #714515);"},
+ {id:"deco_06",no:"06",name:"Thick Gold Bright Face",family:"Arial,sans-serif",weight:900,preview:"#fff3b8",
+  css:"background:linear-gradient(180deg,#e3ffff 0%,#fff3b8 28%,#ffb8de 55%,#e5d3ff 80%,#ffffff 100%);color:transparent;background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(2px 3px #e3a63d) drop-shadow(2px 3px #bb7b23) drop-shadow(2px 3px #8c5617) drop-shadow(3px 4px 4px #392614);"},
+ {id:"deco_07",no:"07",name:"Emerald Teal Green Serif",family:"Georgia,serif",weight:900,preview:"#16a7a1",
+  css:"background:linear-gradient(90deg,#00b7c9,#16a7a1,#5cdb72);color:transparent;background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(2px 3px #087c8a) drop-shadow(2px 3px #075569) drop-shadow(3px 4px 5px #032b35);"},
+ {id:"deco_08",no:"08",name:"Blue Serif Echo",family:"Georgia,serif",weight:400,preview:"#1498d6",
+  css:"color:#1498d6;text-shadow:1px 3px #0c65ac,2px 7px #064887,3px 11px #073263,4px 15px 5px #041c40;"},
+ {id:"deco_09",no:"09",name:"Pastel Rainbow Gold Depth",family:"Arial,sans-serif",weight:900,preview:"#d9b4fc",
+  css:"background:linear-gradient(90deg,#9ce7ec,#d9b4fc,#ffe6aa,#90e7da,#f7b7d8);color:transparent;background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(2px 3px #c58a2d) drop-shadow(2px 3px #9c641d) drop-shadow(2px 3px #704514);"},
+ {id:"deco_10",no:"10",name:"Multicolour Letters Sticker",family:"Arial,sans-serif",weight:900,preview:"#ffffff",
+  letters:["#ff854e","#ffcd70","#f2dca8","#87d7ef","#75d6b0","#c9a4ed","#f4a6b9","#a6e0ff"],
+  css:"color:#ffffff;text-shadow:1px 2px #59657b,2px 4px #46516a,3px 6px #313c54,5px 8px 5px #151e32;"}
 ];
+function aaDecoStyleFor(id){return AA_DECO_STYLES.find(s=>s.id===id)||null}
+function aaDecoClass(fmt){return aaDecoStyleFor(fmt&&fmt.font)?' aa-deco-post':''}
+/* Per-letter colouring for style 10 (the brief's letter-colour script,
+   applied per text render). Other styles return escaped plain text. */
+function aaDecoBodyHTML(text,fmt){
+ const str=String(text||""),d=fmt&&aaDecoStyleFor(fmt.font);
+ if(!d||!d.letters)return esc(str);
+ let i=0;
+ return Array.from(str).map(ch=>{
+  if(ch==="\n")return "\n";
+  const c=d.letters[i++%d.letters.length];
+  return ch===" "?" ":`<span class="aa-deco-letter" style="display:inline-block;color:${c};-webkit-text-stroke:.7px #ffffff">${esc(ch)}</span>`;
+ }).join("");
+}
 AA_DECO_STYLES.forEach(s=>{AA_FONT_FAMILY_MAP[s.id]={key:s.id,label:s.name,css:s.family}});
 function aaDecoStyleFor(id){return AA_DECO_STYLES.find(s=>s.id===id)||null}
-function aaDecoLoadFonts(){
- if(document.getElementById("aaDecoFontsLink"))return;
- try{
-  const l=document.createElement("link");l.id="aaDecoFontsLink";l.rel="stylesheet";
-  l.href="https://fonts.googleapis.com/css2?"+AA_DECO_STYLES.map(s=>"family="+s.gf).join("&")+"&display=swap";
-  document.head.appendChild(l);
- }catch(e){}
-}
-function aaDecoFilter(d){
- const parts=[];
- if(d.glow)parts.push(`drop-shadow(0 0 3px ${d.glow[0]})`,`drop-shadow(0 0 9px ${d.glow[1]})`);
- const n=d.depth||0;
- if(n){const h=Math.max(1,Math.round(n/2));parts.push(`drop-shadow(${h}px ${h}px 0 ${d.side})`,`drop-shadow(${n}px ${n}px 0 ${d.side})`)}
- parts.push(n?`drop-shadow(0 ${n+3}px 6px rgba(0,0,0,.45))`:`drop-shadow(0 2px 3px rgba(0,0,0,.35))`);
- return parts.join(" ");
-}
 function aaDecoCSS(fmt,d,opts){
- const size=(AA_TEXT_SIZES.find(s=>s.key===fmt.size)||AA_TEXT_SIZES[1]).px;
+ const size=(AA_TEXT_SIZES.find(x=>x.key===fmt.size)||AA_TEXT_SIZES[1]).px;
  const align=["left","center","right"].includes(fmt.align)?fmt.align:"left";
- let css=`font-family:${d.family};font-size:${Math.round(size*(d.scale||1.2))}px;font-weight:${d.weight};line-height:1.25;text-align:${align};padding:.05em .1em .14em;overflow-wrap:break-word;`;
- /* The composer textarea cannot take a clipped gradient fill, so it gets a
-    solid preview colour; the full 3D render is shown in the style preview. */
- if(opts&&opts.input)return css+`color:${d.preview};`;
- const layers=(d.gloss?"linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,0) 45%),":"")+d.fill;
- css+=`background-image:${layers};-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;`;
- if(d.stroke)css+=`-webkit-text-stroke:1px ${d.stroke};`;
- css+=`filter:${aaDecoFilter(d)};`;
- if(d.italic||fmt.italic)css+="font-style:italic;";
- if(fmt.underline)css+=`text-decoration:underline;text-decoration-color:${d.preview};`;
- return css;
+ /* The composer textarea cannot take a clipped fill, so it gets the solid
+    preview colour; the full render shows in the live box and on posts. */
+ if(opts&&opts.input)return `font-family:${d.family};font-weight:${d.weight};font-size:${Math.round(size*1.8)}px;color:${d.preview};`;
+ /* Wall posts carry blanket !important colour/font/text-shadow rules, so every
+    declaration here is also !important (an inline !important wins over them). */
+ let decl=`font-family:${d.family};font-weight:${d.weight};font-size:${Math.round(size*1.8)}px;line-height:1.2;text-align:${align};overflow-wrap:anywhere;padding:.05em .1em;`+d.css+(fmt.underline?"text-decoration:underline;":"");
+ return decl.split(";").map(x=>x.trim()).filter(Boolean).map(x=>x+" !important").join(";")+";";
 }
 /* Shared tile builder for the live Aa panel (Bingo50Style). Each tile is
    rendered in its own style, so the 10 options are seen before one is chosen. */
 window.aaDecoPickerHTML=function(sample,selected){
- aaDecoLoadFonts();
  const txt=String(sample||"").trim();
  const shown=(txt.split(/\s+/)[0]||"").slice(0,10)||"Bingo";
- return AA_DECO_STYLES.map(d=>`<button type="button" class="aa-deco-tile${selected===d.id?" active":""}" data-deco="${d.id}" aria-pressed="${selected===d.id?"true":"false"}" aria-label="${d.no} ${esc(d.name)}"><span class="aa-deco-sample" style="${aaTextFormatCSS({font:d.id,size:"m"})}">${esc(shown)}</span><small>${d.no} · ${esc(d.name)}</small></button>`).join("");
+ return AA_DECO_STYLES.map(d=>`<button type="button" class="aa-deco-tile${selected===d.id?" active":""}" data-deco="${d.id}" aria-pressed="${selected===d.id?"true":"false"}" aria-label="${d.no} ${esc(d.name)}"><span class="aa-deco-sample" style="${aaTextFormatCSS({font:d.id,size:"m"})}">${aaDecoBodyHTML(shown,{font:d.id})}</span><small>${d.no} · ${esc(d.name)}</small></button>`).join("");
 };
 function aaTextFormatCSS(fmt,opts){
  fmt=fmt||{};
@@ -19307,9 +19301,9 @@ function aaTopicTitleIsRepeat(t){
 function aaTopicTextHTML(t){
  const repeat=aaTopicTitleIsRepeat(t);
  const bodyFmt=t.bodyFmt||(repeat?t.titleFmt:null);
- const body=t.body?`<p class="aa-post-message" style="${bodyFmt?aaTextFormatCSS(bodyFmt):""}">${esc(t.body)}</p>`:"";
+ const body=t.body?`<p class="aa-post-message${aaDecoClass(bodyFmt)}" style="${bodyFmt?aaTextFormatCSS(bodyFmt):""}">${aaDecoBodyHTML(t.body,bodyFmt)}</p>`:"";
  if(repeat||!t.title)return body;
- const title=`<h2 class="aa-post-title" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):""}">${esc(t.title)}</h2>`;
+ const title=`<h2 class="aa-post-title${aaDecoClass(t.titleFmt)}" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):""}">${aaDecoBodyHTML(t.title,t.titleFmt)}</h2>`;
  return body?title+body:title;
 }
 function aaTopicPostCardHTML(t){
