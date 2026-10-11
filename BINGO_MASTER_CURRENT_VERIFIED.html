@@ -4497,6 +4497,14 @@ html body #auto-arcade-widget .bingo-business-media .bingo-sound-toggle{position
    sample, not a large boxed button - only the sample text carries the
    preset's colour/glow, per the approved compact design. */
 #auto-arcade-widget .aa-style-vlist{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.bingo50-section{font-size:11px;color:#cbd5e1;font-weight:700;margin:8px 0 2px}
+.bingo50-decos{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:4px 2px 8px}
+.bingo50-decos .aa-deco-tile{flex:0 0 138px;scroll-snap-align:start;min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px 6px;border-radius:12px;border:2px solid #33455f;background:radial-gradient(circle at 50% 35%,#1e2a3d,#0b1324);cursor:pointer;color:#cbd5e1;overflow:hidden;font:inherit}
+#bingo50-panel .aa-deco-tile.active{border-color:#f5c542;box-shadow:0 0 0 2px rgba(245,197,66,.35)}
+#bingo50-panel .aa-deco-tile small{font-size:10px;line-height:1.2;text-align:center}
+.aa-deco-live-box{margin:8px 0;padding:10px 12px;border-radius:12px;background:#0b1324;border:1px solid #33455f;min-height:48px;overflow:hidden}
+.aa-deco-live{display:inline-block;max-width:100%;overflow-wrap:anywhere}
+#bingo50-panel .aa-deco-sample{display:inline-block;max-width:100%;overflow-wrap:anywhere}
 #auto-arcade-widget .aa-style-vitem{
   background:none!important;border:none!important;box-shadow:none!important;
   text-align:left;padding:7px 8px!important;min-height:36px;
@@ -16182,7 +16190,8 @@ async function aaDeleteUploadedTopicMedia(paths){
 function aaSyncTopicDraft(e){
  const t=e.target;if(!t||!t.id)return;
  state.topicDraft=state.topicDraft||{title:"",body:""};
- if(t.id==="topicTitle")state.topicDraft.title=t.value;
+  if(t.id==="topicTitle")state.topicDraft.title=t.value;
+  const live=document.querySelector(".aa-deco-live");if(live&&t.id==="topicBody")live.textContent=t.value||"Your message";
  else if(t.id==="topicBody")state.topicDraft.body=t.value;
 }
 /* Selected-but-not-yet-uploaded media for the post composer. Kept outside
@@ -16496,9 +16505,10 @@ function aaBingoTopicComposerHTML(){
   </div>
   ${editing?"":`<div class="notice" style="margin-top:8px;border-color:var(--gold,#f5c542);color:var(--gold,#f5c542)">🏆 <b>Bingo Impact Awards</b> — Create original posts, inspire the community and grow your impact. The most meaningfully shared posts may qualify for our end-of-year awards and a KSh 1,000,000 Grand Prize.</div>`}
   <div class="form-grid" style="margin-top:8px">
-   <textarea class="field full" id="topicBody" style="${aaTextFormatCSS(d.bodyFmt)}" rows="3" placeholder="Post your view today…" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow();aaEnsureTopicDraftFmt();state.topicDraft.activeFmtField='body'" ${busy?"disabled":""}>${esc(d.body||"")}</textarea>
+   <textarea class="field full" id="topicBody" style="${aaTextFormatCSS(d.bodyFmt,{input:true})}" rows="3" placeholder="Post your view today…" oninput="aaSyncTopicDraft(event)" onfocus="aaImpactAwardsMaybeShow();aaEnsureTopicDraftFmt();state.topicDraft.activeFmtField='body'" ${busy?"disabled":""}>${esc(d.body||"")}</textarea>
   </div>
 
+<div class="aa-deco-live-box" style="${String(d.bodyFmt&&d.bodyFmt.font||"").startsWith("deco_")?"":"display:none"}"><span class="aa-deco-live" style="${aaTextFormatCSS(d.bodyFmt)}">${esc(d.body||"Your message")}</span></div>
 <button type="button" class="bingo50-trigger" aria-label="Choose 50 text styles and colours" title="50 text styles and colours" onclick="Bingo50Style.open(document.getElementById(&quot;topicBody&quot;),&quot;text&quot;)">Aa</button>
   ${mediaSectionHTML}
   <div class="details-actions" style="margin-top:8px">
@@ -18991,12 +19001,14 @@ function aaSafeHexColor(v){return /^#[0-9a-fA-F]{6}$/.test(String(v||""))?v:null
 function aaBingo50ReadTopic(id){
  aaEnsureTopicDraftFmt();const f=id==='topicTitle'?state.topicDraft.titleFmt:state.topicDraft.bodyFmt;
  const index=String(f.font||'').startsWith('bingo50_')?Number(f.font.slice(8)):0;
- return {font:index,color:f.color==='custom'?f.customColor:'#ffffff',bold:!!f.bold,italic:!!f.italic,underline:!!f.underline};
+ const deco=String(f.font||'').startsWith('deco_')?f.font:null;
+ return {font:index,deco:deco,color:f.color==='custom'?f.customColor:'#ffffff',bold:!!f.bold,italic:!!f.italic,underline:!!f.underline};
 }
 function aaBingo50SaveTopic(id,s){
  aaEnsureTopicDraftFmt();const key=id==='topicTitle'?'titleFmt':'bodyFmt';
- Object.assign(state.topicDraft[key],{font:'bingo50_'+s.font,color:'custom',customColor:s.color,bold:s.bold,italic:s.italic,underline:s.underline});
- const el=document.getElementById(id);if(el){el.style.cssText=aaTextFormatCSS(state.topicDraft[key]);aaSyncTopicDraft({target:el})}
+ Object.assign(state.topicDraft[key],{font:s.deco?s.deco:'bingo50_'+s.font,color:'custom',customColor:s.color,bold:s.bold,italic:s.italic,underline:s.underline});
+ const el=document.getElementById(id);if(el){el.style.cssText=aaTextFormatCSS(state.topicDraft[key],{input:el.tagName==='TEXTAREA'});aaSyncTopicDraft({target:el})
+ const lv=document.querySelector('.aa-deco-live');if(lv&&id==='topicBody'){const dk=String(state.topicDraft[key].font||'').startsWith('deco_');lv.style.cssText=aaTextFormatCSS(state.topicDraft[key]);lv.textContent=(el&&el.value)||'Your message';if(lv.parentElement)lv.parentElement.style.display=dk?'':'none'}}
 }
 function aaBingo50ReadName(){
  if(!state.isLoggedIn||!state.user?.id)return {};
@@ -19019,8 +19031,78 @@ function aaEnsureTopicDraftFmt(){
  if(!state.topicDraft.bodyFmt)state.topicDraft.bodyFmt=aaDefaultTextFmt();
  if(!state.topicDraft.activeFmtField)state.topicDraft.activeFmtField="title";
 }
-function aaTextFormatCSS(fmt){
+/* 3D Decorative styles (10). Rendered as CSS on the same text element as
+   the existing formatting (background-clip:text + layered drop-shadow
+   extrusion). They travel inside the existing title_format/body_format JSON
+   as font:"deco_NN", so no new column is needed. These are approximations of
+   the reference artwork, not replicas. */
+const AA_DECO_STYLES=[
+ {id:"deco_01",no:"01",name:"Rose Chrome Calligraphy",ref:"Mama",gf:"Great+Vibes",family:"'Great Vibes',cursive",weight:400,scale:1.35,
+  fill:"linear-gradient(160deg,#ffe3ee 0%,#ff8fb8 30%,#d81b60 58%,#ffc2d6 78%,#7a1030 100%)",side:"#5c0f24",depth:4,gloss:true,preview:"#ff6fa3"},
+ {id:"deco_02",no:"02",name:"Neon Gradient Brush Glow",ref:"Stay Positive",gf:"Kaushan+Script",family:"'Kaushan Script',cursive",weight:400,scale:1.2,
+  fill:"linear-gradient(90deg,#7b3ff2,#2d7dff 35%,#22d3ee 65%,#6ee7b7)",glow:["rgba(190,230,255,.9)","rgba(120,190,255,.7)"],italic:true,preview:"#22d3ee"},
+ {id:"deco_03",no:"03",name:"Ivory Bubble Extrusion",ref:"BE YOURSELF",gf:"Lilita+One",family:"'Lilita One',sans-serif",weight:400,scale:1.25,
+  fill:"linear-gradient(180deg,#fffdf4 0%,#f3e9d2 100%)",side:"#1aa8bf",depth:7,gloss:true,preview:"#f3e9d2"},
+ {id:"deco_04",no:"04",name:"Porcelain Script Emboss",ref:"Be Positive",gf:"Yellowtail",family:"'Yellowtail',cursive",weight:400,scale:1.35,
+  fill:"linear-gradient(180deg,#ffffff 0%,#ececf0 55%,#b9bcc6 100%)",side:"#8c919c",depth:2,gloss:true,preview:"#e9e9ee"},
+ {id:"deco_05",no:"05",name:"Tri-Colour Metallic Block",ref:"TOMORROW STARTS NOW",gf:"Anton",family:"'Anton',Impact,sans-serif",weight:400,scale:1.2,
+  fill:"linear-gradient(180deg,#14b8b0 0%,#14b8b0 34%,#ff9f1c 34%,#ffd23f 50%,#7b4fd6 50%,#7b4fd6 100%)",stroke:"#d7dde4",side:"#a8741f",depth:6,gloss:true,preview:"#ff9f1c"},
+ {id:"deco_06",no:"06",name:"Jewelled Rainbow Enamel",ref:"My Time is Coming",gf:"Fredoka:wght@700",family:"'Fredoka',sans-serif",weight:700,scale:1.2,
+  fill:"linear-gradient(180deg,#1ec8c8 0%,#1ec8c8 30%,#f5a524 30%,#f5a524 62%,#7b4fd6 62%,#7b4fd6 100%)",stroke:"#e8edf2",side:"#b07a2a",depth:5,gloss:true,preview:"#1ec8c8"},
+ {id:"deco_07",no:"07",name:"Aqua-Lime Glitter Calligraphy",ref:"Confidence",gf:"Dancing+Script:wght@700",family:"'Dancing Script',cursive",weight:700,scale:1.3,
+  fill:"linear-gradient(90deg,#00b3d8,#17c3b2 40%,#7ed957 70%,#f5e61b)",side:"#0a6f7d",depth:2,gloss:true,preview:"#17c3b2"},
+ {id:"deco_08",no:"08",name:"Ocean Liquid Glass",ref:"YOU ARE NOT ALONE",gf:"Rubik+Bubbles",family:"'Rubik Bubbles',cursive",weight:400,scale:1.2,
+  fill:"linear-gradient(180deg,#7fe7ff 0%,#0bb4e6 30%,#0646b5 65%,#0b2c74 100%)",side:"#06275e",depth:6,gloss:true,preview:"#0bb4e6"},
+ {id:"deco_09",no:"09",name:"Faithful Metallic Rainbow",ref:"GOD REMAINS FAITHFUL",gf:"Bowlby+One+SC",family:"'Bowlby One SC',Impact,sans-serif",weight:400,scale:1.1,
+  fill:"linear-gradient(180deg,#14b8a6 0%,#14b8a6 45%,#f59e0b 45%,#f59e0b 55%,#7c3aed 55%,#7c3aed 100%)",stroke:"#b9c2cc",side:"#8a5a16",depth:6,gloss:true,preview:"#f59e0b"},
+ {id:"deco_10",no:"10",name:"Rainbow Hope Sticker",ref:"There is always HOPE",gf:"Baloo+2:wght@800",family:"'Baloo 2',sans-serif",weight:800,scale:1.25,
+  fill:"linear-gradient(90deg,#ef4444 0%,#f59e0b 35%,#3b82f6 65%,#22c55e 100%)",stroke:"#fff7e6",side:"#1f2937",depth:4,gloss:true,preview:"#f59e0b"}
+];
+AA_DECO_STYLES.forEach(s=>{AA_FONT_FAMILY_MAP[s.id]={key:s.id,label:s.name,css:s.family}});
+function aaDecoStyleFor(id){return AA_DECO_STYLES.find(s=>s.id===id)||null}
+function aaDecoLoadFonts(){
+ if(document.getElementById("aaDecoFontsLink"))return;
+ try{
+  const l=document.createElement("link");l.id="aaDecoFontsLink";l.rel="stylesheet";
+  l.href="https://fonts.googleapis.com/css2?"+AA_DECO_STYLES.map(s=>"family="+s.gf).join("&")+"&display=swap";
+  document.head.appendChild(l);
+ }catch(e){}
+}
+function aaDecoFilter(d){
+ const parts=[];
+ if(d.glow)parts.push(`drop-shadow(0 0 3px ${d.glow[0]})`,`drop-shadow(0 0 9px ${d.glow[1]})`);
+ const n=d.depth||0;
+ if(n){const h=Math.max(1,Math.round(n/2));parts.push(`drop-shadow(${h}px ${h}px 0 ${d.side})`,`drop-shadow(${n}px ${n}px 0 ${d.side})`)}
+ parts.push(n?`drop-shadow(0 ${n+3}px 6px rgba(0,0,0,.45))`:`drop-shadow(0 2px 3px rgba(0,0,0,.35))`);
+ return parts.join(" ");
+}
+function aaDecoCSS(fmt,d,opts){
+ const size=(AA_TEXT_SIZES.find(s=>s.key===fmt.size)||AA_TEXT_SIZES[1]).px;
+ const align=["left","center","right"].includes(fmt.align)?fmt.align:"left";
+ let css=`font-family:${d.family};font-size:${Math.round(size*(d.scale||1.2))}px;font-weight:${d.weight};line-height:1.25;text-align:${align};padding:.05em .1em .14em;overflow-wrap:break-word;`;
+ /* The composer textarea cannot take a clipped gradient fill, so it gets a
+    solid preview colour; the full 3D render is shown in the style preview. */
+ if(opts&&opts.input)return css+`color:${d.preview};`;
+ const layers=(d.gloss?"linear-gradient(180deg,rgba(255,255,255,.55) 0%,rgba(255,255,255,0) 45%),":"")+d.fill;
+ css+=`background-image:${layers};-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;`;
+ if(d.stroke)css+=`-webkit-text-stroke:1px ${d.stroke};`;
+ css+=`filter:${aaDecoFilter(d)};`;
+ if(d.italic||fmt.italic)css+="font-style:italic;";
+ if(fmt.underline)css+=`text-decoration:underline;text-decoration-color:${d.preview};`;
+ return css;
+}
+/* Shared tile builder for the live Aa panel (Bingo50Style). Each tile is
+   rendered in its own style, so the 10 options are seen before one is chosen. */
+window.aaDecoPickerHTML=function(sample,selected){
+ aaDecoLoadFonts();
+ const txt=String(sample||"").trim();
+ const shown=(txt.split(/\s+/)[0]||"").slice(0,10)||"Bingo";
+ return AA_DECO_STYLES.map(d=>`<button type="button" class="aa-deco-tile${selected===d.id?" active":""}" data-deco="${d.id}" aria-pressed="${selected===d.id?"true":"false"}" aria-label="${d.no} ${esc(d.name)}"><span class="aa-deco-sample" style="${aaTextFormatCSS({font:d.id,size:"m"})}">${esc(shown)}</span><small>${d.no} · ${esc(d.name)}</small></button>`).join("");
+};
+function aaTextFormatCSS(fmt,opts){
  fmt=fmt||{};
+ const deco=aaDecoStyleFor(fmt.font);
+ if(deco)return aaDecoCSS(fmt,deco,opts);
  const fam=AA_FONT_FAMILY_MAP[fmt.font]||AA_FONT_FAMILY_MAP.system;
  const size=(AA_TEXT_SIZES.find(s=>s.key===fmt.size)||AA_TEXT_SIZES[1]).px;
  const colorDef=AA_TEXT_COLORS.find(c=>c.key===fmt.color)||AA_TEXT_COLORS[0];
@@ -19110,7 +19192,7 @@ function aaFmtFieldToolbarHTML(which){
  const fmt=which==="title"?state.topicDraft.titleFmt:state.topicDraft.bodyFmt;
  return `<div class="aa-fmt-toolbar">
   <select class="aa-fmt-select" onchange="aaLoadFontsForGroup(this.options[this.selectedIndex].dataset.group);aaSetFmtField('${which}','font',this.value)">
-   ${[{group:"Approved 50 Styles",fonts:AA_BINGO50_FONTS.map((f,i)=>({key:"bingo50_"+i,label:f[0]}))},...AA_FONT_FAMILY_GROUPS].map(g=>`<optgroup label="${esc(g.group)}">${g.fonts.map(f=>`<option value="${f.key}" data-group="${esc(g.group)}" ${fmt.font===f.key?"selected":""}>${esc(f.label)}</option>`).join("")}</optgroup>`).join("")}
+   ${[{group:"Approved 50 Styles",fonts:AA_BINGO50_FONTS.map((f,i)=>({key:"bingo50_"+i,label:f[0]}))},{group:"3D Styles",fonts:AA_DECO_STYLES.map(s=>({key:s.id,label:s.no+" "+s.name}))},...AA_FONT_FAMILY_GROUPS].map(g=>`<optgroup label="${esc(g.group)}">${g.fonts.map(f=>`<option value="${f.key}" data-group="${esc(g.group)}" ${fmt.font===f.key?"selected":""}>${esc(f.label)}</option>`).join("")}</optgroup>`).join("")}
   </select>
   <button type="button" class="aa-fmt-btn ${fmt.bold?"active":""}" title="Bold" aria-pressed="${fmt.bold?"true":"false"}" onclick="aaSetFmtField('${which}','bold',${!fmt.bold})"><b>B</b></button>
   <button type="button" class="aa-fmt-btn ${fmt.italic?"active":""}" title="Italic" aria-pressed="${fmt.italic?"true":"false"}" onclick="aaSetFmtField('${which}','italic',${!fmt.italic})"><i>I</i></button>
@@ -30191,10 +30273,10 @@ function apply(el,s){if(!el||!s)return; el.style.fontFamily=F[s.font||0][1];el.s
  if(s.effect)el.classList.add('bingo50-fx-'+s.effect);
  el.classList.toggle('bingo50-name-dark',kind==='name'&&lum(s.color||'#fff')<95);
 }
-function panel(){let p=document.getElementById('bingo50-panel');if(p)return p;p=document.createElement('div');p.id='bingo50-panel';p.innerHTML='<div class="bingo50-head"><b>Text Style</b><button class="bingo50-close" type="button">×</button></div><div class="bingo50-colors"></div><div class="bingo50-fonts"></div><div class="bingo50-tools"><button data-t="bold">B</button><button data-t="italic"><i>I</i></button><button data-t="underline"><u>U</u></button><button data-t="reset">Reset</button></div>';document.body.appendChild(p);p.querySelector('.bingo50-close').onclick=()=>p.classList.remove('open');p.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{let t=b.dataset.t;if(t==='reset')state={font:0,color:'#ffffff',bold:false,italic:false,underline:false,effect:null};else state[t]=!state[t];save(target);draw();});return p}
-function draw(){let p=panel();p.querySelector('.bingo50-colors').innerHTML=C.map(c=>'<button type="button" class="bingo50-color '+(state.color===c?'sel':'')+'" data-c="'+c+'" style="background:'+c+'"></button>').join('');p.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{state.color=b.dataset.c;save(target);draw()});
+function panel(){let p=document.getElementById('bingo50-panel');if(p)return p;p=document.createElement('div');p.id='bingo50-panel';p.innerHTML='<div class="bingo50-head"><b>Text Style</b><button class="bingo50-close" type="button">×</button></div><div class="bingo50-section">3D Styles</div><div class="bingo50-decos"></div><div class="bingo50-colors"></div><div class="bingo50-fonts"></div><div class="bingo50-tools"><button data-t="bold">B</button><button data-t="italic"><i>I</i></button><button data-t="underline"><u>U</u></button><button data-t="reset">Reset</button></div>';document.body.appendChild(p);p.querySelector('.bingo50-close').onclick=()=>p.classList.remove('open');p.querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{let t=b.dataset.t;if(t==='reset')state={font:0,color:'#ffffff',bold:false,italic:false,underline:false,effect:null};else state[t]=!state[t];save(target);draw();});return p}
+function draw(){let p=panel();const dh=p.querySelector('.bingo50-decos');if(dh){dh.innerHTML=window.aaDecoPickerHTML(target&&target.value,state.deco);dh.querySelectorAll('[data-deco]').forEach(b=>b.onclick=()=>{state.deco=b.dataset.deco;state.font=0;state.effect=null;state.bold=false;state.italic=false;save(target);draw()});}p.querySelector('.bingo50-colors').innerHTML=C.map(c=>'<button type="button" class="bingo50-color '+(state.color===c?'sel':'')+'" data-c="'+c+'" style="background:'+c+'"></button>').join('');p.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{state.color=b.dataset.c;save(target);draw()});
 p.querySelector('.bingo50-fonts').innerHTML=F.map((f,i)=>'<button type="button" class="bingo50-font '+(state.font===i?'sel':'')+'" data-f="'+i+'"><span class="bingo50-sample" style="font-family:'+f[1]+'">Bingo</span><span class="bingo50-check">'+(state.font===i?'✓':'')+'</span></button>').join('');
-p.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{let i=+b.dataset.f;state.font=i;state.effect=effects[i]||null;state.bold=[36,37,39].includes(i);state.italic=[38,39,40].includes(i);save(target);draw()});p.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('on',!!state[b.dataset.t]))}
+p.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{let i=+b.dataset.f;state.font=i;state.deco=null;state.effect=effects[i]||null;state.bold=[36,37,39].includes(i);state.italic=[38,39,40].includes(i);save(target);draw()});p.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('on',!!state[b.dataset.t]))}
 function open(el,k){target=el;kind=k||'text';state=Object.assign({font:0,color:'#ffffff',bold:false,italic:false,underline:false,effect:null},(k==='name'?window.aaBingo50ReadName():window.aaBingo50ReadTopic(el.id)));draw();panel().querySelector('.bingo50-head b').textContent=kind==='name'?'Profile Name Style':'Text Style';panel().classList.add('open')}
 window.Bingo50Style={open,apply,fonts:F,colors:C};
 })();
