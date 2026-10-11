@@ -16045,6 +16045,11 @@ const AA_TOPIC_UPLOAD_RETRY_DELAYS=[0,1500,4000];
 const AA_TOPIC_DB_TIMEOUT_MS=12000;
 const AA_TOPIC_IMAGE_MAX_EDGE=1920;
 const aaTopicPreparedFiles=new WeakSet();
+/* Picked files Android has stopped letting Bingo read. They stay visible in
+   the composer, marked "Choose again", and block publishing until the user
+   replaces or removes them - so a post can never go out silently without
+   its video. */
+const aaTopicStaleMedia=new WeakSet();
 function aaTopicIsNetworkError(e){
  return /failed to fetch|networkerror|load failed|network request failed|aborterror|aborted|timed? ?out|did not get a reply/i.test(String((e&&(e.message||e.name))||e||''));
 }
@@ -16088,10 +16093,12 @@ async function aaTopicPrepareFiles(files){
  const out=[];
  for(let i=0;i<files.length;i++){
   const f=files[i];
-  if(aaTopicPreparedFiles.has(f)){out.push(f);continue}
+  // Re-probe even files prepared earlier: Android can revoke access after
+  // a successful preparation, and a stale file must not reach the upload.
   try{await f.slice(0,1).arrayBuffer()}catch(e){
    throw Object.assign(new Error(`${/^video\//.test(f.type||'')?'The video':'Photo '+(i+1)} can no longer be read from your phone. Remove it, add it again, then tap POST.`),{aaKind:'unreadable',aaFile:f});
   }
+  if(aaTopicPreparedFiles.has(f)){out.push(f);continue}
   const prepared=await aaTopicWithTimeout(aaTopicCompressImage(f),12000,f);
   aaTopicPreparedFiles.add(prepared);out.push(prepared);
  }
@@ -16261,7 +16268,17 @@ function aaHandleTopicMediaChange(){
  // after a remove) still fires a fresh change event.
  input.value='';
  if(!incoming.length)return;
- const existing=aaTopicMediaSelection();
+ let existing=aaTopicMediaSelection();
+ // A newly picked video replaces a stale (unreadable) one. Dropped here,
+ // before de-duplication, so the same file picked again is not mistaken
+ // for the stale copy.
+ if(incoming.some(f=>/^video\//.test(f.type||""))){
+  existing=existing.filter(x=>{
+   if(!aaTopicStaleMedia.has(x))return true;
+   if(aaTopicMediaUrlCache.has(x)){URL.revokeObjectURL(aaTopicMediaUrlCache.get(x));aaTopicMediaUrlCache.delete(x)}
+   return false;
+  });
+ }
  const accepted=[];
  for(const f of incoming){
   const err=aaValidateTopicMediaFile(f);
@@ -16491,7 +16508,7 @@ function aaBingoTopicComposerHTML(){
    ${!hasVideo?`<span class="aa-media-camera-box-count">${mediaFiles.length} of 15 photos</span>`:""}
   </div>
   <input type="file" id="topicMedia" accept="image/*,video/*" multiple style="display:none" onchange="aaHandleTopicMediaChange()" ${busy?"disabled":""}>
-  ${mediaFiles.length?`<div class="aa-composer-media-row">${mediaFiles.map((f,i)=>`<div class="aa-composer-media-item">${/^video\//.test(f.type||"")?`<span class="aa-composer-media-video">🎬<br>${esc((f.name||"video").slice(0,14))}</span>`:`<img src="${aaTopicMediaObjectUrl(f)}" alt="Selected photo ${i+1}">`}<button type="button" class="aa-composer-media-remove" aria-label="Remove ${esc(f.name||"this file")}" title="Remove" onclick="aaRemoveTopicMediaAt(${i})" ${busy?"disabled":""}>×</button></div>`).join("")}</div>`:""}`;
+  ${mediaFiles.length?`<div class="aa-composer-media-row">${mediaFiles.map((f,i)=>`<div class="aa-composer-media-item"${aaTopicStaleMedia.has(f)?' style="outline:2px solid #e5484d;border-radius:8px"':""}>${/^video\//.test(f.type||"")?`<span class="aa-composer-media-video">🎬<br>${esc((f.name||"video").slice(0,14))}${aaTopicStaleMedia.has(f)?'<br><b style="color:#ff8a8f">Choose again</b>':""}</span>`:`<img src="${aaTopicMediaObjectUrl(f)}" alt="Selected photo ${i+1}">`}<button type="button" class="aa-composer-media-remove" aria-label="Remove ${esc(f.name||"this file")}" title="Remove" onclick="aaRemoveTopicMediaAt(${i})" ${busy?"disabled":""}>×</button></div>`).join("")}</div>`:""}`;
  }
  const myPhoto=aaProfilePhoto(state.user?.photo_url);
  return `<div class="aa-v69-card aa-composer-card" style="margin-top:10px">
@@ -16654,6 +16671,11 @@ async function aaPublishBingoTopic(){
  const titleFmt=state.topicDraft.titleFmt;
  const bodyFmt=state.topicDraft.bodyFmt;
  const files=aaTopicMediaSelection();
+ if(files.some(f=>aaTopicStaleMedia.has(f))){
+  state.wallPublishFailed=true;render();
+  toast('Your video needs to be chosen again before you post. Tap “Replace video” or remove it. Nothing was posted.','error');
+  return;
+ }
  const hiddenFromPublic=aaContainsProtectedName(title)||aaContainsProtectedName(body);
  if(state.testMode){
   const media=files&&files.length?await aaFileToLocalMedia(files,1):[];
@@ -16699,11 +16721,9 @@ async function aaPublishBingoTopic(){
     if(e&&e.aaKind==='unreadable'){
      // Retrying can never succeed while the stale File stays selected, so
      // drop it now. Text and style stay; the user picks the file again.
-     const kept=aaTopicMediaSelection().filter(x=>x!==e.aaFile);
-     if(aaTopicMediaUrlCache.has(e.aaFile)){URL.revokeObjectURL(aaTopicMediaUrlCache.get(e.aaFile));aaTopicMediaUrlCache.delete(e.aaFile)}
-     aaSetTopicMediaSelection(kept);
+     if(e.aaFile)aaTopicStaleMedia.add(e.aaFile);
      state.wallPublishFailed=true;
-     toast('Could not publish: Android no longer lets Bingo read the file you picked, so it was removed from this post. Your text and style are still here. Tap “Replace video”, choose the file again, then tap POST.','error');
+     toast('Could not publish: Android no longer lets Bingo read the video you picked. It is still in your post, marked “Choose again”, and nothing was posted. Tap “Replace video” to choose it again, or remove it, then tap POST. Your text and style are still here.','error');
      return;
     }
     fail(String(e&&e.message||e));return;
