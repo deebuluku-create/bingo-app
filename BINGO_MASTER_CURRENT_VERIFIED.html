@@ -16191,8 +16191,10 @@ function aaSyncTopicDraft(e){
  const t=e.target;if(!t||!t.id)return;
  state.topicDraft=state.topicDraft||{title:"",body:""};
   if(t.id==="topicTitle")state.topicDraft.title=t.value;
-  const live=document.querySelector(".aa-deco-live");if(live&&t.id==="topicBody")live.innerHTML=aaDecoBodyHTML(t.value||"Your message",state.topicDraft.bodyFmt);
- else if(t.id==="topicBody")state.topicDraft.body=t.value;
+  else if(t.id==="topicBody")state.topicDraft.body=t.value;
+  /* Keep the composer's live style preview in step while typing. */
+  const live=document.querySelector(".aa-deco-live");
+  if(live&&t.id==="topicBody")live.innerHTML=aaDecoBodyHTML(t.value||"Your message",state.topicDraft.bodyFmt);
 }
 /* Selected-but-not-yet-uploaded media for the post composer. Kept outside
    `state` (never persisted/serialized) since File objects aren't safe to
@@ -16709,7 +16711,7 @@ async function aaPublishBingoTopic(){
   let insertRow={id,user_id:userId,title,body,category,media:[],moderation_status:hiddenFromPublic?'hidden':'visible',title_format:titleFmt,body_format:bodyFmt};
   if(state.topicDraft.soundId)insertRow.sound_id=state.topicDraft.soundId;
   const AA_TOPIC_CORE_FIELDS=['id','user_id','title','body','category','media','moderation_status','sound_id'];
-  let inserted=null,insErr=null;
+  let inserted=null,insErr=null,formatDropped=false;
   // title_format/body_format are a NEW, not-yet-applied column pair (see
   // supabase/bingo_change_topic_text_formatting.sql) - degrade gracefully
   // exactly like aaInsertPropertyListing does for optional fields, rather
@@ -16724,7 +16726,7 @@ async function aaPublishBingoTopic(){
    // created it (its reply or its cleanup was lost). Reuse it, refreshed
    // with the current text, instead of creating a duplicate post.
    if(String(insErr.code||'')==='23505'){
-    const upd={title,body,category,media:[]};
+    const upd={title,body,category,media:[],title_format:titleFmt,body_format:bodyFmt};
     const ur=await aaTopicDbCall(signal=>sb.from('bingo_topics').update(upd).eq('id',id).eq('user_id',userId).select().abortSignal(signal).maybeSingle());
     if(!ur.error&&ur.data){inserted=ur.data;insErr=null;break}
     // Not this user's row (or not reusable): never touch it, and give the
@@ -16736,6 +16738,7 @@ async function aaPublishBingoTopic(){
    }
    const missing=aaMissingPropertyColumn(result.error);
    if(missing&&!AA_TOPIC_CORE_FIELDS.includes(missing)&&Object.prototype.hasOwnProperty.call(insertRow,missing)){
+    if(missing==='title_format'||missing==='body_format')formatDropped=true;
     insertRow={...insertRow};delete insertRow[missing];continue;
    }
    break;
@@ -16779,6 +16782,7 @@ async function aaPublishBingoTopic(){
   const bodyEl=document.getElementById('topicBody');if(bodyEl)bodyEl.value='';
   state.wallPublishBusy=false;state.wallPublishProgress=null;state.wallPublishStage=null;
   toast(hiddenFromPublic?"Post saved to your profile. It uses a protected name, so it is not shown in the public feed.":"Bingo Post published to the Public Wall and your profile.","success");
+  if(formatDropped)toast("Your post was published, but its text style could not be saved. Edit the post to apply the style again.");
   aaNavigateToPublishedTopicInHome(id);
  }catch(e){
   console.error('[Bingo publish]',e);
