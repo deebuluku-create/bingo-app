@@ -16090,7 +16090,7 @@ async function aaTopicPrepareFiles(files){
   const f=files[i];
   if(aaTopicPreparedFiles.has(f)){out.push(f);continue}
   try{await f.slice(0,1).arrayBuffer()}catch(e){
-   throw Object.assign(new Error(`${/^video\//.test(f.type||'')?'The video':'Photo '+(i+1)} can no longer be read from your phone. Remove it, add it again, then tap POST.`),{aaKind:'unreadable'});
+   throw Object.assign(new Error(`${/^video\//.test(f.type||'')?'The video':'Photo '+(i+1)} can no longer be read from your phone. Remove it, add it again, then tap POST.`),{aaKind:'unreadable',aaFile:f});
   }
   const prepared=await aaTopicWithTimeout(aaTopicCompressImage(f),12000,f);
   aaTopicPreparedFiles.add(prepared);out.push(prepared);
@@ -16695,7 +16695,19 @@ async function aaPublishBingoTopic(){
   if(aaTopicRollbackPromise)await aaTopicWithTimeout(aaTopicRollbackPromise,25000,null);
   let prepared=[];
   if(files&&files.length){
-   try{prepared=await aaTopicPrepareFiles(files)}catch(e){fail(String(e&&e.message||e));return}
+   try{prepared=await aaTopicPrepareFiles(files)}catch(e){
+    if(e&&e.aaKind==='unreadable'){
+     // Retrying can never succeed while the stale File stays selected, so
+     // drop it now. Text and style stay; the user picks the file again.
+     const kept=aaTopicMediaSelection().filter(x=>x!==e.aaFile);
+     if(aaTopicMediaUrlCache.has(e.aaFile)){URL.revokeObjectURL(aaTopicMediaUrlCache.get(e.aaFile));aaTopicMediaUrlCache.delete(e.aaFile)}
+     aaSetTopicMediaSelection(kept);
+     state.wallPublishFailed=true;
+     toast('Could not publish: Android no longer lets Bingo read the file you picked, so it was removed from this post. Your text and style are still here. Tap “Replace video”, choose the file again, then tap POST.','error');
+     return;
+    }
+    fail(String(e&&e.message||e));return;
+   }
   }
   const userId=state.user.id;
   // ONE id per draft until it is actually published: a retry (even after a
