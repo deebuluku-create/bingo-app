@@ -30288,6 +30288,9 @@ html body #auto-arcade-widget .bingo-approved-topic .aa-post-message{white-space
 <style id="bingo50-style">
 .bingo50-trigger{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid rgba(243,190,43,.5);border-radius:9px;background:#101b2c;color:#f3be2b;font-weight:900;cursor:pointer;vertical-align:middle;margin-left:5px}
 #bingo50-panel{position:fixed;z-index:2147483000;left:50%;bottom:10px;transform:translateX(-50%);width:min(94vw,430px);max-height:72vh;background:#091321;border:1px solid #c99b27;border-radius:18px;box-shadow:0 18px 55px #000b;padding:12px;color:#fff;font-family:Arial,sans-serif;display:none}
+/* Approved editor (2026-10-11): inside the post composer the font panel sits inline, directly under the aB row, in a light card, and takes no layout space when closed. */
+.aa-composer-card #bingo50-panel.bingo50-inline{position:relative;left:auto;bottom:auto;transform:none;width:100%;max-width:100%;max-height:none;box-sizing:border-box;margin:6px 0 10px;padding:10px;background:#ffffff;color:#0f172a;border:1px solid #dbe3ee;border-radius:14px;box-shadow:0 6px 18px #0f172a1a;overflow:hidden}
+.aa-composer-card #bingo50-panel.bingo50-inline.open{display:block}
 #bingo50-panel.open{display:block}.bingo50-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}.bingo50-head b{color:#f3be2b}.bingo50-close{border:0;background:transparent;color:#fff;font-size:24px;cursor:pointer}
 .bingo50-colors{display:flex;gap:8px;overflow-x:auto;padding:4px 1px 9px}.bingo50-color{width:26px;height:26px;min-width:26px;border-radius:50%;border:2px solid #fff3;cursor:pointer}.bingo50-color.sel{outline:2px solid #f3be2b;outline-offset:2px}
 .bingo50-fonts{height:230px;overflow-y:auto;border-top:1px solid #ffffff12;border-bottom:1px solid #ffffff12}.bingo50-font{width:100%;height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 11px;background:transparent;border:0;border-bottom:1px solid #ffffff0d;color:#fff;text-align:left;cursor:pointer}.bingo50-font.sel{box-shadow:inset 3px 0 #f3be2b;background:#ffffff08}.bingo50-sample{font-size:23px}.bingo50-check{color:#f3be2b;font-weight:900}
@@ -30374,8 +30377,9 @@ p.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{let i=+b.dataset.f;stat
 function open(el,k){target=el;kind=k||'text';state=Object.assign({font:0,color:'#ffffff',bold:false,italic:false,underline:false,effect:null},(k==='name'?window.aaBingo50ReadName():window.aaBingo50ReadTopic(el.id)));draw();panel().querySelector('.bingo50-head b').textContent=kind==='name'?'Profile Name Style':'Text Style';panel().classList.add('open')}
 /* aB toggle (approved editor brief): tapping the trigger opens the panel,
    and tapping it again while the same field is open closes it. */
-function toggle(el,k){const p=document.getElementById('bingo50-panel');if(p&&p.classList.contains('open')&&el&&target&&(target===el||(target.id&&target.id===el.id))&&kind===(k||'text')){p.classList.remove('open');return}open(el,k)}
-window.Bingo50Style={open,toggle,apply,fonts:F,colors:C};
+function placeInline(){const p=panel();const trig=document.querySelector('.aa-composer-card .bingo50-trigger');if(trig){p.classList.add('bingo50-inline');trig.insertAdjacentElement('afterend',p)}else{p.classList.remove('bingo50-inline')}}
+function toggle(el,k){const p=document.getElementById('bingo50-panel');if(p&&p.classList.contains('open')&&el&&target&&(target===el||(target.id&&target.id===el.id))&&kind===(k||'text')){p.classList.remove('open');return}if(el&&el.id==='topicBody')placeInline();open(el,k)}
+window.Bingo50Style={open,toggle,placeInline,apply,fonts:F,colors:C};
 })();
 </script>
 <!-- ===== /Bingo 50 Font + Colour Expression Layer ===== -->
