@@ -16572,7 +16572,7 @@ function aaBingoTopicComposerHTML(){
   </div>
 
 <div class="aa-deco-live-box" style="${String(d.bodyFmt&&d.bodyFmt.font||"").startsWith("deco_")?"":"display:none"}"><span class="aa-deco-live" style="${aaTextFormatCSS(d.bodyFmt)}">${esc(d.body||"Your message")}</span></div>
-<button type="button" class="bingo50-trigger" aria-label="Choose 50 text styles and colours" title="50 text styles and colours" onclick="Bingo50Style.open(document.getElementById(&quot;topicBody&quot;),&quot;text&quot;)">Aa</button>
+<button type="button" class="bingo50-trigger" aria-label="Choose 50 text styles and colours" title="50 text styles and colours" onclick="Bingo50Style.toggle(document.getElementById(&quot;topicBody&quot;),&quot;text&quot;)">Aa</button>
   ${mediaSectionHTML}
   <div class="details-actions aa-composer-actions" style="margin-top:8px">
    <button class="bingo-neon-action bingo-neon-action-glass" type="button" onclick="aaCancelWallComposer()" ${busy?"disabled":""}>Cancel</button>
@@ -30359,7 +30359,10 @@ function draw(){let p=panel();const dh=p.querySelector('.bingo50-decos');if(dh){
 p.querySelector('.bingo50-fonts').innerHTML=F.map((f,i)=>'<button type="button" class="bingo50-font '+(state.font===i?'sel':'')+'" data-f="'+i+'"><span class="bingo50-sample" style="font-family:'+f[1]+'">Bingo</span><span class="bingo50-check">'+(state.font===i?'✓':'')+'</span></button>').join('');
 p.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{let i=+b.dataset.f;state.font=i;state.deco=null;state.effect=effects[i]||null;state.bold=[36,37,39].includes(i);state.italic=[38,39,40].includes(i);save(target);draw()});p.querySelectorAll('[data-t]').forEach(b=>b.classList.toggle('on',!!state[b.dataset.t]))}
 function open(el,k){target=el;kind=k||'text';state=Object.assign({font:0,color:'#ffffff',bold:false,italic:false,underline:false,effect:null},(k==='name'?window.aaBingo50ReadName():window.aaBingo50ReadTopic(el.id)));draw();panel().querySelector('.bingo50-head b').textContent=kind==='name'?'Profile Name Style':'Text Style';panel().classList.add('open')}
-window.Bingo50Style={open,apply,fonts:F,colors:C};
+/* aB toggle (approved editor brief): tapping the trigger opens the panel,
+   and tapping it again while the same field is open closes it. */
+function toggle(el,k){const p=document.getElementById('bingo50-panel');if(p&&p.classList.contains('open')&&el&&target&&(target===el||(target.id&&target.id===el.id))&&kind===(k||'text')){p.classList.remove('open');return}open(el,k)}
+window.Bingo50Style={open,toggle,apply,fonts:F,colors:C};
 })();
 </script>
 <!-- ===== /Bingo 50 Font + Colour Expression Layer ===== -->

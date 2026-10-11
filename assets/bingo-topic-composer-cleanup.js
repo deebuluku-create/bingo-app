@@ -39,9 +39,12 @@ function clean(card){
    const originalCamera=sourceButtons.find(x=>x!==input&&(/photo|video|media|camera/i.test((x.title||'')+' '+(x.getAttribute('aria-label')||''))));
    const originalFormat=sourceButtons.find(x=>/^Aa$/i.test((x.textContent||'').trim())||/font|format|color/i.test((x.title||'')+' '+(x.getAttribute('aria-label')||'')));
    if(originalCamera)originalCamera.classList.add('bingo-clean-source-control');
-   if(originalFormat)originalFormat.classList.add('bingo-clean-source-control');
+   /* Approved editor brief (2026-10-11): the aB opener stays visible and
+      toggles the whole font panel (open on tap, closed on the next tap). It
+      replaces the separate ⋮ opener, so the panel is never shown by default. */
+   if(originalFormat){originalFormat.textContent='aB';originalFormat.title='Fonts, colours and emojis';originalFormat.setAttribute('aria-label','Fonts, colours and emojis');originalFormat.classList.remove('bingo-clean-source-control')}
    const b=document.createElement('button');b.type='button';b.className='bingo-clean-camera';b.title='Add photo or video';b.setAttribute('aria-label','Add photo or video');b.innerHTML=cameraSvg();b.onclick=()=>{if(!b.disabled)input.click()};grid.appendChild(b);
-   const fmt=document.createElement('button');fmt.type='button';fmt.className='bingo-clean-format';fmt.title='Fonts and colors';fmt.setAttribute('aria-label','Fonts and colors');fmt.textContent='⋮';fmt.onclick=()=>{if(originalFormat){originalFormat.click();return;} const fallback=[...card.querySelectorAll('button')].find(x=>/font|format|color/i.test((x.title||'')+' '+(x.getAttribute('aria-label')||'')));if(fallback)fallback.click();};grid.appendChild(fmt);
+
  }
  const award=[...card.querySelectorAll('button')].find(b=>(b.textContent||'').includes('Awards'));
  if(award)award.innerHTML=award.innerHTML.replace('🏆','👑');
