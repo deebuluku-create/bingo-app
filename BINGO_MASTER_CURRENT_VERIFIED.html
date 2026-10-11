@@ -28484,7 +28484,9 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
   }
   function cornerPos(wrap){
     var card=activeCardRect();
-    if(!card)return {x:14, y:safeTop()+6};
+    /* No feed card on screen (feed empty or still loading): rest just BELOW the feed filter bar,
+       never on top of it ("All Kenya" was covered). */
+    if(!card){var bar=document.querySelector("#auto-arcade-widget .aa-feed-filter");var br=bar?bar.getBoundingClientRect():null;return {x:14, y:(br&&br.height)?br.bottom+8:safeTop()+6};}
     var h=(wrap&&wrap.offsetHeight)||50;
     var topBound=card.top+66;
     var infoTop=activeInfoPanelTop();
