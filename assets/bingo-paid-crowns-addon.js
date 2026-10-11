@@ -48,10 +48,10 @@ function syncHomeCrownCounts(root){
   const id=String(card.dataset.canon||'').slice(6);if(!id)return;
   const b=[...card.querySelectorAll('.aa-icon-action-row button')].find(x=>/crown/i.test(x.getAttribute('title')||x.getAttribute('aria-label')||''));if(!b)return;
   let topic=null;try{topic=(typeof window.aaTopics==='function'?window.aaTopics():window.state?.wallTopics||[]).find(x=>String(x.id)===id)}catch(e){}
-  let count=0;try{count=topic&&typeof window.aaTopicLoveCount==='function'?Number(window.aaTopicLoveCount(topic)||0):0}catch(e){}
+  let count=null;try{count=typeof window.aaCrownCountFor==='function'?window.aaCrownCountFor(id):null}catch(e){}
   /* Write only when the text actually differs: an unconditional write is itself a DOM change that
      re-triggers this observer, which kept the page in an endless rewrite loop. */
-  const spans=b.querySelectorAll('span');if(spans.length){spans.forEach(x=>{const want=(!x.classList.contains('aa-icon-action-label-short')||spans.length===1)?'Crown '+count:String(count);if(x.textContent!==want)x.textContent=want})}
+  const spans=b.querySelectorAll('span');if(spans.length){spans.forEach(x=>{const want=(!x.classList.contains('aa-icon-action-label-short')||spans.length===1)?(count===null?'Crown':'Crown '+count):(count===null?'':String(count));if(x.textContent!==want)x.textContent=want})}
  });
 }
 let crownSyncQueued=false;new MutationObserver(()=>{if(crownSyncQueued)return;crownSyncQueued=true;requestAnimationFrame(()=>{crownSyncQueued=false;syncHomeCrownCounts(document)})}).observe(document.documentElement,{childList:true,subtree:true});

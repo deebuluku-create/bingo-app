@@ -8806,7 +8806,7 @@ function aaTopicStatsRowHTML(t){
  const commentCount=aaTopicCommentsFor(t).length;
  const counts=aaTopicCountsFor(t.id);
  return `<div class="aa-post-stats">
-  <span>❤ ${loveCount}</span>
+  <span>👑 ${aaCrownCountFor(t.id)??0}</span>
   <span>💬 ${commentCount}</span>
   <span>➤ ${Number(t.echoes||0)}</span>
   ${counts?`<span>⬇ ${counts.downloads}</span><span>👁 ${counts.views} views</span>`:''}
@@ -14293,9 +14293,9 @@ function aaMixedFeedTopicCardHTML(c){
  const openAuthor=authorUnavailable?'':`onclick='event.stopPropagation();openSeller(${JSON.stringify(c.feed_sellerId||"")})'`;
  const authorAvatar=`<img class="bingo-feed-clean-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(c.feed_sellerPhoto))}" alt="Open profile" title="Open profile" onerror="aaProfileImgFallback(this)" ${openAuthor}>`;
  if(!hasMedia){const identityRow=`<div class="aa360-text-identity" ${openAuthor}>${authorAvatar}<b>${esc(c.feed_seller)}</b>${authorMeta.verified?`<span class="aa-post-verified">✓</span>`:''}</div>`;media=media.replace('@@BINGO_TEXT_IDENTITY@@',()=>identityRow)}
- const compactStats=`<div class="aa-post-stats" style="margin-top:6px">${[`❤ ${aaTopicLoveCount(t)}`,`💬 ${aaTopicCommentsFor(t).length}`,topicCounts?`👁 ${topicCounts.views} views`:''].filter(Boolean).map(s=>`<span>${s}</span>`).join('')}</div>`;
+ const compactStats=`<div class="aa-post-stats" style="margin-top:6px">${[`💬 ${aaTopicCommentsFor(t).length}`,topicCounts?`👁 ${topicCounts.views} views`:''].filter(Boolean).map(s=>`<span>${s}</span>`).join('')}</div>`;
  return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}" data-canon="topic:${esc(t.id)}">${media}<div class="aa360-shade"></div>${videoPlayOverlay}<span class="aa-type-label">POST</span>${multiTag}<div class="aa360-info" style="cursor:pointer">${hasMedia?authorAvatar:''}${hasMedia&&c.feed_title?`<div class="aa360-title">${esc(c.feed_title)}</div>`:''}${hasMedia&&c.feed_desc&&!aaFeedSameText(c.feed_title,c.feed_desc)?`<div class="aa360-desc">${aaFeedDescExcerptHTML(c.feed_desc,140)}</div>`:''}${compactStats}<div class="aa-icon-action-row" role="group" aria-label="Post actions" style="margin-top:8px" onclick="event.stopPropagation()">
-  ${aaIconActionBtn({rgb:"255,58,110",active:loved,label:"Love",activeLabel:"Loved",svg:AA_ICON_ACTION_SVG.heartOutline,activeSvg:AA_ICON_ACTION_SVG.heartFilled,onclick:`aaTopicLove(${JSON.stringify(String(t.id))})`})}
+  ${aaIconActionBtn({rgb:"255,201,40",label:"Crown",svg:'<em aria-hidden="true" style="font-style:normal;font-size:17px;line-height:1">👑</em>',onclick:`aaTopicCrown(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"34,201,255",label:"Share",svg:AA_ICON_ACTION_SVG.share,onclick:`aaTopicShare(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"245,185,30",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"171,71,255",label:"Report",svg:AA_ICON_ACTION_SVG.flag,onclick:`aaTopicReport(${JSON.stringify(String(t.id))})`})}
@@ -18326,7 +18326,7 @@ function aaImpactAwardsAdminPanelHTML(){
   <p class="notice" style="margin-top:4px">Grand Prize: KSh 1,000,000 (one overall award). This list ranks posts by currently-tracked genuine engagement (loves + comments) only. It is NOT the final award result: verified-share counting, originality checks and anti-abuse exclusion (self-sharing, bots, purchased engagement, duplicate accounts, copied content, engagement groups, moderated-removed posts, artificial views) require a server-side scoring function that has not been deployed yet. No winner is or should be declared from this panel alone.</p>
   ${!ranked.length?'<p class="notice">No eligible posts yet.</p>':ranked.map((t,i)=>`<div class="aa-boost-summary-row" style="display:block;border-bottom:1px solid var(--line);padding-bottom:6px;margin-bottom:6px">
    <b style="font-size:12px">#${i+1} · ${esc(t.title||"Untitled")}</b>
-   <div class="meta">by ${esc(t.authorName||"Bingo Member")} · ❤ ${aaTopicLoveCount(t)} · 💬 ${aaTopicCommentsFor(t).length} · category ${esc(t.category||"General")}</div>
+   <div class="meta">by ${esc(t.authorName||"Bingo Member")} · 💬 ${aaTopicCommentsFor(t).length} · category ${esc(t.category||"General")}</div>
   </div>`).join("")}`;
 }
 function aaMyTopicsHTML(){
@@ -18347,6 +18347,8 @@ function aaOpenBingoTopicsFeed(){
  window.scrollTo(0,0);
 }
 async function aaTopicLove(id){
+ /* Retired from the public UI (2026-10-11): Crown replaces Love. Existing bingo_topic_reactions rows are kept untouched; no new Love reactions are written. */
+ return;
  if(!state.isLoggedIn&&!state.testMode){openAuth("login");return}
  if(state.testMode){
   const list=aaTopics();
@@ -18672,7 +18674,7 @@ function aaBingoBoxHTML(){
       ${aaBingoBoxThumbHTML(t,author)}
       <span class="bingo-box-copy">
        <b>${esc(t.title||t.body||"Untitled")}</b>
-       <small>${esc(author.name)} · ${esc(t.category||"General")} · ❤ ${aaTopicLoveCount(t)} · 💬 ${aaTopicCommentsFor(t).length}</small>
+       <small>${esc(author.name)} · ${esc(t.category||"General")} · 💬 ${aaTopicCommentsFor(t).length}</small>
       </span>
      </button>`;
    }).join("")}
@@ -19240,7 +19242,7 @@ function aaTopicPostCardHTML(t){
  <div class="aa-post-content">${t.title?`<h2 class="aa-post-title" style="${t.titleFmt?aaTextFormatCSS(t.titleFmt):""}">${esc(t.title)}</h2>`:''}${t.body?`<p class="aa-post-message" style="${t.bodyFmt?aaTextFormatCSS(t.bodyFmt):""}">${esc(t.body)}</p>`:''}</div>
  ${mediaSrc?`<div class="aa-post-media">${isVideo?`<div class="aa-video-thumb" onclick='event.stopPropagation();aaOpenVideoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})'><video src="${bingoSafeMediaAttr(mediaSrc)}" data-bingo-grid-preview="skip" muted playsinline loop preload="metadata"></video></div>`:`<img src="${bingoSafeMediaAttr(mediaSrc)}"${mediaClickAttr}>`}${mediaList.length>1?`<span class="aa-post-media-counter">${mediaIdx+1}/${mediaList.length}</span><button type="button" class="aa-post-media-nav prev" aria-label="Previous photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},-1,${mediaList.length})'>‹</button><button type="button" class="aa-post-media-nav next" aria-label="Next photo" onclick='event.stopPropagation();aaTopicMediaNav(${JSON.stringify(String(t.id))},1,${mediaList.length})'>›</button>`:""}</div>`:""}
 
- <div class="bingo-topic-summary"><span class="bingo-reaction-toggle" role="button" tabindex="0" aria-pressed="${loved}" aria-label="${loved?'Remove your reaction':'React to this post'}" onclick="aaTopicLove(${id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();aaTopicLove(${id})}"><span aria-hidden="true">👍 ❤️ 😆</span> ${aaTopicLoveCount(t)} ${aaTopicLoveCount(t)===1?'reaction':'reactions'}</span><span>${comments.length} ${comments.length===1?'comment':'comments'}</span></div>
+ <div class="bingo-topic-summary"><span>${comments.length} ${comments.length===1?'comment':'comments'}</span></div>
  <div class="bingo-topic-actions" role="group" aria-label="Post actions">
  <!-- Crown opens the existing paid-Crown checkout (assets/bingo-paid-crowns-addon.js -> M-Pesa edge function
              mpesa-crown, which verifies payment server-side). The number is the real count of rows in
