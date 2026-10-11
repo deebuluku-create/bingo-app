@@ -6651,11 +6651,12 @@ function aaProcessCoverImage(file,done){
 function handleCoverPhotoUpload(event){
  const file=event.target.files?.[0];event.target.value="";
  if(!file||!state.isLoggedIn)return;
- aaProcessCoverImage(file,function(data){
+ /* Same editor as the profile photo, in wide-crop mode (pinch, drag, rotate). The saved cover is the cropped image. */
+ aaPhotoEditorOpen(file,{title:"Adjust your cover photo",circle:false,onSave(data){
   if(!data)return;
   state.user.cover_url=data;if(state.user.cover_position==null)state.user.cover_position=35;
   state.coverSyncNote="";save();render();
- });
+ }});
 }
 function aaSetCoverPosition(v){
  state.user.cover_position=aaCoverPos(v);
@@ -19499,16 +19500,223 @@ ${aaMyTopicsHTML()}
   <input type="file" id="profilePhotoInput" accept="image/*" style="display:none;" onchange="handleProfilePhotoUpload(event)" />
 </div><input id="pFirst" class="field" placeholder="First name" value="${esc(state.user.firstName)}"><input id="pLast" class="field" placeholder="Last name" value="${esc(state.user.lastName)}"><input id="pPhone" class="field" placeholder="Phone" value="${esc(state.user.phone)}"><input id="pEmail" class="field" placeholder="Email" value="${esc(state.user.email)}"><select id="pLocation" class="field"><option value="">Location / County</option>${kenyaCounties.map(c=>`<option ${state.user.location===c?"selected":""}>${esc(c)}</option>`).join("")}</select><textarea id="pBio" class="field full" rows="4" placeholder="Your bio">${esc(state.user.bio||"")}</textarea></div><button class="btn btn-red" style="width:100%;margin-top:10px" onclick="handleSaveAndShowPublicProfile()">Save Profile</button><button class="btn" style="width:100%;margin-top:8px" onclick="goAccount()">👀 View Public Profile</button>`}
 
+/* ===== Interactive photo editor (2026-10-11) =====
+   One editor for the circular profile photo (circle:true) and the wide cover photo (circle:false, aspect 2.2).
+   Position and zoom are stored relative to the crop box, so the on-screen crop and the saved image are the same.
+   The saved image is drawn to a canvas at its final size: no stretching, no empty corners (zoom never goes below "covers the box"). */
+const AA_PE={el:null,stage:null,prev:null,src:null,sw:0,sh:0,rot:0,z:1,tx:0,ty:0,aspect:1,circle:true,boxFrac:.8,pts:new Map(),pinch:0,raf:0,onSave:null,onCancel:null,busy:false,boxCss:1};
+function aaPEDims(){return AA_PE.rot%180?{w:AA_PE.sh,h:AA_PE.sw}:{w:AA_PE.sw,h:AA_PE.sh}}
+/* scale of the photo per unit of crop-box width (crop box is 1 wide, 1/aspect high) */
+function aaPEScale(){const d=aaPEDims();return AA_PE.z*Math.max(1/d.w,(1/AA_PE.aspect)/d.h)}
+function aaPEClamp(){
+ const d=aaPEDims(),k=aaPEScale();
+ const mx=Math.max(0,(d.w*k-1)/2),my=Math.max(0,(d.h*k-1/AA_PE.aspect)/2);
+ AA_PE.tx=Math.min(mx,Math.max(-mx,AA_PE.tx));AA_PE.ty=Math.min(my,Math.max(-my,AA_PE.ty));
+}
+/* paints the photo into a canvas of cw x ch px; the crop box is bw x bh px, centred */
+function aaPEPaint(ctx,cw,ch,bw){
+ const k=aaPEScale()*bw;
+ ctx.save();
+ ctx.fillStyle="#050a14";ctx.fillRect(0,0,cw,ch);
+ ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality="high";
+ ctx.translate(cw/2+AA_PE.tx*bw,ch/2+AA_PE.ty*bw);
+ ctx.rotate(AA_PE.rot*Math.PI/180);
+ ctx.scale(k,k);
+ ctx.drawImage(AA_PE.src,-AA_PE.sw/2,-AA_PE.sh/2,AA_PE.sw,AA_PE.sh);
+ ctx.restore();
+}
+function aaPEOverlay(ctx,cw,ch,bw,bh){
+ const x=(cw-bw)/2,y=(ch-bh)/2;
+ ctx.save();
+ ctx.fillStyle="rgba(3,7,19,.66)";ctx.beginPath();ctx.rect(0,0,cw,ch);
+ if(AA_PE.circle){ctx.moveTo(cw/2+bw/2,ch/2);ctx.arc(cw/2,ch/2,bw/2,0,Math.PI*2,true)}
+ else{ctx.rect(x,y,bw,bh)}
+ ctx.fill("evenodd");
+ ctx.lineWidth=2;ctx.strokeStyle="#ffc928";ctx.shadowColor="rgba(255,201,40,.55)";ctx.shadowBlur=10;ctx.beginPath();
+ if(AA_PE.circle)ctx.arc(cw/2,ch/2,bw/2,0,Math.PI*2);else ctx.rect(x,y,bw,bh);
+ ctx.stroke();ctx.restore();
+}
+function aaPERedraw(){
+ AA_PE.raf=0;
+ if(!AA_PE.el||!AA_PE.stage)return;
+ const c=AA_PE.stage,ctx=c.getContext("2d");
+ const bw=c.width*AA_PE.boxFrac,bh=bw/AA_PE.aspect;
+ aaPEPaint(ctx,c.width,c.height,bw);
+ aaPEOverlay(ctx,c.width,c.height,bw,bh);
+ if(AA_PE.prev){const pc=AA_PE.prev,pctx=pc.getContext("2d");aaPEPaint(pctx,pc.width,pc.height,pc.width)}
+}
+function aaPEQueue(){if(!AA_PE.raf)AA_PE.raf=requestAnimationFrame(aaPERedraw)}
+function aaPEZoomTo(z){
+ const old=aaPEScale();
+ AA_PE.z=Math.min(4,Math.max(1,z));
+ const ratio=aaPEScale()/old;
+ AA_PE.tx*=ratio;AA_PE.ty*=ratio;
+ aaPEClamp();
+ const sl=AA_PE.el?.querySelector(".pe-zoom input");if(sl)sl.value=String(AA_PE.z.toFixed(2));
+ aaPEQueue();
+}
+function aaPEPinchDist(){const [a,b]=[...AA_PE.pts.values()];return Math.hypot(a.x-b.x,a.y-b.y)}
+function aaPEExport(){
+ const W=AA_PE.circle?480:1600,H=Math.round(W/AA_PE.aspect);
+ const c=document.createElement("canvas");c.width=W;c.height=H;
+ aaPEPaint(c.getContext("2d"),W,H,W);
+ return c.toDataURL("image/jpeg",.9);
+}
+function aaPEClose(saved){
+ const el=AA_PE.el;
+ if(AA_PE.raf)cancelAnimationFrame(AA_PE.raf);
+ AA_PE.el=null;AA_PE.stage=null;AA_PE.prev=null;AA_PE.src=null;AA_PE.pts=new Map();AA_PE.busy=false;
+ if(el)el.remove();
+ if(!saved&&AA_PE.onCancel)AA_PE.onCancel();
+}
+function aaPEInjectCSS(){
+ if(document.getElementById("aaPhotoEditorCSS"))return;
+ const st=document.createElement("style");st.id="aaPhotoEditorCSS";
+ st.textContent=`#aaPhotoEditor{position:fixed;inset:0;z-index:2147483300;background:rgba(3,7,19,.86);display:flex;align-items:center;justify-content:center;padding:14px;box-sizing:border-box;font-family:'Plus Jakarta Sans',system-ui,sans-serif}
+#aaPhotoEditor .pe-card{width:min(440px,100%);max-height:100%;overflow:auto;background:#071323;color:#f2ede1;border:1px solid #ffc928;border-radius:18px;padding:14px;box-shadow:0 0 28px rgba(255,201,40,.22);box-sizing:border-box}
+#aaPhotoEditor .pe-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+#aaPhotoEditor .pe-head b{font-size:17px;color:#ffc928}
+#aaPhotoEditor .pe-x{width:34px;height:34px;border-radius:50%;border:1px solid rgba(34,201,255,.5);background:#0b1729;color:#fff;font-size:20px;line-height:1}
+#aaPhotoEditor .pe-tools{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-bottom:10px}
+#aaPhotoEditor .pe-tools button{min-height:36px;border-radius:10px;border:1px solid rgba(34,201,255,.55);background:#0b1729;color:#e7edf6;font-weight:800;font-size:12px;padding:6px 2px}
+#aaPhotoEditor .pe-tools button:hover{box-shadow:0 0 10px rgba(34,201,255,.4)}
+#aaPhotoEditor .pe-stage{display:block;width:100%;height:auto;border-radius:12px;touch-action:none;cursor:grab;background:#050a14}
+#aaPhotoEditor .pe-hint{font-size:12px;color:#9fb0c8;margin:8px 0 4px;text-align:center}
+#aaPhotoEditor .pe-zoom{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:800;color:#22c9ff;margin:6px 0}
+#aaPhotoEditor .pe-zoom input{flex:1;accent-color:#ff3a6e}
+#aaPhotoEditor .pe-preview-row{display:flex;align-items:center;gap:12px;margin:10px 0;padding:10px;border-radius:12px;background:#0b1729;border:1px solid rgba(255,58,110,.35)}
+#aaPhotoEditor .pe-prev{width:84px;height:84px;border-radius:50%;border:3px solid #0073aa;flex:0 0 84px;background:#050a14}
+#aaPhotoEditor .pe-prev-text{font-size:12px;color:#c9d4e5;line-height:1.35}
+#aaPhotoEditor .pe-prev-text b{color:#ff3a6e;font-size:13px}
+#aaPhotoEditor .pe-actions{display:grid;grid-template-columns:1fr 1.6fr;gap:8px;margin-top:6px}
+#aaPhotoEditor .pe-actions button{min-height:44px;border-radius:12px;font-weight:900;font-size:14px;border:1px solid #ffc928}
+#aaPhotoEditor .pe-cancel{background:#0b1729;color:#f2ede1}
+#aaPhotoEditor .pe-save{background:linear-gradient(90deg,#ffc928,#ff3a6e);color:#071323;border-color:transparent!important}
+#aaPhotoEditor .pe-save:disabled{opacity:.6}
+#aaPhotoEditor .pe-msg{min-height:18px;font-size:12px;color:#9fb0c8;text-align:center;margin-top:6px}`;
+ document.head.appendChild(st);
+}
+function aaPhotoEditorOpen(file,opts){
+ if(!file||!String(file.type||"").startsWith("image/")){toast("Please choose an image file.");return}
+ if(file.size>25*1024*1024){toast("That photo is larger than 25 MB. Please choose a smaller photo.");return}
+ aaPEClose(false);
+ const url=URL.createObjectURL(file);
+ const img=new Image();
+ img.onload=function(){
+  try{
+   const max=1600,sc=Math.min(1,max/Math.max(img.naturalWidth||1,img.naturalHeight||1));
+   const c=document.createElement("canvas");
+   c.width=Math.max(1,Math.round((img.naturalWidth||1)*sc));c.height=Math.max(1,Math.round((img.naturalHeight||1)*sc));
+   c.getContext("2d").drawImage(img,0,0,c.width,c.height);
+   URL.revokeObjectURL(url);
+   AA_PE.src=c;AA_PE.sw=c.width;AA_PE.sh=c.height;
+   AA_PE.rot=0;AA_PE.z=1;AA_PE.tx=0;AA_PE.ty=0;
+   AA_PE.circle=opts.circle!==false;AA_PE.aspect=AA_PE.circle?1:2.2;AA_PE.boxFrac=AA_PE.circle?.8:.9;
+   AA_PE.onSave=opts.onSave||null;AA_PE.onCancel=opts.onCancel||null;
+   aaPEBuild(opts.title||"Edit photo");
+  }catch(err){URL.revokeObjectURL(url);toast("This photo could not be opened. Please try another image.")}
+ };
+ img.onerror=function(){URL.revokeObjectURL(url);toast("This photo could not be opened. Please try another image.")};
+ img.src=url;
+}
+function aaPEBuild(title){
+ aaPEInjectCSS();
+ const el=document.createElement("div");el.id="aaPhotoEditor";el.setAttribute("role","dialog");el.setAttribute("aria-modal","true");el.setAttribute("aria-label",title);
+ el.innerHTML=`<div class="pe-card">
+  <div class="pe-head"><b>${esc(title)}</b><button type="button" class="pe-x" aria-label="Close editor">×</button></div>
+  <div class="pe-tools" role="toolbar" aria-label="Photo tools">
+   <button type="button" data-pe="crop" title="Fit the photo to the frame, centred">Crop</button>
+   <button type="button" data-pe="adjust" title="Zoom slider">Adjust</button>
+   <button type="button" data-pe="ccw" aria-label="Rotate anticlockwise">↺ Rotate</button>
+   <button type="button" data-pe="cw" aria-label="Rotate clockwise">↻ Rotate</button>
+   <button type="button" data-pe="reset">Reset</button>
+  </div>
+  <canvas class="pe-stage" aria-label="Photo editing area"></canvas>
+  <p class="pe-hint">Drag to move · pinch or scroll to zoom</p>
+  <label class="pe-zoom">Zoom <input type="range" min="1" max="4" step="0.01" value="1" aria-label="Zoom"></label>
+  ${AA_PE.circle?`<div class="pe-preview-row"><canvas class="pe-prev" aria-label="Profile preview"></canvas><div class="pe-prev-text"><b>Preview</b><br>This is how your picture appears in your profile circle.</div></div>`:""}
+  <div class="pe-msg" aria-live="polite"></div>
+  <div class="pe-actions"><button type="button" class="pe-cancel">Cancel</button><button type="button" class="pe-save">Save Profile Photo</button></div>
+ </div>`;
+ document.body.appendChild(el);
+ AA_PE.el=el;
+ const stage=el.querySelector(".pe-stage");
+ const dpr=Math.min(2,window.devicePixelRatio||1);
+ const cssW=Math.max(240,Math.min(400,(window.innerWidth||400)-70));
+ const cssH=AA_PE.circle?cssW:Math.round(cssW*.62);
+ stage.width=Math.round(cssW*dpr);stage.height=Math.round(cssH*dpr);
+ stage.style.height=cssH+"px";
+ AA_PE.stage=stage;AA_PE.boxCss=cssW*AA_PE.boxFrac;
+ if(AA_PE.circle){const pc=el.querySelector(".pe-prev");pc.width=168;pc.height=168;AA_PE.prev=pc}
+ const msg=el.querySelector(".pe-msg");
+ const saveBtn=el.querySelector(".pe-save");
+ const toolOf=b=>b.dataset.pe;
+ el.querySelector(".pe-x").onclick=()=>aaPEClose(false);
+ el.querySelector(".pe-cancel").onclick=()=>aaPEClose(false);
+ el.addEventListener("click",e=>{if(e.target===el)aaPEClose(false)});
+ el.querySelector(".pe-tools").onclick=e=>{
+  const b=e.target.closest("button");if(!b)return;
+  const t=toolOf(b);
+  if(t==="crop"){AA_PE.z=1;AA_PE.tx=0;AA_PE.ty=0;}
+  else if(t==="adjust"){el.querySelector(".pe-zoom input").focus()}
+  else if(t==="cw"||t==="ccw"){AA_PE.rot=(AA_PE.rot+(t==="cw"?90:270))%360;AA_PE.tx=0;AA_PE.ty=0;AA_PE.z=AA_PE.z;}
+  else if(t==="reset"){AA_PE.rot=0;AA_PE.z=1;AA_PE.tx=0;AA_PE.ty=0;}
+  aaPEClamp();
+  el.querySelector(".pe-zoom input").value=String(AA_PE.z.toFixed(2));
+  aaPEQueue();
+ };
+ el.querySelector(".pe-zoom input").oninput=e=>aaPEZoomTo(Number(e.target.value));
+ stage.addEventListener("pointerdown",e=>{
+  stage.setPointerCapture(e.pointerId);
+  AA_PE.pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(AA_PE.pts.size===2)AA_PE.pinch=aaPEPinchDist();
+ });
+ stage.addEventListener("pointermove",e=>{
+  if(!AA_PE.pts.has(e.pointerId))return;
+  const prev=AA_PE.pts.get(e.pointerId);
+  AA_PE.pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(AA_PE.pts.size>=2){
+   const d=aaPEPinchDist();
+   if(AA_PE.pinch>0&&d>0)aaPEZoomTo(AA_PE.z*(d/AA_PE.pinch));
+   AA_PE.pinch=d;
+  }else{
+   AA_PE.tx+=(e.clientX-prev.x)/AA_PE.boxCss;
+   AA_PE.ty+=(e.clientY-prev.y)/AA_PE.boxCss;
+   aaPEClamp();aaPEQueue();
+  }
+ });
+ const endPtr=e=>{AA_PE.pts.delete(e.pointerId);AA_PE.pinch=0};
+ stage.addEventListener("pointerup",endPtr);
+ stage.addEventListener("pointercancel",endPtr);
+ stage.addEventListener("wheel",e=>{e.preventDefault();aaPEZoomTo(AA_PE.z*Math.exp(-e.deltaY*.0015))},{passive:false});
+ saveBtn.onclick=()=>{
+  if(AA_PE.busy)return;
+  AA_PE.busy=true;saveBtn.disabled=true;msg.textContent="Preparing your photo…";
+  try{
+   const data=aaPEExport();
+   const onSave=AA_PE.onSave;
+   aaPEClose(true);
+   if(onSave)onSave(data);
+  }catch(err){
+   AA_PE.busy=false;saveBtn.disabled=false;msg.textContent="";
+   toast("This photo could not be prepared. Please try again.");
+  }
+ };
+ aaPEClamp();aaPEQueue();
+}
 async function handleProfilePhotoUpload(event){
  const file=event.target.files?.[0];
+ event.target.value="";
  if(!file)return;
- aaProcessProfileImage(file,function(data){
+ aaPhotoEditorOpen(file,{title:"Adjust your profile photo",circle:true,onSave(data){
   if(!data)return;
+  const current=String(state.user.photo_url||"");
+  if(current&&!current.startsWith("data:image/"))state.profilePhotoPrevious=current;
   state.user.photo_url=data;
   aaSyncOwnProfileToListings();
   const preview=document.getElementById("profile-photo-preview");if(preview)preview.src=bingoSafeMediaUrl(data);
   save();
- });
+ }});
 }
 function editProfileHTML(){
  const busy=!!state.editProfileBusy;
@@ -19544,6 +19752,12 @@ async function saveEditedProfile(){
       then save() to local storage) even though the online write failed -
       nothing typed is lost, and the form re-renders from that same
       state.user, so the user can just press Save again once reconnected. */
+   if(String(state.user?.photo_url||"").startsWith("data:image/")&&state.profilePhotoPrevious){
+    /* The new photo could not be uploaded: keep the previous online photo, not the unsaved one. */
+    state.user.photo_url=state.profilePhotoPrevious;state.profilePhotoPrevious="";save();
+    toast("Your previous profile photo was kept because the new photo could not be uploaded. Other changes are saved on this device.");
+    return;
+   }
    toast("Profile saved on this device, but the online profile could not be updated. Please try again.");
    return;
   }
@@ -29856,6 +30070,9 @@ html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button.
 html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button:active{opacity:.7}
 html body #auto-arcade-widget .bingo-approved-topic .aa-post-message,html body #auto-arcade-widget .bingo-approved-topic .aa-post-title{overflow-wrap:break-word!important;word-break:normal!important;hyphens:manual!important}
 html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-author b{overflow-wrap:anywhere}
+/* Stage 3 fix (2026-10-11): the fixed refresh button (.aa-refresh-fab, unchanged) sits at the bottom right above the
+   tabs. On narrow phones the Wall action row reserves a gutter for it, so Save is never covered. Desktop unchanged. */
+@media(max-width:520px){html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions{padding-right:46px!important}}
 /* Rotating real comments (one bubble at a time, active Home topic slide only; see bingoRotator in the render wrapper)
    2026-10-11: the row had only left:0, so it was exactly as wide as its content and the bubble's percentage
    max-width resolved ~4px narrower than its own text - with overflow-wrap:anywhere a short comment like
