@@ -29846,6 +29846,16 @@ body:has(#auto-arcade-widget.aa-wall-view){background:#f1f5f9!important}
 html body #auto-arcade-widget .bingo-approved-topic .aa-post-media:has(.aa-video-thumb){background:transparent!important;border:0!important;box-shadow:none!important}
 html body #auto-arcade-widget .bingo-approved-topic .aa-post-media .aa-video-thumb{background:transparent!important;display:flex!important;justify-content:center!important}
 html body #auto-arcade-widget .bingo-approved-topic .aa-post-media video{width:auto!important;max-width:100%!important;height:auto!important;max-height:560px!important;margin:0 auto!important;background:transparent!important;object-fit:contain!important;display:block!important}
+/* Stage 3 (2026-10-11): X-inspired Wall post layout, Bingo colours kept.
+   Flat engagement row (Crown, Comments, Share, Save) in four equal columns, no pill borders.
+   Post text wraps at word boundaries only, never inside a word. Same card renderer; only styling. */
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:0!important;border-top:1px solid #eef0f3!important;border-bottom:0!important;margin-top:6px!important;padding-top:4px!important}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button:not(#bingo-flat-guard){display:flex!important;align-items:center!important;justify-content:center!important;gap:5px!important;min-width:0!important;min-height:40px!important;padding:8px 2px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#475467!important;font:700 13px/1 'Plus Jakarta Sans',system-ui,sans-serif!important;white-space:nowrap!important}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button:not(#bingo-flat-guard)+button:not(#bingo-flat-guard){border-left:0!important}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button.bingo-action-crown:not(#bingo-flat-guard){color:#b7791f!important}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-actions button:active{opacity:.7}
+html body #auto-arcade-widget .bingo-approved-topic .aa-post-message,html body #auto-arcade-widget .bingo-approved-topic .aa-post-title{overflow-wrap:break-word!important;word-break:normal!important;hyphens:manual!important}
+html body #auto-arcade-widget .bingo-approved-topic .bingo-topic-author b{overflow-wrap:anywhere}
 /* Rotating real comments (one bubble at a time, active Home topic slide only; see bingoRotator in the render wrapper)
    2026-10-11: the row had only left:0, so it was exactly as wide as its content and the bubble's percentage
    max-width resolved ~4px narrower than its own text - with overflow-wrap:anywhere a short comment like
