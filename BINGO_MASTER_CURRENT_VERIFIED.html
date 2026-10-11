@@ -18981,7 +18981,7 @@ function aaMbeaHeaderHTML(){
     global header is hidden on this view (class aa-wall-view, toggled in render()), and this logo
     opens the same Cockpit menu the global logo does, so no navigation is lost. All three actions call the
     app's existing real features (openInbox, goAccount, logoutBingo) — nothing new or fake. */
- return `<header class="bingo-topic-brand"><div class="bingo-wall-brand-group"><button type="button" class="bingo-wall-logo-btn" aria-label="Open Bingo menu" onclick="openBingoCockpit()">${bingoAppLogoHTML({className:"bingo-app-logo--mobile"})}</button><div class="bingo-wall-tagline">Kenyans, we did it.</div></div><div class="bingo-wall-header-actions">
+ return `<header class="bingo-topic-brand"><div class="bingo-wall-brand-group"><button type="button" class="bingo-wall-logo-btn" aria-label="Open Bingo menu" onclick="openBingoCockpit()">${bingoAppLogoHTML({className:"bingo-app-logo--mobile"})}</button></div><div class="bingo-wall-header-actions">
  <button type="button" class="bingo-wall-head-btn bingo-wall-head-btn-dark" onclick="openInbox()">Inbox</button>
  <button type="button" class="bingo-wall-head-btn" onclick="goAccount()">Profile</button>
  ${state.isLoggedIn?`<button type="button" class="bingo-wall-head-btn bingo-wall-head-btn-logout" onclick="logoutBingo()">Log Out</button>`:''}
