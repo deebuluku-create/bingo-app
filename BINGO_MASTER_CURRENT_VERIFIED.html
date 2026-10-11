@@ -29837,6 +29837,13 @@ body:has(#auto-arcade-widget.aa-wall-view){background:#f1f5f9!important}
 /* Flat, clean video surface: no floating play badge; hide the browser's own big centre play button too. */
 .aa-post-media video::-webkit-media-controls-overlay-play-button,.aa360-video::-webkit-media-controls-overlay-play-button{display:none!important}
 #auto-arcade-widget .bingo-no-audio{opacity:.55}
+/* Stage 1 (2026-10-11): frameless Bingo Wall video. The old rules forced every
+   Wall video into a 340px box with an opaque dark letterbox behind it. Now the
+   video takes its own aspect ratio: portrait stays vertical (capped height, centred),
+   landscape fills the card width, no black frame, no border. Home Feed is untouched. */
+html body #auto-arcade-widget .bingo-approved-topic .aa-post-media:has(.aa-video-thumb){background:transparent!important;border:0!important;box-shadow:none!important}
+html body #auto-arcade-widget .bingo-approved-topic .aa-post-media .aa-video-thumb{background:transparent!important;display:flex!important;justify-content:center!important}
+html body #auto-arcade-widget .bingo-approved-topic .aa-post-media video{width:auto!important;max-width:100%!important;height:auto!important;max-height:560px!important;margin:0 auto!important;background:transparent!important;object-fit:contain!important;display:block!important}
 /* Rotating real comments (one bubble at a time, active Home topic slide only; see bingoRotator in the render wrapper)
    2026-10-11: the row had only left:0, so it was exactly as wide as its content and the bubble's percentage
    max-width resolved ~4px narrower than its own text - with overflow-wrap:anywhere a short comment like
