@@ -14519,6 +14519,7 @@ function render(){
  // while ANY other posting form is open, not only the vehicle form.
  if(root)root.classList.toggle("bingo-form-open",["add","spare-add","edit-profile"].includes(state.view)||(state.view==="properties"&&state.propertyTab==="post")||(state.view==="food"&&state.foodTab==="post")||(state.view==="jobs"&&["cv","mycv"].includes(state.jobsTab))||!!state.postTodayTopicOpen||!!state.wallComposerOpen);
  app.innerHTML=`
+ ${aaRoleStatusBannerHTML()}
  <header class="header"><div class="container header-inner">
   <div class="bingo-header-stack" id="bingoHeaderStack"><button class="brand bingo-brand-logo${aaBingoLogoIntroClass()}" id="bingoMainLogo" onclick="openBingoCockpit()" role="button" tabindex="0" aria-label="Open Bingo menu" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBingoCockpit()}">${bingoAppLogoHTML({className:"bingo-app-logo--header"})}</button><button type="button" id="bingoLogoCloseBtn" aria-label="Move the Bingo logo out of the way"><span class="bingo-logo-close-dot">&times;</span></button><div class="bingo-press-here" id="bingoPressHere" aria-hidden="true"><span class="bingo-press-here-arrow">▲</span>Press here</div></div>
   <div class="top-actions aa-auth-actions">${state.isLoggedIn?`<button class="btn" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button><button class="btn" onclick="goAccount()">Profile</button><button class="btn btn-red" onclick="logoutBingo()">Log Out</button>`:`<button class="btn" onclick="openAuth('login')">Log In</button><button class="btn btn-red" onclick="openAuth('register')">Sign Up</button>`}</div>
@@ -14537,7 +14538,6 @@ function render(){
   ${state.view==="community-groups"?aaCommunityGroupsHTML():""}
   ${state.view==="community-group"?aaCommunityGroupHTML():""}
   ${state.view==="community-group-create"?aaCommunityGroupCreateHTML():""}
-  ${aaRoleStatusBannerHTML()}
   ${state.view==="spare-add"?aaSparePostHTML():""}
   ${state.view==="spare-details"&&state.spareSelected?aaSpareDetailsHTML(state.spareSelected):""}
   ${state.view==="details"&&state.selected?detailsHTML(state.selected):""}
@@ -17248,7 +17248,7 @@ function aaMemberSinceHTML(profile){
 function aaAgentTerritory(){return state.userRole?.territory||""}
 function aaRoleStatusBannerHTML(){
  if(state.userRoleStatus!=="failed"||!state.user?.id)return "";
- return `<div class="aa-role-banner" role="alert" style="margin:10px 12px;padding:10px 12px;border-radius:12px;border:1px solid #ff2fa6;background:rgba(255,47,166,.10);color:inherit;font-size:14px;line-height:1.4"><b>We couldn't verify your account role.</b> Administrative tools stay hidden until it loads. <div style="margin-top:8px"><button type="button" class="btn btn-glass" onclick="aaRetryUserRole()">Retry</button></div></div>`;
+ return `<div class="aa-role-banner" role="alert" style="margin:8px 64px 8px 12px;padding:6px 10px;border-radius:10px;border:1px solid #ff2fa6;background:rgba(255,47,166,.10);color:inherit;font-size:12.5px;line-height:1.3;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span style="flex:1 1 180px">Couldn't verify your account role. Admin tools are hidden.</span><button type="button" class="btn btn-glass" style="padding:4px 12px;min-height:0;font-size:12px" onclick="aaRetryUserRole()">Retry</button></div>`;
 }
 async function aaRetryUserRole(){
  await aaLoadUserRole();
@@ -17260,7 +17260,16 @@ async function aaRetryUserRole(){
    including a verified ordinary member with no row), or "failed".
    A failed lookup sets state.userRole to null, so no administrative or
    agent permission is granted; the signed-in user sees a banner with Retry. */
-async function aaLoadUserRole(){
+let aaRoleLookupInflight=null;
+/* Overlapping callers (sign-in, session restore, Retry taps) share one
+   in-flight request instead of starting parallel authentication reads. */
+function aaLoadUserRole(){
+ if(!aaRoleLookupInflight){
+  aaRoleLookupInflight=aaLoadUserRoleOnce().finally(()=>{aaRoleLookupInflight=null});
+ }
+ return aaRoleLookupInflight;
+}
+async function aaLoadUserRoleOnce(){
  state.userRoleError=null;
  if(!sb||!state.user?.id){
   state.userRole={role:"member",territory:"",agent_since:null,agent_status:"inactive"};
