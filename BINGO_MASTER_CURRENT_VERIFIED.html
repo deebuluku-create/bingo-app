@@ -5500,7 +5500,7 @@ function aaRememberPage(){
 function goBack(){
  /* Spare Parts / Household Items opened from the Categories grid: Back restores the page
     underneath as usual, then reopens the same Categories grid at the same scroll position. */
- const catReturn=state.view==="market"&&state.categoriesReturn?state.categoriesReturn:null;
+ const catReturn=(state.view==="market"||state.view==="search")&&state.categoriesReturn?state.categoriesReturn:null;
  if(catReturn)state.categoriesReturn=null; // kept while moving between the market page, its items and its form
  aaGoBackCore();
  if(catReturn){
@@ -8829,7 +8829,7 @@ function aaSubmitComment(){
 
 /* v53: restored functional search/comment helpers; no styling changes */
 function aaCommentsHTML(c){const arr=(state.feedComments||{})[String(c.id)]||[];return `<div class="aa-comment-box" onclick="if(event.target===this)aaCloseComments()"><div class="aa-comment-sheet"><button class="close" onclick="aaCloseComments()">×</button><h2 style="margin:0 0 10px">Comments · ${esc(c.title)}</h2><div>${arr.map(x=>`<div class="aa-comment-item"><b>${esc(x.author||"Member")}</b><br>${esc(x.text||"")}</div>`).join("")||`<div class="notice">No comments yet. Be the first to ask about this vehicle.</div>`}</div><div style="display:grid;grid-template-columns:1fr auto;gap:7px;margin-top:12px"><input id="aaCommentInput" class="field" placeholder="Write a comment..."><button class="btn btn-red" onclick="aaSubmitComment()">Post</button></div></div></div>`}
-function aaOpenSearch(filter){aaRememberPage();state.mediaFilter=filter||"all";state.view="search";state.page=1;render();window.scrollTo(0,0)}
+function aaOpenSearch(filter){state.categoriesReturn=null;aaRememberPage();state.mediaFilter=filter||"all";state.view="search";state.page=1;render();window.scrollTo(0,0)}
 function aaSearchLocationText(c){return [c?.area,c?.town,c?.location].filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(", ")}
 function aaOpenVideoFromGrid(id){state.feedStartId=String(id);state.view="home";render();window.scrollTo(0,0)}
 function aaVideoGridCardHTML(c,i){
@@ -9004,7 +9004,8 @@ function aaSearchHTML(){
  const profileResults=profileMatches.length?`<div class="boost-summary" style="margin-bottom:12px"><b>Profiles</b><div class="seller-listings" style="margin-top:8px">${profileMatches.map(s=>`<button class="mini" onclick='openSeller(${JSON.stringify(String(s.id))})'><img src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo||""))}" onerror="aaProfileImgFallback(this)"><div>${esc(s.name||"Bingo Member")}<br><span style="color:#f5b91e">${esc(aaSellerUsername(s))}</span></div></button>`).join("")}</div></div>`:"";
  return `<section class="aa-search-page"><button class="btn" onclick="goBack()">← Back</button>
  <section class="searchbar"><input class="field" value="${esc(state.search)}" placeholder="Search keyword, seller or @username..." oninput="state.search=this.value;render()"><button class="btn btn-red" onclick="render()">Search</button></section>
- <div class="aa-media-tabs" style="flex-wrap:wrap">${AA_SEARCH_CATEGORIES.map(c=>`<button class="${cat===c.key?"active":""}" onclick="aaSetSearchCategory('${c.key}')">${esc(c.label)}</button>`).join("")}</div>
+ ${cat==="vehicles"?`<div class="aa-search-post-row" style="display:flex;justify-content:flex-end;margin:8px 0"><button type="button" class="btn btn-red" onclick="openPostVehicle()">＋ Post Vehicle</button></div>`:""}
+ <div class="aa-media-tabs" style="flex-wrap:wrap">${AA_SEARCH_CATEGORIES.map(c=>`<button class="${cat===c.key?"active":""}" data-search-cat="${c.key}" onclick="aaSetSearchCategory('${c.key}')">${esc(c.label)}</button>`).join("")}</div>
  <div class="aa-search-location"><select class="select" onchange="state.searchCounty=this.value;render()"><option>All Kenya</option>${kenyaCounties.map(x=>`<option ${x===county?"selected":""}>${x}</option>`).join("")}</select><input class="field" placeholder="Town / city e.g. Mombasa" value="${esc(state.searchTown||"")}" oninput="state.searchTown=this.value;render()"><input class="field" placeholder="Area / suburb e.g. Nyali" value="${esc(state.searchArea||"")}" oninput="state.searchArea=this.value;render()"></div>
  ${aaSearchFilterFieldsHTML(cat)}
  ${isVehicleLikeCat?`<div class="aa-media-tabs"><button class="${f==="all"?"active":""}" onclick="state.mediaFilter='all';render()">All</button><button class="${f==="videos"?"active":""}" onclick="state.mediaFilter='videos';render()">Videos</button><button class="${f==="photos"?"active":""}" onclick="state.mediaFilter='photos';render()">Photos</button></div>`:""}
@@ -9622,14 +9623,35 @@ const AA_ALL_CATEGORIES=[
  {name:"Other Marketplace Items",slug:"other",subs:["General","Collectibles","Office Items","Miscellaneous"]}
 ];
 /* Opens the existing Auto Market page directly on the requested tab (no intermediate screen). */
-/* Marketplace entry points (bottom nav "Marketplace", Wall "Market", "Shop", "Open Market", and the
-   Vehicles / Auto card) used to land on the Categories grid only because the retired add-on bounced
+/* Marketplace entry points (bottom nav "Marketplace", Wall "Market", "Shop", "Open Market") used to
+   land on the Categories grid only because the retired add-on bounced
    the Auto Market page back to it. Keep exactly that result now that the add-on is off: the same
    market view underneath, with the Categories grid open on top. */
 function aaOpenMarketplaceEntry(){aaOpenMarket();state.marketCategoriesDrawerOpen=true;state.allCatComingSoonSlug=null;render()}
+/* Vehicles / Auto (2026-10-11): the existing vehicle marketplace is the search page on its Vehicles
+   category - vehicle card grid, keyword search, county/town/area, price/condition/sort filters,
+   Videos/Photos - plus the existing vehicle posting form (openPostVehicle). */
+function aaOpenVehicleMarketplace(){
+ aaRememberPage();
+ state.searchCategory="vehicles";
+ state.searchCondition="";state.searchFurnished="";state.searchMinPrice="";state.searchMaxPrice="";
+ state.searchNegotiable=false;state.searchBedrooms="";state.searchGuests="";state.searchDeliveryArea="";state.searchExperience="";
+ state.mediaFilter="all";state.page=1;state.view="search";state.categoriesReturn=null;
+ render();window.scrollTo(0,0);
+}
+/* assets/bingo-vehicle-category-browse-repair.js intercepts (capture phase, stopImmediatePropagation)
+   any button labelled exactly "Vehicles" near the word "Categories" - which includes the search page's
+   own "Vehicles" category tab, so that tab did nothing. This listener is registered first (inline
+   script, before the deferred add-on), performs the tab's own action and stops the add-on seeing it. */
+document.addEventListener("click",function(e){
+ const b=e.target&&e.target.closest&&e.target.closest("#auto-arcade-widget .aa-search-page button[data-search-cat]");
+ if(!b)return;
+ e.preventDefault();e.stopImmediatePropagation();e.stopPropagation();
+ aaSetSearchCategory(b.getAttribute("data-search-cat"));
+},true);
 function aaOpenMarketType(type){state.marketListingType=type==="household"?"household":"spare_parts";state.marketCategory="All";aaOpenMarket()}
 const AA_CATEGORY_REAL_ROUTES={
- vehicles:()=>aaOpenMarketplaceEntry(),
+ vehicles:()=>aaOpenVehicleMarketplace(),
  "spare-parts":()=>aaOpenMarketType("spare_parts"),
  "household-items":()=>aaOpenMarketType("household"),
  properties:()=>aaOpenProperties('browse'),
@@ -9647,7 +9669,7 @@ function aaOpenCategoryTile(slug){
   const ret={scroll:box?box.scrollTop:0,slug};
   aaCloseMarketCategoriesDrawer();route();
   /* Back on Spare Parts / Household Items returns to this grid at the same position. */
-  if(slug==="spare-parts"||slug==="household-items")state.categoriesReturn=ret;
+  if(slug==="spare-parts"||slug==="household-items"||slug==="vehicles")state.categoriesReturn=ret;
   return;
  }
  state.allCatComingSoonSlug=slug;render();
