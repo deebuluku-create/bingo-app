@@ -4700,24 +4700,11 @@ function aaCleanupOAuthUrlParams(){
 aaInitSupabase();
 </script>
 <div id="app">
-  <section class="aa360-shell" data-aa-editor-fallback="1">
-    <div class="aa360-feed" style="overflow:hidden">
-      <section class="aa360-item">
-        <img class="aa360-video" src="https://images.unsplash.com/photo-1542282088-72c9c27ed0cd?w=1200&q=85" alt="Bingo vehicle preview" style="object-fit:cover">
-        <div class="aa360-shade"></div>
-        <div class="aa360-side"><div><button>◉</button><span>22K</span></div><div><button>👍</button><span>328</span></div><div><button>💬</button><span>42</span></div><div><button>↗</button><span>178</span></div><div><button>♡</button><span>Save</span></div></div>
-        <div class="aa360-info">
-          <div class="aa360-seller"><span><b>Bingo Seller</b><small>Mombasa · ● Online</small></span></div>
-          <div><span class="badge badge-red">FOR SALE</span></div>
-          <div class="aa360-title">Toyota Land Cruiser Prado TX</div>
-          <div class="aa360-price">KES 8,500,000</div>
-          <div class="aa360-specs"><span>2022</span><span>45,000 KM</span><span>Diesel</span><span>Automatic</span><span>Foreign Used</span></div>
-          <div class="aa360-desc">Modern Bingo 360View preview. Live data replaces this preview automatically.</div>
-          <div class="aa360-actions"><button class="bingo-neon-action bingo-neon-action-cyan">☎ Call</button><button class="bingo-neon-action bingo-neon-action-purple">💬 Message</button><button class="bingo-neon-action bingo-neon-action-green">WhatsApp</button></div>
-          <div class="aa360-scroll-note">BINGO 360VIEW</div>
-        </div>
-      </section>
-    </div>
+  <!-- First paint before the app starts (and Elementor editor fallback). This used to be a hardcoded demo listing
+       (a fake vehicle advert with a stock photo) that every visitor saw while the page loaded.
+       render() replaces #app with the real Home Feed. 2026-10-11. -->
+  <section class="aa360-shell" data-aa-editor-fallback="1" aria-busy="true">
+    <div style="min-height:70vh;display:flex;align-items:center;justify-content:center;color:#9aa7bc;font:600 14px/1.5 Inter,system-ui,sans-serif" role="status">Loading Bingo…</div>
   </section>
 </div>
 <script>
@@ -5405,7 +5392,10 @@ var aaBackStack=[];
    wrong is worse than the existing Home fallback. */
 const AA_SAFE_REFRESH_VIEWS=new Set(["home","topics","wall","search","jobs","properties","food","food-menu","market","member-central","solutions","community-groups","inbox"]);
 function aaSaveCurrentRoute(){
- if(!AA_SAFE_REFRESH_VIEWS.has(state.view))return;
+ /* 2026-10-11: on a page that is not restored (a post, a profile, a listing...) clear the saved entry so a
+    refresh falls back to Home as designed above. Returning early left the PREVIOUS page saved, so e.g.
+    Wall -> open a profile -> refresh reopened the Wall. */
+ if(!AA_SAFE_REFRESH_VIEWS.has(state.view)){try{sessionStorage.removeItem("aa_current_route")}catch(e){}return}
  try{
   sessionStorage.setItem("aa_current_route",JSON.stringify({
    view:state.view,
@@ -29959,12 +29949,12 @@ function show(title,body){removeDialog();modal=document.createElement('dialog');
 function credit(s){const m=aaTopicAuthorMeta({authorId:s.original_uploader_id});return '<span>♫ '+esc(s.title)+'</span><button type="button" onclick="BingoSounds.close();openSeller('+ident(s.original_uploader_id)+')">Original sound · '+esc(m?.name||'View original profile')+'</button>'}
 function audioUrl(s){if(urls.has(s.id))return urls.get(s.id);if(!urls.has('pending:'+s.id)){urls.set('pending:'+s.id,true);sb.storage.from('sound-audio').createSignedUrl(s.audio_path,1800).then(({data,error})=>{if(error){urls.delete('pending:'+s.id);return}urls.set(s.id,data.signedUrl)})}return ''}
 async function refresh(){if(!sb||loading)return;loading=true;try{const {data,error}=await sb.from('bingo_sounds').select('*').order('created_at',{ascending:false}).limit(500);if(error)throw error;cache.clear();for(const s of data||[])cache.set(s.id,s)}finally{loading=false}}
-function bar(t){const hasVideo=(t.media||[]).some(m=>m.type==='video');if(!t.soundId&&!hasVideo)return '';const s=cache.get(t.soundId);return '<div class="bingo-sound-bar" onclick="event.stopPropagation()">'+(s?credit(s):'<span>♫ Original sound</span>')+'<button type="button" onclick="BingoSounds.open('+ident(t.id)+')">'+(s?'Use this sound':'Check sound')+'</button></div>'}
+function bar(t){const hasVideo=(t.media||[]).some(m=>m.type==='video');if(!t.soundId&&!hasVideo)return '';const s=cache.get(t.soundId);return '<div class="bingo-sound-bar" onclick="event.stopPropagation()">'+(s?credit(s):'<span>♫ Original sound</span>')+'<button type="button" title="'+(s?'Use this sound in your own post':'Identify this sound for reusable sound credit. To hear the video, use the speaker button.')+'" onclick="BingoSounds.open('+ident(t.id)+')">'+(s?'Use this sound':'Check sound')+'</button></div>'}
 async function online(){const r=await sb.rpc('bingo_sound_processor_online');if(r.error)throw r.error;return !!r.data}
 async function loadAudio(s){if(!urls.has(s.id)){const r=await sb.storage.from('sound-audio').createSignedUrl(s.audio_path,1800);if(r.error)throw r.error;urls.set(s.id,r.data.signedUrl)}return urls.get(s.id)}
 async function open(id){try{await refresh();const t=aaTopics().find(x=>String(x.id)===String(id));if(!t)throw Error('This post is unavailable');if(t.soundId&&!cache.has(t.soundId)){const r=await sb.from('bingo_sounds').select('*').eq('id',t.soundId).maybeSingle();if(r.error)throw r.error;if(r.data)cache.set(r.data.id,r.data)}const s=cache.get(t.soundId);if(s){const src=await loadAudio(s);show('Use this sound?',credit(s)+(src?'<audio controls src="'+bingoSafeMediaAttr(src)+'"></audio>':'<p>Loading audio… close and reopen shortly.</p>')+'<p>Choose your media, then preview in the existing Bingo composer.</p><div class="bingo-sound-choices">'+['video','photo','record','camera'].map((v,i)=>'<button class="btn btn-gold" onclick="BingoSounds.choose('+ident(s.id)+','+ident(v)+')">'+['Upload video','Upload photo','Record video','Take photo'][i]+'</button>').join('')+'</div><button class="btn" onclick="BingoSounds.posts('+ident(s.id)+')">View posts using this sound</button>');return}
 if(!state.isLoggedIn){openAuth('login');return}
-if(!await online()){show('Sound processing not yet available','<p>This video stays available to watch. Its sound cannot receive reusable credit until Bingo’s audio-recognition processor is running.</p><p>No new uploader credit has been accepted.</p>');return}
+if(!await online()){toast('Sound recognition is not available yet, so no sound credit was recorded. To hear this video, tap the speaker button.');return}
 const r=await sb.rpc('bingo_queue_sound',{p_topic:id});if(r.error)throw r.error;show('Checking original sound','<p>Bingo is checking the audio against saved sounds. Original credit is assigned only after recognition.</p><button class="btn" onclick="BingoSounds.reload()">Check again</button>')
 }catch(e){fail(e)}}
 async function choose(id,kind){if(!state.isLoggedIn){removeDialog();openAuth('login');return}chosen=cache.get(id);processed=false;removeDialog();aaFocusWallComposer();if(kind==='record'||kind==='camera'){camera(kind);return}const input=document.createElement('input');input.type='file';input.accept=(kind==='video'||kind==='record')?'video/*':'image/*';if(kind==='record'||kind==='camera')input.setAttribute('capture','environment');input.onchange=()=>{const f=input.files[0];if(!f)return;const err=aaValidateTopicMediaFile(f);if(err){fail(Error(err));return}aaSetTopicMediaSelection([f]);render();BingoSounds.preview()};input.click()}
