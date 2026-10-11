@@ -16282,7 +16282,20 @@ function aaValidateTopicMediaFile(file){
 function aaTopicMediaSameFile(a,b){
  return a.name===b.name&&a.size===b.size&&a.lastModified===b.lastModified;
 }
-function aaHandleTopicMediaChange(){
+/* Copy a just-picked file into memory at pick time. On Android the picker
+   hands out a content:// reference that can stop being readable later; a
+   copied File no longer depends on it. A failed copy is reported at once,
+   while the user can still choose the file again, not at POST. */
+async function aaTopicCopyPicked(f){
+ try{
+  const buf=await f.arrayBuffer();
+  return new File([buf],f.name||'media',{type:f.type||'application/octet-stream',lastModified:f.lastModified||Date.now()});
+ }catch(e){
+  aaTopicDiag('pick-copy-failed',{kind:/^video\//.test(f.type||'')?'video':'photo',size:Number(f.size||0),errName:String(e&&e.name||'')});
+  return null;
+ }
+}
+async function aaHandleTopicMediaChange(){
  const input=document.getElementById('topicMedia');
  if(!input)return;
  const incoming=Array.from(input.files||[]);
@@ -16307,6 +16320,15 @@ function aaHandleTopicMediaChange(){
   if(err){toast(err);continue}
   if(existing.some(x=>aaTopicMediaSameFile(x,f))||accepted.some(x=>aaTopicMediaSameFile(x,f)))continue;
   accepted.push(f);
+ }
+ if(!accepted.length)return;
+ for(let i=0;i<accepted.length;i++){
+  const copy=await aaTopicCopyPicked(accepted[i]);
+  if(!copy){
+   toast('Bingo could not read '+(/^video\//.test(accepted[i].type||'')?'that video':'that photo')+' when you picked it. Please choose it again.','error');
+   accepted.splice(i,1);i--;continue;
+  }
+  accepted[i]=copy;
  }
  if(!accepted.length)return;
  let combined=existing.concat(accepted);
