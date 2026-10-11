@@ -4498,6 +4498,15 @@ html body #auto-arcade-widget .bingo-business-media .bingo-sound-toggle{position
 #auto-arcade-widget .aa-chip{min-height:34px;padding:6px 11px;border:1px solid #2d4a6e;border-radius:999px;background:#0d1728;color:#cfe0f3;font:600 12px/1.2 system-ui,-apple-system,Arial,sans-serif;cursor:pointer;white-space:nowrap;box-sizing:border-box}
 #auto-arcade-widget .aa-chip:focus-visible{outline:2px solid #5ad0ff;outline-offset:2px}
 #auto-arcade-widget .aa-chip[aria-pressed="true"]{border-color:#f5c542;color:#fff;background:#1d2a14;box-shadow:0 0 0 1px #f5c542 inset,0 0 10px #f5c54255}
+/* Administrator diagnostics panel (temporary, super_user only). */
+#bingoDiagButton{position:fixed;left:8px;bottom:150px;z-index:10060;padding:5px 9px;border-radius:999px;border:1px solid #5ad0ff;background:#071323;color:#cfe9ff;font:700 11px system-ui,Arial,sans-serif;opacity:.9}
+#bingoDiagPanel{display:none;position:fixed;left:8px;right:8px;bottom:186px;z-index:10061;background:#0b1424;color:#e6f0fb;border:1px solid #5ad0ff;border-radius:12px;padding:10px;font:12px/1.4 system-ui,Arial,sans-serif;box-shadow:0 10px 30px #0008;max-width:420px}
+#bingoDiagPanel.open{display:block}
+#bingoDiagPanel .bdg-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+#bingoDiagPanel .bdg-head button{background:none;border:0;color:#cfe9ff;font-size:18px;cursor:pointer}
+#bingoDiagPanel .bdg-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+#bingoDiagPanel button{min-height:34px;padding:6px 10px;border-radius:8px;border:1px solid #2d4a6e;background:#13233a;color:#fff;font:600 12px system-ui,Arial,sans-serif;cursor:pointer}
+#bingoDiagPanel button:disabled{opacity:.4;cursor:default}
 #auto-arcade-widget .aa-composer-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;max-width:100%}
 #auto-arcade-widget .aa-composer-actions .bingo-neon-action{width:auto!important;max-width:100%;min-width:96px!important;height:auto!important;min-height:42px!important;white-space:normal;text-align:center;padding:10px 18px!important;box-sizing:border-box}
 #auto-arcade-widget .aa-composer-media-remove{
@@ -16093,6 +16102,7 @@ function aaTopicDiag(stage,info){
   const rec=Object.assign({t:new Date().toISOString(),stage},info||{});
   if(rec.message)rec.message=String(rec.message).slice(0,160);
   aaTopicDiagLog.push(rec);if(aaTopicDiagLog.length>60)aaTopicDiagLog.shift();
+  diagRecord(stage,info);
   window.__bingoPublishDiag=aaTopicDiagLog;
   console.info('[Bingo publish]',JSON.stringify(rec));
  }catch(e){}
@@ -16104,6 +16114,51 @@ function aaTopicDiag(stage,info){
  const v=e.target;if(!(v instanceof HTMLVideoElement))return;
  aaTopicDiag('video-'+ev,{rs:v.readyState,ns:v.networkState,code:v.error?v.error.code:0,w:v.videoWidth,h:v.videoHeight,muted:v.muted,paused:v.paused,path:String(v.currentSrc||v.getAttribute('src')||'').split('?')[0].slice(-70)});
 },true));
+/* Administrator playback diagnostics (2026-10-11). Local to this phone:
+   nothing is uploaded and no tokens, signed URLs or personal data are kept.
+   Media paths are reduced to a short hash so repeated posts can be matched. */
+window.bingoDiagRun={active:false,started:0,events:[]};
+const BINGO_DIAG_MAX=400;
+function diagRef(text){let h=2166136261;const t=String(text||'');for(let k=0;k<t.length;k++){h^=t.charCodeAt(k);h=Math.imul(h,16777619)}return (h>>>0).toString(16)}
+function diagRecord(stage,info){
+ const run=window.bingoDiagRun;if(!run||!run.active)return;
+ const rec=Object.assign({ms:Math.round(performance.now()-run.started),stage,screen:state.view==='home'?'home':state.view==='topics'?'wall':String(state.view||'')},info||{});
+ if(rec.path!==undefined){rec.ref=diagRef(rec.path);delete rec.path}
+ run.events.push(rec);if(run.events.length>BINGO_DIAG_MAX)run.events.splice(0,run.events.length-BINGO_DIAG_MAX);
+}
+document.addEventListener('error',e=>{
+ const img=e.target;if(!(img instanceof HTMLImageElement)||!img.closest('#auto-arcade-widget'))return;
+ aaTopicDiag('image-error',{path:img.currentSrc||img.getAttribute('src')||'',w:img.naturalWidth||0,h:img.naturalHeight||0});
+},true);
+function diagSummary(){
+ const ev=window.bingoDiagRun.events,c=n=>ev.filter(x=>x.stage===n).length;
+ const videoRefs=new Set(ev.filter(x=>/^video-/.test(x.stage)&&x.ref).map(x=>x.ref));
+ return {videosSeen:videoRefs.size,playingEvents:c('video-playing'),errorEvents:c('video-error'),stallEvents:c('video-stalled'),waitingEvents:c('video-waiting'),imageErrors:c('image-error'),urlRefreshEvents:c('url-refresh'),note:'Black-screen candidates are not computed yet; counts above are raw events.'};
+}
+function diagReportText(){return JSON.stringify({generated:new Date().toISOString(),summary:diagSummary(),events:window.bingoDiagRun.events},null,1)}
+function diagStart(){window.bingoDiagRun.active=true;window.bingoDiagRun.started=performance.now();window.bingoDiagRun.events=[];diagRenderPanel()}
+function diagStop(){window.bingoDiagRun.active=false;diagRenderPanel()}
+function diagClear(){window.bingoDiagRun.events=[];diagRenderPanel()}
+function diagCopy(){const t=diagReportText();try{navigator.clipboard.writeText(t).then(()=>toast('Diagnostic report copied.','success'),()=>toast('Could not copy. Use Download instead.','error'))}catch(e){toast('Could not copy. Use Download instead.','error')}}
+function diagDownload(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([diagReportText()],{type:'application/json'}));a.download='bingo-diagnostics-'+Date.now()+'.json';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000)}
+function diagRenderPanel(){
+ let box=document.getElementById('bingoDiagPanel');
+ if(!box){box=document.createElement('div');box.id='bingoDiagPanel';document.body.appendChild(box)}
+ const run=window.bingoDiagRun,sum=diagSummary();
+ box.innerHTML=`<div class="bdg-head"><b>Diagnostics</b><button type="button" onclick="document.getElementById('bingoDiagPanel').classList.toggle('open')" aria-label="Close panel">×</button></div>
+  <div class="bdg-body"><div>${run.active?'● Recording':'Stopped'} · ${run.events.length} events</div>
+  <div>Videos ${sum.videosSeen} · plays ${sum.playingEvents} · errors ${sum.errorEvents} · stalls ${sum.stallEvents} · image errors ${sum.imageErrors}</div>
+  <div class="bdg-row"><button type="button" onclick="diagStart()" ${run.active?'disabled':''}>Start</button><button type="button" onclick="diagStop()" ${run.active?'':'disabled'}>Stop</button></div>
+  <div class="bdg-row"><button type="button" onclick="diagCopy()">Copy report</button><button type="button" onclick="diagDownload()">Download</button><button type="button" onclick="diagClear()">Clear</button></div></div>`;
+ box.classList.add('open');
+}
+function diagSync(){
+ let btn=document.getElementById('bingoDiagButton');
+ const allowed=typeof aaIsSuperUser==='function'&&aaIsSuperUser();
+ if(!allowed){if(btn)btn.remove();const box=document.getElementById('bingoDiagPanel');if(box)box.remove();return}
+ if(!btn){btn=document.createElement('button');btn.id='bingoDiagButton';btn.type='button';btn.textContent='Diag';btn.setAttribute('aria-label','Playback diagnostics');btn.onclick=()=>{const box=document.getElementById('bingoDiagPanel');if(!box){diagRenderPanel();return}box.classList.toggle('open')};document.body.appendChild(btn)}
+}
+setInterval(diagSync,3000);
 function aaTopicIsNetworkError(e){
  return /failed to fetch|networkerror|load failed|network request failed|aborterror|aborted|timed? ?out|did not get a reply/i.test(String((e&&(e.message||e.name))||e||''));
 }
