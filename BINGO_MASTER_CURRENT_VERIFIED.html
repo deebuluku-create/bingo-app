@@ -6383,7 +6383,7 @@ function aaMemberCentralHTML(){
    {icon:"🍲",label:"Food",run:"aaOpenFood('browse')"},
    {icon:"🏢",label:"Properties",run:"aaOpenProperties('browse')"},
    {icon:"🌴",label:"Bingo Stays",run:"state.stayView='landing';aaOpenProperties('stays')"},
-   {icon:"▱",label:"Marketplace",run:"aaOpenMarket()"},
+   {icon:"▱",label:"Marketplace",run:"aaOpenMarketplaceEntry()"},
    {icon:"▣",label:"Jobs",run:"openJobs('jobs')"},
    {icon:"◆",label:"Community",run:"aaOpenSolutionRooms()"},
    {icon:"💬",label:"Bingo Posts",run:"aaOpenBingoTopicsFeed()"}]}
@@ -9622,9 +9622,14 @@ const AA_ALL_CATEGORIES=[
  {name:"Other Marketplace Items",slug:"other",subs:["General","Collectibles","Office Items","Miscellaneous"]}
 ];
 /* Opens the existing Auto Market page directly on the requested tab (no intermediate screen). */
+/* Marketplace entry points (bottom nav "Marketplace", Wall "Market", "Shop", "Open Market", and the
+   Vehicles / Auto card) used to land on the Categories grid only because the retired add-on bounced
+   the Auto Market page back to it. Keep exactly that result now that the add-on is off: the same
+   market view underneath, with the Categories grid open on top. */
+function aaOpenMarketplaceEntry(){aaOpenMarket();state.marketCategoriesDrawerOpen=true;state.allCatComingSoonSlug=null;render()}
 function aaOpenMarketType(type){state.marketListingType=type==="household"?"household":"spare_parts";state.marketCategory="All";aaOpenMarket()}
 const AA_CATEGORY_REAL_ROUTES={
- vehicles:()=>aaOpenMarket(),
+ vehicles:()=>aaOpenMarketplaceEntry(),
  "spare-parts":()=>aaOpenMarketType("spare_parts"),
  "household-items":()=>aaOpenMarketType("household"),
  properties:()=>aaOpenProperties('browse'),
@@ -10345,7 +10350,7 @@ function aaDynamicAdCardHTML(){
  }else if(ad.action==="cv"){
   action=`<button type="button" class="btn btn-gold" onclick="openJobs('candidates')">CVs</button>`;
  }else if(ad.action==="market"){
-  action=`<button type="button" class="btn btn-gold" onclick="aaOpenMarket()">Open Market</button>`;
+  action=`<button type="button" class="btn btn-gold" onclick="aaOpenMarketplaceEntry()">Open Market</button>`;
  }else if(ad.action==="sell"){
   action=`<button type="button" class="btn btn-gold" onclick="openPostVehicle()">Post Vehicle</button>`;
  }else if(ad.action==="profile"){
@@ -15435,7 +15440,7 @@ function aaProfileDestyHTML(s,cars,sellerKey){
   <button type="button" class="bp-neon bp-micro" onclick="goHome()">⌂ Home</button>
   <button type="button" class="bp-neon bp-micro bp-cyan" onclick="aaOpenSearch()">⌕ Search</button>
   <button type="button" class="bp-neon bp-micro" onclick="${state.isLoggedIn?"goAccount();state.postTodayOpen=true;render()":"openAuth('login')"}">＋ Create</button>
-  <button type="button" class="bp-neon bp-micro bp-green" onclick="aaOpenMarket()">▤ Shop</button>
+  <button type="button" class="bp-neon bp-micro bp-green" onclick="aaOpenMarketplaceEntry()">▤ Shop</button>
   <button type="button" class="bp-neon bp-micro bp-pink${own?" is-active":""}" onclick="goAccount()">◉ Profile</button>
  </nav>
  </section>`;
@@ -18789,7 +18794,7 @@ function aaWallBottomNavHTML(){
  return `<nav class="bingo-wall-bottom-nav" aria-label="Primary">
  <button type="button" class="bingo-wall-nav-item${on("home")}" onclick="goHome()"><span aria-hidden="true">🏠</span><span>Home</span></button>
  <button type="button" class="bingo-wall-nav-item" onclick="if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio()"><span aria-hidden="true">🔴</span><span>Live</span></button>
- <button type="button" class="bingo-wall-nav-item${on("market")}" onclick="aaOpenMarket()"><span aria-hidden="true">🛒</span><span>Marketplace</span></button>
+ <button type="button" class="bingo-wall-nav-item${on("market")}" onclick="aaOpenMarketplaceEntry()"><span aria-hidden="true">🛒</span><span>Marketplace</span></button>
  <button type="button" class="bingo-wall-nav-item" onclick="if(typeof aaOpenAccountNotifications==='function')aaOpenAccountNotifications();else{goAccount();}"><span aria-hidden="true">🔔</span><span>Notifications</span></button>
  <button type="button" class="bingo-wall-nav-item${on("inbox")}" onclick="openInbox()"><span aria-hidden="true">✉️</span><span>Messages</span>${unread>0?`<span class="bingo-wall-nav-badge">${unread>99?"99+":unread}</span>`:""}</button>
  </nav>`;
@@ -21582,7 +21587,7 @@ function aaMsgTopNavHTML(){
   <div class="bm-topnav-tabs" role="tablist" aria-label="Bingo areas">
    ${tab("home","Home","goHome()")}
    ${tab("live","Live","if(typeof aa92OpenLiveStudio==='function')aa92OpenLiveStudio()")}
-   ${tab("market","Marketplace","aaOpenMarket()")}
+   ${tab("market","Marketplace","aaOpenMarketplaceEntry()")}
    ${tab("bell","Notifications","goAccount();if(typeof aaOpenAccountNotifications==='function')aaOpenAccountNotifications()",false,n)}
    ${tab("chats","Messages","openInbox()",true)}
   </div>
