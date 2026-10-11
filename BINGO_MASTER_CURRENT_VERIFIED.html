@@ -29829,6 +29829,7 @@ body:has(#auto-arcade-widget.aa-wall-view){background:#f1f5f9!important}
 #auto-arcade-widget .bingo-topic-page .bingo-media-stats{color:#64748b!important;background:none!important}
 /* Flat, clean video surface: no floating play badge; hide the browser's own big centre play button too. */
 .aa-post-media video::-webkit-media-controls-overlay-play-button,.aa360-video::-webkit-media-controls-overlay-play-button{display:none!important}
+#auto-arcade-widget .bingo-no-audio{opacity:.55}
 /* Rotating real comments (one bubble at a time, active Home topic slide only; see bingoRotator in the render wrapper)
    2026-10-11: the row had only left:0, so it was exactly as wide as its content and the bubble's percentage
    max-width resolved ~4px narrower than its own text - with overflow-wrap:anywhere a short comment like
@@ -30156,6 +30157,34 @@ aaHomeOverlayOpen=function(){return originalOverlayForCommentsDrawer()||!!(typeo
      browsing session. If the browser refuses sound it keeps playing muted.
    - If the browser refuses even muted autoplay (e.g. iPhone Low Power Mode), the card is marked
      and a small play badge is shown; a tap plays it. */
+/* Videos with no audio track must not promise sound (2026-10-11). After the playing video has run ~1 s the
+   browser reports whether it decoded any audio (Chrome/Edge/Samsung: webkitAudioDecodedByteCount, Firefox:
+   mozHasAudio; Safari has no such signal, so nothing changes there). If it has none, the speaker button for that
+   video - the Home feed button or the Wall/post inline button - shows a dimmed 🔇 "This video has no sound".
+   One shared listener; it only reads the videos and relabels the existing buttons, it never plays or mutes. */
+(function(){
+ if(window.__bingoNoAudioMarker)return;window.__bingoNoAudioMarker=true;
+ function noAudio(v){
+  if(v.dataset.bingoAudio)return v.dataset.bingoAudio==='none';
+  if(v.currentTime<1.2||v.readyState<2)return null;
+  let has=null;
+  if(typeof v.webkitAudioDecodedByteCount==='number')has=v.webkitAudioDecodedByteCount>0;
+  else if(typeof v.mozHasAudio==='boolean')has=v.mozHasAudio;
+  if(has===null)return null;
+  v.dataset.bingoAudio=has?'yes':'none';return !has;
+ }
+ function mark(b,none,muted){
+  if(!b)return;
+  if(none){b.classList.add('bingo-no-audio');if(b.textContent!=='🔇')b.textContent='🔇';b.title='This video has no sound';b.setAttribute('aria-label','This video has no sound')}
+  else if(b.classList.contains('bingo-no-audio')){b.classList.remove('bingo-no-audio');b.removeAttribute('title');b.textContent=muted?'🔇':'🔊';b.setAttribute('aria-label',muted?'Unmute video':'Mute video')}
+ }
+ document.addEventListener('timeupdate',e=>{
+  const v=e.target;if(!(v instanceof HTMLVideoElement)||v.paused||!v.closest('#auto-arcade-widget'))return;
+  const none=noAudio(v);if(none===null)return;
+  if(v.classList.contains('aa360-video')){if(v.closest('.aa360-item.bingo-media-active'))mark(document.getElementById('aaFeedSoundBtn'),none,!aaFeedWantsSound())}
+  else{const b=document.querySelector('#auto-arcade-widget .bingo-inline-sound');if(b&&b.parentElement&&b.parentElement.contains(v))mark(b,none,v.muted)}
+ },true);
+})();
 var aaInlineSoundOn=(function(){try{return sessionStorage.getItem('bingo_inline_sound')==='on'}catch(e){return false}})();
 (function(){
  if(window.__bingoWallAutoplayInstalled)return;window.__bingoWallAutoplayInstalled=true;
