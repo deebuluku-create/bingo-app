@@ -3491,6 +3491,35 @@ body.aa-studio-open,html.aa-studio-open{overflow:hidden!important;overscroll-beh
 #auto-arcade-widget .bingo-business-media .bingo-video-progress i{display:block;height:100%;width:0;background:#f5b91e}
 #auto-arcade-widget .bingo-business-media .bingo-video-error{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);z-index:6;padding:12px 14px;border-radius:12px;background:rgba(8,16,32,.92);border:1px solid rgba(255,107,107,.6);color:#fff;font-size:14px;text-align:center}
 #auto-arcade-widget .bingo-business-media .bingo-video-error a{color:#f5b91e}
+/* Listing photo galleries (2026-10-10): native horizontal scroll-snap, finger-driven. */
+#auto-arcade-widget .bingo-swipe-gallery{display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;touch-action:pan-x pan-y;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-behavior:auto}
+#auto-arcade-widget .bingo-swipe-gallery::-webkit-scrollbar{display:none}
+/* The Home feed was touch-action:pan-y!important, and touch-action is intersected down the tree,
+   so no horizontal finger movement could reach a photo strip inside a post. Allow both axes on the
+   feed; the feed itself still cannot move sideways (overflow-x hidden), so only the strip does. */
+html body #auto-arcade-widget .aa360-feed{touch-action:pan-x pan-y!important;overflow-x:hidden!important}
+#auto-arcade-widget .bingo-gallery-slide{flex:0 0 100%;width:100%;min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
+#auto-arcade-widget .aa360-item .aa360-gallery{position:absolute;inset:0;width:100%;height:100%;background:#000}
+#auto-arcade-widget .aa360-gallery .bingo-gallery-slide{height:100%}
+#auto-arcade-widget .aa360-gallery img{width:100%;height:100%;display:block;object-fit:contain;cursor:zoom-in;-webkit-user-drag:none;user-select:none}
+#auto-arcade-widget .bingo-gallery-counter{font-variant-numeric:tabular-nums;z-index:4}
+html body #auto-arcade-widget .aa-wall-media.is-gallery{display:block;background:transparent}
+#auto-arcade-widget .aa-wall-gallery{width:100%}
+#auto-arcade-widget .aa-wall-collage{display:grid;grid-template-columns:2fr 1fr;gap:3px;width:100%;aspect-ratio:4/3}
+#auto-arcade-widget .aa-wall-collage .aa-wc-side{display:grid;grid-template-rows:1fr 1fr;gap:3px;min-height:0}
+#auto-arcade-widget .aa-wall-collage.is-two .aa-wc-side{grid-template-rows:1fr}
+html body #auto-arcade-widget .aa-wall-collage button:not(#bingo-flat-guard){position:relative;display:block;width:100%;height:100%;min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:#0b1220!important;overflow:hidden;cursor:zoom-in}
+html body #auto-arcade-widget .aa-wall-media.is-gallery .aa-wall-collage img{width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:cover!important;display:block;-webkit-user-drag:none;user-select:none}
+/* Inline autoplay (2026-10-11): no Play icons or dark overlays over autoplaying videos. */
+html body #auto-arcade-widget :is(.aa-wall-media,.aa-listing-media .aa-video-thumb,.aa-property-browse-thumb,.aa-v69-card,.aa-v69-media-grid button):not(.bingo-autoplay-blocked) :is(.aa-wall-play,.aa-media-play,.aa-video-play-overlay){display:none!important}
+html body #auto-arcade-widget .bingo-autoplay-blocked :is(.aa-wall-play,.aa-media-play,.aa-video-play-overlay){display:grid!important;place-items:center;position:absolute!important;left:10px!important;bottom:10px!important;top:auto!important;right:auto!important;transform:none!important;width:30px!important;height:30px!important;min-width:30px!important;min-height:30px!important;padding:0!important;border-radius:50%!important;font-size:13px!important;background:rgba(8,16,32,.72)!important;color:#fff!important;border:1px solid rgba(255,255,255,.5)!important;z-index:4}
+html body #auto-arcade-widget .bingo-inline-sound:not(#bingo-flat-guard){position:absolute!important;top:8px!important;right:8px!important;left:auto!important;bottom:auto!important;width:32px!important;height:32px!important;min-width:32px!important;min-height:32px!important;padding:0!important;margin:0!important;border-radius:50%!important;border:1px solid rgba(255,255,255,.4)!important;background:rgba(8,16,32,.62)!important;color:#fff!important;font-size:14px!important;line-height:1!important;display:grid!important;place-items:center;z-index:5;box-shadow:none!important;cursor:pointer}
+html body #auto-arcade-widget .aa-video-thumb video{pointer-events:none}
+/* Wall post videos keep their original proportions inside the half-height preview (portrait is
+   pillarboxed, never cropped); photos keep the existing preview. */
+html body #auto-arcade-widget .bingo-approved-topic .aa-post-media video{object-fit:contain!important;background:#0b1220!important}
+#auto-arcade-widget .aa-wall-collage .aa-wc-more{position:absolute;inset:0;display:grid;place-items:center;background:rgba(0,0,0,.45);color:#fff;font:800 22px/1 system-ui,sans-serif;pointer-events:none}
+
 /* Full-screen media viewer layout: a global button rule pulled the close/prev/next
    buttons into normal flow, which pushed the media sideways and put the close
    button off-screen (measured x=-51px). Pin them, and give the media the full area. */
@@ -9055,7 +9084,7 @@ function aaFeedCardHTML(c,i){
  const isVideo=aaMediaType(c)==="video"&&!!aaVideoUrl(c,i);
  const media=isVideo
    ? `<video class="aa360-video" data-aa-video-id="${esc(c.id)}" data-aa-post-type="vehicle" data-aa-post-id="${esc(c.id)}" src="${esc(aaVideoUrl(c,i))}" poster="${esc(aaMainPhoto(c))}" muted playsinline loop preload="${i<1?"auto":"metadata"}"></video>`
-   : `<img class="aa360-photo" src="${esc(aaMainPhoto(c))}" alt="${esc(c.title||"Promoted vehicle")}">`;
+   : (aaListingPhotos('vehicle',c).length>=2?aaFeedGalleryHTML('vehicle',String(c.id),aaListingPhotos('vehicle',c)):`<img class="aa360-photo" src="${esc(aaMainPhoto(c))}" alt="${esc(c.title||"Promoted vehicle")}">`);
  const promoLabel=aaPromotionLabel(c);
  const promoted=c?.isBoosted?`<div class="aa-ad-label">Ad</div>`:promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";
  return `<section class="aa360-item" data-aa-feed-id="${esc(c.id)}" data-canon="vehicle:${esc(c.id)}">${media}<div class="aa360-shade"></div>${promoted}<div class="aa360-side"><div><button class="aa360-action" aria-label="Views" title="Views">${aaSideIcon("views")}</button><span>${aaCompact(aaViewCount(c))}</span></div><div><button class="aa360-action ${aaInterested(c)?"on":""}" onclick='aaToggleInterested(${id})' aria-label="Interested" title="Interested">${aaSideIcon("interested")}</button><span>${aaCompact(interested)}</span></div><div><button class="aa360-action" onclick='aaOpenComments(state.listings.find(x=>String(x.id)===${id}))' aria-label="Comments" title="Comments">${aaSideIcon("comments")}</button><span>${aaCompact(aaCommentCount(c))}</span></div><div><button class="aa360-action" onclick='state.shareTarget=state.listings.find(x=>String(x.id)===${id});render()' aria-label="Share" title="Share">${aaSideIcon("share")}</button><span>${aaCompact(c.shares||0)}</span></div><div><button class="aa360-action" onclick='${isVideo?`aaDownloadListingVideo(state.listings.find(x=>String(x.id)===${id}))`:`aaDownloadCurrentPhoto(state.listings.find(x=>String(x.id)===${id}))`}' aria-label="Download" title="Download">${aaSideIcon("download")}</button><span>Download</span></div><div><button class="aa360-action ${isFav(c.id)?"on":""}" onclick='toggleFav(${id})' aria-label="Save" title="Save">${aaSideIcon("save")}</button><span>${isFav(c.id)?"Saved":"Save"}</span></div></div><div class="aa360-info"><div class="aa360-seller-wrap"><button class="aa360-seller" title="Open seller profile" aria-label="Open seller profile" onclick='openSeller(${sellerId})'><img src="${esc(aaProfilePhoto(c.sellerPhoto || (state.isLoggedIn && aaListingOwnerId(c)===String(state.user?.id||"") ? state.user?.photo_url : "")))}" onerror="aaProfileImgFallback(this)"><span><b>${esc(c.sellerName||"Bingo Seller")}</b>${aaListingSellerRating(c)}${aaFollowStatsHTML(c.sellerId||c.userId)}<small style="color:#f5b91e">${esc(aaListingUsername(c))}</small><small>${aaPresenceBadge({id:c.sellerId,sellerId:c.sellerId,phone:c.sellerPhone})}</small></span></button>${aaFeedFollowButtonHTML(c)}</div><div>${listingBadge(c)}</div><div class="aa360-title">${esc(c.title)}</div><div class="aa360-price">${price}</div><div class="aa360-specs"><span>${esc(c.year||"")}</span><span>${money(c.mileage)} KM</span><span>${esc(c.fuel||"")}</span><span>${esc(c.transmission||"")}</span><span>${esc(c.condition||"")}</span><span>${esc(aaSearchLocationText(c)||c.location||"Kenya")}</span></div><div class="aa360-desc">${esc(c.description||"")}${c.description&&c.description.length>60?` <button type="button" class="aa360-readmore" onclick='openDetails(state.listings.find(x=>String(x.id)===${id}))'>Read more ›</button>`:""}</div><div class="aa360-actions"><button class="bingo-neon-action bingo-neon-action-cyan" onclick='callSeller(state.listings.find(x=>String(x.id)===${id}))'>☎ Call</button><button class="bingo-neon-action bingo-neon-action-purple" onclick='contact("chat",state.listings.find(x=>String(x.id)===${id}))'>💬 Message</button><button class="bingo-neon-action bingo-neon-action-green" onclick='contact("whatsapp",state.listings.find(x=>String(x.id)===${id}))'>WhatsApp</button><button class="bingo-neon-action bingo-neon-action-gold" onclick='if(typeof aaDU1Negotiate==="function")aaDU1Negotiate(${id});else toast("Negotiation opens Bingo Chat.")'>Negotiate</button></div></div></section>`;
@@ -9768,7 +9797,9 @@ function aaFeedHandleSwipe(dy,dx,elapsed){
   const feed=e.target.closest?.(".aa360-feed");
   if(!feed)return;
   const t=e.touches[0];
-  const dy=t.clientY-startY;
+  const dy=t.clientY-startY,dx=t.clientX-startX;
+  /* Horizontal photo swipes are not pull-to-refresh: only a mainly-vertical pull is held. */
+  if(Math.abs(dx)>=Math.abs(dy))return;
   // Only ever intervene at the exact boundary case: already at the first
   // post (scrollTop 0) and the finger keeps pulling further down. That is
   // the one gesture native overscroll-behavior sometimes fails to catch
@@ -14218,8 +14249,10 @@ function aaMixedFeedCardHTML(c,i){
  const isPropertyImage=(c.kind==='property'||c.kind==='food')&&c.feed_media_type==='image';
  const openDetailCall=c.kind==='property'?`openPropertyDetail('${esc(c._promoId||"")}')`:(c.kind==='food'?`aaOpenFoodBusinessProfile('${esc(c._promoId||"")}')`:'');
  const openDetailAttr=openDetailCall?` style="cursor:pointer"`:'';
- const media=isPropertyImage?`<img class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" alt=""${openDetailAttr}>`:`<video class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"${openDetailAttr}></video>`;
- const multiTag=(c.feed_media_count>1)?`<span class="aa-type-label" style="left:auto;right:10px">1/${c.feed_media_count}</span>`:'';
+ const homePhotos=isPropertyImage?aaListingPhotos(c.kind,c.source):[];
+ const homeGallery=homePhotos.length>=2?aaFeedGalleryHTML(c.kind,String(c.source?.id||c._promoId||''),homePhotos):'';
+ const media=homeGallery?homeGallery:isPropertyImage?`<img class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" alt=""${openDetailAttr}>`:`<video class="aa360-video" data-aa-post-type="${esc(c._promoType||c.kind)}" data-aa-post-id="${esc(c._promoId||c.id)}" src="${esc(c.feed_media)}" playsinline muted loop preload="metadata"${openDetailAttr}></video>`;
+ const multiTag=(!homeGallery&&c.feed_media_count>1)?`<span class="aa-type-label" style="left:auto;right:10px">1/${c.feed_media_count}</span>`:'';
  const promoLabel=aaPromotionLabel(c);
  const promoted=promoLabel?`<div class="aa-ad-label">${esc(promoLabel)}</div>`:"";
  const sellerMeta=c.feed_sellerMeta||{};
@@ -19206,6 +19239,65 @@ function aaWallAdSlotAutoLoad(){
  state.wallAdQueueLoaded=true;
  aaLoadAdQueue("topics").then(()=>{if(state.view==="topics")render()}).catch(()=>{});
 }
+/* ===== Listing photo galleries: finger-swiped, native scroll-snap (2026-10-10) =====
+   Reuses each listing's existing ordered media (vehicle images[], property/food media[]);
+   nothing is copied or uploaded. Horizontal movement is the browser's own scroll-snap;
+   no touch handlers move anything. A document-level scroll listener only records which
+   photo is showing (so a rebuild or the full-screen viewer keeps the position) and
+   updates the small counter. */
+var aaGalleryIdx={},aaGalleryTouching=false,aaGalleryLastScrollAt=0,aaGalleryFlushTimer=0;
+function aaListingRecord(kind,id){
+ id=String(id);
+ if(kind==='vehicle')return (state.listings||[]).find(x=>String(x.id)===id)||null;
+ if(kind==='property')return (typeof aaProperties==='function'?aaProperties():[]).find(x=>String(x.id)===id)||null;
+ if(kind==='food')return aaFoods().find(x=>String(x.id)===id)||null;
+ return null;
+}
+function aaListingPhotos(kind,rec){
+ if(!rec)return [];
+ let urls=[];
+ if(kind==='vehicle')urls=(Array.isArray(rec.images)&&rec.images.length)?rec.images:[rec.image||rec.image_url];
+ else urls=(kind==='property'?aaPropertyMedia(rec):aaFoodMedia(rec)).filter(m=>m&&m.type!=='video'&&m.url).map(m=>m.url);
+ return [...new Set(urls.filter(u=>typeof u==='string'&&u))];
+}
+function aaOpenListingGallery(kind,id,idx){
+ const list=aaListingPhotos(kind,aaListingRecord(kind,id)).map(u=>({type:'image',url:u}));
+ if(list.length)aaOpenPropertyMediaViewer(list,idx);
+}
+function aaGalleryBusy(){return aaGalleryTouching||performance.now()-aaGalleryLastScrollAt<260}
+function aaGalleryRestoreAll(){
+ document.querySelectorAll('#auto-arcade-widget .bingo-swipe-gallery[data-gallery-key]').forEach(g=>{
+  const i=aaGalleryIdx[g.dataset.galleryKey]||0;const w=g.clientWidth;
+  if(i&&w&&Math.abs(g.scrollLeft-i*w)>1)g.scrollLeft=i*w;
+ });
+}
+function aaWallCollageHTML(kind,id,photos,title){
+ const n=photos.length,key=`wall:${kind}:${id}`,more=n>3?n-3:0;
+ const tile=(i,cls,extra)=>`<button type="button" class="${cls}" aria-label="Open photo ${i+1} of ${n}" onclick='event.stopPropagation();aaOpenListingGallery(${JSON.stringify(kind)},${JSON.stringify(String(id))},${i})'><img src="${bingoSafeMediaAttr(photos[i])}" alt="" loading="lazy" decoding="async">${extra||''}</button>`;
+ const slides=photos.map((_,k)=>`<div class="bingo-gallery-slide"><div class="aa-wall-collage${n===2?' is-two':''}">${tile(k,'aa-wc-main')}<div class="aa-wc-side">${tile((k+1)%n,'aa-wc-tile')}${n>=3?tile((k+2)%n,'aa-wc-tile',more?`<span class="aa-wc-more">+${more}</span>`:''):''}</div></div></div>`).join('');
+ return `<div class="bingo-swipe-gallery aa-wall-gallery" data-gallery-key="${esc(key)}" role="group" aria-label="${esc(title)}: ${n} photos, swipe for more">${slides}</div>`;
+}
+function aaFeedGalleryHTML(kind,id,photos){
+ const key=`home:${kind}:${id}`,n=photos.length,cur=Math.min(n-1,aaGalleryIdx[key]||0);
+ return `<div class="bingo-swipe-gallery aa360-gallery" data-gallery-key="${esc(key)}" role="group" aria-label="${n} photos, swipe left or right">${photos.map((u,i)=>`<div class="bingo-gallery-slide"><img src="${bingoSafeMediaAttr(u)}" alt="Photo ${i+1} of ${n}" ${Math.abs(i-cur)>1?'loading="lazy"':''} decoding="async" onclick='event.stopPropagation();aaOpenListingGallery(${JSON.stringify(kind)},${JSON.stringify(String(id))},${i})'></div>`).join('')}</div><span class="aa-type-label bingo-gallery-counter" style="left:auto;right:10px" data-gallery-counter="${esc(key)}">${cur+1}/${n}</span>`;
+}
+(function(){
+ if(window.__aaGalleryTracking)return;window.__aaGalleryTracking=1;
+ const flushSoon=()=>{clearTimeout(aaGalleryFlushTimer);aaGalleryFlushTimer=setTimeout(()=>{if(window.aaFeedFlushDeferredRender)window.aaFeedFlushDeferredRender()},300)};
+ document.addEventListener('touchstart',e=>{if(e.target&&e.target.closest&&e.target.closest('.bingo-swipe-gallery'))aaGalleryTouching=true},{passive:true,capture:true});
+ const up=()=>{if(aaGalleryTouching){aaGalleryTouching=false;aaGalleryLastScrollAt=performance.now();flushSoon()}};
+ document.addEventListener('touchend',up,{passive:true,capture:true});document.addEventListener('touchcancel',up,{passive:true,capture:true});
+ document.addEventListener('scroll',e=>{
+  const g=e.target;if(!g||!g.classList||!g.classList.contains('bingo-swipe-gallery'))return;
+  aaGalleryLastScrollAt=performance.now();
+  const n=g.children.length,w=g.clientWidth||1,i=Math.max(0,Math.min(n-1,Math.round(g.scrollLeft/w))),key=g.dataset.galleryKey;
+  if(key&&aaGalleryIdx[key]!==i){
+   aaGalleryIdx[key]=i;
+   const c=g.parentElement&&g.parentElement.querySelector('[data-gallery-counter]');if(c)c.textContent=(i+1)+'/'+n;
+  }
+  flushSoon();
+ },{passive:true,capture:true});
+})();
 /* Compact Wall card for a published category listing: poster's round
    avatar, name and location (-> their profile), media preview at its
    natural proportions, title + one line. The card body opens the SAME
@@ -19228,10 +19320,12 @@ function aaWallListingCardHTML(kind,rec){
   const media=aaFoodMedia(rec);const m=media.find(x=>x.type==="video")||media[0];isVideo=!!m&&m.type==="video";mediaUrl=m?m.url:"";
   title=rec.business_name||"Food business";line=rec.category||"Food";loc=[rec.town,rec.county].filter(Boolean).join(", ");label="Food";
  }
- const media=!mediaUrl?"":isVideo?`<video src="${bingoSafeMediaAttr(mediaUrl)}" muted playsinline preload="metadata"></video><span class="aa-wall-play" aria-hidden="true">▶</span>`:`<img src="${bingoSafeMediaAttr(mediaUrl)}" alt="${esc(title)}" loading="lazy">`;
+ const galleryPhotos=isVideo?[]:aaListingPhotos(kind,rec);
+ const gallery=galleryPhotos.length>=2?aaWallCollageHTML(kind,id,galleryPhotos,title):"";
+ const media=gallery?gallery:!mediaUrl?"":isVideo?`<video src="${bingoSafeMediaAttr(mediaUrl)}" muted playsinline preload="metadata"></video><span class="aa-wall-play" aria-hidden="true">▶</span>`:`<img src="${bingoSafeMediaAttr(mediaUrl)}" alt="${esc(title)}" loading="lazy">`;
  return `<article class="aa-wall-listing" id="wall-${kind}-${esc(id)}" data-canon="${kind}:${esc(id)}" role="link" tabindex="0" onclick="aaCanonOpen('${kind}',${esc(JSON.stringify(id))})" onkeydown="if(event.key==='Enter')aaCanonOpen('${kind}',${esc(JSON.stringify(id))})">
   <button type="button" class="aa-wall-author" onclick="event.stopPropagation();openSeller(${esc(JSON.stringify(ownerId))})" aria-label="Open ${esc(name)}'s profile"><img src="${bingoSafeMediaAttr(photo)}" alt="" onerror="aaProfileImgFallback(this)"><span><b>${esc(name)}</b>${loc?`<small>📍 ${esc(loc)}</small>`:""}</span></button>
-  ${media?`<div class="aa-wall-media">${media}</div>`:""}
+  ${media?`<div class="aa-wall-media${gallery?' is-gallery':''}">${media}</div>`:""}
   <div class="aa-wall-body"><span class="aa-wall-kind">${label}</span><b>${esc(title)}</b><small>${line}</small></div>
  </article>`;
 }
@@ -29917,37 +30011,88 @@ const originalRenderForCommentsDrawer=render;
 render=function(){try{if(state.bingoAccountPanel&&state.view!=="seller"&&state.view!=="topics")state.bingoAccountPanel=""}catch(e){}originalRenderForCommentsDrawer.apply(this,arguments);try{if(typeof aaRefreshCommentsDrawer==="function")aaRefreshCommentsDrawer()}catch(e){}};
 const originalOverlayForCommentsDrawer=aaHomeOverlayOpen;
 aaHomeOverlayOpen=function(){return originalOverlayForCommentsDrawer()||!!(typeof aaCommentsDrawerTopicId!=="undefined"&&aaCommentsDrawerTopicId&&document.getElementById("aaCommentsDrawer")?.classList.contains("open"))};
-/* Wall videos: play the instant a post's video is >=50% on screen, pause when it leaves (brief 2026-10-10).
-   One IntersectionObserver, rebuilt only when render() replaces the DOM; the existing capture-phase "play" listener
-   still guarantees only one Wall video plays at a time. Skipped while a lightbox/drawer is open. Home keeps its own
-   single controller (aaInit360Feed) - nothing here touches Home slides. */
+/* ===== Inline video autoplay - ONE controller for every post/listing video outside Home (2026-10-11) =====
+   Covers Bingo Wall post cards wherever they appear (Wall, profiles, single-post page), Wall listing
+   cards (vehicle/property/business), vehicle and property detail pages, property browse cards,
+   business list cards and the business profile gallery. Home keeps its own controller
+   (aaInit360Feed); full-screen viewers own their player.
+   - Plays the most visible video (>=50% on screen) automatically, MUTED first (the only autoplay
+     every mobile browser allows), and pauses every other one: one video at a time.
+   - Only that video buffers fully (preload=auto); the rest load metadata only. This is why the old
+     autoplay attribute was removed: it downloaded every card's video at once and starved the
+     visible one (measured: stuck on its first frame for 32 s on a 300 KB/s link).
+   - Previously this ran on the Wall page only, so the same cards on profile and single-post pages
+     (and every listing video) never started - fixed here.
+   - A small sound button sits top-right on the playing video; the choice is remembered for this
+     browsing session. If the browser refuses sound it keeps playing muted.
+   - If the browser refuses even muted autoplay (e.g. iPhone Low Power Mode), the card is marked
+     and a small play badge is shown; a tap plays it. */
+var aaInlineSoundOn=(function(){try{return sessionStorage.getItem('bingo_inline_sound')==='on'}catch(e){return false}})();
 (function(){
  if(window.__bingoWallAutoplayInstalled)return;window.__bingoWallAutoplayInstalled=true;
- let io=null;
+ const SEL=['.bingo-approved-topic .aa-post-media video','.aa-wall-listing .aa-wall-media video','.aa-listing-media video','video.detail-img','.aa-property-browse-thumb video','.aa-v69-card video','.aa-v69-media-grid video'].map(x=>'#auto-arcade-widget '+x).join(',');
+ let io=null,active=null,btn=null;
+ function soundBtn(){
+  if(!btn){
+   btn=document.createElement('button');btn.type='button';btn.className='bingo-inline-sound';
+   btn.addEventListener('click',e=>{
+    e.preventDefault();e.stopPropagation();
+    aaInlineSoundOn=!aaInlineSoundOn;try{sessionStorage.setItem('bingo_inline_sound',aaInlineSoundOn?'on':'off')}catch(_){}
+    if(active){active.muted=!aaInlineSoundOn;if(active.paused){const p=active.play();if(p&&p.catch)p.catch(()=>{})}}
+    syncBtn();
+   });
+  }
+  return btn;
+ }
+ function syncBtn(){if(!btn)return;const muted=!active||active.muted;btn.textContent=muted?'🔇':'🔊';btn.setAttribute('aria-label',muted?'Unmute video':'Mute video')}
+ function host(v){return v.closest('.aa-video-thumb,.aa-wall-media,.aa-listing-media,.aa-property-browse-thumb,.aa-v69-card,.aa-post-media,button')||v.parentElement}
+ function start(v){
+  active=v;
+  v.preload='auto';v.playsInline=true;v.setAttribute('playsinline','');v.loop=true;
+  const h=host(v);
+  if(h){if(getComputedStyle(h).position==='static')h.style.position='relative';const b=soundBtn();if(b.parentElement!==h)h.appendChild(b)}
+  const wantSound=aaInlineSoundOn;v.muted=!wantSound;
+  const done=()=>{h&&h.classList.remove('bingo-autoplay-blocked');syncBtn()};
+  const p=v.play();
+  if(p&&p.then)p.then(done,err=>{
+   if(err&&err.name==='AbortError')return;
+   if(!v.muted){v.muted=true;syncBtn();v.play().then(done,()=>{h&&h.classList.add('bingo-autoplay-blocked')});return}
+   h&&h.classList.add('bingo-autoplay-blocked');
+  });
+  syncBtn();
+ }
  function observe(){
   try{
    if(io){io.disconnect();io=null}
-   if(state.view!=="topics"||!("IntersectionObserver" in window))return;
-   const vids=[...document.querySelectorAll("#auto-arcade-widget .bingo-approved-topic .aa-post-media video")];
-   if(!vids.length)return;
-   /* One Wall video at a time: with compact (half-height) media two posts can be more than half
-      visible together; playing both let the "play" singleton above pause each in turn, leaving
-      neither playing. Only the most visible one (topmost on a tie) plays. */
+   if(!("IntersectionObserver" in window))return;
+   const vids=[...document.querySelectorAll(SEL)].filter(v=>!v.closest('.aa360-feed,.aa-property-media-viewer,.bingo-business-media'));
+   if(!vids.length){active=null;if(btn)btn.remove();return}
+   vids.forEach(v=>{v.dataset.bingoGridPreview='skip';if(v.preload!=='auto')v.preload='metadata';v.muted=v===active?v.muted:true});
    const ratio=new Map();
    io=new IntersectionObserver(es=>{es.forEach(e=>ratio.set(e.target,e.isIntersecting?e.intersectionRatio:0));
     let best=null,bestR=0;vids.forEach(v=>{const r=ratio.get(v)||0;if(r>=.5&&r>bestR+.01){best=v;bestR=r}});
     vids.forEach(v=>{if(v===best)return;if(!v.paused){try{v.pause()}catch(x){}}if(v.preload==='auto')v.preload='metadata'});
-    /* Wall cards no longer carry the autoplay attribute (2026-10-10): it made the browser
-       download EVERY card's video at once - measured 11 parallel downloads on a 300 KB/s
-       link, the visible video stuck on its first frame (readyState 2) for 32 s. Only the
-       chosen card buffers fully; the rest load metadata only. */
-    if(best&&best.paused&&!aaHomeOverlayOpen()){best.preload='auto';best.muted=true;best.playsInline=true;const p=best.play();if(p&&p.catch)p.catch(()=>{})}
+    if(!best||aaHomeOverlayOpen()||document.hidden){if(!best){active=null;if(btn)btn.remove()}return}
+    if(best!==active||best.paused){start(best);return}
+    const h=host(best);if(h&&soundBtn().parentElement!==h){if(getComputedStyle(h).position==='static')h.style.position='relative';h.appendChild(btn);syncBtn()} // re-attach after a rebuild
    },{threshold:[0,.25,.5,.75,1]});
-   vids.forEach(v=>{if(!v.dataset.bingoRecover){v.dataset.bingoRecover='1';v.addEventListener('error',()=>{if(window.bingoMediaRecover)window.bingoMediaRecover(v)})}io.observe(v)});
+   vids.forEach(v=>{
+    if(!v.dataset.bingoRecover){v.dataset.bingoRecover='1';v.addEventListener('error',()=>{if(window.bingoMediaRecover)window.bingoMediaRecover(v)})}
+    io.observe(v);
+   });
   }catch(e){}
  }
+ /* A tap on a blocked card starts it (a tap always permits playback). */
+ document.addEventListener('click',e=>{
+  const h=e.target.closest&&e.target.closest('.bingo-autoplay-blocked');if(!h)return;
+  const v=h.querySelector('video');if(!v)return;
+  e.preventDefault();e.stopPropagation();h.classList.remove('bingo-autoplay-blocked');start(v);
+ },true);
+ document.addEventListener('visibilitychange',()=>{if(document.hidden){if(active&&!active.paused)try{active.pause()}catch(_){}}else requestAnimationFrame(observe)});
+ window.aaInlineAutoplayRefresh=()=>requestAnimationFrame(observe);
  const prev=render;
  render=function(){const r=prev.apply(this,arguments);requestAnimationFrame(observe);return r};
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>requestAnimationFrame(observe),{once:true});else requestAnimationFrame(observe);
 })();
 /* Rotating real comments on the active Home topic slide (approved preview's rotating comment bubbles).
    Single module-level 1 s timer, no extra observers: it reads the slide aaInit360Feed already marks
@@ -30028,15 +30173,16 @@ setInterval(()=>{if(document.visibilityState==='visible'&&sb&&!state.testMode)lo
     the rebuild: a media element left outside the page until the next
     animation frame is paused by the browser (measured: playback stopped
     ~1 s after opening whenever data arrived). */
- const inner=function(){const kept=keepWallVideos();const r=base.apply(this,arguments);try{restoreWallVideos(kept)}catch(e){}try{if(((state.foodMediaViewer&&state.foodMediaViewer.open)||state.propertyMediaViewerOpen)&&typeof aaTryPlayFoodViewerVideo==='function')aaTryPlayFoodViewerVideo()}catch(e){}return r};
+ const inner=function(){const kept=keepWallVideos();const r=base.apply(this,arguments);try{restoreWallVideos(kept)}catch(e){}try{if(typeof aaGalleryRestoreAll==='function')aaGalleryRestoreAll()}catch(e){}try{if(((state.foodMediaViewer&&state.foodMediaViewer.open)||state.propertyMediaViewerOpen)&&typeof aaTryPlayFoodViewerVideo==='function')aaTryPlayFoodViewerVideo()}catch(e){}return r};
  const homeFeedMounted=()=>state.view==='home'&&!!document.querySelector('#auto-arcade-widget .aa360-feed');
+ const uiBusy=()=>(homeFeedMounted()&&aaFeedBusy())||(typeof aaGalleryBusy==='function'&&aaGalleryBusy());
  window.aaFeedFlushDeferredRender=function(){
   if(!pending)return;
-  if(homeFeedMounted()&&aaFeedBusy()&&performance.now()-firstAt<4000)return; // still swiping (hard cap 4 s)
+  if(uiBusy()&&performance.now()-firstAt<4000)return; // still swiping (hard cap 4 s)
   pending=false;inner.call(window);
  };
  render=function(){
-  if(homeFeedMounted()&&aaFeedBusy()){
+  if(uiBusy()){
    if(!pending){pending=true;firstAt=performance.now()}
    if(window.aaFeedArmSettle)window.aaFeedArmSettle();
    return;
