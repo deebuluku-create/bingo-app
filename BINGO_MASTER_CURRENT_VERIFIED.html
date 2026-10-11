@@ -4493,6 +4493,11 @@ html body #auto-arcade-widget .bingo-business-media .bingo-sound-toggle{position
    the card edge. Scoped to the composer only. */
 #auto-arcade-widget .aa-composer-media-item:has(.aa-composer-media-video){width:auto;min-width:96px;max-width:100%;height:auto;min-height:64px}
 #auto-arcade-widget .aa-composer-media-video{height:auto;min-height:62px;max-width:150px;padding:6px 8px;overflow-wrap:anywhere;word-break:break-word;box-sizing:border-box}
+/* Compact property-form chips (2026-10-11): small tap targets, clear selected state. */
+#auto-arcade-widget .aa-chip-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+#auto-arcade-widget .aa-chip{min-height:34px;padding:6px 11px;border:1px solid #2d4a6e;border-radius:999px;background:#0d1728;color:#cfe0f3;font:600 12px/1.2 system-ui,-apple-system,Arial,sans-serif;cursor:pointer;white-space:nowrap;box-sizing:border-box}
+#auto-arcade-widget .aa-chip:focus-visible{outline:2px solid #5ad0ff;outline-offset:2px}
+#auto-arcade-widget .aa-chip[aria-pressed="true"]{border-color:#f5c542;color:#fff;background:#1d2a14;box-shadow:0 0 0 1px #f5c542 inset,0 0 10px #f5c54255}
 #auto-arcade-widget .aa-composer-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:10px;max-width:100%}
 #auto-arcade-widget .aa-composer-actions .bingo-neon-action{width:auto!important;max-width:100%;min-width:96px!important;height:auto!important;min-height:42px!important;white-space:normal;text-align:center;padding:10px 18px!important;box-sizing:border-box}
 #auto-arcade-widget .aa-composer-media-remove{
@@ -11625,6 +11630,28 @@ function aaCancelPropertyEdit(){aaMediaDraftReset('property',[]);state.propertyD
    whatever the user has typed, without itself calling render(), so a
    later media action's render() can rebuild the form from this draft
    instead of from blank defaults. */
+/* Compact tap-to-select chips for the property form (approved 2026-10-11).
+   Each group keeps a hidden <input name=...> so the existing draft sync and
+   submit code read the same field names and values as before. */
+const AA_PROP_LAND_TYPES=["Agricultural Land","Residential Plot","Commercial Plot","Farm"];
+const AA_PROP_COUNT_OPTIONS=[0,1,2,3,4,5,6].map(n=>({v:String(n),l:n===6?'6+':String(n)}));
+function aaPropChips(name,options,selected){
+ const cur=String(selected??'');
+ return `<div class="aa-chip-grid" role="radiogroup" aria-label="${esc(name)}">${options.map(o=>`<button type="button" class="aa-chip" role="radio" aria-checked="${cur===String(o.v)?'true':'false'}" aria-pressed="${cur===String(o.v)?'true':'false'}" data-chip-for="${esc(name)}" data-chip-value="${esc(String(o.v))}">${esc(o.l)}</button>`).join('')}<input type="hidden" name="${esc(name)}" value="${esc(cur)}"></div>`;
+}
+document.addEventListener('click',e=>{
+ const b=e.target.closest&&e.target.closest('.aa-chip[data-chip-for]');
+ if(!b)return;
+ e.preventDefault();
+ const grid=b.closest('.aa-chip-grid');const input=grid&&grid.querySelector('input[type=hidden]');
+ if(!input)return;
+ const name=b.dataset.chipFor;
+ input.value=b.dataset.chipValue;
+ grid.querySelectorAll('.aa-chip').forEach(c=>{const on=c===b;c.setAttribute('aria-checked',on?'true':'false');c.setAttribute('aria-pressed',on?'true':'false')});
+ input.dispatchEvent(new Event('change',{bubbles:true}));
+ // Changing the property type can show or hide the bedroom/bathroom chips.
+ if(name==='type'){if(AA_PROP_LAND_TYPES.includes(b.dataset.chipValue)){state.propertyFormDraft=state.propertyFormDraft||{};state.propertyFormDraft.bedrooms='';state.propertyFormDraft.bathrooms=''}render()}
+});
 function aaSyncPropertyFormDraft(e){
  const el=e&&e.target;
  if(!el||!el.name)return;
@@ -11663,13 +11690,13 @@ function aaPropertyPostHTML(){
   <form novalidate onsubmit="aaSubmitProperty(event)" oninput="aaSyncPropertyFormDraft(event)" onchange="aaSyncPropertyFormDraft(event)">
   <div class="form-grid">
    <div class="full"><label class="form-label">Title</label><input id="aaPropField_title" name="title" class="field${errClass('title')}" value="${esc(val('title',d.title))}" placeholder="e.g. 3 bedroom apartment in Nyali">${errMsg('title')}</div>
-   <div><label class="form-label">Property Type</label><select name="type" class="field">${AA_PROPERTY_TYPES.map(x=>`<option ${val('type',d.type)===x?'selected':''}>${esc(x)}</option>`).join('')}</select></div>
-   <div><label class="form-label">Purpose</label><select name="purpose" class="field"><option ${(!val('purpose',d.purpose)||val('purpose',d.purpose)==='For Sale')?'selected':''}>For Sale</option><option ${val('purpose',d.purpose)==='For Rent'?'selected':''}>For Rent</option><option ${val('purpose',d.purpose)==='For Lease'?'selected':''}>For Lease</option></select></div>
+   <div class="full"><label class="form-label">Property type</label>${aaPropChips('type',AA_PROPERTY_TYPES.map(x=>({v:x,l:x})),val('type',d.type))}</div>
+   <div><label class="form-label">Sale or rental</label>${aaPropChips('purpose',[{v:'For Sale',l:'For sale'},{v:'For Rent',l:'For rent'}],val('purpose',d.purpose)||'For Sale')}</div>
    <div><label class="form-label">Price (KES)</label><input id="aaPropField_price" name="price" class="field${errClass('price')}" type="number" min="0" value="${esc(val('price',d.price))}">${errMsg('price')}</div>
    <div><label class="form-label">County</label><input id="aaPropField_county" name="county" class="field${errClass('county')}" placeholder="Mombasa" value="${esc(val('county',d.county))}">${errMsg('county')}</div>
    <div><label class="form-label">Town / Area</label><input id="aaPropField_town" name="town" class="field${errClass('town')}" placeholder="Nyali" value="${esc(val('town',d.town))}">${errMsg('town')}</div>
-   <div><label class="form-label">Bedrooms</label><input name="bedrooms" class="field" type="number" min="0" value="${esc(val('bedrooms',d.bedrooms))}"></div>
-   <div><label class="form-label">Bathrooms</label><input name="bathrooms" class="field" type="number" min="0" value="${esc(val('bathrooms',d.bathrooms))}"></div>
+   ${AA_PROP_LAND_TYPES.includes(val('type',d.type))?'':`<div><label class="form-label">Bedrooms</label>${aaPropChips('bedrooms',AA_PROP_COUNT_OPTIONS,val('bedrooms',d.bedrooms))}</div>`}
+   ${AA_PROP_LAND_TYPES.includes(val('type',d.type))?'':`<div><label class="form-label">Bathrooms</label>${aaPropChips('bathrooms',AA_PROP_COUNT_OPTIONS,val('bathrooms',d.bathrooms))}</div>`}
    <div class="full"><label class="form-label">Description</label><textarea id="aaPropField_description" name="description" class="field${errClass('description')}" rows="4">${esc(val('description',d.description))}</textarea>${errMsg('description')}</div>
   </div>
   <p class="notice" style="margin-top:8px">${editItem?'Add More Photos / Videos':'Photos / Videos'} (max 3 videos). Tap ★ to set the cover photo/video, ◀▶ to reorder, ✕ to remove. Tap a thumbnail to preview it full-screen.</p>
