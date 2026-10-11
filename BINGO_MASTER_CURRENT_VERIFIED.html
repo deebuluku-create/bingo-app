@@ -15167,9 +15167,9 @@ function aaProfileDestyDrawerHTML(sellerKey){
  return `<div class="overlay" onclick="if(event.target===this)aaProfileDrawerClose()"><div class="modal aa-desty-drawer-modal"><button class="close" onclick="aaProfileDrawerClose()">×</button><h2 style="margin:0 0 10px">${esc(titles[key]||"")}</h2>${body}</div></div>`;
 }
 function aaProfileDestyTopicsTabHTML(own,sellerKey){
- if(own)return aaMyTopicsHTML()||`<div class="notice">No Bingo Wall posts yet. Tap + to write one.</div>`;
+ if(own)return aaMyTopicsHTML()||aaWallStatusNoticeHTML("notice")||`<div class="notice">No Bingo Wall posts yet. Tap + to write one.</div>`;
  const mine=aaTopics().filter(t=>!t.hiddenFromPublic&&String(t.authorId||"")===sellerKey);
- if(!mine.length)return `<div class="notice">This member has not posted on the Bingo Wall yet.</div>`;
+ if(!mine.length)return aaWallStatusNoticeHTML("notice")||`<div class="notice">This member has not posted on the Bingo Wall yet.</div>`;
  return mine.map(t=>aaTopicPostCardHTML(t)).join("");
 }
 function aaProfileDestyTabContentHTML(own,s,cars,sellerKey,rs,avg,reviewList){
@@ -15239,9 +15239,9 @@ function aaBpTabContentHTML(own,s,cars,sellerKey){
  const grid=list=>list.length?`<div class="bp-grid" role="list">${list.slice(0,limit).map(it=>aaBpTileHTML(it,own)).join("")}</div>${list.length>limit?`<div class="bp-more-row"><button type="button" class="bp-neon bp-micro bp-cyan bp-grid-more" onclick="state.bpGridLimit=(state.bpGridLimit||8)+8;render()">Show more (${list.length-limit})</button></div>`:""}`:"";
  if(tab==="posts"){
   const wall=typeof aaProfileDestyTopicsTabHTML==="function"?aaProfileDestyTopicsTabHTML(own,sellerKey):"";
-  return (grid(items)||`<div class="bp-empty">${own?"You have not published any listings yet. Tap + to share your first post.":"This member has not published any listings yet."}</div>`)+`<div class="bp-subhead">Bingo Wall posts</div>${wall}`;
+  return (grid(items)||aaWallStatusNoticeHTML("bp-empty")||(state.dbLoading?`<div class="bp-empty" role="status">Loading posts…</div>`:"")||`<div class="bp-empty">${own?"You have not published any listings yet. Tap + to share your first post.":"This member has not published any listings yet."}</div>`)+`<div class="bp-subhead">Bingo Wall posts</div>${wall}`;
  }
- if(tab==="reels"){const v=items.filter(it=>it.video);return grid(v)||`<div class="bp-empty">${own?"No video posts yet. Record one in Live Studio or add a video to a listing.":"No video posts yet."}</div>`}
+ if(tab==="reels"){const v=items.filter(it=>it.video);return grid(v)||aaWallStatusNoticeHTML("bp-empty")||`<div class="bp-empty">${own?"No video posts yet. Record one in Live Studio or add a video to a listing.":"No video posts yet."}</div>`}
  if(tab==="tagged")return `<div class="bp-empty">Tagging members in posts is not available on Bingo yet, so there are no tagged posts to show.</div>`;
  if(tab==="saved")return own?`<div class="bp-saved">${aaProfileSavedItemsHTML()}</div>`:`<div class="bp-empty">Saved items are private to their owner.</div>`;
  return `<div class="bp-empty">${own?"Liked posts are not recorded on Bingo yet.":"Liked posts are private."}</div>`;
@@ -15377,6 +15377,11 @@ function aaProfileDestyHTML(s,cars,sellerKey){
  state.__bpReviewsHTML=aaProfileDestyTabContentHTML(own,s,cars,sellerKey,rs,avg,reviewList);
  state.profileTab2=prevTab;
  const items=aaBpItems(s,cars,sellerKey);
+ /* Posts counter = each eligible record once: listings + this member's Wall posts (the grid only
+    holds Wall posts that have media, so text-only posts are added here). "…" until loaded. */
+ const ownViewCount=state.isLoggedIn&&String(state.user?.id||"")===String(sellerKey||"");
+ const textOnlyTopics=aaTopics().filter(t=>String(t.authorId||"")===String(sellerKey||"")&&(ownViewCount||!t.hiddenFromPublic)&&!(Array.isArray(t.media)&&t.media.length)).length;
+ const postsCountLabel=(items.length+textOnlyTopics)===0&&aaWallStatus()!=='ok'?'…':aaCompact(items.length+textOnlyTopics);
  const st=aaFollowStats(sellerKey);
  const following=own?false:aaIsFollowingSeller(sellerKey);
  const online=aaVendorOnline(s);
@@ -15422,7 +15427,7 @@ function aaProfileDestyHTML(s,cars,sellerKey){
    <div class="bp-identity-top">
     <div class="bp-avatar">${crown}<img src="${bingoSafeMediaAttr(aaProfilePhoto(s.photo))}" alt="${esc(s.name||"Bingo member")}" onerror="aaProfileImgFallback(this)">${online?`<span class="bp-online" title="Online"></span>`:""}</div>
     <nav class="bp-stat-tabs" aria-label="Profile statistics">
-     <button type="button" class="bp-neon bp-micro bp-stat-tab${peopleTab?"":" is-active"}" aria-pressed="${!peopleTab}" onclick="state.profileDrawer=null;aaBpSetTab('posts');aaBpScrollToTabs()"><b>${aaCompact(items.length)}</b> Posts</button>
+     <button type="button" class="bp-neon bp-micro bp-stat-tab${peopleTab?"":" is-active"}" aria-pressed="${!peopleTab}" onclick="state.profileDrawer=null;aaBpSetTab('posts');aaBpScrollToTabs()"><b>${postsCountLabel}</b> Posts</button>
      <button type="button" class="bp-neon bp-micro bp-cyan bp-stat-tab${peopleTab==="followers"?" is-active":""}" aria-pressed="${peopleTab==="followers"}" onclick="aaBpOpenPeople(${esc(JSON.stringify(sellerKey))},'followers')"><b>${aaCompact(st.followers)}</b> Followers</button>
      <button type="button" class="bp-neon bp-micro bp-pink bp-stat-tab${peopleTab==="following"?" is-active":""}" aria-pressed="${peopleTab==="following"}" onclick="aaBpOpenPeople(${esc(JSON.stringify(sellerKey))},'following')"><b>${aaCompact(st.following)}</b> Following</button>
     </nav>
@@ -15823,8 +15828,23 @@ async function aaDeleteUploadedCommentMedia(path){
    the cloud lists — same non-mixing rule as aa_v69_properties. */
 function aaTopics(){
  if(state.testMode)return aaV69Read("aa_bingo_topics",[]);
- if(!Array.isArray(state.wallTopics)&&!aaWallLoading)aaLoadBingoWall();
+ if(!aaWallLoading&&(!Array.isArray(state.wallTopics)||(state.wallLoadState==='error'&&Date.now()-(state.wallLoadFailedAt||0)>15000)))aaLoadBingoWall();
  return Array.isArray(state.wallTopics)?state.wallTopics:[];
+}
+/* 'ok' only after a successful load. While loading, or after a failure, pages must not claim that
+   a member has no posts (that was the profile "0 Posts / No Bingo Wall posts yet" report). */
+function aaWallStatus(){
+ if(state.testMode)return 'ok';
+ if(state.wallLoadState==='error')return 'error';
+ if(Array.isArray(state.wallTopics)&&state.wallLoadState==='ok')return 'ok';
+ if(Array.isArray(state.wallTopics)&&state.wallLoadState==null)return 'ok';
+ return 'loading';
+}
+function aaWallStatusNoticeHTML(cls){
+ const st=aaWallStatus();
+ if(st==='loading')return `<div class="${cls}" role="status">Loading posts…</div>`;
+ if(st==='error')return `<div class="${cls}" role="alert">Posts could not be loaded right now (connection problem). Your posts are safe. <button type="button" class="bp-neon bp-micro bp-cyan" onclick="aaLoadBingoWall()">Retry</button></div>`;
+ return '';
 }
 function aaMapBingoTopicRow(row){
  return {
@@ -15841,6 +15861,7 @@ async function aaLoadBingoWall(){
  if(state.testMode)return;
  if(!sb||aaWallLoading)return;
  aaWallLoading=true;
+ state.wallLoadState='loading';
  try{
   const uid=state.user?.id||null;
   const [topicsRes,commentsRes,reactionsRes,savesRes,smartReactionsRes]=await Promise.all([
@@ -15857,12 +15878,18 @@ async function aaLoadBingoWall(){
   ]);
   if(topicsRes.error)throw topicsRes.error;
   state.wallTopics=(topicsRes.data||[]).map(aaMapBingoTopicRow);
+  state.wallLoadState='ok';state.wallLoadError=null;state.wallLoadRetries=0;
   state.wallComments=commentsRes.error?[]:(commentsRes.data||[]);
   state.wallReactions=reactionsRes.error?[]:(reactionsRes.data||[]);
   state.wallSaves=savesRes.error?[]:(savesRes.data||[]).map(x=>String(x.topic_id));
   state.wallSmartReactions=smartReactionsRes.error?[]:(smartReactionsRes.data||[]);
  }catch(e){
   console.warn('Bingo: Public Wall unavailable. Using local cache only.',String(e?.message||e));
+  /* Profile 0-posts repair (2026-10-11): remember the failure so the posts are fetched again
+     (aaTopics retries after 15 s) and pages can say "couldn't load" instead of "no posts". */
+  state.wallLoadState='error';state.wallLoadError=String(e?.message||e);state.wallLoadFailedAt=Date.now();
+  state.wallLoadRetries=(state.wallLoadRetries||0)+1;
+  if(state.wallLoadRetries<=3)setTimeout(()=>{if(state.wallLoadState==='error'&&!aaWallLoading)aaLoadBingoWall()},15000); // bounded: 3 automatic retries, then the Retry button
   if(!Array.isArray(state.wallTopics))state.wallTopics=[];
   if(!Array.isArray(state.wallComments))state.wallComments=[];
   if(!Array.isArray(state.wallReactions))state.wallReactions=[];
