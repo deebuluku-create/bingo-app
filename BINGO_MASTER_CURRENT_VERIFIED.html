@@ -30496,11 +30496,21 @@ try{visitor=localStorage.getItem('bingo_media_visitor');if(!/^[0-9a-f-]{36}$/i.t
 const type=t=>t==='stay'?'property':t==='food_business'?'food':t==='household'?'spare':t;
 const key=(t,id)=>type(t)+':'+id;
 function identity(el){const host=el.closest('[data-canon]');if(host){const value=host.dataset.canon,i=value.indexOf(':');return {type:type(value.slice(0,i)),id:value.slice(i+1),host}}if(el.dataset.aaPostId)return {type:type(el.dataset.aaPostType),id:el.dataset.aaPostId,host:el.closest('.aa360-item')||el.parentElement};return null}
-function caption(row,video){return row?`${Number(row.view_count)} views · ${video?Number(row.watch_count)+' watched':Number(row.photo_count)+' photo views'}`:'Views — · '+(video?'Watched —':'Photo views —')}
-function patchStats(){document.querySelectorAll('#auto-arcade-widget [data-bingo-stats]').forEach(el=>{el.textContent=caption(stats.get(el.dataset.bingoStats),el.dataset.video==='true')});document.querySelectorAll('#auto-arcade-widget .aa360-item[data-canon]').forEach(el=>{const row=stats.get(el.dataset.canon);const views=el.querySelector('.aa360-side button[aria-label="Views"]')?.parentElement?.querySelector('span');if(row&&views)views.textContent=typeof aaCompact==='function'?aaCompact(row.view_count):row.view_count})}
+/* Statistics label (approved 2026-10-11): only 👑 Crowns and ▶ Watched, using
+   real values. Crowns come from the post's own awarded-crown count and are
+   shown only for topic posts; Watched only for videos. No Views figure. */
+function caption(row,video,k){
+ const key=String(k||''),isTopic=key.indexOf('topic:')===0,id=key.slice(key.indexOf(':')+1);
+ const crowns=isTopic&&typeof window.aaCrownCountFor==='function'?window.aaCrownCountFor(id):null;
+ const parts=[];
+ if(crowns!==null)parts.push('👑 '+Number(crowns)+' Crowns');
+ if(video)parts.push('▶ '+(row?Number(row.watch_count||0):'—')+' Watched');
+ return parts.join(' · ');
+}
+function patchStats(){document.querySelectorAll('#auto-arcade-widget [data-bingo-stats]').forEach(el=>{el.textContent=caption(stats.get(el.dataset.bingoStats),el.dataset.video==='true',el.dataset.bingoStats)});document.querySelectorAll('#auto-arcade-widget .aa360-item[data-canon]').forEach(el=>{const row=stats.get(el.dataset.canon);const views=el.querySelector('.aa360-side button[aria-label="Views"]')?.parentElement?.querySelector('span');if(row&&views)views.textContent=typeof aaCompact==='function'?aaCompact(row.view_count):row.view_count})}
 async function fetchStats(items,force=false){if(!sb||state.testMode)return;const want=items.filter(x=>x&&x.id&&!pending.has(key(x.type,x.id))&&(force||!stats.has(key(x.type,x.id)))).slice(0,100);if(!want.length)return;want.forEach(x=>pending.add(key(x.type,x.id)));try{const {data,error}=await sb.rpc('bingo_media_counts',{p_posts:want.map(x=>({type:type(x.type),id:x.id}))});if(error)throw error;(data||[]).forEach(x=>stats.set(key(x.post_type,x.post_id),x));patchStats()}catch(e){console.warn('Bingo media counts:',e?.message||e)}finally{want.forEach(x=>pending.delete(key(x.type,x.id)))}}
 async function record(id,event){if(!sb||state.testMode||!id)return;const k=key(id.type,id.id)+':'+event;if(recorded.has(k)||recording.has(k))return;recording.add(k);try{const {error}=await sb.rpc('bingo_record_media_event',{p_type:type(id.type),p_id:id.id,p_visitor:visitor,p_event:event});if(error)throw error;recorded.add(k);await fetchStats([id],true)}catch(e){console.warn('Bingo view could not be saved:',e?.message||e)}finally{recording.delete(k)}}
-function statsHTML(t,id,video,extra=''){const k=key(t,id);return `<span class="bingo-media-stats ${extra}" data-bingo-stats="${esc(k)}" data-video="${!!video}" title="Views: visible for 2 seconds. Watched: 3 seconds of playback. Counts deduplicate accounts or anonymous browsers.">${caption(stats.get(k),video)}</span>`}
+function statsHTML(t,id,video,extra=''){const k=key(t,id);return `<span class="bingo-media-stats ${extra}" data-bingo-stats="${esc(k)}" data-video="${!!video}" title="Views: visible for 2 seconds. Watched: 3 seconds of playback. Counts deduplicate accounts or anonymous browsers.">${caption(stats.get(k),video,k)}</span>`}
 /* Video failure reporting. MediaError code 4 alone cannot tell an expired/denied link from a missing file from an
    unsupported codec, so one ranged request is made to the same URL and its HTTP status decides the wording. The
    result is also logged to the console (token stripped) so repeated failures stay diagnosable. */
