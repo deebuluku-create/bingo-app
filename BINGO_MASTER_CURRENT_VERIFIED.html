@@ -14350,7 +14350,7 @@ function aaMixedFeedTopicCardHTML(c){
   ${aaIconActionBtn({rgb:"255,201,40",label:"Crown",svg:'<em aria-hidden="true" style="font-style:normal;font-size:17px;line-height:1">👑</em>',onclick:`aaTopicCrown(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"34,201,255",label:"Share",svg:AA_ICON_ACTION_SVG.share,onclick:`aaTopicShare(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"245,185,30",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
-  ${aaIconActionBtn({rgb:"171,71,255",label:"Report",svg:AA_ICON_ACTION_SVG.flag,onclick:`aaTopicReport(${JSON.stringify(String(t.id))})`})}
+  ${state.isLoggedIn&&t.authorId&&String(t.authorId)===String(state.user?.id||"")?"":aaIconActionBtn({rgb:"171,71,255",label:"Report",svg:AA_ICON_ACTION_SVG.flag,onclick:`aaTopicReport(${JSON.stringify(String(t.id))})`})}
  </div><div class="aa360-actions" onclick="event.stopPropagation()"><button type="button" class="bingo-neon-action bingo-neon-action-cyan" onclick='${openPostCall}'>View Post &amp; Comments</button></div></div></section>`;
 }
 function aaMixedFeedItems(){const v=(typeof aaVideoListings==='function'?aaVideoListings():[]).map(x=>({...x,kind:'vehicle',feed_title:x.title,feed_desc:x.description,feed_media:x.videoUrl||x.video_url||x.video||'',feed_location:aaSearchLocationText(x)||x.location||'Kenya',feed_seller:x.sellerName||'Bingo Seller',_promoType:'vehicle',_promoId:x.id}));const p=aaProperties().filter(x=>Array.isArray(x.media)&&x.media.length).map(x=>{const cover=aaPropertyCoverMedia(x);const ownerId=String(x.user_id||x.sellerId||x.userId||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.sellerName||'');return {id:`${x.id}_p`,kind:'property',source:x,feed_title:x.title,feed_desc:x.description,feed_media:cover.url,feed_media_type:cover.type,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta),feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||x.sellerPhoto||'',feed_sellerMeta:ownerMeta,feed_bedrooms:x.bedrooms||'',feed_bathrooms:x.bathrooms||'',feed_media_count:Array.isArray(x.media)?x.media.length:0,created_at:x.created_at,_promoType:(typeof AA_STAY_TYPES!=='undefined'&&AA_STAY_TYPES.includes(x.type))?'stay':'property',_promoId:x.id};});const f=aaFoods().filter(aaFoodActive).flatMap(x=>{const ownerId=String(x.user_id||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.business_name||'');const media=Array.isArray(x.media)?x.media:[];const videos=media.filter(m=>m.type==='video');const base={kind:'food',source:x,feed_title:x.business_name,feed_desc:x.description,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta)||x.business_name,feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||'',feed_sellerMeta:ownerMeta,created_at:x.created_at,_promoType:'food_business',_promoId:x.id};/* A business with video keeps its exact old per-video entries, unchanged.
@@ -19513,7 +19513,7 @@ function aaTopicPostCardHTML(t){
  const mediaIdx=aaTopicMediaIndex(t.id,mediaList.length);
  const mediaSrc=aaTopicMediaSrc(mediaList[mediaIdx]);
  const isVideo=!!(mediaSrc&&mediaList[mediaIdx]&&mediaList[mediaIdx].type==="video");
- const isOwner=String(t.authorId||"")===String(state.user?.id||"");
+ const isOwner=!!state.isLoggedIn&&!!t.authorId&&String(t.authorId)===String(state.user?.id||"");
  const canEditTopic=state.isLoggedIn&&(isOwner||(typeof aaIsSuperUser==="function"&&aaIsSuperUser()));
  const wasEdited=t.updatedAt&&t.createdAt&&new Date(t.updatedAt).getTime()>new Date(t.createdAt).getTime()+1000;
  const mediaClickAttr=(mediaSrc&&!isVideo)?` onclick='aaOpenPhotoLightbox(${JSON.stringify(bingoSafeMediaUrl(mediaSrc))},${JSON.stringify(String(t.title||"Bingo post"))},${JSON.stringify(String(t.id))})' style="cursor:zoom-in"`:'';
@@ -19526,7 +19526,7 @@ function aaTopicPostCardHTML(t){
  ${canEditTopic?`<button type="button" onclick="aaOpenEditTopic(${id})">Edit post</button>`:''}
  ${state.isLoggedIn&&isOwner?`<button type="button" style="color:var(--red)" onclick="aaDeleteBingoTopic(${id})">Delete post</button>`:''}
  <button type="button" onclick="aaTopicToggleSave(${id})">${saved?'Saved':'Save / Download'}</button>
- <button type="button" onclick="aaTopicReport(${id})">Report post</button>
+ ${isOwner?"":`<button type="button" onclick="aaTopicReport(${id})">Report post</button>`}
  ${aaFollowTopControlHTML({id:t.authorId,name:author.name})}
  </div></details></header>
  <div class="aa-post-content">${aaTopicTextHTML(t)}</div>
