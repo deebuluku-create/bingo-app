@@ -4598,6 +4598,27 @@ function bingoIsElementorEditor(){
 window.__bingoCategoriesDirectRepair=true;
 var SUPABASE_PUBLISHABLE_KEY="sb_publishable_XvsP3teDpVkUVfX1l-N8Ng_zqT269LZ";
 var sb=null;
+/* Content-loading incident 2026-10-11 (Home black, Wall "No topics yet", Profile "0 Posts"):
+   auth-js 2.65 (inside supabase-js 2.45.4) guards the session with a browser-wide Web Lock
+   (navigator.locks) and waits for it with NO time limit (acquireTimeout -1) before EVERY
+   database request, because each request first reads the session token. Android Chrome
+   freezes background tabs; a frozen Bingo tab that holds that lock keeps it, and every request
+   in the visible tab then waits forever - nothing loads and no error is ever raised, so the
+   pages showed their "nothing here" messages. This replaces only the lock: one queue per tab
+   (other tabs can no longer block this one), and a wait is capped at 10 s so a stuck holder can
+   never freeze the app. Sessions, tokens, storage keys and auth flow are unchanged. */
+var aaTabAuthLockQueues={};
+function aaTabAuthLock(name,acquireTimeout,fn){
+ const prev=aaTabAuthLockQueues[name]||Promise.resolve();
+ let release;const mine=new Promise(r=>{release=r});
+ aaTabAuthLockQueues[name]=prev.then(()=>mine);
+ /* acquireTimeout >= 0 (auth-js's background refresh tick): like the library's own lock, give up
+    with an isAcquireTimeout error so that tick is simply skipped. acquireTimeout -1 ("wait"): wait
+    for this tab's previous holder, but never more than 10 s. */
+ const bounded=acquireTimeout>=0,cap=bounded?Math.min(acquireTimeout,10000):10000;
+ const waitPrev=new Promise((resolve,reject)=>{let done=false;const t=setTimeout(()=>{if(done)return;done=true;if(bounded){const e=new Error('Acquiring auth lock "'+name+'" timed out');e.isAcquireTimeout=true;reject(e)}else resolve()},cap);prev.then(()=>{if(!done){done=true;clearTimeout(t);resolve()}})});
+ return waitPrev.then(()=>Promise.resolve().then(fn),e=>{release();throw e}).finally(()=>release());
+}
 function aaInitSupabase(){
  try{
   if(!sb&&window.supabase&&window.supabase.createClient){
@@ -4614,7 +4635,7 @@ function aaInitSupabase(){
    // keeps the "pkce" default for aaGoogleLogin's own redirects).
    const aaInitialFlowType=aaOAuthCallbackFlowTypeNeeded()||"pkce";
    sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{
-    auth:{flowType:aaInitialFlowType,detectSessionInUrl:true,persistSession:true,autoRefreshToken:true}
+    auth:{flowType:aaInitialFlowType,detectSessionInUrl:true,persistSession:true,autoRefreshToken:true,lock:aaTabAuthLock}
    });
    return true;
   }
@@ -14593,7 +14614,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
 }
 function homeHTML(boosted,rows,all,pages){
  const videos=aaMixedFeedItems();
- return `<section class="aa360-shell">${aaFeedFilterHTML()}${aaAdSlotHTML("home-banner")}<div class="aa360-feed">${aaFeedSoundBtnHTML()}${videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join("")}</div></section>`;
+ return `<section class="aa360-shell">${aaFeedFilterHTML()}${aaAdSlotHTML("home-banner")}<div class="aa360-feed">${aaFeedSoundBtnHTML()}${videos.length?videos.map((c,i)=>aaMixedFeedCardHTML(c,i)).join(""):`<div class="aa-feed-status" style="display:flex;align-items:center;justify-content:center;min-height:60vh;padding:24px;text-align:center;color:#c9d3e6;font-size:14px;line-height:1.6">${aaWallStatusNoticeHTML('aa-feed-status-msg')||'No posts to show yet.'}</div>`}</div></section>`;
 }
 function listingType(c){return String(c?.listingType||"sale").toLowerCase()==="hire"?"hire":"sale"}
 function listingBadge(c){return listingType(c)==="hire"?'<span class="badge badge-green">FOR HIRE</span>':'<span class="badge badge-red">FOR SALE</span>'}
@@ -15864,7 +15885,9 @@ async function aaLoadBingoWall(){
  state.wallLoadState='loading';
  try{
   const uid=state.user?.id||null;
-  const [topicsRes,commentsRes,reactionsRes,savesRes,smartReactionsRes]=await Promise.all([
+  /* A request that never answers must end as a visible, retryable error - not an endless empty page. */
+  const wallTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Posts request timed out')),20000));
+  const [topicsRes,commentsRes,reactionsRes,savesRes,smartReactionsRes]=await Promise.race([wallTimeout,Promise.all([
    sb.from('bingo_topics').select('*').order('created_at',{ascending:false}),
    sb.from('bingo_topic_comments').select('*').eq('moderation_status','visible').order('created_at',{ascending:true}),
    sb.from('bingo_topic_reactions').select('*'),
@@ -15875,7 +15898,7 @@ async function aaLoadBingoWall(){
       five reaction buttons degrade to an honest "0, not toggleable
       until deployed" rather than pretending to work. */
    sb.from('bingo_topic_smart_reactions').select('*')
-  ]);
+  ])]);
   if(topicsRes.error)throw topicsRes.error;
   state.wallTopics=(topicsRes.data||[]).map(aaMapBingoTopicRow);
   state.wallLoadState='ok';state.wallLoadError=null;state.wallLoadRetries=0;
@@ -19418,7 +19441,7 @@ function aaWallListingCardHTML(kind,rec){
 function aaPublicTopicsFeedHTML(){
  const all=aaTopics().filter(t=>!t.hiddenFromPublic).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
  aaLoadTopicCounts(all.map(t=>t.id));
- return `<section class="bingo-topic-page">${aaMbeaHeaderHTML()}<button class="btn btn-glass bingo-wall-back" onclick="goBack()">← Back</button>${state.isLoggedIn?aaWallComposerSectionHTML():`<button class="btn btn-gold" onclick="openAuth('login')">Log in to post or comment</button>`}${all.length?all.map(aaTopicPostCardHTML).join(''):'<div class="empty">No topics yet. Be the first to post.</div>'}${aaWallBottomNavHTML()}${typeof window.aaBingoAccountPanelHTML==="function"?window.aaBingoAccountPanelHTML():""}</section>`;
+ return `<section class="bingo-topic-page">${aaMbeaHeaderHTML()}<button class="btn btn-glass bingo-wall-back" onclick="goBack()">← Back</button>${state.isLoggedIn?aaWallComposerSectionHTML():`<button class="btn btn-gold" onclick="openAuth('login')">Log in to post or comment</button>`}${all.length?all.map(aaTopicPostCardHTML).join(''):(aaWallStatusNoticeHTML('empty')||'<div class="empty">No topics yet. Be the first to post.</div>')}${aaWallBottomNavHTML()}${typeof window.aaBingoAccountPanelHTML==="function"?window.aaBingoAccountPanelHTML():""}</section>`;
 }
 /* The Reply button previously built its onclick as a double-quoted HTML
    attribute containing JSON.stringify(c.authorName) - which itself
@@ -22770,7 +22793,10 @@ function aaCloseTopOverlay(){
     }
     if(!window.__aaAuthListener){
      window.__aaAuthListener=true;
-     sb.auth.onAuthStateChange(async (event,session)=>{
+     /* The callback runs while auth-js holds its session lock; per Supabase's own guidance the work
+        is moved out of it (setTimeout 0) so the database calls below never wait on that lock. */
+     sb.auth.onAuthStateChange((event,session)=>{setTimeout(()=>aaHandleAuthStateChange(event,session),0)});
+     const aaHandleAuthStateChange=async (event,session)=>{
       if(event==="PASSWORD_RECOVERY"){state.passwordRecovery=true;state.authMode="recovery";state.authOpen=true;state.authError="";render();return}
       if(event==="SIGNED_IN"&&session?.user&&!state.testMode){
        aaMarkOAuthCallbackSettled();
@@ -22787,7 +22813,7 @@ function aaCloseTopOverlay(){
        if(state.view==="super-admin")state.view="home";
        save();render();
       }
-     });
+     };
     }
 
     // Do not hold the first screen while waiting for network/auth/database calls.
