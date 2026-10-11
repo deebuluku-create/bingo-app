@@ -29839,12 +29839,18 @@ body:has(#auto-arcade-widget.aa-wall-view){background:#f1f5f9!important}
 #auto-arcade-widget .bingo-topic-page .bingo-media-stats{color:#64748b!important;background:none!important}
 /* Flat, clean video surface: no floating play badge; hide the browser's own big centre play button too. */
 .aa-post-media video::-webkit-media-controls-overlay-play-button,.aa360-video::-webkit-media-controls-overlay-play-button{display:none!important}
-/* Rotating real comments (one bubble at a time, active Home topic slide only; see bingoRotator in the render wrapper) */
+/* Rotating real comments (one bubble at a time, active Home topic slide only; see bingoRotator in the render wrapper)
+   2026-10-11: the row had only left:0, so it was exactly as wide as its content and the bubble's percentage
+   max-width resolved ~4px narrower than its own text - with overflow-wrap:anywhere a short comment like
+   "How" split into "Ho" / "w". The row now spans the info panel (left+right) and the bubble shrinks to its
+   text; words only break when a single word is wider than the bubble. */
 .bingo-rotator{position:relative;height:92px;overflow:hidden;margin:0 0 8px;pointer-events:none;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 100%)}
-.bingo-rot-comment{position:absolute;left:0;bottom:0;display:flex;align-items:center;gap:10px;max-width:100%;animation:bingoRotRise 7s ease-in-out forwards}
+.bingo-rot-comment{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:10px;animation:bingoRotRise 7s ease-in-out forwards}
 .aa360-item:not(.bingo-media-active) .bingo-rot-comment{animation-play-state:paused}
 .bingo-rot-avatar{width:38px;height:38px;flex:0 0 38px;border-radius:50%;object-fit:cover;border:2px solid #e6b94a;background:#0b1322;pointer-events:auto;cursor:pointer}
-.bingo-rot-bubble{padding:8px 12px;background:rgba(7,19,35,.78);border-radius:16px;box-shadow:0 5px 18px rgba(0,0,0,.4);font:600 13px/1.35 'Plus Jakarta Sans',system-ui,sans-serif;color:#e8edf5;text-shadow:none;max-width:calc(100% - 52px);overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.bingo-rot-bubble{padding:8px 12px;background:rgba(7,19,35,.78);border-radius:16px;box-shadow:0 5px 18px rgba(0,0,0,.4);font:600 13px/1.35 'Plus Jakarta Sans',system-ui,sans-serif;color:#e8edf5;text-shadow:none;flex:0 1 auto;min-width:0;max-width:calc(100% - 48px);overflow-wrap:break-word;word-break:normal}
+/* The 3-line limit sits on the text, not on the padded bubble, so a 4th line can't show through the bottom padding. */
+.bingo-rot-text{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 @keyframes bingoRotRise{0%{opacity:0;transform:translateY(26px)}12%{opacity:1;transform:translateY(0)}72%{opacity:1}100%{opacity:0;transform:translateY(-34px)}}
 @media(prefers-reduced-motion:reduce){.bingo-rot-comment{animation:none;opacity:1}}
 </style>
@@ -30244,7 +30250,7 @@ var aaInlineSoundOn=(function(){try{return sessionStorage.getItem('bingo_inline_
   if(!host){host=document.createElement('div');host.className='bingo-rotator';host.setAttribute('aria-hidden','true');info.insertBefore(host,info.firstChild)}
   let i=idx.has(tid)?idx.get(tid):-1;i=i<0?0:advance?(i+1)%list.length:i%list.length;idx.set(tid,i);
   const c=list[i],who=JSON.stringify(String(c.authorId||''));
-  host.innerHTML=`<div class="bingo-rot-comment"><img class="bingo-rot-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(c.authorPhoto))}" alt="" onerror="aaProfileImgFallback(this)" onclick='event.stopPropagation();openSeller(${who})'><div class="bingo-rot-bubble">${esc(c.text)}</div></div>`;
+  host.innerHTML=`<div class="bingo-rot-comment"><img class="bingo-rot-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(c.authorPhoto))}" alt="" onerror="aaProfileImgFallback(this)" onclick='event.stopPropagation();openSeller(${who})'><div class="bingo-rot-bubble"><span class="bingo-rot-text">${esc(c.text)}</span></div></div>`;
  }
  setInterval(()=>{
   try{
