@@ -14537,6 +14537,7 @@ function render(){
   ${state.view==="community-groups"?aaCommunityGroupsHTML():""}
   ${state.view==="community-group"?aaCommunityGroupHTML():""}
   ${state.view==="community-group-create"?aaCommunityGroupCreateHTML():""}
+  ${aaRoleStatusBannerHTML()}
   ${state.view==="spare-add"?aaSparePostHTML():""}
   ${state.view==="spare-details"&&state.spareSelected?aaSpareDetailsHTML(state.spareSelected):""}
   ${state.view==="details"&&state.selected?detailsHTML(state.selected):""}
@@ -17245,15 +17246,40 @@ function aaMemberSinceHTML(profile){
  return `<div class="aa-member-since">Member since ${esc(label)}</div>`;
 }
 function aaAgentTerritory(){return state.userRole?.territory||""}
+function aaRoleStatusBannerHTML(){
+ if(state.userRoleStatus!=="failed"||!state.user?.id)return "";
+ return `<div class="aa-role-banner" role="alert" style="margin:10px 12px;padding:10px 12px;border-radius:12px;border:1px solid #ff2fa6;background:rgba(255,47,166,.10);color:inherit;font-size:14px;line-height:1.4"><b>We couldn't verify your account role.</b> Administrative tools stay hidden until it loads. <div style="margin-top:8px"><button type="button" class="btn btn-glass" onclick="aaRetryUserRole()">Retry</button></div></div>`;
+}
+async function aaRetryUserRole(){
+ await aaLoadUserRole();
+ if(aaIsSuperUser())state.view="super-admin";
+ render();
+}
+/* Fail-closed role state. state.userRoleStatus is one of:
+   "none" (signed out), "loading", "verified" (role row read successfully,
+   including a verified ordinary member with no row), or "failed".
+   A failed lookup sets state.userRole to null, so no administrative or
+   agent permission is granted; the signed-in user sees a banner with Retry. */
 async function aaLoadUserRole(){
- if(!sb||!state.user?.id){state.userRole={role:"member",territory:"",agent_since:null,agent_status:"inactive"};return}
+ state.userRoleError=null;
+ if(!sb||!state.user?.id){
+  state.userRole={role:"member",territory:"",agent_since:null,agent_status:"inactive"};
+  state.userRoleStatus="none";
+  return;
+ }
+ state.userRoleStatus="loading";
  try{
   const {data,error}=await sb.from("bingo_user_roles").select("role,territory,agent_since,agent_status").eq("user_id",state.user.id).maybeSingle();
   if(error)throw error;
   state.userRole={role:data?.role||"member",territory:data?.territory||"",agent_since:data?.agent_since||null,agent_status:data?.agent_status||"inactive"};
+  state.userRoleStatus="verified";
  }catch(e){
-  console.warn("Bingo: could not verify account role — defaulting to member.",String(e?.message||e));
-  state.userRole={role:"member",territory:"",agent_since:null,agent_status:"inactive"};
+  const code=String(e?.code||"").slice(0,30);
+  const msg=String(e?.message||e||"").slice(0,200);
+  state.userRole=null;
+  state.userRoleStatus="failed";
+  state.userRoleError=[code,msg].filter(Boolean).join(": ")||"unknown error";
+  console.warn("Bingo: account role could not be verified; administrative access withheld.",state.userRoleError);
  }
  /* Delivering pending role/moderation notices into the inbox is a
     background side-effect, not something the signed-in redirect should
