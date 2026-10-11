@@ -16070,6 +16070,13 @@ function aaTopicDiag(stage,info){
   console.info('[Bingo publish]',JSON.stringify(rec));
  }catch(e){}
 }
+/* Playback evidence: media events for every <video> on the page, recorded into
+   the same in-memory log. Only the path (no query string, so no signed-URL
+   token) and element state are kept. Capture phase, so it sees every element. */
+['loadedmetadata','canplay','playing','waiting','stalled','error','emptied'].forEach(ev=>document.addEventListener(ev,e=>{
+ const v=e.target;if(!(v instanceof HTMLVideoElement))return;
+ aaTopicDiag('video-'+ev,{rs:v.readyState,ns:v.networkState,code:v.error?v.error.code:0,w:v.videoWidth,h:v.videoHeight,muted:v.muted,paused:v.paused,path:String(v.currentSrc||v.getAttribute('src')||'').split('?')[0].slice(-70)});
+},true));
 function aaTopicIsNetworkError(e){
  return /failed to fetch|networkerror|load failed|network request failed|aborterror|aborted|timed? ?out|did not get a reply/i.test(String((e&&(e.message||e.name))||e||''));
 }
