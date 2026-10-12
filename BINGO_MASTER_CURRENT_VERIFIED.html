@@ -30833,7 +30833,7 @@ aaToggleFeedSound=function(){state.aaFeedSoundOn=!aaFeedWantsSound();const v=act
 aaInit360Feed=function(){
  if(aaFeedObserver)aaFeedObserver.disconnect();
  const items=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed .aa360-item')];if(!items.length)return;
- if(state.aaFeedSoundOn===undefined)state.aaFeedSoundOn=false;
+ if(state.aaFeedSoundOn===undefined)state.aaFeedSoundOn=true; /* sound on by default; a browser refusal falls back to muted (see play catch) */
  aaFeedObserver=new IntersectionObserver(entries=>{for(const entry of entries){const item=entry.target,v=item.querySelector('video.aa360-video');const visible=entry.isIntersecting&&entry.intersectionRatio>=.55;item.classList.toggle('bingo-media-active',visible);if(visible)aaFeedVideoBudget(item);if(v){if(visible){items.forEach(other=>{if(other!==item)other.querySelector('video.aa360-video')?.pause()});play(v)}else v.pause()}}},{threshold:[0,.55,1]});
  items.forEach(item=>{aaFeedObserver.observe(item);const v=item.querySelector('video.aa360-video');if(v){if(!v.dataset.bingoErrBound){v.dataset.bingoErrBound='1';v.addEventListener('error',()=>mediaError(v,v.error))}v.addEventListener('loadeddata',()=>{if(item.classList.contains('bingo-media-active'))play(v)},{once:true});v.addEventListener('playing',()=>{item.querySelector('.bingo-media-retry')?.remove();item.querySelector('.bingo-media-open')?.remove()})}});
  aaFeedUpdateSoundBtn();
@@ -30980,7 +30980,7 @@ aaHomeOverlayOpen=function(){return originalOverlayForCommentsDrawer()||!!(typeo
   else{const b=document.querySelector('#auto-arcade-widget .bingo-inline-sound');if(b&&b.parentElement&&b.parentElement.contains(v))mark(b,none,v.muted)}
  },true);
 })();
-var aaInlineSoundOn=(function(){try{return sessionStorage.getItem('bingo_inline_sound')==='on'}catch(e){return false}})();
+var aaInlineSoundOn=(function(){try{return sessionStorage.getItem('bingo_inline_sound')!=='off'}catch(e){return true}})();
 (function(){
  if(window.__bingoWallAutoplayInstalled)return;window.__bingoWallAutoplayInstalled=true;
  const SEL=['.bingo-approved-topic .aa-post-media video','.aa-wall-listing .aa-wall-media video','.aa-listing-media video','video.detail-img','.aa-property-browse-thumb video','.aa-v69-card video','.aa-v69-media-grid video'].map(x=>'#auto-arcade-widget '+x).join(',');
@@ -30990,8 +30990,8 @@ var aaInlineSoundOn=(function(){try{return sessionStorage.getItem('bingo_inline_
    btn=document.createElement('button');btn.type='button';btn.className='bingo-inline-sound';
    btn.addEventListener('click',e=>{
     e.preventDefault();e.stopPropagation();
-    aaInlineSoundOn=!aaInlineSoundOn;try{sessionStorage.setItem('bingo_inline_sound',aaInlineSoundOn?'on':'off')}catch(_){}
-    if(active){active.muted=!aaInlineSoundOn;if(active.paused){const p=active.play();if(p&&p.catch)p.catch(()=>{})}}
+    const turnOn=!!(active&&active.muted);aaInlineSoundOn=turnOn;try{sessionStorage.setItem('bingo_inline_sound',aaInlineSoundOn?'on':'off')}catch(_){}
+    if(active){active.muted=!turnOn;if(active.paused||turnOn){const p=active.play();if(p&&p.catch)p.catch(()=>{})}}
     syncBtn();
    });
   }
