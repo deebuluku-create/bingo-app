@@ -15337,8 +15337,7 @@ function aaBpTileHTML(it,own){
 function aaBpTab(){return ["posts","reels","tagged","saved","liked"].includes(state.profileTab3)?state.profileTab3:"posts"}
 function aaBpSetTab(k){state.profileTab3=k;render()}
 function aaBpTabContentHTML(own,s,cars,sellerKey){
- /* Visitors never receive Saved or Liked content, even from stale state. */
- const tab=(own||!["saved","liked"].includes(aaBpTab()))?aaBpTab():"posts";
+ const tab=aaBpTab();
  const items=aaBpItems(s,cars,sellerKey);
  /* six tiles first, then "Show more" adds six at a time (per profile) */
  if(state.bpGridFor!==String(sellerKey)){state.bpGridFor=String(sellerKey);state.bpGridLimit=8}
@@ -15455,7 +15454,7 @@ function aaBpMenuHTML(){
  const roles=typeof aaAgentProfilePanelHTML==="function"?aaAgentProfilePanelHTML():"";
  return `<aside class="bp-side" id="bpAccountDrawer" aria-label="Account tools" ${state.profileMenuOpen?"":"aria-hidden=\"true\" inert"}>
   <div class="bp-sidehead"><img src="${bingoSafeMediaAttr(aaProfilePhoto(state.user?.photo_url))}" alt="" onerror="aaProfileImgFallback(this)"><div><strong>${esc(aaMemberDisplayName(me))}</strong><br><small>Your account tools</small></div><button type="button" class="bp-neon bp-micro bp-close" onclick="aaBpToggleMenu(false)" aria-label="Close account tools">✕</button></div>
-  <nav><div class="bp-side-group"><p class="bp-side-title">Profile content</p>${[["posts","▦","Posts","","Your posts"],["reels","▶","Reels","bp-cyan","Reels and videos"],["tagged","＠","Tagged","bp-pink","Posts you are tagged in"],["saved","☆","Saved","","Saved items (private)"],["liked","♡","Liked","bp-pink","Items you liked (private)"]].map(([k,i,l,c,note])=>`<button type="button" class="bp-neon bp-micro ${c}${aaBpTab()===k?" is-active":""}" aria-current="${aaBpTab()===k}" onclick="state.profileMenuOpen=false;aaBpSetTab('${k}')"><b>${i}</b>${esc(l)}<small>${esc(note)}</small></button>`).join("")}</div>${aaBpMenuGroups().map((g,gi)=>`<div class="bp-side-group"><p class="bp-side-title">${esc(g.title)}</p>${g.items.map(e=>e.na
+  <nav>${aaBpMenuGroups().map((g,gi)=>`<div class="bp-side-group"><p class="bp-side-title">${esc(g.title)}</p>${g.items.map(e=>e.na
    ?`<div class="bp-na" aria-disabled="true" title="${esc(e.na)}"><b>${e.icon}</b>${esc(e.label)}<small>Not available yet</small></div>`
    :`<button type="button" class="bp-neon bp-micro ${tones[gi]}" onclick="state.profileMenuOpen=false;${esc(e.run)}"><b>${e.icon}</b>${esc(e.label)}${e.badge?`<span class="bp-menu-badge">${e.badge>99?"99+":e.badge}</span>`:e.note?`<small>${esc(e.note)}</small>`:"<i>›</i>"}</button>`).join("")}</div>`).join("")}
    ${roles?`<div class="bp-side-group bp-side-roles"><p class="bp-side-title">Agent &amp; admin</p>${roles}</div>`:""}
@@ -15508,9 +15507,7 @@ function aaProfileDestyHTML(s,cars,sellerKey){
   {key:"rewards",label:"Rewards",ring:"red",icon:"🏆"}]
   :[{key:"friends",label:"Friends",ring:"purple",icon:"👥"},{key:"reviews",label:"Reviews",ring:"yellow",icon:"★"},
   {key:"share",label:"Share",ring:"teal",icon:"↗"},{key:"block",label:blocked&&reqState==="blocked_by_me"?"Blocked":"Block",ring:"red",icon:"🚫"}];
- /* Saved and Liked are private: visitors never see them, even if an
-    owner-only tab value was left in state from an earlier session. */
- const tab=(own||!["saved","liked"].includes(aaBpTab()))?aaBpTab():"posts";
+ const tab=aaBpTab();
  const peopleTab=state.profileDrawer==="friends"&&String(state.bpPeopleOwner||"")===String(sellerKey)?(state.profileFriendsTab==="followers"?"followers":"following"):"";
  const TABS=[["posts","▦","Posts"],["reels","▶","Reels"],["tagged","＠","Tagged"],["saved","☆","Saved"],["liked","♡","Liked"]];
  const tabTone={posts:"",reels:"bp-cyan",tagged:"bp-pink",saved:"",liked:"bp-pink"};
@@ -15559,7 +15556,7 @@ function aaProfileDestyHTML(s,cars,sellerKey){
    </div>
    ${own?"":`<div class="bp-highlights">${Hs.map(hl).join("")}</div>`}
   </section>
-  ${own?"":`<div class="bp-tabs" id="bpTabs" role="tablist" aria-label="Profile content">${TABS.filter(([k])=>!["saved","liked"].includes(k)).map(([k,i,l])=>`<button type="button" class="bp-neon bp-micro ${tabTone[k]}${tab===k?" is-active":""}" role="tab" aria-selected="${tab===k}" onclick="aaBpSetTab('${k}')">${i} ${l}</button>`).join("")}</div>`}
+  <div class="bp-tabs" id="bpTabs" role="tablist" aria-label="Profile content">${TABS.map(([k,i,l])=>`<button type="button" class="bp-neon bp-micro ${tabTone[k]}${tab===k?" is-active":""}" role="tab" aria-selected="${tab===k}" onclick="aaBpSetTab('${k}')">${i} ${l}</button>`).join("")}</div>
   ${own?`<div class="bp-create-row">
    <button type="button" class="bp-neon bp-micro bp-green bp-create${state.postTodayOpen||state.postTodayTopicOpen?" is-active":""}" aria-expanded="${!!(state.postTodayOpen||state.postTodayTopicOpen)}" onclick="aaTogglePostToday()">＋ Create Post</button>
    ${state.postTodayOpen?`<div class="aa-post-today-menu bp-post-menu">${AA_POST_TODAY_OPTIONS.map(o=>`<button type="button" onclick="aaPostTodayRoute('${o.key}')">${esc(o.label)}</button>`).join("")}</div>`:""}
