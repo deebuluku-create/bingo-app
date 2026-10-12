@@ -6280,7 +6280,10 @@ async function aaLoadAuthenticatedProfile(authUser){
   const providerName=String(md.full_name||md.name||"").trim().split(/\s+/);
   state.user.firstName=md.given_name||md.first_name||providerName[0]||"";
   state.user.lastName=md.family_name||md.last_name||providerName.slice(1).join(" ")||"";
-  state.user.photo_url=md.avatar_url||md.picture||md.photo_url||"";
+  /* Keep the photo selected at sign-up (held locally as a data URL) so persistProfile uploads it to Storage.
+     Only fall back to provider/legacy metadata when no local photo is waiting. */
+  const waitingPhoto=String(state.user.photo_url||"");
+  state.user.photo_url=waitingPhoto.startsWith("data:image/")?waitingPhoto:(md.avatar_url||md.picture||md.photo_url||"");
   const saved=await persistProfile();
   if(!saved.ok)toast("Signed in, but your profile could not be saved: "+String(saved.error?.message||"Please retry from Edit Profile."));
  }
@@ -6533,6 +6536,17 @@ async function aaResendSignupConfirmation(){
 function aaGoToLoginAfterConfirmation(){
  state.authMode="login";state.authError="Email confirmed? Log in with the same email and password.";render();
 }
+/* Auth metadata is embedded in every access token, so it must never carry image data.
+   Profile photos travel through the profile-images Storage bucket only (aaEnsurePublicProfilePhoto). */
+function aaSafeAuthMetadata(meta){
+ const out={};
+ Object.keys(meta||{}).forEach(k=>{
+  const v=meta[k];
+  if(typeof v==="string"&&(v.startsWith("data:")||v.length>2000))return;
+  out[k]=v;
+ });
+ return out;
+}
 async function fastAuthContinue(){
  if(state.authBusy)return;
  state.authError="";
@@ -6559,12 +6573,14 @@ async function fastAuthContinue(){
   const {data:result,error}=await aaAuthWithTimeout(sb.auth.signUp({
    email:data.email,
    password:data.password,
-   options:{data:{
+   /* The selected photo is NOT sent in metadata. It stays in this browser (state.user, saved locally) and is uploaded
+      to Storage by persistProfile/aaEnsurePublicProfilePhoto once a session exists (immediately or after confirmation). */
+   options:{data:aaSafeAuthMetadata({
     first_name:data.first,last_name:data.last,
     full_name:data.accountType==="company"?data.companyName:(data.first+" "+data.last).trim(),
     account_type:data.accountType,company_name:data.companyName,username:data.username,phone:data.phone,
-    location:data.location,bio:data.bio,photo_url:data.photo
-   }}
+    location:data.location,bio:data.bio
+   })}
   }),20000,"This is taking too long. Please check your connection and try again.");
   if(error)throw error;
   const authUser=result?.user;
