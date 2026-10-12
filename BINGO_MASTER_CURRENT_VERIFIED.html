@@ -9664,7 +9664,7 @@ function aaInit360Feed(){
 })();
 
 
-function aaOpenMarket(){state.categoriesReturn=null;state.marketMine=false;aaRememberPage();state.view="market";state.spareSelected=null;state.marketListingType=state.marketListingType||"spare_parts";render();window.scrollTo(0,0)}
+function aaOpenMarket(){state.categoriesReturn=null;aaRememberPage();state.view="market";state.spareSelected=null;state.marketListingType=state.marketListingType||"spare_parts";render();window.scrollTo(0,0)}
 function aaSetMarketType(type){state.marketListingType=type==="household"?"household":"spare_parts";state.marketCategory="All";render()}
 function aaUpdateMarketDraftField(key,value){
  state.marketDraft=state.marketDraft||state.spareDraft||{};
@@ -9691,17 +9691,16 @@ function aaPartCardHTML(p){
    standalone "Auto Market" destination with its own banner, a Spare Parts/Household switcher and a second
    Categories button. It is now simply the page each Categories card opens: the category's own title,
    search, filters, listings and Post button - same listing records, filters and posting form as before.
-   state.marketMine=true is the Cockpit owner view: the member's own items of both kinds. */
+   */
 function aaMarketHTML(){
- const type=state.marketListingType||"spare_parts",household=type==="household",mine=false; /* My Listings moved to the owner account menu (aaOpenMyListingsPage). */
- const me=String(state.user?.id||"");
- const rows=mine?(state.spareParts||[]).filter(p=>me&&String(p.sellerId||p.userId||"")===me).sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)):aaPartFiltered();
+ const type=state.marketListingType||"spare_parts",household=type==="household";
+ const rows=aaPartFiltered();
  const cats=household?["All","Furniture","Kitchen Appliances","Home Electronics","General Electronics","Home Decor","Bedding","Lighting","Small Appliances","Storage & Organization"]:["All","Engine & Drivetrain","Bodywork & Trim","Brakes & Suspension","Electrical & Lighting","Interior & Accessories"];
- const title=mine?"My Spare Parts & Household Items":household?"Household Items":"Spare Parts & Accessories";
- const note=mine?"Your marketplace items. Open one to view it or boost it; buyers find them through Categories.":household?"Search furniture, appliances, electronics, decor, lighting, bedding, storage and other home goods by location or seller.":"Search by vehicle compatibility, OEM/part number, location or store.";
- const postBtns=mine?`<button class="btn btn-red" onclick="aaOpenSparePost('spare_parts')">＋ Post Spare Part</button><button class="btn btn-red" onclick="aaOpenSparePost('household')">＋ Post Household Item</button>`:`<button class="btn btn-red" onclick="aaOpenSparePost('${household?"household":"spare_parts"}')">＋ ${household?"Post Household Item":"Post Spare Part"}</button>`;
- const filters=mine?"":`<div class="aa-market-filters"><input class="field" placeholder="${household?"Search household item, brand...":"Search part, make, model, OEM..."}" value="${esc(state.marketSearch||'')}" oninput="state.marketSearch=this.value" onchange="render()" onkeydown="if(event.key==='Enter')render()"><select class="select" onchange="state.marketCategory=this.value;render()">${cats.map(x=>`<option ${x===state.marketCategory?'selected':''}>${esc(x)}</option>`).join('')}</select><select class="select" onchange="state.marketCounty=this.value;render()"><option>All Kenya</option>${kenyaCounties.map(x=>`<option ${x===state.marketCounty?'selected':''}>${esc(x)}</option>`).join('')}</select><input class="field" placeholder="Town / area" value="${esc(state.marketTown||'')}" oninput="state.marketTown=this.value" onchange="render()" onkeydown="if(event.key==='Enter')render()"></div>`;
- const empty=mine?"You have no spare parts or household items yet.":`No ${household?'household items':'spare parts'} match this search.`;
+ const title=household?"Household Items":"Spare Parts & Accessories";
+ const note=household?"Search furniture, appliances, electronics, decor, lighting, bedding, storage and other home goods by location or seller.":"Search by vehicle compatibility, OEM/part number, location or store.";
+ const postBtns=`<button class="btn btn-red" onclick="aaOpenSparePost('${household?"household":"spare_parts"}')">＋ ${household?"Post Household Item":"Post Spare Part"}</button>`;
+ const filters=`<div class="aa-market-filters"><input class="field" placeholder="${household?"Search household item, brand...":"Search part, make, model, OEM..."}" value="${esc(state.marketSearch||'')}" oninput="state.marketSearch=this.value" onchange="render()" onkeydown="if(event.key==='Enter')render()"><select class="select" onchange="state.marketCategory=this.value;render()">${cats.map(x=>`<option ${x===state.marketCategory?'selected':''}>${esc(x)}</option>`).join('')}</select><select class="select" onchange="state.marketCounty=this.value;render()"><option>All Kenya</option>${kenyaCounties.map(x=>`<option ${x===state.marketCounty?'selected':''}>${esc(x)}</option>`).join('')}</select><input class="field" placeholder="Town / area" value="${esc(state.marketTown||'')}" oninput="state.marketTown=this.value" onchange="render()" onkeydown="if(event.key==='Enter')render()"></div>`;
+ const empty=`No ${household?'household items':'spare parts'} match this search.`;
  return `<section class="aa-market-page"><div class="aa-market-head"><div><button class="btn" onclick="goBack()">← Back</button><h2 style="margin:10px 0 2px">${title}</h2><div class="notice">${note}</div></div><div style="display:flex;gap:8px;flex-wrap:wrap">${postBtns}</div></div>${filters}${rows.length?`<div class="aa-market-grid">${rows.map(aaPartCardHTML).join('')}</div>`:`<div class="empty">${empty}</div>`}</section>`
 }
 /* Marketplace > Categories panel (Categories/Food Restoration directive,
