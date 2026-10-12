@@ -4637,6 +4637,38 @@ var sb=null;
    (other tabs can no longer block this one), and a wait is capped at 10 s so a stuck holder can
    never freeze the app. Sessions, tokens, storage keys and auth flow are unchanged. */
 var aaTabAuthLockQueues={};
+/* ---- Authorised-testing diagnostics (in-memory only) ----
+   Records what failed and how, without raw server messages, tokens, keys,
+   headers, user data or signed URLs. Nothing is persisted or sent anywhere.
+   Visible only when the page URL carries ?bingo_diag=1. */
+var aaDiagLog=[];
+function aaDiagPush(op,category,code,ms,httpResponse,note){
+ try{
+  aaDiagLog.push({at:new Date().toISOString().slice(11,19),op:String(op||"").replace(/[^A-Za-z0-9:_ -]/g,"").slice(0,32),category:String(category||"other").slice(0,40),code:String(code||"").replace(/[^A-Za-z0-9_]/g,"").slice(0,20),ms:Math.max(0,Math.round(Number(ms)||0)),httpResponse:!!httpResponse,note:String(note||"").replace(/[^A-Za-z0-9 _():.,-]/g,"").slice(0,80)});
+  if(aaDiagLog.length>40)aaDiagLog.splice(0,aaDiagLog.length-40);
+ }catch(_){}
+}
+function aaDiagCategory(e){
+ const m=String((e&&(e.message||e.name))||e||"").toLowerCase();
+ if(/timed out|timeout|did not get a reply|abort/.test(m))return "timeout-or-abort";
+ if(/failed to fetch|networkerror|load failed|could not be reached/.test(m))return "no-response (network or CORS)";
+ if(/jwt|token|session has expired|not authenticated|unauthori[sz]ed/.test(m))return "auth";
+ if(/permission|row-level|policy|forbidden/.test(m))return "permission";
+ if(e&&(e.status||e.statusCode))return "http-error";
+ return "other";
+}
+function aaDiagRecord(op,t0,e,note){
+ const code=String((e&&(e.code||e.statusCode||e.status))||"");
+ const responded=!!(e&&(e.code||e.status||e.statusCode))&&!/failed to fetch/i.test(String(e.message||""));
+ aaDiagPush(op,aaDiagCategory(e),code,Date.now()-(t0||Date.now()),responded,note);
+}
+function aaDiagPanelHTML(){
+ try{
+  if(!/[?&]bingo_diag=1(&|$)/.test(location.search))return "";
+  const rows=aaDiagLog.slice().reverse().map(r=>`<tr><td>${esc(r.at)}</td><td>${esc(r.op)}</td><td>${esc(r.category)}</td><td>${esc(r.code)}</td><td>${r.ms} ms</td><td>${r.httpResponse?"yes":"no"}</td><td>${esc(r.note)}</td></tr>`).join("");
+  return `<div id="aaDiagPanel" role="region" aria-label="Diagnostics (testing only)" style="margin:6px 8px;padding:8px;border:1px dashed #ffb020;border-radius:10px;background:rgba(0,0,0,.6);color:#fff;font:11px/1.35 monospace;overflow-x:auto"><b>Bingo diagnostics (testing only, in memory, no secrets)</b> <button type="button" onclick="aaDiagLog.length=0;render()" style="font-size:11px">Clear</button>${rows?`<table style="width:100%;border-collapse:collapse;margin-top:6px"><tr><td>time</td><td>operation</td><td>category</td><td>code</td><td>elapsed</td><td>HTTP reply</td><td>note</td></tr>${rows}</table>`:"<div>No failures recorded yet.</div>"}</div>`;
+ }catch(_){return ""}
+}
 function aaTabAuthLock(name,acquireTimeout,fn){
  const prev=aaTabAuthLockQueues[name]||Promise.resolve();
  let release;const mine=new Promise(r=>{release=r});
@@ -4645,7 +4677,7 @@ function aaTabAuthLock(name,acquireTimeout,fn){
     with an isAcquireTimeout error so that tick is simply skipped. acquireTimeout -1 ("wait"): wait
     for this tab's previous holder, but never more than 10 s. */
  const bounded=acquireTimeout>=0,cap=bounded?Math.min(acquireTimeout,10000):10000;
- const waitPrev=new Promise((resolve,reject)=>{let done=false;const t=setTimeout(()=>{if(done)return;done=true;if(bounded){const e=new Error('Acquiring auth lock "'+name+'" timed out');e.isAcquireTimeout=true;reject(e)}else resolve()},cap);prev.then(()=>{if(!done){done=true;clearTimeout(t);resolve()}})});
+ const waitPrev=new Promise((resolve,reject)=>{let done=false;const t=setTimeout(()=>{if(done)return;done=true;aaDiagPush("auth-lock:"+String(name),bounded?"lock-wait-timeout (skipped)":"lock-wait-cap (proceeded)","",cap,false,"previous holder still busy");if(bounded){const e=new Error('Acquiring auth lock "'+name+'" timed out');e.isAcquireTimeout=true;reject(e)}else resolve()},cap);prev.then(()=>{if(!done){done=true;clearTimeout(t);resolve()}})});
  return waitPrev.then(()=>Promise.resolve().then(fn),e=>{release();throw e}).finally(()=>release());
 }
 function aaInitSupabase(){
@@ -5085,17 +5117,19 @@ async function aaUploadStorageWithFeedback(bucket,path,file,options={}){
   const result=await aaUploadPropertyMediaTus(file,path,/^video\//.test(file.type||''),{},null,bucket,'Media Storage',options);
   return result.ok?{data:{path},error:null}:{data:null,error:{message:result.cls.message,statusCode:result.cls.status||0}};
  }
+ const upT0=Date.now();
  const item=aaUploadFeedbackStart(file);const token=await aaGetSupabaseAccessToken();
- if(!token){const error={message:'Your session has expired. Please log in again.'};aaUploadFeedbackFinish(item,error);return {data:null,error}}
+ if(Date.now()-upT0>2000)aaDiagPush("upload:token-wait",token?"slow-session-read":"slow-session-read-empty","",Date.now()-upT0,false,"waited for session before upload");
+ if(!token){aaDiagPush("upload:"+String(bucket),"auth","no-session",Date.now()-upT0,false,"no access token available");const error={message:'Your session has expired. Please log in again.'};aaUploadFeedbackFinish(item,error);return {data:null,error}}
  return new Promise(resolve=>{
   const xhr=new XMLHttpRequest();let finished=false,timer=null,lastBytes=0;
   const finish=(error,data)=>{if(finished)return;finished=true;clearTimeout(timer);aaUploadFeedbackFinish(item,error);resolve({data:error?null:(data||{path}),error:error||null})};
-  const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>{finish({message:'Upload interrupted: no upload progress for 60 seconds. Please retry.'});xhr.abort()},AA_PROPERTY_TUS_STALL_TIMEOUT_MS)};
+  const arm=()=>{clearTimeout(timer);timer=setTimeout(()=>{aaDiagPush('upload:'+String(bucket),'timeout-or-abort','',Date.now()-upT0,false,'no upload progress for 60 s');finish({message:'Upload interrupted: no upload progress for 60 seconds. Please retry.'});xhr.abort()},AA_PROPERTY_TUS_STALL_TIMEOUT_MS)};
   const url=String(SUPABASE_URL).replace(/\/$/,'')+'/storage/v1/object/'+encodeURIComponent(bucket)+'/'+String(path).split('/').map(encodeURIComponent).join('/');
   xhr.open('POST',url);xhr.setRequestHeader('Authorization','Bearer '+token);xhr.setRequestHeader('apikey',SUPABASE_PUBLISHABLE_KEY);xhr.setRequestHeader('x-upsert',String(!!options.upsert));xhr.setRequestHeader('Content-Type',options.contentType||file.type||'application/octet-stream');xhr.setRequestHeader('cache-control','max-age='+(options.cacheControl||'3600'));
   xhr.upload.onprogress=e=>{if(finished)return;if(e.loaded>lastBytes){lastBytes=e.loaded;arm()}aaUploadFeedbackProgress(item,e.loaded,e.lengthComputable?e.total:file.size)};
-  xhr.onload=()=>{let data={};try{data=JSON.parse(xhr.responseText||'{}')}catch(e){};if(xhr.status>=200&&xhr.status<300)finish(null,{...data,path});else finish({message:data.message||data.error||'Storage upload failed ('+xhr.status+').',statusCode:xhr.status})};
-  xhr.onerror=()=>finish({message:'Upload interrupted: the storage server could not be reached.'});xhr.onabort=()=>finish({message:'Upload cancelled. Your form has not been submitted.'});
+  xhr.onload=()=>{aaDiagPush('upload:'+String(bucket),xhr.status>=200&&xhr.status<300?'ok':'http-error',String(xhr.status),Date.now()-upT0,true,'storage replied');let data={};try{data=JSON.parse(xhr.responseText||'{}')}catch(e){};if(xhr.status>=200&&xhr.status<300)finish(null,{...data,path});else finish({message:data.message||data.error||'Storage upload failed ('+xhr.status+').',statusCode:xhr.status})};
+  xhr.onerror=()=>{aaDiagPush('upload:'+String(bucket),'no-response (network or CORS)','',Date.now()-upT0,false,'XHR error, no HTTP reply');finish({message:'Upload interrupted: the storage server could not be reached.'})};xhr.onabort=()=>finish({message:'Upload cancelled. Your form has not been submitted.'});
   item.cancel=()=>{xhr.abort()};arm();try{xhr.send(file)}catch(error){finish(error)}
  });
 }
@@ -14520,6 +14554,7 @@ function render(){
  if(root)root.classList.toggle("bingo-form-open",["add","spare-add","edit-profile"].includes(state.view)||(state.view==="properties"&&state.propertyTab==="post")||(state.view==="food"&&state.foodTab==="post")||(state.view==="jobs"&&["cv","mycv"].includes(state.jobsTab))||!!state.postTodayTopicOpen||!!state.wallComposerOpen);
  app.innerHTML=`
  ${aaRoleStatusBannerHTML()}
+ ${aaDiagPanelHTML()}
  <header class="header"><div class="container header-inner">
   <div class="bingo-header-stack" id="bingoHeaderStack"><button class="brand bingo-brand-logo${aaBingoLogoIntroClass()}" id="bingoMainLogo" onclick="openBingoCockpit()" role="button" tabindex="0" aria-label="Open Bingo menu" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBingoCockpit()}">${bingoAppLogoHTML({className:"bingo-app-logo--header"})}</button><button type="button" id="bingoLogoCloseBtn" aria-label="Move the Bingo logo out of the way"><span class="bingo-logo-close-dot">&times;</span></button><div class="bingo-press-here" id="bingoPressHere" aria-hidden="true"><span class="bingo-press-here-arrow">▲</span>Press here</div></div>
   <div class="top-actions aa-auth-actions">${state.isLoggedIn?`<button class="btn" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button><button class="btn" onclick="goAccount()">Profile</button><button class="btn btn-red" onclick="logoutBingo()">Log Out</button>`:`<button class="btn" onclick="openAuth('login')">Log In</button><button class="btn btn-red" onclick="openAuth('register')">Sign Up</button>`}</div>
@@ -15936,6 +15971,7 @@ async function aaLoadBingoWall(){
  if(!sb||aaWallLoading)return;
  aaWallLoading=true;
  state.wallLoadState='loading';
+ const wallT0=Date.now();
  try{
   const uid=state.user?.id||null;
   /* A request that never answers must end as a visible, retryable error - not an endless empty page. */
@@ -15960,6 +15996,7 @@ async function aaLoadBingoWall(){
   state.wallSaves=savesRes.error?[]:(savesRes.data||[]).map(x=>String(x.topic_id));
   state.wallSmartReactions=smartReactionsRes.error?[]:(smartReactionsRes.data||[]);
  }catch(e){
+  aaDiagRecord("posts-load",wallT0,e);
   console.warn('Bingo: Public Wall unavailable. Using local cache only.',String(e?.message||e));
   /* Profile 0-posts repair (2026-10-11): remember the failure so the posts are fetched again
      (aaTopics retries after 15 s) and pages can say "couldn't load" instead of "no posts". */
@@ -17280,12 +17317,14 @@ async function aaLoadUserRoleOnce(){
   return;
  }
  state.userRoleStatus="loading";
+ const roleT0=Date.now();
  try{
   const {data,error}=await sb.from("bingo_user_roles").select("role,territory,agent_since,agent_status").eq("user_id",state.user.id).maybeSingle();
   if(error)throw error;
   state.userRole={role:data?.role||"member",territory:data?.territory||"",agent_since:data?.agent_since||null,agent_status:data?.agent_status||"inactive"};
   state.userRoleStatus="verified";
  }catch(e){
+  aaDiagRecord("role-lookup",roleT0,e);
   const code=String(e?.code||"").slice(0,30);
   const msg=String(e?.message||e||"").slice(0,200);
   state.userRole=null;
