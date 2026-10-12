@@ -31219,7 +31219,12 @@ setInterval(()=>{if(document.visibilityState==='visible'&&sb&&!state.testMode)lo
    }
    if(v.paused||v.ended||v.seeking)return;
    const r=v.getBoundingClientRect();if(r.bottom<=0||r.top>=innerHeight||r.width<60)return;
+   /* Data still arriving counts as progress: a slow connection that is downloading steadily is buffering, not frozen.
+      Reloading it would throw away the buffer and restart the download (the stutter the owner reported). */
+   const be=v.buffered&&v.buffered.length?v.buffered.end(v.buffered.length-1):0;
+   const loadingMore=be>(i.bufEnd||0)+0.05;i.bufEnd=be;
    if(Math.abs(v.currentTime-i.last)>0.05){i.still=0;i.last=v.currentTime;if(i.tries&&v.readyState>=3)i.tries=0}
+   else if(loadingMore)i.still=0;
    else if(v.readyState<3)i.still++;
    info.set(v,i);
    if(i.still>=4){ // 4 x 2 s with no progress and no data
