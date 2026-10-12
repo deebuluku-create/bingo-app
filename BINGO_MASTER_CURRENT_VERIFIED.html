@@ -4682,6 +4682,13 @@ function aaDiagRunProbes(){
  const run=(op,url,init)=>{const t0=Date.now();return fetch(url,init).then(r=>{aaDiagPush(op,"reply-readable (CORS allowed)",String(r.status),Date.now()-t0,true,"fetch resolved")},()=>{aaDiagPush(op,"no-response (network or CORS)","",Date.now()-t0,false,"fetch rejected before reply")}).then(()=>{try{render()}catch(_){}})};
  run("probe:header-preflight",base,{method:"GET",headers:{apikey:key,Authorization:"Bearer "+key}});
  run("probe:query-no-preflight",base+"?apikey="+encodeURIComponent(key),{method:"GET"});
+ /* no-cors: an opaque reply still resolves when the network reached the server,
+    so a rejection here means the request never got through (DNS, TLS, network
+    or browser blocking), independent of CORS. */
+ (function(){const t0=Date.now();fetch(base+"?apikey="+encodeURIComponent(key),{method:"GET",mode:"no-cors"}).then(r=>{aaDiagPush("probe:no-cors-reach",r.type==="opaque"?"reached (opaque reply; CORS unknown)":"reply-readable",String(r.status||""),Date.now()-t0,true,"request reached server")},()=>{aaDiagPush("probe:no-cors-reach","never reached server (network/DNS/TLS/blocked)","",Date.now()-t0,false,"rejected even without CORS")}).then(()=>{try{render()}catch(_){}})})();
+ /* control: a CORS-enabled public file on another host. Failing here too means
+    cross-origin reads are broken from this page in general, not just for Supabase. */
+ run("probe:control-jsdelivr-cors","https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/package.json",{method:"GET"});
 }
 function aaTabAuthLock(name,acquireTimeout,fn){
  const prev=aaTabAuthLockQueues[name]||Promise.resolve();
