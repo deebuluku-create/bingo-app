@@ -14471,6 +14471,7 @@ function aaMixedFeedTopicCardHTML(c){
  }
  const multiTag=c.feed_media_count>1?`<span class="aa-type-label" style="left:auto;right:10px">1/${c.feed_media_count}</span>`:'';
  const openPostCall=`aaOpenTopicPost(${JSON.stringify(String(t.id))})`;
+ const openCommentsCall=`aaOpenCommentsDrawer(${JSON.stringify(String(t.id))})`;
  const authorMeta=c.feed_sellerMeta||{};
  const authorUnavailable=!!authorMeta.unavailable;
  const timeLine=t.createdAt?esc(new Date(t.createdAt).toLocaleString("en-KE",{hour:"2-digit",minute:"2-digit"}))+" ago":"";
@@ -14488,7 +14489,7 @@ function aaMixedFeedTopicCardHTML(c){
   ${aaIconActionBtn({rgb:"34,201,255",label:"Share",svg:AA_ICON_ACTION_SVG.share,onclick:`aaTopicShare(${JSON.stringify(String(t.id))})`})}
   ${aaIconActionBtn({rgb:"245,185,30",active:saved,label:"Save / Download",shortLabel:"Save",activeLabel:"Saved",svg:AA_ICON_ACTION_SVG.starOutline,activeSvg:AA_ICON_ACTION_SVG.starFilled,onclick:`aaTopicToggleSave(${JSON.stringify(String(t.id))})`})}
   ${state.isLoggedIn&&t.authorId&&String(t.authorId)===String(state.user?.id||"")?"":aaIconActionBtn({rgb:"171,71,255",label:"Report",svg:AA_ICON_ACTION_SVG.flag,onclick:`aaTopicReport(${JSON.stringify(String(t.id))})`})}
- </div><div class="aa360-actions" onclick="event.stopPropagation()"><button type="button" class="bingo-neon-action bingo-neon-action-cyan" onclick='${openPostCall}'>View Post &amp; Comments</button></div></div></section>`;
+ </div><div class="aa360-actions" onclick="event.stopPropagation()"><button type="button" class="bingo-neon-action bingo-neon-action-cyan" onclick='${openCommentsCall}'>View Comments</button></div></div></section>`;
 }
 function aaMixedFeedItems(){const v=(typeof aaVideoListings==='function'?aaVideoListings():[]).map(x=>({...x,kind:'vehicle',feed_title:x.title,feed_desc:x.description,feed_media:x.videoUrl||x.video_url||x.video||'',feed_location:aaSearchLocationText(x)||x.location||'Kenya',feed_seller:x.sellerName||'Bingo Seller',_promoType:'vehicle',_promoId:x.id}));const p=aaProperties().filter(x=>Array.isArray(x.media)&&x.media.length).map(x=>{const cover=aaPropertyCoverMedia(x);const ownerId=String(x.user_id||x.sellerId||x.userId||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.sellerName||'');return {id:`${x.id}_p`,kind:'property',source:x,feed_title:x.title,feed_desc:x.description,feed_media:cover.url,feed_media_type:cover.type,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta),feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||x.sellerPhoto||'',feed_sellerMeta:ownerMeta,feed_bedrooms:x.bedrooms||'',feed_bathrooms:x.bathrooms||'',feed_media_count:Array.isArray(x.media)?x.media.length:0,created_at:x.created_at,_promoType:(typeof AA_STAY_TYPES!=='undefined'&&AA_STAY_TYPES.includes(x.type))?'stay':'property',_promoId:x.id};});const f=aaFoods().filter(aaFoodActive).flatMap(x=>{const ownerId=String(x.user_id||'');const ownerMeta=aaResolveMemberMeta(ownerId,x.business_name||'');const media=Array.isArray(x.media)?x.media:[];const videos=media.filter(m=>m.type==='video');const base={kind:'food',source:x,feed_title:x.business_name,feed_desc:x.description,feed_location:`${x.town||''}, ${x.county||''}`,feed_seller:aaMemberDisplayName(ownerMeta)||x.business_name,feed_sellerId:ownerId,feed_sellerPhoto:ownerMeta.photo||'',feed_sellerMeta:ownerMeta,created_at:x.created_at,_promoType:'food_business',_promoId:x.id};/* A business with video keeps its exact old per-video entries, unchanged.
    Only a business with NO video (photo-only) gets a single cover-photo
@@ -16124,18 +16125,22 @@ async function aaLoadBingoWall(){
    null = not loaded / table unavailable -> the UI shows "Crown" instead of a number. */
 async function aaLoadCrownCounts(doRender){
  if(state.testMode||!sb)return;
+ let fresh=[];
  try{
-  const counts={},page=1000;let from=0,done=false;
+  const counts={},seen=new Set(),page=1000;let cols='id,topic_id,crown_type',from=0,done=false;
   for(let i=0;i<50&&!done;i++){
-   const {data,error}=await sb.from('bingo_crown_awards').select('topic_id').not('topic_id','is',null).order('awarded_at',{ascending:true}).range(from,from+page-1);
+   let {data,error}=await sb.from('bingo_crown_awards').select(cols).not('topic_id','is',null).order('awarded_at',{ascending:true}).range(from,from+page-1);
+   if(error&&cols!=='topic_id'&&i===0){cols='topic_id';({data,error}=await sb.from('bingo_crown_awards').select(cols).not('topic_id','is',null).order('awarded_at',{ascending:true}).range(from,from+page-1))}
    if(error)throw error;
-   (data||[]).forEach(r=>{const k=String(r.topic_id);counts[k]=(counts[k]||0)+1});
+   (data||[]).forEach(r=>{const k=String(r.topic_id);counts[k]=(counts[k]||0)+1;if(r.id!==undefined){seen.add(String(r.id));if(window.__bingoCrownSeen&&!window.__bingoCrownSeen.has(String(r.id)))fresh.push({topic:k,type:r.crown_type})}});
    if(!data||data.length<page)done=true;else from+=page;
   }
   if(!done)throw new Error('too many Crown awards to count');
   state.wallCrownCounts=counts;
- }catch(e){state.wallCrownCounts=null;console.warn('Bingo: Crown counts unavailable.',String(e?.message||e))}
+  if(cols!=='topic_id')window.__bingoCrownSeen=seen;
+ }catch(e){state.wallCrownCounts=null;fresh=[];console.warn('Bingo: Crown counts unavailable.',String(e?.message||e))}
  if(doRender)render();
+ if(fresh.length)setTimeout(()=>fresh.slice(-5).forEach((f,n)=>setTimeout(()=>window.bingoCrownRise&&window.bingoCrownRise(f.topic,f.type),n*350)),150);
 }
 window.aaLoadCrownCounts=aaLoadCrownCounts;
 function aaCrownCountFor(id){const m=state.wallCrownCounts;return m&&typeof m==='object'?Number(m[String(id)]||0):null}
@@ -18762,7 +18767,13 @@ async function aaTopicLove(id){
  }
  render();
 }
+var aaTopicCommentBusy={};
 async function aaTopicComment(id){
+ if(aaTopicCommentBusy[id])return;
+ aaTopicCommentBusy[id]=true;
+ try{await aaTopicCommentRun(id)}finally{delete aaTopicCommentBusy[id]}
+}
+async function aaTopicCommentRun(id){
  const inputEl=document.getElementById("topicComment_"+id);
  const text=(inputEl?inputEl.value:(aaCommentDraftText[id]||"")).trim();
  const file=aaCommentMediaFiles[id]||null;
@@ -18814,6 +18825,7 @@ async function aaTopicComment(id){
  delete aaCommentMediaFiles[id];
  const el=document.getElementById("topicComment_"+id);if(el)el.value="";
  toast("Comment submitted successfully.","success");
+ render();
 }
 async function aaDeleteTopicComment(topicId,commentId){
  if(state.testMode){
@@ -19639,9 +19651,9 @@ function aaBingoCelebratesKenyaPanelHTML(){
    save made anywhere updates the same aaTopics() row everywhere else. */
 function aaTopicSetCommentView(id,action,value){
  state.topicCommentViews=state.topicCommentViews||{};
- const view=state.topicCommentViews[id]||(state.topicCommentViews[id]={limit:1,sort:'top'});
+ const view=state.topicCommentViews[id]||(state.topicCommentViews[id]={limit:20,sort:'newest'});
  if(action==='more')view.limit=view.limit==='all'?'all':view.limit+3;
- if(action==='all')view.limit='all';if(action==='less')view.limit=1;
+ if(action==='all')view.limit='all';if(action==='less')view.limit=5;
  if(action==='sort')view.sort=value==='newest'?'newest':'top';
  render();
 }
@@ -19733,7 +19745,7 @@ function aaTopicPostCardHTML(t){
 function aaCommentsDrawerBodyHTML(t){
  const id=esc(JSON.stringify(String(t.id)));
  const comments=aaTopicCommentsFor(t);
- const commentView=(state.topicCommentViews||{})[t.id]||{limit:1,sort:'top'};
+ const commentView=(state.topicCommentViews||{})[t.id]||{limit:20,sort:'newest'};
  const sortedComments=[...comments].sort((a,b)=>commentView.sort==='newest'?new Date(b.createdAt||0)-new Date(a.createdAt||0):(Number(b.likes||0)-Number(a.likes||0)||new Date(b.createdAt||0)-new Date(a.createdAt||0)));
  const visibleComments=sortedComments.slice(0,commentView.limit==='all'?comments.length:commentView.limit);
  return `${comments.length?`<div class="bingo-comments-heading"><b>Comments (${comments.length})</b><select aria-label="Sort comments" onchange="aaTopicSetCommentView(${id},'sort',this.value)"><option value="top" ${commentView.sort==='top'?'selected':''}>Top liked</option><option value="newest" ${commentView.sort==='newest'?'selected':''}>Newest</option></select></div>`:'<div class="bingo-comments-heading"><b>Comments (0)</b></div>'}
@@ -19750,7 +19762,7 @@ function aaCommentsDrawerBodyHTML(t){
    <img class="aa-comment-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(c.authorPhoto))}" onerror="aaProfileImgFallback(this)">
    <div class="aa-comment-bubble">
     ${canDeleteComment?`<details class="bingo-comment-options"><summary aria-label="Comment options">⋮</summary><button type="button" onclick='aaDeleteTopicComment(${JSON.stringify(String(t.id))},${JSON.stringify(String(c.id))})'>Delete</button></details>`:''}
-    <div class="aa-comment-name">${esc(c.authorName)}${cIsAuthor?`<span class="aa-comment-author-badge">Author</span>`:""}</div>
+    <div class="aa-comment-name">${esc(c.authorName||"Bingo Member")}${cIsAuthor?`<span class="aa-comment-author-badge">Author</span>`:""}</div>
     ${c.text?`<div class="aa-comment-text ${bingoStyledTextClass(c.style)}">${esc(c.text)}</div>`:""}
     ${commentMediaHTML}
     <div class="aa-comment-meta">
@@ -30587,10 +30599,16 @@ html body #auto-arcade-widget .bingo-approved-topic .aa-post-message{white-space
 .bingo-rotator{position:relative;height:92px;overflow:hidden;margin:0 0 8px;pointer-events:none;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 30%,#000 100%)}
 .bingo-rot-comment{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:10px;animation:bingoRotRise 7s ease-in-out forwards}
 .aa360-item:not(.bingo-media-active) .bingo-rot-comment{animation-play-state:paused}
-.bingo-rot-avatar{width:38px;height:38px;flex:0 0 38px;border-radius:50%;object-fit:cover;border:2px solid #e6b94a;background:#0b1322;pointer-events:auto;cursor:pointer}
+.bingo-rot-avatar{width:32px;height:32px;flex:0 0 32px;border-radius:50%;object-fit:cover;border:2px solid #e6b94a;background:#0b1322;pointer-events:auto;cursor:pointer}
 .bingo-rot-bubble{padding:8px 12px;background:rgba(7,19,35,.78);border-radius:16px;box-shadow:0 5px 18px rgba(0,0,0,.4);font:600 13px/1.35 'Plus Jakarta Sans',system-ui,sans-serif;color:#e8edf5;text-shadow:none;flex:0 1 auto;min-width:0;max-width:calc(100% - 48px);overflow-wrap:break-word;word-break:normal}
 /* The 3-line limit sits on the text, not on the padded bubble, so a 4th line can't show through the bottom padding. */
-.bingo-rot-text{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.bingo-rot-name{display:block;font-weight:800;font-size:11.5px;line-height:1.25;color:#ffd75e;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bingo-rot-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+#auto-arcade-widget .bingo-crown-lane{position:absolute;right:8px;bottom:200px;width:46px;height:300px;pointer-events:none;z-index:6}
+#auto-arcade-widget .bingo-crown-rise{position:absolute;left:50%;bottom:0;margin-left:-19px;animation:bingoCrownRise 2.8s ease-out forwards;filter:drop-shadow(0 2px 2px rgba(0,0,0,.6))}
+#auto-arcade-widget .bingo-crown-rise.gold{filter:drop-shadow(0 2px 2px rgba(0,0,0,.6)) drop-shadow(0 0 8px rgba(255,196,0,.6))}
+@keyframes bingoCrownRise{0%{opacity:0;transform:translateY(0) scale(.6)}12%{opacity:1;transform:translateY(-20px) scale(1)}100%{opacity:0;transform:translateY(-260px) scale(1.05)}}
+@media(prefers-reduced-motion:reduce){#auto-arcade-widget .bingo-crown-rise{display:none}}
 @keyframes bingoRotRise{0%{opacity:0;transform:translateY(26px)}12%{opacity:1;transform:translateY(0)}72%{opacity:1}100%{opacity:0;transform:translateY(-34px)}}
 @media(prefers-reduced-motion:reduce){.bingo-rot-comment{animation:none;opacity:1}}
 </style>
@@ -31031,38 +31049,67 @@ var aaInlineSoundOn=(function(){try{return sessionStorage.getItem('bingo_inline_
  render=function(){const r=prev.apply(this,arguments);requestAnimationFrame(observe);return r};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>requestAnimationFrame(observe),{once:true});else requestAnimationFrame(observe);
 })();
-/* Rotating real comments on the active Home topic slide (approved preview's rotating comment bubbles).
-   Single module-level 1 s timer, no extra observers: it reads the slide aaInit360Feed already marks
-   .bingo-media-active, shows ONE real comment (author photo + text, from aaTopicCommentsFor) and advances every 7 s.
-   Idle when the tab is hidden, a Home overlay/drawer is open, or no slide is active; under prefers-reduced-motion
-   it shows a static comment and never advances. Nothing is rendered for posts with no text comments. */
+/* Rotating real comments on the active Home topic slide (approved comment bubbles: round photo, name, text).
+   Single module-level 1 s timer, no extra observers. ONE real comment at a time (from aaTopicCommentsFor), rising and fading
+   over LIFE seconds, then an empty gap, then the next - never two at once. A re-render rebuilds the slide, so the running
+   comment is re-drawn with a negative animation-delay and carries on from where it was instead of restarting. A newly
+   saved comment (comment count went up) is shown at once. Idle when the tab is hidden, an overlay/drawer is open or no
+   slide is active; under prefers-reduced-motion it shows a static comment and never advances. Nothing is drawn for posts
+   with no text comments. */
 (function(){
  if(window.__bingoRotatorInstalled)return;window.__bingoRotatorInstalled=true;
- const idx=new Map();let last=null,lastAt=0;
+ const LIFE=7,PERIOD=9.5;
+ const idx=new Map(),cnt=new Map(),startedAt=new Map();let last=null;
  const reduced=()=>{try{return matchMedia('(prefers-reduced-motion: reduce)').matches}catch(e){return false}};
  function commentsFor(topicId){const t=aaTopics().find(x=>String(x.id)===String(topicId));if(!t)return [];return aaTopicCommentsFor(t).filter(c=>String(c.text||'').trim())}
- function paint(item,advance){
+ /* mode: keep = continue the running comment, start = same comment from the beginning, next = following comment, new = newest comment */
+ function paint(item,mode){
   const tid=String(item.dataset.canon||'').replace(/^topic:/,'');const list=commentsFor(tid);let host=item.querySelector('.bingo-rotator');
-  if(!list.length){if(host)host.remove();return}
+  if(!list.length){if(host)host.remove();cnt.set(tid,0);return}
   const info=item.querySelector('.aa360-info');if(!info)return;
+  const n=list.length;let i=idx.has(tid)?idx.get(tid):-1;
+  if(mode==='new')i=n-1;else if(mode==='next')i=(i+1)%n;else if(i<0||i>=n)i=0;
+  if(mode!=='keep'||!startedAt.has(tid))startedAt.set(tid,Date.now());
+  idx.set(tid,i);if(mode!=='keep'||!cnt.has(tid))cnt.set(tid,n);
   if(!host){host=document.createElement('div');host.className='bingo-rotator';host.setAttribute('aria-hidden','true');info.insertBefore(host,info.firstChild)}
-  let i=idx.has(tid)?idx.get(tid):-1;i=i<0?0:advance?(i+1)%list.length:i%list.length;idx.set(tid,i);
+  const elapsed=reduced()?0:(Date.now()-startedAt.get(tid))/1000;
+  if(elapsed>=LIFE){host.innerHTML='';return}
   const c=list[i],who=JSON.stringify(String(c.authorId||''));
-  host.innerHTML=`<div class="bingo-rot-comment"><img class="bingo-rot-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(c.authorPhoto))}" alt="" onerror="aaProfileImgFallback(this)" onclick='event.stopPropagation();openSeller(${who})'><div class="bingo-rot-bubble"><span class="bingo-rot-text">${esc(c.text)}</span></div></div>`;
+  host.innerHTML=`<div class="bingo-rot-comment" style="animation-delay:-${elapsed.toFixed(2)}s"><img class="bingo-rot-avatar" src="${bingoSafeMediaAttr(aaProfilePhoto(c.authorPhoto))}" alt="" onerror="aaProfileImgFallback(this)" onclick='event.stopPropagation();openSeller(${who})'><div class="bingo-rot-bubble"><span class="bingo-rot-name">${esc(c.authorName||'Bingo Member')}</span><span class="bingo-rot-text">${esc(c.text)}</span></div></div>`;
  }
- setInterval(()=>{
+ function tick(){
   try{
    if(state.view!=="home"||document.hidden||aaHomeOverlayOpen())return;
    const item=document.querySelector('#auto-arcade-widget .aa360-item.bingo-media-active[data-canon^="topic:"]');
    if(!item){last=null;return}
-   const now=Date.now();
-   if(item!==last){last=item;lastAt=now;paint(item,false);return}
-   if(!item.querySelector('.bingo-rotator'))paint(item,false);
-   if(reduced())return;
-   if(now-lastAt>=7000){lastAt=now;paint(item,true)}
+   const tid=String(item.dataset.canon||'').replace(/^topic:/,'');
+   if(item!==last){const first=!last||last.dataset.canon!==item.dataset.canon;last=item;paint(item,first?'start':'keep');return}
+   if(reduced()){if(!item.querySelector('.bingo-rotator'))paint(item,'keep');return}
+   const n=commentsFor(tid).length,prev=cnt.get(tid);
+   if(prev!==undefined&&n>prev){paint(item,'new');return}
+   if(Date.now()-(startedAt.get(tid)||0)>=PERIOD*1000){paint(item,'next');return}
+   if(!item.querySelector('.bingo-rotator'))paint(item,'keep');
   }catch(e){}
- },1000);
+ }
+ setInterval(tick,1000);
+ const prevRender=render;
+ render=function(){const r=prevRender.apply(this,arguments);requestAnimationFrame(tick);return r};
 })();
+/* Rising Crowns (Home): a Crown saved in bingo_crown_awards for the post on screen rises once in its own right-hand lane
+   (same motion as the Live Crowns), Gold/Silver/Bronze by the stored crown_type. Fed only by aaLoadCrownCounts' real rows;
+   each award id animates once. */
+window.bingoCrownRise=function(topicId,type){
+ try{
+  if(state.view!=='home'||document.hidden||aaHomeOverlayOpen())return;
+  const item=document.querySelector('#auto-arcade-widget .aa360-item.bingo-media-active[data-canon="topic:'+String(topicId)+'"]');if(!item)return;
+  let lane=item.querySelector('.bingo-crown-lane');if(!lane){lane=document.createElement('div');lane.className='bingo-crown-lane';lane.setAttribute('aria-hidden','true');item.appendChild(lane)}
+  if(lane.children.length>=5)lane.firstElementChild.remove();
+  const pal={bronze:['#4b1d08','#ff8a32','#8b3d12'],silver:['#4b5563','#ffffff','#9ca3af'],gold:['#8a5200','#ffd84a','#f59e0b']}[type]||['#8a5200','#ffd84a','#f59e0b'];
+  const el=document.createElement('span');el.className='bingo-crown-rise '+(type||'gold');el.style.marginLeft=(Math.round(Math.random()*14)-7)+'px';
+  el.innerHTML='<svg viewBox="0 0 38 31" width="38" height="31"><path d="M3 26 L1 8 L10 15 L19 3 L28 15 L37 8 L35 26 Z" fill="'+pal[1]+'" stroke="'+pal[0]+'" stroke-width="2" stroke-linejoin="round"/><rect x="3" y="26" width="32" height="4" rx="1.5" fill="'+pal[2]+'" stroke="'+pal[0]+'" stroke-width="1.5"/></svg>';
+  el.addEventListener('animationend',()=>el.remove(),{once:true});lane.appendChild(el);
+ }catch(e){}
+};
 // Purge legacy sample and local-only public records. Unsaved forms remain drafts.
 state.listings=(state.listings||[]).filter(x=>!x._localDemo&&x._fromDb&&/^[0-9a-f-]{36}$/i.test(String(x.id)));
 state.jobs=ownerDrafts(legacy.jobs,[]);state.spareParts=ownerDrafts(legacy.parts,[]);
