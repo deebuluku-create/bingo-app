@@ -30560,6 +30560,11 @@ html body #auto-arcade-widget.aa-v83-home .aa360-item>video.aa360-video{position
 html body #auto-arcade-widget .aa360-item>.aa360-shade{background:none!important}
 html body #auto-arcade-widget.aa-v83-home .aa360-info{background:none!important;text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 8px rgba(0,0,0,.8)!important}
 html body #auto-arcade-widget .bingo-approved-topic .aa-post-media video{object-fit:cover!important;object-position:center!important}
+/* Owner order 2026-10-12 (Wall only): every Wall video sits in one compact 1:1 square frame, filled edge to edge with
+   object-fit:cover (cropping allowed, no distortion, no letterbox). Scoped to #auto-arcade-widget.aa-wall-view so Home Feed is unchanged. */
+html body #auto-arcade-widget.aa-wall-view .bingo-approved-topic .aa-post-media:has(video){aspect-ratio:1/1!important;height:auto!important;width:100%!important;max-height:none!important;background:#f1f5f9!important;border:0!important;box-shadow:none!important;overflow:hidden!important;position:relative!important;margin:0 0 8px!important}
+html body #auto-arcade-widget.aa-wall-view .bingo-approved-topic .aa-post-media:has(video) .aa-video-thumb{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;display:block!important;background:transparent!important;padding:0!important}
+html body #auto-arcade-widget.aa-wall-view .bingo-approved-topic .aa-post-media:has(video) video{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:none!important;min-height:0!important;margin:0!important;object-fit:cover!important;object-position:center!important;background:transparent!important;display:block!important}
 /* Stage 3 (2026-10-11): X-inspired Wall post layout, Bingo colours kept.
    Flat engagement row (Crown, Comments, Share, Save) in four equal columns, no pill borders.
    Post text wraps at word boundaries only, never inside a word. Same card renderer; only styling. */
@@ -30701,7 +30706,7 @@ function show(title,body){removeDialog();modal=document.createElement('dialog');
 function credit(s){const m=aaTopicAuthorMeta({authorId:s.original_uploader_id});return '<span>♫ '+esc(s.title)+'</span><button type="button" onclick="BingoSounds.close();openSeller('+ident(s.original_uploader_id)+')">Original sound · '+esc(m?.name||'View original profile')+'</button>'}
 function audioUrl(s){if(urls.has(s.id))return urls.get(s.id);if(!urls.has('pending:'+s.id)){urls.set('pending:'+s.id,true);sb.storage.from('sound-audio').createSignedUrl(s.audio_path,1800).then(({data,error})=>{if(error){urls.delete('pending:'+s.id);return}urls.set(s.id,data.signedUrl)})}return ''}
 async function refresh(){if(!sb||loading)return;loading=true;try{const {data,error}=await sb.from('bingo_sounds').select('*').order('created_at',{ascending:false}).limit(500);if(error)throw error;cache.clear();for(const s of data||[])cache.set(s.id,s)}finally{loading=false}}
-function bar(t){const hasVideo=(t.media||[]).some(m=>m.type==='video');if(!t.soundId&&!hasVideo)return '';const s=cache.get(t.soundId);return '<div class="bingo-sound-bar" onclick="event.stopPropagation()">'+(s?credit(s):'<span>♫ Original sound</span>')+'<button type="button" title="'+(s?'Use this sound in your own post':'Identify this sound for reusable sound credit. To hear the video, use the speaker button.')+'" onclick="BingoSounds.open('+ident(t.id)+')">'+(s?'Use this sound':'Check sound')+'</button></div>'}
+function bar(t){const s=cache.get(t.soundId);return s?'<div class="bingo-sound-bar" onclick="event.stopPropagation()"><span>♫ '+esc(s.title)+'</span></div>':''}
 async function online(){const r=await sb.rpc('bingo_sound_processor_online');if(r.error)throw r.error;return !!r.data}
 async function loadAudio(s){if(!urls.has(s.id)){const r=await sb.storage.from('sound-audio').createSignedUrl(s.audio_path,1800);if(r.error)throw r.error;urls.set(s.id,r.data.signedUrl)}return urls.get(s.id)}
 async function open(id){try{await refresh();const t=aaTopics().find(x=>String(x.id)===String(id));if(!t)throw Error('This post is unavailable');if(t.soundId&&!cache.has(t.soundId)){const r=await sb.from('bingo_sounds').select('*').eq('id',t.soundId).maybeSingle();if(r.error)throw r.error;if(r.data)cache.set(r.data.id,r.data)}const s=cache.get(t.soundId);if(s){const src=await loadAudio(s);show('Use this sound?',credit(s)+(src?'<audio controls src="'+bingoSafeMediaAttr(src)+'"></audio>':'<p>Loading audio… close and reopen shortly.</p>')+'<p>Choose your media, then preview in the existing Bingo composer.</p><div class="bingo-sound-choices">'+['video','photo','record','camera'].map((v,i)=>'<button class="btn btn-gold" onclick="BingoSounds.choose('+ident(s.id)+','+ident(v)+')">'+['Upload video','Upload photo','Record video','Take photo'][i]+'</button>').join('')+'</div><button class="btn" onclick="BingoSounds.posts('+ident(s.id)+')">View posts using this sound</button>');return}
@@ -30980,7 +30985,9 @@ var aaInlineSoundOn=(function(){try{return sessionStorage.getItem('bingo_inline_
   active=v;
   v.preload='auto';v.playsInline=true;v.setAttribute('playsinline','');v.loop=true;
   const h=host(v);
-  if(h){if(getComputedStyle(h).position==='static')h.style.position='relative';const b=soundBtn();if(b.parentElement!==h)h.appendChild(b)}
+  /* Owner order 2026-10-12: no speaker overlay on Wall videos. Audio uses the device volume and the native player
+     in the video viewer; the autoplay mute/unmute logic below is unchanged. */
+  if(h){if(getComputedStyle(h).position==='static')h.style.position='relative'}
   const wantSound=aaInlineSoundOn;v.muted=!wantSound;
   const done=()=>{h&&h.classList.remove('bingo-autoplay-blocked');syncBtn()};
   const p=v.play();
@@ -31004,7 +31011,7 @@ var aaInlineSoundOn=(function(){try{return sessionStorage.getItem('bingo_inline_
     vids.forEach(v=>{if(v===best)return;if(!v.paused){try{v.pause()}catch(x){}}if(v.preload==='auto')v.preload='metadata'});
     if(!best||aaHomeOverlayOpen()||document.hidden){if(!best){active=null;if(btn)btn.remove()}return}
     if(best!==active||best.paused){start(best);return}
-    const h=host(best);if(h&&soundBtn().parentElement!==h){if(getComputedStyle(h).position==='static')h.style.position='relative';h.appendChild(btn);syncBtn()} // re-attach after a rebuild
+    /* Wall speaker overlay removed (owner order 2026-10-12): no button is re-attached after a rebuild. */
    },{threshold:[0,.25,.5,.75,1]});
    vids.forEach(v=>{
     if(!v.dataset.bingoRecover){v.dataset.bingoRecover='1';v.addEventListener('error',()=>{if(window.bingoMediaRecover)window.bingoMediaRecover(v)})}
