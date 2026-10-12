@@ -4657,6 +4657,22 @@ function aaDiagCategory(e){
  if(e&&(e.status||e.statusCode))return "http-error";
  return "other";
 }
+/* CSP diagnostics (testing only, ?bingo_diag=1): records each Content-Security-Policy
+   violation as directive name, blocked host only (no path, query or token) and timing. */
+function aaDiagInstallCsp(){
+ try{
+  if(!/[?&]bingo_diag=1(&|$)/.test(location.search))return;
+  document.addEventListener("securitypolicyviolation",function(e){
+   try{
+    let host="";
+    try{host=new URL(e.blockedURI).hostname}catch(_){host=String(e.blockedURI||"").slice(0,20)}
+    aaDiagPush("csp:"+String(e.effectiveDirective||e.violatedDirective||"unknown"),"csp-violation",String(e.statusCode||""),Math.round(performance.now()),false,(e.disposition==="report"?"report-only ":"enforced ")+"blocked host "+host);
+    try{render()}catch(_){}
+   }catch(_){}
+  });
+ }catch(_){}
+}
+aaDiagInstallCsp();
 function aaDiagRecord(op,t0,e,note){
  const code=String((e&&(e.code||e.statusCode||e.status))||"");
  const responded=!!(e&&(e.code||e.status||e.statusCode))&&!/failed to fetch/i.test(String(e.message||""));
