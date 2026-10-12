@@ -9600,10 +9600,11 @@ function aaHomeOverlayOpen(){
    click itself is a user gesture, so the browser will allow unmuted
    playback even if autoplay-with-sound was blocked before. */
 function aaFeedWantsSound(){return state.aaFeedSoundOn===true}
+function aaFeedAudible(){const v=typeof activeVideo==='function'?activeVideo():null;return v?!v.muted:aaFeedWantsSound()}
 function aaFeedUpdateSoundBtn(){
  const btn=document.getElementById("aaFeedSoundBtn");
  if(!btn)return;
- const on=aaFeedWantsSound();
+ const on=aaFeedAudible();
  btn.textContent=on?"🔊":"🔇";
  btn.setAttribute("aria-label",on?"Mute video sound":"Unmute video sound");
 }
@@ -9621,7 +9622,7 @@ function aaToggleFeedSound(){
  aaFeedUpdateSoundBtn();
 }
 function aaFeedSoundBtnHTML(){
- return `<button type="button" id="aaFeedSoundBtn" class="aa-feed-sound-btn" aria-label="${aaFeedWantsSound()?"Mute video sound":"Unmute video sound"}" onclick="event.stopPropagation();aaToggleFeedSound()">${aaFeedWantsSound()?"🔊":"🔇"}</button>`;
+ return `<button type="button" id="aaFeedSoundBtn" class="aa-feed-sound-btn" aria-label="${aaFeedAudible()?"Mute video sound":"Unmute video sound"}" onclick="event.stopPropagation();aaToggleFeedSound()">${aaFeedAudible()?"🔊":"🔇"}</button>`;
 }
 function aaInit360Feed(){
  if(aaFeedObserver){try{aaFeedObserver.disconnect()}catch(e){}}
@@ -14977,12 +14978,38 @@ async function aaDownloadStampedVideo(url,name,c){
  await new Promise((resolve,reject)=>{video.onloadedmetadata=resolve;video.onerror=reject;video.load()});
  const canvas=document.createElement("canvas");canvas.width=video.videoWidth||720;canvas.height=video.videoHeight||1280;const ctx=canvas.getContext("2d");
  const stream=canvas.captureStream(30);
- let mime="video/webm;codecs=vp9";if(!MediaRecorder.isTypeSupported(mime))mime="video/webm;codecs=vp8";if(!MediaRecorder.isTypeSupported(mime))mime="video/webm";
+ /* Original audio: the source's own audio track is routed into the recording. If this device cannot mix it,
+    or the browser refuses audio, the download still saves, and the viewer is told it has no sound. */
+ let ac=null,audioMixed=false,warn="";
+ try{
+  const AC=window.AudioContext||window.webkitAudioContext;
+  if(!AC)throw new Error("AudioContext unavailable");
+  ac=new AC();
+  const dest=ac.createMediaStreamDestination();
+  ac.createMediaElementSource(video).connect(dest);
+  dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
+  audioMixed=dest.stream.getAudioTracks().length>0;
+  video.muted=false;
+  await ac.resume().catch(()=>{});
+ }catch(e){audioMixed=false;warn="this device could not mix the original audio";console.warn("Branded download: audio mix failed",e)}
+ let mime=audioMixed?"video/webm;codecs=vp8,opus":"video/webm;codecs=vp9";
+ if(!MediaRecorder.isTypeSupported(mime))mime=audioMixed?"video/webm;codecs=vp9,opus":"video/webm;codecs=vp8";
+ if(!MediaRecorder.isTypeSupported(mime))mime="video/webm";
  const rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:5000000});const chunks=[];rec.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};
  const done=new Promise((resolve,reject)=>{rec.onstop=resolve;rec.onerror=e=>reject(e.error||e)});
  let raf=0;const draw=()=>{if(video.paused||video.ended)return;ctx.drawImage(video,0,0,canvas.width,canvas.height);aaDrawDownloadStamp(ctx,canvas.width,canvas.height,c);raf=requestAnimationFrame(draw)};
- rec.start(500);await video.play();draw();
+ rec.start(500);
+ try{await video.play()}catch(err){
+  if(!audioMixed)throw err;
+  /* Browser refused unmuted playback: keep the picture, save the file, and say it has no sound. */
+  audioMixed=false;warn="your browser did not allow audio for this download";video.muted=true;await video.play();
+ }
+ draw();
  await new Promise(resolve=>{video.onended=resolve});if(raf)cancelAnimationFrame(raf);rec.stop();await done;
+ const decoded=typeof video.webkitAudioDecodedByteCount==="number"?video.webkitAudioDecodedByteCount:-1;
+ if(ac){try{ac.close()}catch(_){}}
+ if(warn)toast("Saved without the original sound: "+warn+".");
+ else if(decoded===0)toast("This video has no audio track, so the saved copy is silent.");
  aaTriggerBlobDownload(new Blob(chunks,{type:mime}),name,".webm");
 }
 async function aaDownloadMedia(url,name,c){
@@ -30824,12 +30851,12 @@ function mediaError(v,error){aaTopicDiag('media-error',{code:error&&error.code||
  const code=v.error?.code||0;const blocked=error?.name==='NotAllowedError';btn.dataset.kind=blocked?'blocked':'error';btn.textContent=blocked?'▶ Tap to play':'Checking video… · Retry';
  if(error?.name!=='NotAllowedError'&&!v.__bingoProbing){v.__bingoProbing=true;const src=v.currentSrc||v.getAttribute('src')||'';mediaProbe(src).then(async pr=>{if([400,401,403].includes(pr.status)&&mediaSignedParts(src)&&!v.__bingoAutoResign){v.__bingoAutoResign=true;try{if(await mediaRefreshSrc(v)){btn.remove();v.load();play(v,false);return}}catch(e){}}const reason=mediaReason(code,pr,error);btn.textContent=reason+' · Retry';if(code===4&&[200,206].includes(pr.status)&&!host.querySelector('.bingo-media-open')){const a=document.createElement('a');a.className='btn bingo-media-open';a.href=src;a.target='_blank';a.rel='noopener';a.textContent='Open original video';a.onclick=ev=>ev.stopPropagation();host.appendChild(a)}try{console.warn('Bingo video failed:',{reason,mediaErrorCode:code,mediaErrorMessage:v.error?.message||'',http:pr.status,contentType:pr.type,source:String(src).split('?')[0]})}catch(e){}}).finally(()=>{v.__bingoProbing=false})}
  btn.onclick=async e=>{e.stopPropagation();if(btn.dataset.kind==='blocked'){btn.remove();play(v,true);return}btn.textContent='Retrying…';try{await mediaRefreshSrc(v)}catch(x){}btn.remove();host.querySelector('.bingo-media-open')?.remove();v.load();play(v,true)}}
-function play(v,gesture=false){if(!v||!v.isConnected||aaHomeOverlayOpen())return;if(!gesture){const slide=v.closest('.aa360-item');if(slide&&!slide.classList.contains('bingo-media-active'))return}v.muted=!aaFeedWantsSound();v.playsInline=true;v.preload='auto';let p;try{p=v.play()}catch(e){mediaError(v,e);return}if(p?.catch)p.catch(e=>{if(e.name==='AbortError')return;aaTopicDiag('video-autoplay-rejected',{name:e.name,rs:v.readyState,muted:v.muted,path:String(v.currentSrc||v.getAttribute('src')||'').split('?')[0].slice(-70)});if(e.name==='NotAllowedError'&&!v.muted){v.muted=true;state.aaFeedSoundOn=false;aaFeedUpdateSoundBtn();v.play()?.catch(next=>{if(next.name!=='AbortError')mediaError(v,next)})}else mediaError(v,e)})}
+function play(v,gesture=false){if(!v||!v.isConnected||aaHomeOverlayOpen())return;if(!gesture){const slide=v.closest('.aa360-item');if(slide&&!slide.classList.contains('bingo-media-active'))return}v.muted=!aaFeedWantsSound();aaFeedUpdateSoundBtn();v.playsInline=true;v.preload='auto';let p;try{p=v.play()}catch(e){mediaError(v,e);return}if(p?.catch)p.catch(e=>{if(e.name==='AbortError')return;aaTopicDiag('video-autoplay-rejected',{name:e.name,rs:v.readyState,muted:v.muted,path:String(v.currentSrc||v.getAttribute('src')||'').split('?')[0].slice(-70)});if(e.name==='NotAllowedError'&&!v.muted){v.muted=true;aaFeedUpdateSoundBtn();v.play()?.catch(next=>{if(next.name!=='AbortError')mediaError(v,next)})}else mediaError(v,e)})}
 function activeVideo(){return document.querySelector('#auto-arcade-widget .aa360-item.bingo-media-active video.aa360-video')}
 /* Bandwidth goes to the post on screen and the next one; the previous keeps what it has buffered;
    anything further away does not fetch, so videos no longer all download at once. */
 function aaFeedVideoBudget(activeItem){const items=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed .aa360-item')];if(!items.length)return;let a=activeItem?items.indexOf(activeItem):-1;if(a<0)a=items.findIndex(x=>x.classList.contains('bingo-media-active'));if(a<0)a=typeof aaFeedCurrentIndex==='function'?aaFeedCurrentIndex():0;items.forEach((item,j)=>{const v=item.querySelector('video.aa360-video');if(!v)return;const want=j===a||j===a+1?'auto':j===a-1?(v.preload==='none'?'metadata':v.preload):'none';if(v.preload!==want)v.preload=want})}
-aaToggleFeedSound=function(){state.aaFeedSoundOn=!aaFeedWantsSound();const v=activeVideo();if(v)play(v,true);aaFeedUpdateSoundBtn()};
+aaToggleFeedSound=function(){const v=activeVideo();const turnOn=v?!!v.muted:!aaFeedWantsSound();state.aaFeedSoundOn=turnOn;if(v)play(v,true);aaFeedUpdateSoundBtn()};
 aaInit360Feed=function(){
  if(aaFeedObserver)aaFeedObserver.disconnect();
  const items=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed .aa360-item')];if(!items.length)return;
@@ -30976,7 +31003,7 @@ aaHomeOverlayOpen=function(){return originalOverlayForCommentsDrawer()||!!(typeo
  document.addEventListener('timeupdate',e=>{
   const v=e.target;if(!(v instanceof HTMLVideoElement)||v.paused||!v.closest('#auto-arcade-widget'))return;
   const none=noAudio(v);if(none===null)return;
-  if(v.classList.contains('aa360-video')){if(v.closest('.aa360-item.bingo-media-active'))mark(document.getElementById('aaFeedSoundBtn'),none,!aaFeedWantsSound())}
+  if(v.classList.contains('aa360-video')){if(v.closest('.aa360-item.bingo-media-active'))mark(document.getElementById('aaFeedSoundBtn'),none,v.muted)}
   else{const b=document.querySelector('#auto-arcade-widget .bingo-inline-sound');if(b&&b.parentElement&&b.parentElement.contains(v))mark(b,none,v.muted)}
  },true);
 })();
