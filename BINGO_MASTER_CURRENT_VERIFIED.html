@@ -6289,7 +6289,14 @@ async function aaLoadAuthenticatedProfile(authUser){
  }
  state.isLoggedIn=true;
  state.user.isVerified=!!authUser.email_confirmed_at;
+ /* A photo held locally (pending email confirmation) is uploaded here. The public URL must also be written to
+    profiles.photo_url, otherwise the row keeps no photo. A failed upload leaves the data URL, so the next load retries. */
+ const photoBeforeUpload=String(state.user.photo_url||"");
  await aaEnsurePublicProfilePhoto();
+ if(photoBeforeUpload.startsWith("data:image/")&&!String(state.user.photo_url||"").startsWith("data:image/")){
+  const linked=await persistProfile();
+  if(!linked.ok)toast("Your photo uploaded, but the profile could not be updated: "+String(linked.error?.message||"Please retry from Edit Profile."));
+ }
  if(sb&&!state.testMode)aaSyncFollowNetwork([String(state.user?.id||"")]);
  aaMigrateLegacyOwnListings();
  aaSyncOwnProfileToListings();
