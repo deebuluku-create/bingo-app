@@ -16006,10 +16006,11 @@ async function aaLoadBingoWall(){
  aaWallLoading=true;
  state.wallLoadState='loading';
  const wallT0=Date.now();
+ let wallTimer=null;
  try{
   const uid=state.user?.id||null;
   /* A request that never answers must end as a visible, retryable error - not an endless empty page. */
-  const wallTimeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error('Posts request timed out')),20000));
+  const wallTimeout=new Promise((_,rej)=>{wallTimer=setTimeout(()=>rej(new Error('Posts request timed out')),20000)});
   const [topicsRes,commentsRes,reactionsRes,savesRes,smartReactionsRes]=await Promise.race([wallTimeout,Promise.all([
    sb.from('bingo_topics').select('*').order('created_at',{ascending:false}),
    sb.from('bingo_topic_comments').select('*').eq('moderation_status','visible').order('created_at',{ascending:true}),
@@ -16022,6 +16023,7 @@ async function aaLoadBingoWall(){
       until deployed" rather than pretending to work. */
    sb.from('bingo_topic_smart_reactions').select('*')
   ])]);
+  clearTimeout(wallTimer);
   if(topicsRes.error)throw topicsRes.error;
   state.wallTopics=(topicsRes.data||[]).map(aaMapBingoTopicRow);
   state.wallLoadState='ok';state.wallLoadError=null;state.wallLoadRetries=0;
@@ -16030,8 +16032,9 @@ async function aaLoadBingoWall(){
   state.wallSaves=savesRes.error?[]:(savesRes.data||[]).map(x=>String(x.topic_id));
   state.wallSmartReactions=smartReactionsRes.error?[]:(smartReactionsRes.data||[]);
  }catch(e){
+  clearTimeout(wallTimer);
   aaDiagRecord("posts-load",wallT0,e);
-  console.warn('Bingo: Public Wall unavailable. Using local cache only.',String(e?.message||e));
+  console.warn('Bingo: Public Wall unavailable. It will retry automatically or via Retry.',String(e?.message||e));
   /* Profile 0-posts repair (2026-10-11): remember the failure so the posts are fetched again
      (aaTopics retries after 15 s) and pages can say "couldn't load" instead of "no posts". */
   state.wallLoadState='error';state.wallLoadError=String(e?.message||e);state.wallLoadFailedAt=Date.now();

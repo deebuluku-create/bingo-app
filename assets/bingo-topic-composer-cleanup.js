@@ -71,26 +71,37 @@ const mo=new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>{if(n.no
    Uses the persisted paid-crown ledger; failure to verify never grants the premium tools. */
 const STAGE1_CROWNS=10;
 let stage1Cache={uid:null,count:0,ok:false,at:0};
+/* Result shape: ok (entitled), signedOut, unverified (could not reach the ledger - never unlocks),
+   or a verified count below the threshold. Only verified results are cached. */
 async function stage1(){
  try{
-  const s=(await window.supabase?.auth?.getSession?.())?.data?.session;if(!s)return stage1Cache={uid:null,count:0,ok:false,at:Date.now()};
+  const s=(await window.supabase?.auth?.getSession?.())?.data?.session;
+  if(!s)return {uid:null,count:0,ok:false,signedOut:true,unverified:false,at:Date.now()};
   if(stage1Cache.uid===s.user.id&&Date.now()-stage1Cache.at<30000)return stage1Cache;
   const {count,error}=await window.supabase.from('bingo_crown_purchases').select('id',{count:'exact',head:true})
     .eq('recipient_id',s.user.id).eq('payment_status','paid');
   if(error)throw error;
-  return stage1Cache={uid:s.user.id,count:Number(count||0),ok:Number(count||0)>=STAGE1_CROWNS,at:Date.now()};
- }catch(_){return stage1Cache={uid:null,count:0,ok:false,at:Date.now()}}
+  return stage1Cache={uid:s.user.id,count:Number(count||0),ok:Number(count||0)>=STAGE1_CROWNS,signedOut:false,unverified:false,at:Date.now()};
+ }catch(_){return {uid:null,count:0,ok:false,signedOut:false,unverified:true,at:Date.now()}}
 }
 function isStyleControl(b){
  const s=((b?.textContent||'')+' '+(b?.title||'')+' '+(b?.getAttribute?.('aria-label')||'')).toLowerCase();
  return /font|format|color|style|layout/.test(s)||/^\s*aa\s*$/i.test(b?.textContent||'');
 }
-document.addEventListener('click',async e=>{
- const b=e.target.closest?.('.aa-composer-card button,.aa-composer-card [role="button"]');if(!b||!isStyleControl(b))return;
- const ent=await stage1();if(ent.ok)return;
+/* The click is stopped synchronously (an async check cannot stop a click already delivered), then
+   re-issued only once entitlement is verified. Unverifiable entitlement never re-issues it. */
+let styleGateBypass=false;
+document.addEventListener('click',e=>{
+ const b=e.target.closest?.('.aa-composer-card button,.aa-composer-card [role="button"]');
+ if(!b||styleGateBypass||!isStyleControl(b))return;
  e.preventDefault();e.stopImmediatePropagation();
- const need=Math.max(0,STAGE1_CROWNS-ent.count);
- alert('Stage 1 feature: receive 10 crowns to unlock stylish post layouts, fonts and colors. '+need+' more crown'+(need===1?'':'s')+' needed.');
+ stage1().then(ent=>{
+  if(ent.ok){styleGateBypass=true;try{b.click()}finally{styleGateBypass=false}return}
+  if(ent.unverified){alert('Bingo could not verify your crowns because of a connection problem. Check your connection and try again. Premium styles stay locked until verified.');return}
+  if(ent.signedOut){alert('Sign in to use stylish post layouts, fonts and colors.');return}
+  const need=Math.max(0,STAGE1_CROWNS-ent.count);
+  alert('Stage 1 feature: receive 10 crowns to unlock stylish post layouts, fonts and colors. '+need+' more crown'+(need===1?'':'s')+' needed.');
+ });
 },true);
 window.BingoStage1PostStyles={required:STAGE1_CROWNS,status:stage1};
 

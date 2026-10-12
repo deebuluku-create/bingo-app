@@ -96,7 +96,8 @@ function installPrivateTopicMediaResolver(){
       a Home feed slide at all). The signing round-trip is async: the user may have swiped away meanwhile, and
       resuming an off-screen feed video would play two videos at once against the feed's single authority. */
    var slide=v.closest('.aa360-item');
-   if(!wasPaused&&v.isConnected&&(!slide||slide.classList.contains('bingo-media-active')))v.play().catch(function(){});
+   /* Only the active Home feed slide may resume; a video outside a feed slide (profile grid, Wall) never auto-plays here. */
+   if(!wasPaused&&v.isConnected&&slide&&slide.classList.contains('bingo-media-active'))v.play().catch(function(){});
   }catch(_){pending.delete(v)}
  }
  function scan(root){

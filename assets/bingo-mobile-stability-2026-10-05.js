@@ -36,6 +36,9 @@ const SURFACES=[
 let swallowUntil=0;
 document.addEventListener('pointerdown',e=>{
  swallowUntil=0; /* each new tap starts fresh: only the tap that closed a surface is swallowed */
+ /* The composer's photo/video control is a deliberate action: it must reach its handler on the first tap,
+    even while the font panel is open. Never close or swallow for it. */
+ if(e.target.closest?.('.bingo-clean-camera,.aa-media-camera-box,[aria-label="Add photo or video"]'))return;
  for(const s of SURFACES){
   let p=null;try{p=s.find()}catch(x){}
   if(!shown(p))continue;
@@ -57,7 +60,8 @@ restoreDrafts(document);
    is aggressively budgeted. Scope is the visible Profile Posts/Reels/Saved surface only. */
 (function(){'use strict';if(window.__bingoProfileGridPreview)return;window.__bingoProfileGridPreview=1;
 function page(){var t=document.body?.innerText||'';return /\bPosts\b/.test(t)&&/\bReels\b/.test(t)&&/\bSaved\b/.test(t)&&/\bProfile\b/.test(t)}
-function fix(v){if(!page()||v.dataset.bingoGridPreview)return;var r=v.getBoundingClientRect();if(r.width<60||r.height<60)return;
+/* Profile grid thumbnails inside .bp-grid are prepared by bingo-surgical-28 (single owner, no second load()). */
+function fix(v){if(!page()||v.dataset.bingoGridPreview||v.closest('#auto-arcade-widget .bp-grid'))return;var r=v.getBoundingClientRect();if(r.width<60||r.height<60)return;
  v.dataset.bingoGridPreview='1';v.muted=true;v.setAttribute('playsinline','');v.preload='metadata';
  var show=function(){try{v.pause();if(v.readyState>=1&&isFinite(v.duration)&&v.duration>0&&v.currentTime===0)v.currentTime=Math.min(.12,Math.max(.01,v.duration*.01))}catch(_){}};
  v.addEventListener('loadedmetadata',show,{once:true});try{v.load()}catch(_){}}
