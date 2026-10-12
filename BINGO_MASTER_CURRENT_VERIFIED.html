@@ -4665,9 +4665,23 @@ function aaDiagRecord(op,t0,e,note){
 function aaDiagPanelHTML(){
  try{
   if(!/[?&]bingo_diag=1(&|$)/.test(location.search))return "";
+  setTimeout(aaDiagRunProbes,1200);
   const rows=aaDiagLog.slice().reverse().map(r=>`<tr><td>${esc(r.at)}</td><td>${esc(r.op)}</td><td>${esc(r.category)}</td><td>${esc(r.code)}</td><td>${r.ms} ms</td><td>${r.httpResponse?"yes":"no"}</td><td>${esc(r.note)}</td></tr>`).join("");
   return `<div id="aaDiagPanel" role="region" aria-label="Diagnostics (testing only)" style="margin:6px 8px;padding:8px;border:1px dashed #ffb020;border-radius:10px;background:rgba(0,0,0,.6);color:#fff;font:11px/1.35 monospace;overflow-x:auto"><b>Bingo diagnostics (testing only, in memory, no secrets)</b> <button type="button" onclick="aaDiagLog.length=0;render()" style="font-size:11px">Clear</button>${rows?`<table style="width:100%;border-collapse:collapse;margin-top:6px"><tr><td>time</td><td>operation</td><td>category</td><td>code</td><td>elapsed</td><td>HTTP reply</td><td>note</td></tr>${rows}</table>`:"<div>No failures recorded yet.</div>"}</div>`;
  }catch(_){return ""}
+}
+/* Diagnostic probes (testing flag only, read-only GET requests). They separate a
+   request that carries custom headers (which triggers a CORS preflight) from a
+   plain request whose key travels in the URL. The key is never recorded. */
+var aaDiagProbesStarted=false;
+function aaDiagRunProbes(){
+ if(aaDiagProbesStarted||typeof SUPABASE_URL==="undefined"||typeof SUPABASE_PUBLISHABLE_KEY==="undefined")return;
+ aaDiagProbesStarted=true;
+ const base=String(SUPABASE_URL).replace(/\/$/,"")+"/rest/v1/";
+ const key=String(SUPABASE_PUBLISHABLE_KEY);
+ const run=(op,url,init)=>{const t0=Date.now();return fetch(url,init).then(r=>{aaDiagPush(op,"reply-readable (CORS allowed)",String(r.status),Date.now()-t0,true,"fetch resolved")},()=>{aaDiagPush(op,"no-response (network or CORS)","",Date.now()-t0,false,"fetch rejected before reply")}).then(()=>{try{render()}catch(_){}})};
+ run("probe:header-preflight",base,{method:"GET",headers:{apikey:key,Authorization:"Bearer "+key}});
+ run("probe:query-no-preflight",base+"?apikey="+encodeURIComponent(key),{method:"GET"});
 }
 function aaTabAuthLock(name,acquireTimeout,fn){
  const prev=aaTabAuthLockQueues[name]||Promise.resolve();
