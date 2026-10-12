@@ -4637,6 +4637,30 @@ var sb=null;
    (other tabs can no longer block this one), and a wait is capped at 10 s so a stuck holder can
    never freeze the app. Sessions, tokens, storage keys and auth flow are unchanged. */
 var aaTabAuthLockQueues={};
+/* Video playback error recovery (2026-10-12). A video that fails to load gets ONE automatic retry
+   (covers transient network and delivery errors), then a single clear message. The element, layout,
+   stored file and post are never changed. Codec failures cannot be fixed in the browser, so the
+   message says so instead of leaving a silent broken player. */
+(function(){
+ if(window.__aaVideoErrorRecovery)return;window.__aaVideoErrorRecovery=1;
+ document.addEventListener("error",function(e){
+  var v=e.target;
+  if(!v||v.tagName!=="VIDEO"||!v.isConnected)return;
+  if(v.dataset.aaVideoRetried){
+   if(!v.dataset.aaVideoNotified){
+    v.dataset.aaVideoNotified="1";
+    try{if(typeof toast==="function")toast("This video could not be played on this device. The file is saved; try another device or browser.")}catch(_){}
+   }
+   return;
+  }
+  v.dataset.aaVideoRetried="1";
+  var src=v.currentSrc||v.getAttribute("src");
+  if(!src)return;
+  setTimeout(function(){
+   try{v.src=src+(src.indexOf("?")>-1?"&":"?")+"retry="+Date.now();v.load()}catch(_){}
+  },800);
+ },true);
+})();
 /* ---- Authorised-testing diagnostics (in-memory only) ----
    Records what failed and how, without raw server messages, tokens, keys,
    headers, user data or signed URLs. Nothing is persisted or sent anywhere.
