@@ -30553,6 +30553,15 @@ body:has(#auto-arcade-widget.aa-wall-view){background:#f1f5f9!important}
 html body #auto-arcade-widget .bingo-approved-topic .aa-post-media:has(.aa-video-thumb){background:transparent!important;border:0!important;box-shadow:none!important}
 html body #auto-arcade-widget .bingo-approved-topic .aa-post-media .aa-video-thumb{background:transparent!important;display:flex!important;justify-content:center!important}
 html body #auto-arcade-widget .bingo-approved-topic .aa-post-media video{width:auto!important;max-width:100%!important;height:auto!important;max-height:560px!important;margin:0 auto!important;background:transparent!important;object-fit:contain!important;display:block!important}
+/* Owner order 2026-10-12: ONE original video, filling its slide, object-fit:cover centred, never stretched. Nothing is drawn
+   over or behind it: no blurred copy, no shade, no gradient. Videos only - photo posts (img.aa360-video) are untouched.
+   Text stays readable through its own text-shadow. On the Wall the video box already takes the clip's own shape, so cover
+   changes nothing there except guaranteeing no letterbox. */
+html body #auto-arcade-widget .aa360-item>video.aa360-video,
+html body #auto-arcade-widget.aa-v83-home .aa360-item>video.aa360-video{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important;background:#000!important}
+html body #auto-arcade-widget .aa360-item>.aa360-shade{background:none!important}
+html body #auto-arcade-widget.aa-v83-home .aa360-info{background:none!important;text-shadow:0 1px 3px rgba(0,0,0,.95),0 0 8px rgba(0,0,0,.8)!important}
+html body #auto-arcade-widget .bingo-approved-topic .aa-post-media video{object-fit:cover!important;object-position:center!important}
 /* Stage 3 (2026-10-11): X-inspired Wall post layout, Bingo colours kept.
    Flat engagement row (Crown, Comments, Share, Save) in four equal columns, no pill borders.
    Post text wraps at word boundaries only, never inside a word. Same card renderer; only styling. */
@@ -30733,8 +30742,6 @@ if(sb)refresh().catch(()=>{});
 #auto-arcade-widget .aa360-side .bingo-media-stats{display:block;margin:-2px 0 0 !important;max-width:76px;text-align:center;font-size:9px;font-weight:800;line-height:1.25;color:#fff;text-shadow:0 1px 4px #000;pointer-events:none;white-space:normal}
 #auto-arcade-widget .bp-tile .bingo-tile-stats{position:absolute;bottom:27px;left:5px;right:5px;z-index:2;margin:0;padding:2px 4px;border-radius:5px;background:rgba(5,11,22,.82);color:#fff;font-size:9px;pointer-events:none}
 #auto-arcade-widget .aa360-item>.aa-video-play-overlay{top:88px;right:14px;left:auto;transform:none;width:44px;height:44px;z-index:7;pointer-events:auto}
-#auto-arcade-widget .aa360-item>canvas.bingo-fit-backdrop{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;filter:blur(16px) brightness(.55) saturate(1.15);transform:scale(1.2)}
-#auto-arcade-widget .aa360-item.bingo-has-backdrop>.aa360-video{background:transparent}
 #auto-arcade-widget .bingo-media-retry{position:absolute;top:40%;left:10%;right:10%;z-index:8;background:#071020!important;color:#ffe599!important}
 #auto-arcade-widget .bingo-media-open{position:absolute;top:calc(40% + 56px);left:10%;right:10%;z-index:8;text-align:center;text-decoration:none;background:#071020!important;color:#9be7ff!important}
 /* Error bar: wrap long messages inside the card instead of running off the screen. */
@@ -30802,12 +30809,6 @@ function activeVideo(){return document.querySelector('#auto-arcade-widget .aa360
    anything further away does not fetch, so videos no longer all download at once. */
 function aaFeedVideoBudget(activeItem){const items=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed .aa360-item')];if(!items.length)return;let a=activeItem?items.indexOf(activeItem):-1;if(a<0)a=items.findIndex(x=>x.classList.contains('bingo-media-active'));if(a<0)a=typeof aaFeedCurrentIndex==='function'?aaFeedCurrentIndex():0;items.forEach((item,j)=>{const v=item.querySelector('video.aa360-video');if(!v)return;const want=j===a||j===a+1?'auto':j===a-1?(v.preload==='none'?'metadata':v.preload):'none';if(v.preload!==want)v.preload=want})}
 aaToggleFeedSound=function(){state.aaFeedSoundOn=!aaFeedWantsSound();const v=activeVideo();if(v)play(v,true);aaFeedUpdateSoundBtn()};
-/* Home feed bars (2026-10-12): the video itself is never cropped (object-fit:contain stays), but where its shape differs
-   from the slide the leftover bars are filled with a soft blurred copy of the current frame instead of solid black.
-   One 300 ms timer, only for the active slide, only while it is playing and visible; no extra video is decoded, nothing
-   is read back (the canvas is display-only, so cross-origin signed URLs are fine). */
-function bingoBackdropDraw(){try{if(document.hidden||state.view!=='home')return;const v=activeVideo();if(!v||v.paused||!v.videoWidth||v.readyState<2)return;const item=v.closest('.aa360-item');if(!item)return;const r=item.getBoundingClientRect();if(!r.width||!r.height)return;const frame=r.width/r.height,shape=v.videoWidth/v.videoHeight;let c=item.querySelector('canvas.bingo-fit-backdrop');if(Math.abs(frame/shape-1)<.06){if(c){c.remove();item.classList.remove('bingo-has-backdrop')}return}if(!c){c=document.createElement('canvas');c.className='bingo-fit-backdrop';c.setAttribute('aria-hidden','true');item.insertBefore(c,item.firstChild);item.classList.add('bingo-has-backdrop')}const cw=48,ch=Math.max(8,Math.round(cw*r.height/r.width));if(c.width!==cw||c.height!==ch){c.width=cw;c.height=ch}const k=Math.max(cw/v.videoWidth,ch/v.videoHeight),w=v.videoWidth*k,h=v.videoHeight*k;c.getContext('2d').drawImage(v,(cw-w)/2,(ch-h)/2,w,h)}catch(e){}}
-if(!window.__bingoBackdropTimer){window.__bingoBackdropTimer=setInterval(bingoBackdropDraw,300);document.addEventListener('playing',e=>{if(e.target&&e.target.classList&&e.target.classList.contains('aa360-video'))bingoBackdropDraw()},true)}
 aaInit360Feed=function(){
  if(aaFeedObserver)aaFeedObserver.disconnect();
  const items=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed .aa360-item')];if(!items.length)return;
