@@ -31218,10 +31218,16 @@ var aaInlineSoundOn=(function(){try{return sessionStorage.getItem('bingo_inline_
  function observe(){
   try{
    if(!("IntersectionObserver" in window))return;
-   const vids=[...document.querySelectorAll(SEL)].filter(v=>!v.closest('.aa360-feed,.aa-property-media-viewer,.bingo-business-media'));
+   /* Repair 2026-10-13 (playback conflict): on the profile (state.view 'seller') the six grid previews own playback.
+      Post cards in "My Bingo Posts" are not Wall videos, so this controller must not start them (it was adding a seventh
+      decoder next to the six previews). They keep their first frame and the existing tap-to-open viewer. */
+   const onProfile=state.view==='seller';
+   const vids=[...document.querySelectorAll(SEL)].filter(v=>!v.closest('.aa360-feed,.aa-property-media-viewer,.bingo-business-media')&&!(onProfile&&v.closest('.bingo-approved-topic')));
    /* Repair 2026-10-13: an unchanged set of videos keeps the live observer (no teardown on every refresh). */
    if(io&&wallVidsPrev.length===vids.length&&vids.every((v,i)=>v===wallVidsPrev[i]))return;
    if(io){io.disconnect();io=null}
+   /* If the video this controller was playing is no longer in its set (for example after moving to the profile), pause it. */
+   if(active&&!vids.includes(active)&&!active.paused){try{active.pause()}catch(_){}}
    wallVidsPrev=vids;
    if(!vids.length){active=null;if(btn)btn.remove();return}
    vids.forEach(v=>{v.dataset.bingoGridPreview='skip';if(v.preload!=='auto')v.preload='metadata';v.muted=v===active?v.muted:true});
