@@ -30857,12 +30857,25 @@ function activeVideo(){return document.querySelector('#auto-arcade-widget .aa360
    anything further away does not fetch, so videos no longer all download at once. */
 function aaFeedVideoBudget(activeItem){const items=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed .aa360-item')];if(!items.length)return;let a=activeItem?items.indexOf(activeItem):-1;if(a<0)a=items.findIndex(x=>x.classList.contains('bingo-media-active'));if(a<0)a=typeof aaFeedCurrentIndex==='function'?aaFeedCurrentIndex():0;items.forEach((item,j)=>{const v=item.querySelector('video.aa360-video');if(!v)return;const want=j===a||j===a+1?'auto':j===a-1?(v.preload==='none'?'metadata':v.preload):'none';if(v.preload!==want)v.preload=want})}
 aaToggleFeedSound=function(){const v=activeVideo();const turnOn=v?!!v.muted:!aaFeedWantsSound();state.aaFeedSoundOn=turnOn;if(v)play(v,true);aaFeedUpdateSoundBtn()};
+/* Repair 2026-10-13: the Home feed controller used to disconnect and re-create its IntersectionObserver and
+   re-bind every listener on each call (render, every body DOM mutation, visibility change). Now one observer
+   persists, each slide is observed once, and each video's listeners are bound once per element. */
+var aaFeedTracked=new Set();
+function aaFeedOnIntersect(entries){for(const entry of entries){const item=entry.target,v=item.querySelector('video.aa360-video');const visible=entry.isIntersecting&&entry.intersectionRatio>=.55;item.classList.toggle('bingo-media-active',visible);if(visible)aaFeedVideoBudget(item);if(v){if(visible){document.querySelectorAll('#auto-arcade-widget .aa360-feed .aa360-item video.aa360-video').forEach(o=>{if(o!==v&&!o.paused)o.pause()});play(v)}else if(!v.paused)v.pause()}}}
 aaInit360Feed=function(){
- if(aaFeedObserver)aaFeedObserver.disconnect();
- const items=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed .aa360-item')];if(!items.length)return;
+ const items=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed .aa360-item')];
+ for(const old of [...aaFeedTracked]){if(!old.isConnected||!items.includes(old)){aaFeedTracked.delete(old);if(aaFeedObserver)aaFeedObserver.unobserve(old)}}
+ if(!items.length){aaFeedUpdateSoundBtn();return}
  if(state.aaFeedSoundOn===undefined)state.aaFeedSoundOn=true; /* sound on by default; a browser refusal falls back to muted (see play catch) */
- aaFeedObserver=new IntersectionObserver(entries=>{for(const entry of entries){const item=entry.target,v=item.querySelector('video.aa360-video');const visible=entry.isIntersecting&&entry.intersectionRatio>=.55;item.classList.toggle('bingo-media-active',visible);if(visible)aaFeedVideoBudget(item);if(v){if(visible){items.forEach(other=>{if(other!==item)other.querySelector('video.aa360-video')?.pause()});play(v)}else v.pause()}}},{threshold:[0,.55,1]});
- items.forEach(item=>{aaFeedObserver.observe(item);const v=item.querySelector('video.aa360-video');if(v){if(!v.dataset.bingoErrBound){v.dataset.bingoErrBound='1';v.addEventListener('error',()=>mediaError(v,v.error))}v.addEventListener('loadeddata',()=>{if(item.classList.contains('bingo-media-active'))play(v)},{once:true});v.addEventListener('playing',()=>{item.querySelector('.bingo-media-retry')?.remove();item.querySelector('.bingo-media-open')?.remove()})}});
+ if(!aaFeedObserver)aaFeedObserver=new IntersectionObserver(aaFeedOnIntersect,{threshold:[0,.55,1]});
+ items.forEach(item=>{
+  if(!aaFeedTracked.has(item)){aaFeedTracked.add(item);aaFeedObserver.observe(item)}
+  const v=item.querySelector('video.aa360-video');if(!v||v.dataset.bingoFeedBound)return;
+  v.dataset.bingoFeedBound='1';
+  if(!v.dataset.bingoErrBound){v.dataset.bingoErrBound='1';v.addEventListener('error',()=>mediaError(v,v.error))}
+  v.addEventListener('loadeddata',()=>{if(v.closest('.aa360-item')?.classList.contains('bingo-media-active'))play(v)},{once:true});
+  v.addEventListener('playing',()=>{const it=v.closest('.aa360-item');it?.querySelector('.bingo-media-retry')?.remove();it?.querySelector('.bingo-media-open')?.remove()});
+ });
  aaFeedUpdateSoundBtn();
 };
 function measure(){if(observer)observer.disconnect();if(tick)clearInterval(tick);measured=[];const ids=[];
@@ -31043,11 +31056,15 @@ var aaInlineSoundOn=(function(){try{return sessionStorage.getItem('bingo_inline_
   });
   syncBtn();
  }
+ let wallVidsPrev=[];
  function observe(){
   try{
-   if(io){io.disconnect();io=null}
    if(!("IntersectionObserver" in window))return;
    const vids=[...document.querySelectorAll(SEL)].filter(v=>!v.closest('.aa360-feed,.aa-property-media-viewer,.bingo-business-media'));
+   /* Repair 2026-10-13: an unchanged set of videos keeps the live observer (no teardown on every refresh). */
+   if(io&&wallVidsPrev.length===vids.length&&vids.every((v,i)=>v===wallVidsPrev[i]))return;
+   if(io){io.disconnect();io=null}
+   wallVidsPrev=vids;
    if(!vids.length){active=null;if(btn)btn.remove();return}
    vids.forEach(v=>{v.dataset.bingoGridPreview='skip';if(v.preload!=='auto')v.preload='metadata';v.muted=v===active?v.muted:true});
    const ratio=new Map();
