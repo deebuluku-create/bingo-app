@@ -5577,8 +5577,12 @@ function aaAuthWithTimeout(promise,ms,timeoutMessage){
   new Promise((_,reject)=>setTimeout(()=>reject(new Error(timeoutMessage)),ms))
  ]);
 }
+/* Review fix (2026-10-13): remember the profile scroll position only when a grid tile is tapped, so Back returns to the same place without changing global Back behaviour. */
+if(!window.__bpTileTapInstalled){window.__bpTileTapInstalled=true;document.addEventListener("click",e=>{window.__bpTileTapY=e.target&&e.target.closest&&e.target.closest("#auto-arcade-widget .bp-tile-open")?Math.round(window.scrollY):null},true)}
 function aaRememberPage(){
+ const tapY=(state.view==="seller"&&typeof window.__bpTileTapY==="number")?window.__bpTileTapY:null;window.__bpTileTapY=null;
  const snapshot={
+  bpScrollY:tapY,
   view:state.view||"home",
   selected:state.selected||null,
   seller:state.seller||null,
@@ -5644,7 +5648,7 @@ function aaGoBackCore(){
  ["foodTab","propertyTab","stayView","foodProfileId","foodMenuBusinessId","topicPostId"].forEach(k=>{if(previous[k]!=null)state[k]=previous[k]});
 
  render();
- window.scrollTo(0,0);
+ window.scrollTo(0,typeof previous.bpScrollY==="number"?previous.bpScrollY:0);
 }
 function openJobs(tab="jobs"){
  tab=String(tab||"jobs");
@@ -10425,7 +10429,7 @@ function aaInboxOpenThread(key,name){aaMsgOpenConversationWith(String(key),name|
 
 
 async function aaRefreshCurrentView(){
- const btn=document.querySelector("#auto-arcade-widget .aa-refresh-fab");
+ const btn=document.querySelector("#auto-arcade-widget .aa-refresh-header");
  if(btn)btn.classList.add("aa-refreshing");
  try{
   if(sb&&state.isLoggedIn){
@@ -10440,7 +10444,7 @@ async function aaRefreshCurrentView(){
   render();
   toast("Refresh completed with some offline data.");
  }
- requestAnimationFrame(()=>document.querySelector("#auto-arcade-widget .aa-refresh-fab")?.classList.remove("aa-refreshing"));
+ requestAnimationFrame(()=>document.querySelector("#auto-arcade-widget .aa-refresh-header")?.classList.remove("aa-refreshing"));
 }
 
 /* v54: uses existing listing/upload system; no duplicate posting workflow is created. */
@@ -14662,7 +14666,7 @@ function render(){
  ${aaDiagPanelHTML()}
  <header class="header"><div class="container header-inner">
   <div class="bingo-header-stack" id="bingoHeaderStack"><button class="brand bingo-brand-logo${aaBingoLogoIntroClass()}" id="bingoMainLogo" onclick="openBingoCockpit()" role="button" tabindex="0" aria-label="Open Bingo menu" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openBingoCockpit()}">${bingoAppLogoHTML({className:"bingo-app-logo--header"})}</button><button type="button" id="bingoLogoCloseBtn" aria-label="Move the Bingo logo out of the way"><span class="bingo-logo-close-dot">&times;</span></button><div class="bingo-press-here" id="bingoPressHere" aria-hidden="true"><span class="bingo-press-here-arrow">▲</span>Press here</div></div>
-  <div class="top-actions aa-auth-actions">${state.isLoggedIn?`<button class="btn" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button><button class="btn" onclick="goAccount()">Profile</button><button class="btn btn-red" onclick="logoutBingo()">Log Out</button>`:`<button class="btn" onclick="openAuth('login')">Log In</button><button class="btn btn-red" onclick="openAuth('register')">Sign Up</button>`}</div>
+  <div class="top-actions aa-auth-actions"><button type="button" class="aa-refresh-header" title="Refresh this page" aria-label="Refresh this page" onclick="aaRefreshCurrentView()">↻</button>${state.isLoggedIn?`<button class="btn" onclick="openInbox()">✉ Inbox${aaUnreadMessageCount()?` (${aaUnreadMessageCount()})`:""}</button><button class="btn" onclick="goAccount()">Profile</button><button class="btn btn-red" onclick="logoutBingo()">Log Out</button>`:`<button class="btn" onclick="openAuth('login')">Log In</button><button class="btn btn-red" onclick="openAuth('register')">Sign Up</button>`}</div>
  </div></header>
  <main class="${feedHome||state.view==="inbox"?"":"container"}">
   ${aaPageGuideHTML()}
@@ -14697,8 +14701,7 @@ function render(){
   ${state.view==="food-item-form"?aaFoodItemFormHTML():""}
   ${state.view==="food-item-detail"?aaFoodItemDetailHTML():""}
  </main>
- <button class="aa-refresh-fab" title="Refresh this page" aria-label="Refresh this page" onclick="aaRefreshCurrentView()">↻</button>
- <!-- Bottom tabs: Home, Search, Sell, Market, Rooms, Profile. Inbox is accessed from Profile/header. -->
+  <!-- Bottom tabs: Home, Search, Sell, Market, Rooms, Profile. Inbox is accessed from Profile/header. -->
 ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
   <nav class="bcp-panel" id="aaAssistantDrawer" aria-label="Bingo Cockpit Control Center" aria-hidden="true">
     <div class="bcp-shell">
@@ -14706,10 +14709,6 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
         <button type="button" class="bcp-back" aria-label="Back" onclick="aaCockpitBack()">&#8249;</button>
         <div class="bcp-header-brand">
           ${bingoAppLogoHTML({className:"bcp-header-logo bingo-app-logo--panel"})}
-          <div class="bcp-header-text">
-            <div class="bcp-title">Bingo Cockpit</div>
-            <div class="bcp-subtitle">Your marketplace control centre</div>
-          </div>
         </div>
         <button type="button" class="bcp-close" aria-label="Close Control Center" onclick="aaAssistantCloseDrawer()">&times;</button>
       </div>
@@ -14729,9 +14728,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
              their own Cockpit buttons; (3) a distinct branded Bingo tab is
              added, reusing the existing logo-entry destination rather
              than a new route. -->
-        <button type="button" class="bcp-bingo-tab" onclick="aaAssistantCloseDrawer();goHome();" aria-label="Bingo Home">
-          ${bingoAppLogoHTML({className:"bcp-bingo-tab-logo"})}<b>Bingo</b>
-        </button>
+        <!-- Text-cleanup 2: duplicate Bingo brand card removed; the cockpit header logo is the only logo. Home stays in Main. -->
 
         <div class="bcp-section">
           <div class="bcp-section-label">Main</div>
@@ -14760,6 +14757,7 @@ ${`<div class="bcp-nav-wrap aa-assistant-nav-wrap" id="aaAssistantNavWrap">
             <button class="bcp-btn btn-red" type="button" onclick="aaAssistantCloseDrawer();aa92OpenLiveStudio();"><span class="bcp-ico">&#9673;</span><b>Live Studio</b></button>
             <button class="bcp-btn" onclick="aaAssistantNavigate(openInbox)"><span class="bcp-ico">&#9993;</span><b>Inbox</b>${aaUnreadMessageCount()?`<em class="bcp-badge">${aaUnreadMessageCount()}</em>`:""}</button>
             <button class="bcp-btn btn-purple ${state.view==="topics"?"active":""}" onclick="aaAssistantNavigate(aaOpenBingoTopicsFeed)"><span class="bcp-ico">&#9636;</span><b>Public Wall</b><small style="display:block;font-weight:400;font-size:9px;opacity:.75">Posts and community discussion</small></button>
+            <button class="bcp-btn btn-gold" type="button" onclick="aaAssistantNavigate(aaOpenBingoBox)"><span class="bcp-ico">&#9733;</span><b>Bingo Box</b></button>
           </div>
         </div>
 
@@ -15457,24 +15455,120 @@ function aaBpItems(s,cars,sellerKey){
 }
 function aaBpTileHTML(it,own){
  const label={vehicle:"Vehicle",property:"Property",food:"Food",topic:"Post",spare:"Item",job:"Job"}[it.kind];
- const media=it.img?`<img src="${bingoSafeMediaAttr(it.img)}" alt="${esc(it.title)}" loading="lazy" onerror="this.style.display='none'">`
-  :it.video?`<video src="${bingoSafeMediaAttr(it.video)}" muted playsinline preload="metadata"></video>`
-  :`<span class="bp-tile-empty">${esc(it.title)}</span>`;
+ /* Video tiles get a muted 4-second preview (see BP GRID v1 below). The photo, when there is one, sits underneath as the poster. */
+ const media=(it.img?`<img src="${bingoSafeMediaAttr(it.img)}" alt="${esc(it.title)}" loading="lazy" onerror="this.style.display='none'">`:"")
+  +(it.video?`<video class="bp-preview" data-bp-preview="1" data-bp-src="${bingoSafeMediaAttr(it.video)}" data-bingo-grid-ready="1" muted playsinline preload="none" aria-hidden="true" tabindex="-1"></video>`:"")
+  +(!it.img?`<span class="bp-tile-empty${own&&it.kind==="vehicle"?" bp-tile-empty-own":""}">${esc(it.title)}</span>`:"");
  return `<div class="bp-tile" role="listitem" data-canon="${it.kind}:${esc(it.id)}">
-  <button type="button" class="bp-tile-open" onclick='${it.open}' aria-label="Open ${esc(label)}: ${esc(it.title)}">${media}${it.video?`<span class="bp-tile-play" aria-hidden="true">▶</span>`:""}<span class="bp-tile-kind">${label}${it.draft?" · Draft":""}</span></button>
+  <button type="button" class="bp-tile-open" onclick='${it.open}' aria-label="Open ${esc(label)}: ${esc(it.title)}">${media}<span class="bp-tile-kind">${label}${it.draft?" · Draft":""}</span></button>
   ${own&&it.kind==="vehicle"?`<button type="button" class="bp-neon bp-red bp-tile-x" aria-label="Delete ${esc(it.title)}" title="Delete post" onclick='aaSoftDeleteListing(${JSON.stringify(it.id)})'>×</button><button type="button" class="bp-neon bp-micro bp-tile-boost" onclick='openContentBoost(state.listings.find(x=>String(x.id)===${JSON.stringify(it.id)}),"vehicle")'>Boost</button>`:""}
  </div>`;
 }
+/* === BP GRID v1 BEGIN: profile media grids, Option 3 (owner decision 2026-10-13) ===
+   Six tiles per row on every width. Two rows (12 tiles) show first; a neon expander (three dots + arrow)
+   reveals the rest. Video tiles autoplay a muted one-second loop only while on screen. Eye count = real view_count. */
+const BP_GRID_VISIBLE=12, BP_PREVIEW_CLIP=1, BP_PREVIEW_MAX_PLAYING=6;
+function aaBpViewsText(row){return row?Number(row.view_count||0).toLocaleString("en-US"):"—"}
+function aaBpGridHTML(list,own,gridKey){
+ if(!list||!list.length)return "";
+ const k=String(gridKey||"grid").replace(/[^A-Za-z0-9_-]/g,"_");
+ const head=list.slice(0,BP_GRID_VISIBLE), rest=list.slice(BP_GRID_VISIBLE);
+ const headHTML=`<div class="bp-grid bp-grid-six" role="list">${head.map(it=>aaBpTileHTML(it,own)).join("")}</div>`;
+ if(!rest.length)return headHTML;
+ const open=!!(window.__bpGridOpen&&window.__bpGridOpen[k]);
+ return headHTML
+  +`<div class="bp-expander${open?" is-open":""}" role="button" tabindex="0" data-key="${k}" data-count="${rest.length}" aria-controls="bp-rest-${k}" aria-expanded="${open}" aria-label="${open?"Collapse media":"Show "+rest.length+" more media"}">`
+  +`<span class="bp-exp-line" aria-hidden="true"><i class="bp-exp-dot"></i><i class="bp-exp-dot"></i><i class="bp-exp-dot"></i></span>`
+  +`<span class="bp-exp-arrow" aria-hidden="true"></span>`
+  +`<small class="bp-exp-count">${open?"Tap or drag up to collapse":rest.length+" more · tap or drag down"}</small></div>`
+  +`<div class="bp-grid bp-grid-six bp-grid-rest${open?" is-open":""}" id="bp-rest-${k}" role="list">${rest.map(it=>aaBpTileHTML(it,own)).join("")}</div>`;
+}
+/* Expand or collapse in place (no re-render, so nothing reloads and the scroll position holds). */
+function aaBpSetExpander(exp,open){
+ const k=exp.dataset.key,rest=document.getElementById("bp-rest-"+k);if(!rest)return;
+ const before=exp.getBoundingClientRect().top;
+ rest.classList.toggle("is-open",open);exp.classList.toggle("is-open",open);
+ exp.setAttribute("aria-expanded",String(open));
+ exp.setAttribute("aria-label",open?"Collapse media":"Show "+exp.dataset.count+" more media");
+ const c=exp.querySelector(".bp-exp-count");if(c)c.textContent=open?"Tap or drag up to collapse":exp.dataset.count+" more · tap or drag down";
+ window.__bpGridOpen=window.__bpGridOpen||{};window.__bpGridOpen[k]=open;
+ if(!open){
+  rest.querySelectorAll("video[data-bp-preview]").forEach(v=>{try{v.pause()}catch(_){}});
+  const shift=exp.getBoundingClientRect().top-before;if(shift)window.scrollBy(0,shift);
+ }
+ bpPreviewReconcile();
+}
+/* Gestures: tap, or hold and drag the dots down to open / up to close. Installed once. */
+(function(){
+ if(window.__bpExpanderInstalled)return;window.__bpExpanderInstalled=true;
+ let drag=null,dragEnd=0;
+ document.addEventListener("pointerdown",e=>{const exp=e.target.closest&&e.target.closest(".bp-expander");if(exp)drag={exp,y:e.clientY,id:e.pointerId,moved:false}},true);
+ document.addEventListener("pointermove",e=>{
+  if(!drag||e.pointerId!==drag.id)return;
+  const open=drag.exp.classList.contains("is-open"),dy=e.clientY-drag.y;
+  if((!open&&dy>22)||(open&&dy<-22)){drag.moved=true;drag.y=e.clientY;aaBpSetExpander(drag.exp,!open)}
+ },true);
+ const end=()=>{if(drag&&drag.moved)dragEnd=Date.now();drag=null};
+ document.addEventListener("pointerup",end,true);document.addEventListener("pointercancel",end,true);
+ document.addEventListener("click",e=>{const exp=e.target.closest&&e.target.closest(".bp-expander");if(!exp)return;e.preventDefault();e.stopPropagation();if(Date.now()-dragEnd<400)return;aaBpSetExpander(exp,!exp.classList.contains("is-open"))},true);
+ document.addEventListener("keydown",e=>{const exp=e.target.closest&&e.target.closest(".bp-expander");if(exp&&(e.key==="Enter"||e.key===" ")){e.preventDefault();aaBpSetExpander(exp,!exp.classList.contains("is-open"))}},true);
+})();
+/* Preview playback. Muted, one-second loop, only on-screen tiles, at most six at once.
+   Nothing plays while a full-screen overlay (full video player, photo viewer) is open; previews resume after it closes. */
+const bpPreviewVisible=new Set();
+let bpPreviewIO=null;
+function bpPreviewReconcile(){
+ const blocked=document.hidden||aaHomeOverlayOpen();
+ let playing=0;
+ bpPreviewVisible.forEach(v=>{
+  if(!v.isConnected){bpPreviewVisible.delete(v);return}
+  if(!blocked&&playing<BP_PREVIEW_MAX_PLAYING){playing++;if(v.paused){const p=v.play();if(p&&p.catch)p.catch(()=>{})}}
+  else if(!v.paused)v.pause();
+ });
+}
+function bpPreviewObserver(){
+ if(bpPreviewIO||!("IntersectionObserver" in window))return bpPreviewIO;
+ bpPreviewIO=new IntersectionObserver(entries=>{
+  entries.forEach(en=>{
+   const v=en.target;
+   if(en.isIntersecting){
+    if(!v.getAttribute("src")){const s=v.getAttribute("data-bp-src");if(s)v.src=s}
+    bpPreviewVisible.add(v);
+   }else{bpPreviewVisible.delete(v);try{v.pause()}catch(_){}}
+  });
+  bpPreviewReconcile();
+ },{rootMargin:"160px 0px",threshold:0});
+ return bpPreviewIO;
+}
+function bpPreviewScan(){
+ const io=bpPreviewObserver();
+ if(io)document.querySelectorAll("#auto-arcade-widget video[data-bp-preview]:not([data-bp-watch])").forEach(v=>{v.dataset.bpWatch="1";io.observe(v)});
+ if(window.bpFetchTileStats)window.bpFetchTileStats();
+ bpPreviewReconcile();
+}
+(function(){
+ if(window.__bpPreviewInstalled)return;window.__bpPreviewInstalled=true;
+ const isPreview=e=>{const v=e.target;return !!(v&&v.tagName==="VIDEO"&&v.hasAttribute&&v.hasAttribute("data-bp-preview"))};
+ document.addEventListener("loadedmetadata",e=>{if(isPreview(e)){const v=e.target;v.loop=isFinite(v.duration)&&v.duration<=BP_PREVIEW_CLIP}},true);
+ document.addEventListener("timeupdate",e=>{if(!isPreview(e))return;const v=e.target;if(!v.loop&&v.currentTime>=BP_PREVIEW_CLIP-0.05)v.currentTime=0},true);
+ document.addEventListener("loadeddata",e=>{if(isPreview(e))e.target.classList.add("bp-live")},true);
+ document.addEventListener("error",e=>{if(isPreview(e)){const v=e.target;v.classList.remove("bp-live");bpPreviewVisible.delete(v)}},true);
+ document.addEventListener("visibilitychange",()=>{if(document.hidden)bpPreviewVisible.forEach(v=>{try{v.pause()}catch(_){}});else bpPreviewReconcile()});
+ let t=0;
+ new MutationObserver(()=>{clearTimeout(t);t=setTimeout(bpPreviewScan,60)}).observe(document.documentElement,{childList:true,subtree:true});
+ if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",bpPreviewScan,{once:true});else setTimeout(bpPreviewScan,0);
+})();
+/* === BP GRID v1 END === */
 function aaBpTab(){return ["posts","reels","tagged","saved","liked"].includes(state.profileTab3)?state.profileTab3:"posts"}
 function aaBpSetTab(k){state.profileTab3=k;render()}
 function aaBpTabContentHTML(own,s,cars,sellerKey){
  /* Visitors never receive Saved or Liked content, even from stale state. */
  const tab=(own||!["saved","liked"].includes(aaBpTab()))?aaBpTab():"posts";
  const items=aaBpItems(s,cars,sellerKey);
- /* six tiles first, then "Show more" adds six at a time (per profile) */
+ /* photo-only grids keep the approved eight-then-"Show more" behaviour; video grids use aaBpGridHTML's six-column layout */
  if(state.bpGridFor!==String(sellerKey)){state.bpGridFor=String(sellerKey);state.bpGridLimit=8}
  const limit=state.bpGridLimit||8;
- const grid=list=>list.length?`<div class="bp-grid" role="list">${list.slice(0,limit).map(it=>aaBpTileHTML(it,own)).join("")}</div>${list.length>limit?`<div class="bp-more-row"><button type="button" class="bp-neon bp-micro bp-cyan bp-grid-more" onclick="state.bpGridLimit=(state.bpGridLimit||8)+8;render()">Show more (${list.length-limit})</button></div>`:""}`:"";
+ const grid=list=>aaBpGridHTML(list,own,String(sellerKey)+":"+tab,limit);
  if(tab==="posts"){
   const wall=typeof aaProfileDestyTopicsTabHTML==="function"?aaProfileDestyTopicsTabHTML(own,sellerKey):"";
   return (grid(items)||aaWallStatusNoticeHTML("bp-empty")||(state.dbLoading?`<div class="bp-empty" role="status">Loading posts…</div>`:"")||`<div class="bp-empty">${own?"You have not published any listings yet. Tap + to share your first post.":"This member has not published any listings yet."}</div>`)+`<div class="bp-subhead">Bingo Wall posts</div>${wall}`;
@@ -15654,7 +15748,6 @@ function aaProfileDestyHTML(s,cars,sellerKey){
  <main class="bp-main">
   <header class="bp-top">
    <button type="button" class="bp-neon bp-round" onclick="goBack()" aria-label="Back">❮</button>
-   <div class="bp-heading"><strong>${esc(s.name||"Bingo Profile")}${crown}</strong><small>${esc(subtitle)}</small></div>
    <div class="bp-top-actions">
     <button type="button" class="bp-neon bp-round bp-cyan bp-search" onclick="aaOpenSearch()" aria-label="Search">⌕</button>
     ${own?`<button type="button" class="bp-neon bp-round bp-menu-btn" onclick="aaBpToggleMenu()" aria-label="${state.profileMenuOpen?"Close":"Open"} account tools" aria-controls="bpAccountDrawer" aria-expanded="${!!state.profileMenuOpen}">☰</button>`:""}
@@ -19028,7 +19121,9 @@ function aaBingoBoxEntries(){
   .map(x=>x.t);
 }
 function aaEnsureMusheneCorner(){
- if(state.view==="topics"){const tab=document.getElementById("musheneCornerTab");if(tab)tab.style.display="none";return}
+ /* Option A (2026-10-13): the floating Bingo BOX tab is retired. Bingo Box opens from the Bingo cockpit (Media & Community). Remove any tab left in the page. */
+ const old=document.getElementById("musheneCornerTab");if(old)old.remove();
+ return;
 
  const root=document.getElementById("auto-arcade-widget");
  if(!root)return;
@@ -25969,6 +26064,8 @@ function bingoSafeMediaAttr(value){
   flex:0 0 auto!important;
 }
 .bcp-header-text{min-width:0!important;text-align:left!important}
+/* Text-cleanup (2026-10-13): logo-only cockpit header; logo centred between Back and Close. */
+.bcp-header-brand{flex:1 1 auto!important;justify-content:center!important}
 .bcp-title{
   font-size:17px!important;
   font-weight:1000!important;
@@ -30146,6 +30243,8 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 #auto-arcade-widget .bp-tabs .bp-neon{flex:1}
 #auto-arcade-widget .bp-tabcontent{padding:0 6px 16px}
 #auto-arcade-widget .bp-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+/* Video grids (any grid containing a video) use six miniature tiles per row, including phones. Photo-only grids keep the layout above. */
+#auto-arcade-widget .bp-grid.bp-grid-six{grid-template-columns:repeat(6,minmax(0,1fr));width:100%;box-sizing:border-box}
 #auto-arcade-widget .bp-tile{position:relative;aspect-ratio:1/1;overflow:hidden;background:#0d1b32;border:1px solid #33445c}
 #auto-arcade-widget .bp-page .bp-tile-open{position:absolute;inset:0;width:100%;height:100%;padding:0!important;border:0!important;border-radius:0!important;background:#0d1b32!important;box-shadow:none!important;display:block}
 #auto-arcade-widget .bp-tile img,#auto-arcade-widget .bp-tile video{width:100%;height:100%;object-fit:cover;display:block}
@@ -30154,6 +30253,32 @@ body.bingo-fix02-cockpit-open #auto-arcade-widget .aa-assistant-nav-wrap{
 #auto-arcade-widget .bp-tile-kind{position:absolute;left:6px;bottom:6px;font-size:10px;font-weight:700;background:rgba(5,11,22,.8);border:1px solid rgba(var(--bp-gold-rgb),.5);border-radius:6px;padding:1px 6px;color:#fde68a}
 #auto-arcade-widget .bp-page .bp-tile-x{position:absolute;top:6px;left:6px;width:26px;height:26px;min-height:26px;padding:0!important;border-radius:50%!important;font-size:14px;line-height:1;z-index:2}
 #auto-arcade-widget .bp-page .bp-tile-boost{position:absolute;right:6px;bottom:6px;z-index:2}
+/* === BP GRID v1 CSS (owner decision Option 3, 2026-10-13): six per row, expander, eye counts, 1-second previews === */
+#auto-arcade-widget .bp-grid.bp-grid-six{grid-template-columns:repeat(6,minmax(0,1fr));gap:4px;width:100%;box-sizing:border-box}
+#auto-arcade-widget .bp-tile video.bp-preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .2s ease;pointer-events:none;background:transparent}
+#auto-arcade-widget .bp-tile video.bp-preview.bp-live{opacity:1}
+#auto-arcade-widget .bp-grid-six .bp-tile-kind{display:none}
+#auto-arcade-widget .bp-grid-six .bp-tile .bp-tile-x{position:absolute!important;top:3px!important;left:3px!important;width:14px;height:14px;min-height:14px;padding:0!important;font-size:10px;line-height:1;z-index:3}
+#auto-arcade-widget .bp-grid-six .bp-tile .bp-tile-boost{position:absolute!important;top:19px!important;left:3px!important;right:auto!important;bottom:auto!important;z-index:3;font-size:8px;padding:1px 4px!important;min-height:0!important;line-height:1.1}
+#auto-arcade-widget .bp-tile .bp-tile-eye{position:absolute;left:2px;right:2px;bottom:2px;z-index:2;pointer-events:none;text-align:center;font-size:9px;font-weight:800;line-height:1.25;color:#fff;background:rgba(5,11,22,.8);border-radius:4px;padding:1px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+#auto-arcade-widget .bp-expander{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;width:100%;box-sizing:border-box;margin:10px 0 6px;padding:8px 0 6px;cursor:pointer;touch-action:none;-webkit-user-select:none;user-select:none;outline:none;-webkit-tap-highlight-color:transparent}
+#auto-arcade-widget .bp-exp-line{position:relative;display:flex;align-items:center;justify-content:space-between;width:86%;height:12px}
+#auto-arcade-widget .bp-exp-line::before{content:"";position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;border-radius:2px;background:linear-gradient(90deg,#00e5ff,#ff2dd1,#ffe600,#ff2dd1,#00e5ff);box-shadow:0 0 6px #00e5ff,0 0 12px rgba(255,45,209,.7);animation:bpExpGlow 2.4s ease-in-out infinite}
+#auto-arcade-widget .bp-exp-dot{position:relative;z-index:1;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 6px #ff2dd1,0 0 12px #ff2dd1;animation:bpExpDot 1.6s ease-in-out infinite}
+#auto-arcade-widget .bp-exp-dot:nth-child(2){animation-delay:.2s}
+#auto-arcade-widget .bp-exp-dot:nth-child(3){animation-delay:.4s}
+#auto-arcade-widget .bp-exp-arrow{width:11px;height:11px;border-right:3px solid #00e5ff;border-bottom:3px solid #00e5ff;transform:rotate(45deg);filter:drop-shadow(0 0 4px #00e5ff);animation:bpArrowDown 1.4s ease-in-out infinite}
+#auto-arcade-widget .bp-expander.is-open .bp-exp-arrow{transform:rotate(-135deg);animation-name:bpArrowUp}
+#auto-arcade-widget .bp-exp-count{font-size:10px;font-weight:700;letter-spacing:.06em;color:#9fe9ff}
+#auto-arcade-widget .bp-expander:focus-visible{outline:2px solid #fff;outline-offset:3px;border-radius:8px}
+@keyframes bpExpGlow{0%,100%{opacity:.75}50%{opacity:1}}
+@keyframes bpExpDot{0%,100%{transform:scale(1);opacity:.8}50%{transform:scale(1.35);opacity:1}}
+@keyframes bpArrowDown{0%,100%{transform:translate(0,-2px) rotate(45deg);opacity:.55}50%{transform:translate(0,3px) rotate(45deg);opacity:1}}
+@keyframes bpArrowUp{0%,100%{transform:translate(0,2px) rotate(-135deg);opacity:.55}50%{transform:translate(0,-3px) rotate(-135deg);opacity:1}}
+@keyframes bpGridReveal{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+#auto-arcade-widget .bp-grid.bp-grid-rest{display:none}
+#auto-arcade-widget .bp-grid.bp-grid-rest.is-open{display:grid;animation:bpGridReveal .28s ease-out both}
+@media (prefers-reduced-motion:reduce){#auto-arcade-widget .bp-exp-dot,#auto-arcade-widget .bp-exp-arrow,#auto-arcade-widget .bp-exp-line::before,#auto-arcade-widget .bp-grid.bp-grid-rest.is-open{animation:none!important}}
 #auto-arcade-widget .bp-empty{padding:26px 12px;text-align:center;color:var(--bp-muted);font-size:14px;line-height:1.5}
 #auto-arcade-widget .bp-subhead{margin:18px 4px 8px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#fcd34d}
 #auto-arcade-widget .bp-postcta{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 0 20px;font-size:12px;font-weight:700;letter-spacing:.14em;color:#86efac}
@@ -30432,6 +30557,19 @@ html body #auto-arcade-widget .bp-page .bp-cover .bp-cover-add:not(#bingo-flat-g
 #auto-arcade-widget .aa-cover-pos input{flex:1}
 #auto-arcade-widget .aa-cover-actions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 #auto-arcade-widget .bp-quote{display:none}
+/* Review fix (2026-10-13): title placeholder for video tiles that have no poster sits above the view counter and never runs under it. */
+#auto-arcade-widget .bp-grid-six .bp-tile .bp-tile-empty{display:block;height:100%;overflow:hidden;font-size:9px;line-height:1.2;padding:4px 3px 17px}
+/* Review fix (2026-10-13): at 360px the tiles are about 45px square; compact the owner stack (Delete, Boost, counter) so none of them overlap. */
+@media(max-width:380px){#auto-arcade-widget .bp-grid-six .bp-tile .bp-tile-boost{top:17px!important}#auto-arcade-widget .bp-grid-six .bp-tile .bp-tile-eye{font-size:8px!important;line-height:1.2!important;padding:0 1px!important}}
+
+/* Option A (2026-10-13): Refresh lives in the header. Same handler, same hide rules as the old floating button. */
+#auto-arcade-widget .aa-refresh-header{width:34px;height:34px;min-width:34px;border-radius:50%;border:1px solid rgba(245,185,30,.65);background:rgba(8,18,33,.88);color:#f5c94c;font-size:16px;font-weight:950;padding:0;line-height:1;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;cursor:pointer}
+#auto-arcade-widget .aa-refresh-header.aa-refreshing{animation:aaSpin .7s linear infinite}
+#auto-arcade-widget.bingo-form-open .aa-refresh-header,#auto-arcade-widget.aa-v83-home .aa-refresh-header,#auto-arcade-widget.bm-inbox-active .aa-refresh-header{display:none!important}
+@media(max-width:380px){#auto-arcade-widget .aa-refresh-header{width:30px;height:30px;min-width:30px;font-size:14px}}
+/* Option A (2026-10-13): owner vehicle tiles without a poster show a small glyph in the clear top-right corner; Delete and Boost stay on the left. */
+#auto-arcade-widget .bp-grid-six .bp-tile .bp-tile-empty-own{position:relative;font-size:0;color:transparent;padding:0}
+#auto-arcade-widget .bp-grid-six .bp-tile .bp-tile-empty-own::after{content:"🎞";position:absolute;top:3px;right:4px;font-size:9px;line-height:1;color:var(--bp-muted,#afbdd0)}
 </style>
 
 <style id="bingo-approved-topic-layout">
@@ -30795,7 +30933,6 @@ if(sb)refresh().catch(()=>{});
 /* Error bar: wrap long messages inside the card instead of running off the screen. */
 #auto-arcade-widget .bingo-media-retry{position:absolute!important;inset-inline:10% 10%;white-space:normal!important;overflow-wrap:anywhere;line-height:1.35;width:auto;height:auto;min-height:40px;padding:10px 14px;box-sizing:border-box}
 #auto-arcade-widget .bingo-media-open{position:absolute!important;inset-inline:10% 10%;white-space:normal!important;overflow-wrap:anywhere;width:auto;height:auto;min-height:40px;padding:10px 14px;box-sizing:border-box}
-@media(max-width:480px){#auto-arcade-widget .bp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 #auto-arcade-widget .aa-guest-profile-card{max-width:620px;max-height:90vh;overflow:auto}
 #auto-arcade-widget .aa-guest-profile-card .bp-tile img,#auto-arcade-widget .aa-guest-profile-card .bp-tile video{width:100%;height:100%;border-radius:0;margin:0;border:0;object-fit:cover}
 </style>
@@ -30821,18 +30958,30 @@ function identity(el){const host=el.closest('[data-canon]');if(host){const value
 /* Statistics label (approved 2026-10-11): only 👑 Crowns and ▶ Watched, using
    real values. Crowns come from the post's own awarded-crown count and are
    shown only for topic posts; Watched only for videos. No Views figure. */
-function caption(row,video,k){
+function caption(row,video,k,feed){
  const key=String(k||''),isTopic=key.indexOf('topic:')===0,id=key.slice(key.indexOf(':')+1);
  const crowns=isTopic&&typeof window.aaCrownCountFor==='function'?window.aaCrownCountFor(id):null;
  const parts=[];
  if(crowns!==null)parts.push('👑 '+Number(crowns)+' Crowns');
- if(video)parts.push('▶ '+(row?Number(row.watch_count||0):'—')+' Watched');
+ if(video&&feed)parts.push('👁️ '+aaBpViewsText(row));
+ else if(video)parts.push('▶ '+(row?Number(row.watch_count||0):'—')+' Watched');
  return parts.join(' · ');
 }
-function patchStats(){document.querySelectorAll('#auto-arcade-widget [data-bingo-stats]').forEach(el=>{el.textContent=caption(stats.get(el.dataset.bingoStats),el.dataset.video==='true',el.dataset.bingoStats)});document.querySelectorAll('#auto-arcade-widget .aa360-item[data-canon]').forEach(el=>{const row=stats.get(el.dataset.canon);const views=el.querySelector('.aa360-side button[aria-label="Views"]')?.parentElement?.querySelector('span');if(row&&views)views.textContent=typeof aaCompact==='function'?aaCompact(row.view_count):row.view_count})}
+function patchStats(){bpPatchEyes();document.querySelectorAll('#auto-arcade-widget [data-bingo-stats]').forEach(el=>{el.textContent=caption(stats.get(el.dataset.bingoStats),el.dataset.video==='true',el.dataset.bingoStats,el.classList.contains('bp-feed-stat'))});document.querySelectorAll('#auto-arcade-widget .aa360-item[data-canon]').forEach(el=>{const row=stats.get(el.dataset.canon);const views=el.querySelector('.aa360-side button[aria-label="Views"]')?.parentElement?.querySelector('span');if(row&&views)views.textContent=typeof aaCompact==='function'?aaCompact(row.view_count):row.view_count})}
 async function fetchStats(items,force=false){if(!sb||state.testMode)return;const want=items.filter(x=>x&&x.id&&!pending.has(key(x.type,x.id))&&(force||!stats.has(key(x.type,x.id)))).slice(0,100);if(!want.length)return;want.forEach(x=>pending.add(key(x.type,x.id)));try{const {data,error}=await sb.rpc('bingo_media_counts',{p_posts:want.map(x=>({type:type(x.type),id:x.id}))});if(error)throw error;(data||[]).forEach(x=>stats.set(key(x.post_type,x.post_id),x));patchStats()}catch(e){console.warn('Bingo media counts:',e?.message||e)}finally{want.forEach(x=>pending.delete(key(x.type,x.id)))}}
 async function record(id,event){if(!sb||state.testMode||!id)return;const k=key(id.type,id.id)+':'+event;if(recorded.has(k)||recording.has(k))return;recording.add(k);try{const {error}=await sb.rpc('bingo_record_media_event',{p_type:type(id.type),p_id:id.id,p_visitor:visitor,p_event:event});if(error)throw error;recorded.add(k);await fetchStats([id],true)}catch(e){console.warn('Bingo view could not be saved:',e?.message||e)}finally{recording.delete(k)}}
-function statsHTML(t,id,video,extra=''){const k=key(t,id);return `<span class="bingo-media-stats ${extra}" data-bingo-stats="${esc(k)}" data-video="${!!video}" title="Views: visible for 2 seconds. Watched: 3 seconds of playback. Counts deduplicate accounts or anonymous browsers.">${caption(stats.get(k),video,k)}</span>`}
+function statsHTML(t,id,video,extra=''){const k=key(t,id);return `<span class="bingo-media-stats ${extra}" data-bingo-stats="${esc(k)}" data-video="${!!video}" title="Views: visible for 2 seconds. Watched: 3 seconds of playback. Counts deduplicate accounts or anonymous browsers.">${caption(stats.get(k),video,k,/bp-feed-stat/.test(String(extra)))}</span>`}
+/* Option 3 (2026-10-13): tile eye counts and tile count loading. Defined here because key, stats, identity and fetchStats live in this scope. */
+function aaBpEyeHTML(it){const k=key(it.kind,it.id);return `<span class="bp-tile-eye" data-bp-eye="${esc(k)}" aria-label="Views">👁️ ${aaBpViewsText(stats.get(k))}</span>`}
+function bpPatchEyes(){document.querySelectorAll("#auto-arcade-widget [data-bp-eye]").forEach(el=>{el.textContent="👁️ "+aaBpViewsText(stats.get(el.dataset.bpEye))})}
+/* One request per grid tile whose counts are not yet known (fetchStats skips known ones). */
+function bpFetchTileStats(){
+ if(!sb||state.testMode)return;
+ const todo=[];
+ document.querySelectorAll("#auto-arcade-widget .bp-tile[data-canon]").forEach(el=>{if(el.dataset.bpStatsAsked)return;el.dataset.bpStatsAsked="1";const id=identity(el);if(id&&id.id)todo.push(id)});
+ if(todo.length)fetchStats(todo);
+}
+window.bpFetchTileStats=bpFetchTileStats;window.bpPatchEyes=bpPatchEyes;window.aaBpEyeHTML=aaBpEyeHTML;window.bpStatsMap=stats;window.bpStatsKey=key;window.bpStatsPatch=patchStats;window.bpMeasure=measure;
 /* Video failure reporting. MediaError code 4 alone cannot tell an expired/denied link from a missing file from an
    unsupported codec, so one ranged request is made to the same URL and its HTTP status decides the wording. The
    result is also logged to the console (token stripped) so repeated failures stay diagnosable. */
@@ -30882,14 +31031,14 @@ function measure(){if(observer)observer.disconnect();if(tick)clearInterval(tick)
  observer=new IntersectionObserver(entries=>{entries.forEach(entry=>{const m=measured.find(x=>x.el===entry.target);if(m){m.visible=entry.isIntersecting&&entry.intersectionRatio>=.5;m.lastTime=m.el instanceof HTMLVideoElement?m.el.currentTime:0}})},{threshold:[0,.5,1]});
  document.querySelectorAll('#auto-arcade-widget [data-canon],#aaVideoLightbox[data-canon],#aaPhotoLightbox[data-canon]').forEach(host=>{const media=[...host.querySelectorAll('video,img')].filter(el=>!el.closest('.aa-post-head,.aa360-seller,.aa-wall-author,.aa-comment-row,.bingo-topic-comment,.bingo-topic-composer')&&!el.classList.contains('aa-post-avatar'));const el=media.find(x=>x.tagName==='VIDEO')||media[0];const id=el?identity(el):null;if(!el||!id)return;ids.push(id);measured.push({el,id,visible:false,exposure:0,watch:0,lastTime:el.currentTime||0});observer.observe(el)});
  fetchStats(ids);
- tick=setInterval(()=>{for(const m of measured){const v=m.el instanceof HTMLVideoElement;if(!m.el.isConnected||!m.visible||document.visibilityState!=='visible'||(aaHomeOverlayOpen()&&!m.el.closest('#aaVideoLightbox,#aaPhotoLightbox,#aaGuestProfileOverlay'))){m.lastTime=m.el.currentTime||0;continue}const loaded=v?m.el.readyState>=1:m.el.complete&&m.el.naturalWidth>0;if(!loaded)continue;m.exposure+=.25;if(m.exposure>=2){record(m.id,'view');if(!v)record(m.id,'photo')}if(v){const now=m.el.currentTime,delta=now-m.lastTime;if(!m.el.paused&&!m.el.seeking&&delta>0&&delta<1.5)m.watch+=Math.min(delta,.5);m.lastTime=now;if(m.watch>=3)record(m.id,'watch')}}},250);
+ tick=setInterval(()=>{for(const m of measured){const v=m.el instanceof HTMLVideoElement;if(!m.el.isConnected||!m.visible||document.visibilityState!=='visible'||(aaHomeOverlayOpen()&&!m.el.closest('#aaVideoLightbox,#aaPhotoLightbox,#aaGuestProfileOverlay'))){m.lastTime=m.el.currentTime||0;continue}const loaded=v?m.el.readyState>=1:m.el.complete&&m.el.naturalWidth>0;if(!loaded)continue;m.exposure+=.25;if(m.exposure>=2){record(m.id,'view');if(!v)record(m.id,'photo')}if(v){const now=m.el.currentTime,delta=now-m.lastTime;if(!m.el.paused&&!m.el.seeking&&delta>0&&delta<1.5&&!m.el.hasAttribute("data-bp-preview"))m.watch+=Math.min(delta,.5);m.lastTime=now;if(m.watch>=3)record(m.id,'watch')}}},250);
 }
 const originalTile=aaBpTileHTML;
-aaBpTileHTML=function(it,own){const html=originalTile(it,own);return html.replace('</div>',statsHTML(it.kind,it.id,!!it.video,'bingo-tile-stats')+'</div>')};
+aaBpTileHTML=function(it,own){const html=originalTile(it,own);return html.replace('</div>',aaBpEyeHTML(it)+'</div>')};
 const originalTopicCard=aaTopicPostCardHTML;
 aaTopicPostCardHTML=function(t){return originalTopicCard(t).replace('</article>',statsHTML('topic',t.id,(t.media||[]).some(m=>m.type==='video'))+'</article>')};
 const originalMixedCard=aaMixedFeedCardHTML;
-aaMixedFeedCardHTML=function(c,i){if(c.kind==='spare'||c.kind==='job')return extraFeedCard(c);const html=originalMixedCard(c,i),id=c.kind==='topic'?c._topicId:c._promoId||c.id;const st=statsHTML(c.kind,id,c.feed_media_type==='video'||c.kind==='vehicle'&&aaMediaType(c)==='video'||c.kind==='topic'&&c.feed_media_type==='video');
+aaMixedFeedCardHTML=function(c,i){if(c.kind==='spare'||c.kind==='job')return extraFeedCard(c);const html=originalMixedCard(c,i),id=c.kind==='topic'?c._topicId:c._promoId||c.id;const st=statsHTML(c.kind,id,c.feed_media_type==='video'||c.kind==='vehicle'&&aaMediaType(c)==='video'||c.kind==='topic'&&c.feed_media_type==='video','bp-feed-stat');
 /* Placement: directly below the Interested (heart) button on feed cards; directly below the icon row on topic posts. Never over the video. */
 if(c.kind==='topic'&&html.indexOf('<div class="aa360-actions"')>-1)return html.replace('<div class="aa360-actions"',()=>st+'<div class="aa360-actions"');
 const re=/(aria-label="Interested"[\s\S]*?<\/span><\/div>)/;if(re.test(html))return html.replace(re,(m)=>m+st);
@@ -30907,9 +31056,9 @@ const originalBpItems=aaBpItems;
 aaBpItems=function(s,cars,owner){return [...originalBpItems(s,(cars||[]).filter(x=>!x._localDemo),owner),...extraRows().filter(c=>String(c.source.userId||c.source.sellerId||c.source.ownerId)===String(owner)).map(c=>({kind:c.kind,id:String(c.id),title:c.source.title,img:(c.source.photos||[])[0]||'',video:'',at:c.source.createdAt,open:`aaCanonOpen(${JSON.stringify(c.kind)},${JSON.stringify(String(c.id))})`}))].sort((a,b)=>new Date(b.at||0)-new Date(a.at||0))};
 for(const [name,kind] of [['cardHTML','vehicle'],['aaVideoGridCardHTML','vehicle'],['aaProfileMiniCardHTML','vehicle'],['aaPartCardHTML','spare'],['aaProfilePropertyCardHTML','property'],['aaProfileFoodCardHTML','food']]){const original=window[name];if(typeof original!=='function')continue;window[name]=function(item){let html=original.apply(this,arguments);if(!item?.id)return html;html=html.replace(/^(\s*<(?:article|div|section)\b)/,'$1 data-canon="'+kind+':'+esc(String(item.id))+'"');const video=kind==='vehicle'?aaMediaType(item)==='video':(item.media||[]).some(m=>m.type==='video');const end=Math.max(html.lastIndexOf('</article>'),html.lastIndexOf('</div>'));if(end>=0)html=html.slice(0,end)+(!item._deviceOnly?statsHTML(kind,item.id,video):'<span class="bingo-media-stats">Draft saved on this device</span>')+html.slice(end);return html}}
 const originalSeller=window.sellerHTML;
-window.sellerHTML=function(s,cars){const html=originalSeller(s,cars);if(state.isLoggedIn)return html;const owner=String(s?.sellerId||s?.userId||s?.id||''),items=aaBpItems(s,cars,owner).filter(x=>!x.draft);return html.replace('</section>','<div class="bp-page"><div class="bp-subhead">Public posts</div>'+(items.length?'<div class="bp-grid">'+items.map(x=>aaBpTileHTML(x,false)).join('')+'</div>':'<div class="bp-empty">No public posts yet.</div>')+'</div></section>')};
+window.sellerHTML=function(s,cars){const html=originalSeller(s,cars);if(state.isLoggedIn)return html;const owner=String(s?.sellerId||s?.userId||s?.id||''),items=aaBpItems(s,cars,owner).filter(x=>!x.draft);return html.replace('</section>','<div class="bp-page"><div class="bp-subhead">Public posts</div>'+(items.length?aaBpGridHTML(items,false,'public:'+owner):'<div class="bp-empty">No public posts yet.</div>')+'</div></section>')};
 const originalGuest=window.aaGuestLimitedProfile;
-if(typeof originalGuest==='function')window.aaGuestLimitedProfile=function(id){originalGuest(id);aaPauseAllFeedVideos();const card=document.querySelector('#aaGuestProfileOverlay .aa-guest-profile-card');if(!card)return;const meta=aaTopicAuthorMeta({authorId:String(id)}),heading=card.querySelector('h2'),avatar=card.querySelector('img');if(heading)heading.textContent=aaMemberDisplayName(meta);if(avatar){avatar.src=aaProfilePhoto(meta.photo);avatar.alt=aaMemberDisplayName(meta)}const cars=(state.listings||[]).filter(x=>x._fromDb&&String(x.sellerId||x.userId)===String(id));const items=aaBpItems({},cars,String(id)).filter(x=>!x.draft);card.insertAdjacentHTML('beforeend','<div class="bp-page"><div class="bp-subhead">Public posts</div>'+(items.length?'<div class="bp-grid">'+items.map(x=>aaBpTileHTML({...x,open:'document.getElementById("aaGuestProfileOverlay")?.remove();'+x.open},false)).join('')+'</div>':'<div class="bp-empty">No public posts yet.</div>')+'</div>');const close=card.querySelector('#aaGuestProfileClose'),oldClose=close.onclick;close.onclick=()=>{oldClose();measure();if(state.view==='home')aaInit360Feed()};measure()};
+if(typeof originalGuest==='function')window.aaGuestLimitedProfile=function(id){originalGuest(id);aaPauseAllFeedVideos();const card=document.querySelector('#aaGuestProfileOverlay .aa-guest-profile-card');if(!card)return;const meta=aaTopicAuthorMeta({authorId:String(id)}),heading=card.querySelector('h2'),avatar=card.querySelector('img');if(heading)heading.textContent=aaMemberDisplayName(meta);if(avatar){avatar.src=aaProfilePhoto(meta.photo);avatar.alt=aaMemberDisplayName(meta)}const cars=(state.listings||[]).filter(x=>x._fromDb&&String(x.sellerId||x.userId)===String(id));const items=aaBpItems({},cars,String(id)).filter(x=>!x.draft);card.insertAdjacentHTML('beforeend','<div class="bp-page"><div class="bp-subhead">Public posts</div>'+(items.length?aaBpGridHTML(items.map(x=>({...x,open:'document.getElementById("aaGuestProfileOverlay")?.remove();'+x.open})),false,'guest:'+String(id)):'<div class="bp-empty">No public posts yet.</div>')+'</div>');const close=card.querySelector('#aaGuestProfileClose'),oldClose=close.onclick;close.onclick=()=>{oldClose();measure();if(state.view==='home')aaInit360Feed()};measure()};
 const originalWall=aaPublicTopicsFeedHTML;
 aaPublicTopicsFeedHTML=function(){const html=originalWall();const entries=[...(state.listings||[]).filter(x=>!x._localDemo&&x._fromDb&&['available','published'].includes(x.status)).map(x=>({kind:'vehicle',source:x})),...aaProperties().filter(x=>x.status==='published').map(x=>({kind:'property',source:x})),...aaFoods().filter(aaFoodActive).map(x=>({kind:'food',source:x})),...extraRows()];const cards=entries.map(c=>c.kind==='spare'||c.kind==='job'?extraFeedCard(c):aaWallListingCardHTML(c.kind,c.source).replace('</article>',statsHTML(c.kind,c.source.id,(c.kind==='vehicle'?aaMediaType(c.source)==='video':(c.source.media||[]).some(m=>m.type==='video')))+'</article>')).join('');return html.replace('</section>',cards+'</section>')};
 function categoryMap(row,urls=[]){const x={...row.payload,id:row.id,userId:row.user_id,ownerId:row.user_id,sellerId:row.user_id,createdAt:row.created_at,updatedAt:row.updated_at,status:row.status,_fromDb:true};if(row.category==='job')x.status=row.status[0].toUpperCase()+row.status.slice(1);else x.photos=urls;return x}
