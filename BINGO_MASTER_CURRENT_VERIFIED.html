@@ -6321,6 +6321,7 @@ let aaHandledAuthedUserId=null;
 async function aaOnAuthenticatedSession(authUser){
  if(!authUser)return false;
  if(aaHandledAuthedUserId===authUser.id)return false;
+ if(aaHandledAuthedUserId!==authUser.id)aaClearMediaSessionCaches();
  aaHandledAuthedUserId=authUser.id;
  await aaLoadAuthenticatedProfile(authUser).catch(()=>{});
  aaStartPresence();
@@ -16069,10 +16070,10 @@ function aaCommentMediaResolvedUrl(path){
  if(cached&&cached.expiresAt>Date.now())return cached.url;
  if(cached)delete aaCommentMediaSrcCache[path];
  if(sb&&!aaCommentMediaSrcFetching[path]){
-  aaCommentMediaSrcFetching[path]=true;
+  aaCommentMediaSrcFetching[path]=true;const gen=aaMediaCacheGen;
   sb.storage.from(AA_COMMENT_MEDIA_BUCKET).createSignedUrl(path,AA_COMMENT_MEDIA_SIGNED_URL_TTL_SECONDS).then(({data,error})=>{
    aaCommentMediaSrcFetching[path]=false;
-   if(!error&&data?.signedUrl){
+   if(!error&&data?.signedUrl&&gen===aaMediaCacheGen){
     // Refresh a little before the real expiry so a render that happens
     // to land right at the boundary still gets a usable link.
     aaCommentMediaSrcCache[path]={url:data.signedUrl,expiresAt:Date.now()+(AA_COMMENT_MEDIA_SIGNED_URL_TTL_SECONDS-60)*1000};
@@ -16291,6 +16292,25 @@ function aaTopicCommentsFor(t){
  if(t._fromDb)return (state.wallComments||[]).filter(c=>String(c.topic_id)===String(t.id)).map(c=>{const meta=aaTopicAuthorMeta({authorId:c.user_id,authorName:''});return {id:c.id,authorId:c.user_id,authorName:meta.name,authorPhoto:meta.photo,style:c.style||"Standard",text:c.body,mediaUrl:c.media_path?aaCommentMediaResolvedUrl(c.media_path):'',mediaType:c.media_type||'',likes:Number(c.likes||0),likedBy:c.likedBy||[],createdAt:c.created_at}});
  return t.comments||[];
 }
+/* Video loading repair (2026-10-13): signed-media lifetime and session clearing.
+   Signed links are held in memory only (never localStorage). A link is reused until 5 minutes before the
+   expiry written in its own signed token, and never longer than one hour. Every sign-out or account change
+   bumps the generation, empties the caches, and drops any link still being created for the old session. */
+let aaMediaCacheGen=0;
+function aaMediaExpiresAt(url){
+ const now=Date.now(),MAX=3600000,MARGIN=300000;
+ try{
+  const tok=new URL(url).searchParams.get('token');
+  const exp=JSON.parse(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).exp;
+  if(exp)return Math.min(exp*1000-MARGIN,now+MAX);
+ }catch(_){}
+ return now+MAX-MARGIN;
+}
+function aaClearMediaSessionCaches(){
+ aaMediaCacheGen++;
+ for(const o of [aaTopicMediaCache,aaTopicMediaExpires,aaTopicMediaRetry,aaTopicMediaFailCount,aaTopicMediaFetching,aaCommentMediaSrcCache,aaCommentMediaSrcFetching])for(const k in o)delete o[k];
+ try{if(window.__bingoResumeMemory)window.__bingoResumeMemory.clear()}catch(_){}
+}
 let aaTopicMediaCache={};
 let aaTopicMediaFetching={};
 let aaTopicMediaExpires={}, aaTopicMediaRetry={}, aaTopicMediaFailCount={}, aaMediaRenderTimer;
@@ -16298,10 +16318,11 @@ function aaTopicMediaUrl(path){
  if(!path)return '';
  if(aaTopicMediaCache[path]&&Date.now()<(aaTopicMediaExpires[path]||0))return aaTopicMediaCache[path];
  if(sb&&!aaTopicMediaFetching[path]&&Date.now()>(aaTopicMediaRetry[path]||0)){
-  aaTopicMediaFetching[path]=true;
+  aaTopicMediaFetching[path]=true;const gen=aaMediaCacheGen;
   sb.storage.from(AA_TOPIC_MEDIA_BUCKET).createSignedUrl(path,3600).then(({data,error})=>{
    if(error||!data?.signedUrl)throw error||new Error('No media link was returned.');
-   aaTopicMediaCache[path]=data.signedUrl;aaTopicMediaExpires[path]=Date.now()+3300000;delete aaTopicMediaFailCount[path];
+   if(gen!==aaMediaCacheGen)return; // signed out or account changed while this link was being created
+   aaTopicMediaCache[path]=data.signedUrl;aaTopicMediaExpires[path]=aaMediaExpiresAt(data.signedUrl);delete aaTopicMediaFailCount[path];
    clearTimeout(aaMediaRenderTimer);aaMediaRenderTimer=setTimeout(()=>render(),120);
   }).catch(error=>{
    /* Was: re-render ALL of Home every 10 s, forever, for each media file
@@ -20401,6 +20422,7 @@ async function handleSaveAndShowPublicProfile(){return saveEditedProfile()}
 function viewMyPublicProfile(){goAccount()}
 
 async function logoutBingo(){
+ aaClearMediaSessionCaches();
  if(state.msgActiveCall)aaCallHangup();
  aaCallStopListeningForIncoming();
  try{if(sb)await sb.auth.signOut()}catch(e){console.warn("Logout warning",e)}
@@ -23628,7 +23650,7 @@ function aaCloseTopOverlay(){
        return;
       }
       if(event==="SIGNED_OUT"&&!state.testMode){
-       aaHandledAuthedUserId=null;
+       aaHandledAuthedUserId=null;aaClearMediaSessionCaches();
        state.isLoggedIn=false;state.user={...state.user,id:"",isVerified:false};state.seller=null;state.userRole=null;state.agentModeActive=false;
        if(state.view==="super-admin")state.view="home";
        save();render();
@@ -31000,7 +31022,7 @@ function mediaSignedParts(src){const m=/\/storage\/v1\/object\/sign\/([^/]+)\/(.
 async function mediaProbe(src){if(!/^https?:/i.test(String(src||'')))return {status:0,type:''};try{const r=await fetch(src,{method:'GET',headers:{Range:'bytes=0-0'},cache:'no-store'});try{r.body&&r.body.cancel&&r.body.cancel()}catch(e){}return {status:r.status,type:r.headers.get('content-type')||''}}catch(e){return {status:0,type:''}}}
 function mediaFormatLabel(t){t=String(t||'').toLowerCase();return /quicktime/.test(t)?'MOV':/3gpp/.test(t)?'3GP':/webm/.test(t)?'WebM':/matroska/.test(t)?'MKV':/mp4|m4v/.test(t)?'MP4':''}
 function mediaReason(code,probe,error){if(error?.name==='NotAllowedError')return 'Tap to play';const st=probe.status;if(st===400||st===401||st===403)return 'Video link expired or not permitted (HTTP '+st+')';if(st===404)return 'Video file not found (HTTP 404)';if(st>=500)return 'Video server error (HTTP '+st+')';if(code===4)return st?('This device cannot play this '+(mediaFormatLabel(probe.type)||'video')+' file (unsupported codec)'):'Video format or source is unavailable';if(code===3)return 'Video could not be decoded';if(code===2)return 'Video transfer failed';return 'Video could not start'}
-async function mediaRefreshSrc(v){const src=v.currentSrc||v.getAttribute('src')||'',sp=mediaSignedParts(src);if(!sp||!sb)return false;const {data,error}=await sb.storage.from(sp.bucket).createSignedUrl(sp.path,3600);if(error||!data?.signedUrl)return false;if(sp.bucket===AA_TOPIC_MEDIA_BUCKET){aaTopicMediaCache[sp.path]=data.signedUrl;aaTopicMediaExpires[sp.path]=Date.now()+3300000}v.src=data.signedUrl;return true}
+async function mediaRefreshSrc(v){const src=v.currentSrc||v.getAttribute('src')||'',sp=mediaSignedParts(src);if(!sp||!sb)return false;const {data,error}=await sb.storage.from(sp.bucket).createSignedUrl(sp.path,3600);if(error||!data?.signedUrl){if(sp.bucket===AA_TOPIC_MEDIA_BUCKET)delete aaTopicMediaCache[sp.path];return false}if(sp.bucket===AA_TOPIC_MEDIA_BUCKET){aaTopicMediaCache[sp.path]=data.signedUrl;aaTopicMediaExpires[sp.path]=aaMediaExpiresAt(data.signedUrl)}v.src=data.signedUrl;return true}
 /* Diagnostics only: record every signed-URL refresh outcome (no token or URL is stored; the path is hashed). */
 const __bingoRawRefresh=mediaRefreshSrc;
 mediaRefreshSrc=async function(v){let ok=false;try{ok=await __bingoRawRefresh(v);return ok}finally{aaTopicDiag('url-refresh',{ok:!!ok,path:String(v?.currentSrc||v?.getAttribute?.('src')||'').split('?')[0].slice(-70)})}};
@@ -31015,7 +31037,10 @@ function play(v,gesture=false){if(!v||!v.isConnected||aaHomeOverlayOpen())return
 function activeVideo(){return document.querySelector('#auto-arcade-widget .aa360-item.bingo-media-active video.aa360-video')}
 /* Bandwidth goes to the post on screen and the next one; the previous keeps what it has buffered;
    anything further away does not fetch, so videos no longer all download at once. */
-function aaFeedVideoBudget(activeItem){const items=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed .aa360-item')];if(!items.length)return;let a=activeItem?items.indexOf(activeItem):-1;if(a<0)a=items.findIndex(x=>x.classList.contains('bingo-media-active'));if(a<0)a=typeof aaFeedCurrentIndex==='function'?aaFeedCurrentIndex():0;items.forEach((item,j)=>{const v=item.querySelector('video.aa360-video');if(!v)return;const want=j===a||j===a+1?'auto':j===a-1?(v.preload==='none'?'metadata':v.preload):'none';if(v.preload!==want)v.preload=want})}
+/* Video loading repair (2026-10-13): slow or data-saving connections keep the active video full-buffered and
+   drop speculative neighbour buffering to metadata only. Read from navigator.connection when the browser offers it. */
+function aaFeedSlowNet(){try{const c=navigator.connection;return !!c&&(c.saveData===true||/^(slow-2g|2g|3g)$/.test(c.effectiveType||''))}catch(_){return false}}
+function aaFeedVideoBudget(activeItem){const items=[...document.querySelectorAll('#auto-arcade-widget .aa360-feed .aa360-item')];if(!items.length)return;let a=activeItem?items.indexOf(activeItem):-1;if(a<0)a=items.findIndex(x=>x.classList.contains('bingo-media-active'));if(a<0)a=typeof aaFeedCurrentIndex==='function'?aaFeedCurrentIndex():0;const slow=aaFeedSlowNet();items.forEach((item,j)=>{const v=item.querySelector('video.aa360-video');if(!v)return;const want=j===a?'auto':j===a+1?(slow?'metadata':'auto'):j===a-1?((slow||v.preload==='none')?'metadata':v.preload):'none';if(v.preload!==want)v.preload=want})}
 aaToggleFeedSound=function(){const v=activeVideo();const turnOn=v?!!v.muted:!aaFeedWantsSound();state.aaFeedSoundOn=turnOn;if(v)play(v,true);aaFeedUpdateSoundBtn()};
 /* Repair 2026-10-13: the Home feed controller used to disconnect and re-create its IntersectionObserver and
    re-bind every listener on each call (render, every body DOM mutation, visibility change). Now one observer
@@ -31396,6 +31421,60 @@ setInterval(()=>{if(document.visibilityState==='visible'&&sb&&!state.testMode)lo
   pending=false;
   return inner.apply(this,arguments);
  };
+})();
+/* ===== Video loading repair (2026-10-13): playback-position memory =====
+   In memory only: cleared on reload, sign-out and account change. Keyed by the post's stable data-canon
+   (for example "topic:12"), never by its signed URL, so Home and Wall share one position per post.
+   Covers normal Home feed videos and Wall post videos. Not profile grid previews (data-bp-preview), the full-screen
+   viewer, or other media. At most 60 entries; a finished video's entry is removed. */
+(function(){
+ if(window.__bingoResumeMemory)return;
+ const MAX=60,MIN_RESUME=1,END_MARGIN=2;
+ const pos=new Map();
+ function eligible(v){
+  if(!v||v.tagName!=='VIDEO'||v.hasAttribute('data-bp-preview'))return false;
+  if(v.closest('.aa-property-media-viewer,.bingo-business-media,#aaVideoLightbox,#aaPhotoLightbox'))return false;
+  const host=v.closest('[data-canon]');
+  if(!host||!host.dataset.canon)return false;
+  if(v.closest('#auto-arcade-widget .aa360-feed'))return true;
+  return !!v.closest('#auto-arcade-widget .bingo-approved-topic .aa-post-media')&&state.view!=='seller';
+ }
+ function remember(v){
+  if(!eligible(v))return;
+  const t=v.currentTime,d=v.duration;
+  if(!isFinite(t)||t<MIN_RESUME)return;  // a start position is not worth keeping; never erase an entry from here
+  const c=v.closest('[data-canon]').dataset.canon;
+  if(isFinite(d)&&d>0&&t>=d-END_MARGIN){pos.delete(c);return} // finished: forget it
+  pos.delete(c);pos.set(c,t);           // re-insert so the oldest entry is evicted first
+  while(pos.size>MAX)pos.delete(pos.keys().next().value);
+ }
+ /* A position is applied to the element's own timeline once it has metadata, and again on each later
+    loadedmetadata/playing until playback reaches it. Three attempts at most. A load can reset the start
+    position, so a single early seek is not enough. */
+ const pending=new WeakMap();
+ function seekPending(v){
+  const p=pending.get(v);
+  if(!p)return;
+  if(!v.isConnected||(v.currentTime||0)>=p.t-0.5||p.tries>=3){pending.delete(v);return}
+  if(isFinite(v.duration)&&p.t>=v.duration-END_MARGIN){pending.delete(v);return}
+  if(v.readyState>=1){p.tries++;try{v.currentTime=p.t}catch(_){}}
+ }
+ function restore(v){
+  if(!eligible(v))return;
+  const t=pos.get(v.closest('[data-canon]').dataset.canon);
+  if(!t||(v.currentTime||0)>=MIN_RESUME)return;  // only a freshly created element, never one already mid-play
+  pending.set(v,{t,tries:0});
+  seekPending(v);
+ }
+ document.addEventListener('play',e=>restore(e.target),true);
+ document.addEventListener('timeupdate',e=>{if(!e.target.paused)remember(e.target)},true);
+ document.addEventListener('loadedmetadata',e=>seekPending(e.target),true);
+ document.addEventListener('playing',e=>seekPending(e.target),true);
+ document.addEventListener('pause',e=>remember(e.target),true);
+ document.addEventListener('ended',e=>{if(eligible(e.target))pos.delete(e.target.closest('[data-canon]').dataset.canon)},true);
+ window.__bingoResumeMemory={clear(){pos.clear()},info(){return {size:pos.size,entries:[...pos.entries()]}}};
+ /* A slower or data-saving connection changes the neighbour budget; re-apply it at once. */
+ try{navigator.connection&&navigator.connection.addEventListener&&navigator.connection.addEventListener('change',()=>{if(state.view==='home'&&typeof aaFeedVideoBudget==='function')aaFeedVideoBudget()})}catch(_){}
 })();
 /* ===== Video stall watchdog (2026-10-10) =====
    ONE interval for the whole app (not per render or per video). It watches only the
