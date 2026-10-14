@@ -16219,8 +16219,11 @@ async function aaLoadBingoWall(){
   ])]);
   clearTimeout(wallTimer);
   if(topicsRes.error)throw topicsRes.error;
-  state.wallTopics=(topicsRes.data||[]).map(aaMapBingoTopicRow);
+  /* Pending posts (media still uploading or failed to finalize) never show
+     publicly - and never show as an empty post to their own owner either. */
+  state.wallTopics=(topicsRes.data||[]).filter(r=>!r||r.media_status!=='pending').map(aaMapBingoTopicRow);
   state.wallLoadState='ok';state.wallLoadError=null;state.wallLoadRetries=0;
+  if(AA_TOPIC_PENDING_MEDIA_ENABLED)aaTopicCleanupStalePending();
   state.wallComments=commentsRes.error?[]:(commentsRes.data||[]);
   state.wallReactions=reactionsRes.error?[]:(reactionsRes.data||[]);
   state.wallSaves=savesRes.error?[]:(savesRes.data||[]).map(x=>String(x.topic_id));
@@ -16385,6 +16388,54 @@ const AA_TOPIC_UPLOAD_RETRY_DELAYS=[0,1500,4000];
    Set to Supabase's documented ~6MB standard-upload guidance. It is NOT yet
    verified against the live project's limit; raise it only after that check. */
 const AA_TOPIC_STANDARD_FALLBACK_MAX_BYTES=6*1024*1024;
+/* Pending-media workflow (2026-10-14). OFF by default: when false the publish
+   path is byte-for-byte the previous behaviour. When true, a post with media is
+   inserted as media_status 'pending' and only becomes public once the
+   bingo_finalize_topic RPC verifies every uploaded object. Requires the
+   staging-only migration 20261014_bingo_topics_media_status_REVIEW_NOT_APPLIED.sql
+   to be applied to the target database first. Do not enable in production. */
+let AA_TOPIC_PENDING_MEDIA_ENABLED=false;
+const AA_TOPIC_PENDING_MARKER_KEY='bingo_pending_topic_v1';
+function aaTopicPendingMarkerWrite(id,userId){
+ try{localStorage.setItem(AA_TOPIC_PENDING_MARKER_KEY,JSON.stringify({id,userId,at:Date.now()}))}catch(e){}
+}
+function aaTopicPendingMarkerRead(){
+ try{const v=JSON.parse(localStorage.getItem(AA_TOPIC_PENDING_MARKER_KEY)||'null');return v&&v.id&&v.userId?v:null}catch(e){return null}
+}
+function aaTopicPendingMarkerClear(){
+ try{localStorage.removeItem(AA_TOPIC_PENDING_MARKER_KEY)}catch(e){}
+}
+/* Best-effort cleanup of an abandoned pending post from an interrupted publish.
+   Storage objects are removed first; the row is deleted only when every object
+   was removed (or none existed), and only while it is still pending. Public
+   visibility never depends on this running: pending rows are hidden by RLS. */
+async function aaTopicCleanupStalePending(){
+ if(!AA_TOPIC_PENDING_MEDIA_ENABLED||!sb)return;
+ const m=aaTopicPendingMarkerRead();
+ if(!m)return;
+ if(m.userId!==(state.user?.id||'')){aaTopicPendingMarkerClear();return}
+ if(String(m.id)===String(aaTopicPublishPendingId||''))return;
+ /* Another tab on this origin may still be uploading: only markers older than an hour are abandoned. */
+ if(Date.now()-Number(m.at||0)<60*60*1000)return;
+ try{
+  /* Check first: a ready post's media must never be touched. */
+  const {data:cur,error:curErr}=await sb.from('bingo_topics').select('id,media_status').eq('id',m.id).eq('user_id',m.userId).maybeSingle();
+  if(curErr)return;
+  if(!cur){aaTopicPendingMarkerClear();return}
+  if(cur.media_status!=='pending'){aaTopicPendingMarkerClear();return}
+  const bucket=sb.storage.from(AA_TOPIC_MEDIA_BUCKET);
+  const prefix=`${m.userId}/${m.id}`;
+  const {data:files,error:listErr}=await bucket.list(prefix,{limit:100});
+  if(listErr)return;
+  const paths=(files||[]).filter(f=>f&&f.name).map(f=>`${prefix}/${f.name}`);
+  if(paths.length){
+   const {error:rmErr}=await bucket.remove(paths);
+   if(rmErr)return;
+  }
+  const {data:rows,error:delErr}=await sb.from('bingo_topics').delete().eq('id',m.id).eq('user_id',m.userId).eq('media_status','pending').select('id');
+  if(!delErr&&Array.isArray(rows)&&rows.length)aaTopicPendingMarkerClear();
+ }catch(e){console.warn('Bingo: pending-post cleanup deferred',e)}
+}
 const AA_TOPIC_DB_TIMEOUT_MS=12000;
 const AA_TOPIC_IMAGE_MAX_EDGE=1920;
 const aaTopicPreparedFiles=new WeakSet();
@@ -17183,8 +17234,11 @@ async function aaPublishBingoTopic(){
  render();
  aaTopicPublishStatus(files&&files.length?'Preparing your media…':'Saving your post…');
  const ctl={cancelled:false,abort:null};
- let id=null,uploadedPaths=[],rowCreated=false,stage='prepare';
+ let id=null,uploadedPaths=[],rowCreated=false,stage='prepare',published=false;
  const fail=(message)=>{
+  /* Once the server has confirmed the post, nothing that runs afterwards may
+     roll it back: log and keep it. */
+  if(published){console.error('[Bingo publish] error after the post was saved; keeping it',message);return}
   aaTopicDiag('failed',{at:stage,message});
   state.wallPublishFailed=true;
   toast('Could not publish: '+message+' Nothing was posted - your text and media are still here. Tap “Retry POST” to try again.','error');
@@ -17222,7 +17276,14 @@ async function aaPublishBingoTopic(){
   // With media it is inserted with media:[] and completed below.
   let insertRow={id,user_id:userId,title,body,category,media:[],moderation_status:hiddenFromPublic?'hidden':'visible',title_format:titleFmt,body_format:bodyFmt};
   if(state.topicDraft.soundId)insertRow.sound_id=state.topicDraft.soundId;
-  const AA_TOPIC_CORE_FIELDS=['id','user_id','title','body','category','media','moderation_status','sound_id'];
+  const pendingMedia=!!(AA_TOPIC_PENDING_MEDIA_ENABLED&&prepared.length);
+  if(pendingMedia){
+   insertRow.media_status='pending';
+   aaTopicPendingMarkerWrite(id,userId);
+  }
+  /* media_status is core: if the column is missing the insert must FAIL, never
+     fall back to a row that would publish as an empty post. */
+  const AA_TOPIC_CORE_FIELDS=['id','user_id','title','body','category','media','moderation_status','sound_id','media_status'];
   let inserted=null,insErr=null,formatDropped=false;
   stage='insert';
   // title_format/body_format are a NEW, not-yet-applied column pair (see
@@ -17277,14 +17338,25 @@ async function aaPublishBingoTopic(){
    stage='attach';
    state.wallPublishStage='saving';render();
    aaTopicPublishStatus('Saving your post…');
-   const ur=await aaTopicDbCall(signal=>sb.from('bingo_topics').update({media}).eq('id',id).select('id,media').abortSignal(signal).maybeSingle());
-   if(ur.error||!ur.data||!Array.isArray(ur.data.media)||ur.data.media.length!==media.length){
-    fail(aaTopicDbErrorMessage(ur.error||{message:'the server did not confirm the attached media.'},'attaching your media'));return;
+   if(pendingMedia){
+    /* Finalize: the RPC verifies path, ownership and that every object exists
+       with content, then makes the post public in one step. */
+    const fr=await aaTopicDbCall(signal=>sb.rpc('bingo_finalize_topic',{p_topic_id:id,p_media:media}).abortSignal(signal).maybeSingle());
+    if(fr.error||!fr.data||fr.data.media_status!=='ready'||!Array.isArray(fr.data.media)||fr.data.media.length!==media.length){
+     fail(aaTopicDbErrorMessage(fr.error||{message:'the server did not confirm the attached media.'},'attaching your media'));return;
+    }
+   }else{
+    const ur=await aaTopicDbCall(signal=>sb.from('bingo_topics').update({media}).eq('id',id).select('id,media').abortSignal(signal).maybeSingle());
+    if(ur.error||!ur.data||!Array.isArray(ur.data.media)||ur.data.media.length!==media.length){
+     fail(aaTopicDbErrorMessage(ur.error||{message:'the server did not confirm the attached media.'},'attaching your media'));return;
+    }
    }
   }
   // Server has confirmed the row (and its media) - only now is it published.
   aaTopicDiag('published',{at:'attach',media:media.length});
   aaTopicPublishPendingId=null;
+  aaTopicPendingMarkerClear();
+  published=true;
   const row=inserted||insertRow;
   const mapped=aaMapBingoTopicRow({...row,media});
   // De-dupe against a concurrent aaLoadBingoWall() reload (e.g. the one
