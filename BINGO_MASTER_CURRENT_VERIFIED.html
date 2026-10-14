@@ -16589,7 +16589,7 @@ async function aaUploadTopicMedia(files,userId,topicId,onProgress,opts){
    const isVideo=/^video\//.test(String(file.type||''));
    const label=isVideo?'the video':(files.length>1?`photo ${i+1} of ${files.length}`:'the photo');
    const safe=(file.name||`topic-${i}`).replace(/[^a-zA-Z0-9._-]/g,'-');
-   const path=`${userId}/${topicId}/${stamp}-${i+1}-${safe}`;
+   let path=`${userId}/${topicId}/${stamp}-${i+1}-${safe}`;
    const report=loaded=>{if(typeof onProgress==='function')try{onProgress(i+1,files.length,{loaded:doneBytes+Math.min(loaded,file.size||loaded),total:totalBytes,isVideo})}catch(e){}};
    report(0);
    /* Videos above 6MB use Supabase's resumable TUS path (the same uploader the
@@ -16602,10 +16602,21 @@ async function aaUploadTopicMedia(files,userId,topicId,onProgress,opts){
     if(ctl.cancelled)throw Object.assign(new Error('Upload cancelled.'),{aaKind:'cancelled'});
     paths.push(path);
     const tr=await aaUploadPropertyMediaTus(file,path,true,{userId,topicId},loaded=>report(loaded),AA_TOPIC_MEDIA_BUCKET,'This Bingo post',{contentType:file.type||'video/mp4',cacheControl:'3600'});
-    if(!tr.ok)throw Object.assign(new Error(tr.cls.message),{aaKind:tr.cls.kind==='cancelled'?'cancelled':'upload'});
-    doneBytes+=Number(file.size||0);report(file.size||0);
-    media.push({type:'video',path,name:file.name||safe});
-    continue;
+    if(tr.ok){
+     doneBytes+=Number(file.size||0);report(file.size||0);
+     media.push({type:'video',path,name:file.name||safe});
+     continue;
+    }
+    /* Fallback (approved 2026-10-14): a transport-level failure of the resumable
+       host falls back to the standard single upload, as the donor bridge
+       required before this change. Auth, permission, size and type failures
+       are final and are not retried this way. The partial TUS object is removed
+       first, and the fallback uses a fresh path so a partial file can never be
+       attached as complete. The partial path stays in paths for rollback. */
+    if(['cancelled','auth','rls','too_large','mime'].includes(tr.cls.kind))
+     throw Object.assign(new Error(tr.cls.message),{aaKind:tr.cls.kind==='cancelled'?'cancelled':'upload'});
+    try{await aaTopicWithTimeout(aaDeleteUploadedTopicMedia([path]),8000,null)}catch(e){}
+    path=`${userId}/${topicId}/${stamp}-${i+1}-fb-${safe}`;
    }
    let r=null,attempts=0;
    for(let a=0;a<AA_TOPIC_UPLOAD_RETRY_DELAYS.length;a++){
