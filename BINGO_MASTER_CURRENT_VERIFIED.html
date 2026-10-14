@@ -16381,6 +16381,10 @@ function aaTopicMediaNav(topicId,dir,count){
    same RLS - nothing about Storage policy or limits changes here. */
 const AA_TOPIC_UPLOAD_STALL_MS=20000;
 const AA_TOPIC_UPLOAD_RETRY_DELAYS=[0,1500,4000];
+/* Largest file the standard-upload fallback may retry (see aaUploadTopicMedia).
+   Set to Supabase's documented ~6MB standard-upload guidance. It is NOT yet
+   verified against the live project's limit; raise it only after that check. */
+const AA_TOPIC_STANDARD_FALLBACK_MAX_BYTES=6*1024*1024;
 const AA_TOPIC_DB_TIMEOUT_MS=12000;
 const AA_TOPIC_IMAGE_MAX_EDGE=1920;
 const aaTopicPreparedFiles=new WeakSet();
@@ -16608,12 +16612,14 @@ async function aaUploadTopicMedia(files,userId,topicId,onProgress,opts){
      continue;
     }
     /* Fallback (approved 2026-10-14): a transport-level failure of the resumable
-       host falls back to the standard single upload, as the donor bridge
-       required before this change. Auth, permission, size and type failures
-       are final and are not retried this way. The partial TUS object is removed
-       first, and the fallback uses a fresh path so a partial file can never be
-       attached as complete. The partial path stays in paths for rollback. */
-    if(['cancelled','auth','rls','too_large','mime'].includes(tr.cls.kind))
+       host falls back to the standard single upload, but only for files within
+       the verified standard-upload limit (AA_TOPIC_STANDARD_FALLBACK_MAX_BYTES).
+       Auth, permission, size and type failures are final and are not retried
+       this way. The partial TUS object is removed first, and the fallback uses
+       a fresh path so a partial file can never be attached as complete. The
+       partial path stays in paths for rollback. */
+    if(['cancelled','auth','rls','too_large','mime'].includes(tr.cls.kind)
+       || Number(file.size||0)>AA_TOPIC_STANDARD_FALLBACK_MAX_BYTES)
      throw Object.assign(new Error(tr.cls.message),{aaKind:tr.cls.kind==='cancelled'?'cancelled':'upload'});
     try{await aaTopicWithTimeout(aaDeleteUploadedTopicMedia([path]),8000,null)}catch(e){}
     path=`${userId}/${topicId}/${stamp}-${i+1}-fb-${safe}`;
